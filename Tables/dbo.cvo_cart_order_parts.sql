@@ -1,0 +1,19 @@
+CREATE TABLE [dbo].[cvo_cart_order_parts]
+(
+[id] [int] NOT NULL IDENTITY(1, 1),
+[tran_id] [int] NULL,
+[order_no] [varchar] (12) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[part_no] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[pick_status] [tinyint] NULL CONSTRAINT [DF__cvo_cart___pick___13F453C1] DEFAULT ((0)),
+[updated] [datetime] NULL,
+[user_login] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[bin_no] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[upc_code] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[qty_to_process] [int] NULL,
+[scanned] [int] NULL,
+[isSkipped] [tinyint] NULL CONSTRAINT [DF__cvo_cart___isSki__7683EC6B] DEFAULT ((0)),
+[bin_group_code] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+) ON [PRIMARY]
+GO
+ALTER TABLE [dbo].[cvo_cart_order_parts] ADD CONSTRAINT [PK__cvo_cart_order_p__13002F88] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
+GO

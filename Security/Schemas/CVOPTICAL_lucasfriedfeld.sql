@@ -1,0 +1,3 @@
+CREATE SCHEMA [CVOPTICAL\lucasfriedfeld]
+AUTHORIZATION [CVOPTICAL\lucasfriedfeld]
+GO

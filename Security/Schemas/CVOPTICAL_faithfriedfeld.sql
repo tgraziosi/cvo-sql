@@ -1,0 +1,3 @@
+CREATE SCHEMA [CVOPTICAL\faithfriedfeld]
+AUTHORIZATION [CVOPTICAL\faithfriedfeld]
+GO

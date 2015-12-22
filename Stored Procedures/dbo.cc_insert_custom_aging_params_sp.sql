@@ -1,0 +1,126 @@
+SET QUOTED_IDENTIFIER OFF
+GO
+SET ANSI_NULLS OFF
+GO
+
+
+CREATE PROC [dbo].[cc_insert_custom_aging_params_sp]
+	@from_cust		varchar(8) = '',	
+	@thru_cust		varchar(8) = '',	
+	@from_terr		varchar(8) = '',
+	@thru_terr		varchar(8) = '',	
+	@date_type_parm		smallint = 3,				 
+	@balance_over		smallint = 0,	
+	@from_name		varchar(40) = '',
+	@thru_name		varchar(40) = '',
+	@exclude_on_accts	smallint = 0,	
+	@all_cust_flag		smallint = 1,
+	@all_terr_flag		smallint = 1,
+	@all_name_flag		smallint = 1,
+	@balance_over_amt	decimal(28,2) = 0,
+ 	@sequence		smallint = 1,		
+	@str_date_asof		varchar(10) = '0',
+	@bal_over_flag		smallint = 1,	
+	@days_over_flag		smallint = 1,	
+	@bal_over_operand	varchar(1) = '>',
+	@days_over_operand	varchar(1) = '>',
+	@days_over_num		smallint = 0,
+ 	@meet_cond		smallint = 0,	
+	@all_post_flag		smallint = 1,
+	@from_post		varchar(8) = '',	@thru_post		varchar(8) = '',
+	@all_workload_flag	smallint = 1,
+	@from_workload		varchar(8) = '',	@thru_workload		varchar(8) = '',
+	@include_comments	smallint = 0,	@inc_future		smallint = 1,
+	@terr_from_cust		smallint = 1,
+	@print_all_comments	smallint = 0, 	
+	@currency_basis		smallint = 0,
+	@agebrk_user_id	 	int = 0,
+	@all_org_flag	smallint = 1,
+	@from_org	varchar(30)	= '',
+	@thru_org	varchar(30) = ''
+
+
+AS
+
+	DELETE	cc_custom_aging_params 
+	WHERE	agebrk_user_id = @agebrk_user_id
+
+	INSERT cc_custom_aging_params
+(
+	from_cust,
+	thru_cust,
+	from_terr,
+	thru_terr,
+	date_type_parm,
+	balance_over,
+	from_name,
+	thru_name,
+	exclude_on_accts,
+	all_cust_flag,
+	all_terr_flag,
+	all_name_flag,
+	balance_over_amt,
+ 	[sequence],
+	str_date_asof,
+	bal_over_flag,
+	days_over_flag,
+	bal_over_operand,
+	days_over_operand,
+	days_over_num,
+ 	meet_cond,
+	all_post_flag,
+	from_post,
+	thru_post,
+	all_workload_flag,
+	from_workload,
+	thru_workload,
+	include_comments,
+	inc_future,
+	terr_from_cust,
+	print_all_comments,
+	currency_basis,
+	agebrk_user_id,
+	all_org_flag,
+	from_org,
+	thru_org
+)
+SELECT	@from_cust,
+	@thru_cust,
+	@from_terr,
+	@thru_terr,
+	@date_type_parm,
+	@balance_over,
+	@from_name,
+	@thru_name,
+	@exclude_on_accts,
+	@all_cust_flag,
+	@all_terr_flag,
+	@all_name_flag,
+	@balance_over_amt,
+ 	@sequence,
+	@str_date_asof,
+	@bal_over_flag,
+	@days_over_flag,
+	@bal_over_operand,
+	@days_over_operand,
+	@days_over_num,
+ 	@meet_cond,
+	@all_post_flag,
+	@from_post,
+	@thru_post,
+	@all_workload_flag,
+	@from_workload,
+	@thru_workload,
+	@include_comments,
+	@inc_future,
+	@terr_from_cust,
+	@print_all_comments,
+	@currency_basis,
+	@agebrk_user_id,
+	@all_org_flag,
+	@from_org,
+	@thru_org
+
+GO
+GRANT EXECUTE ON  [dbo].[cc_insert_custom_aging_params_sp] TO [public]
+GO

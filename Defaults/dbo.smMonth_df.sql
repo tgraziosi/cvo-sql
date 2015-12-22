@@ -1,0 +1,7 @@
+SET QUOTED_IDENTIFIER OFF
+GO
+
+
+CREATE DEFAULT [dbo].[smMonth_df] 
+AS 1 	  
+GO

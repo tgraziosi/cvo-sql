@@ -1,0 +1,26 @@
+CREATE TABLE [dbo].[SSI_USAS_1]
+(
+[USERID] [int] NOT NULL,
+[FIELDENUM] [int] NOT NULL,
+[FIELDNAME] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[FIELDVALUE] [varchar] (100) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+) ON [PRIMARY]
+GO
+ALTER TABLE [dbo].[SSI_USAS_1] ADD CONSTRAINT [FK__SSI_USAS___USERI__56B73CA7] FOREIGN KEY ([USERID]) REFERENCES [dbo].[SSI_USR] ([USERID])
+GO
+GRANT SELECT ON  [dbo].[SSI_USAS_1] TO [epicoradmin]
+GO
+GRANT INSERT ON  [dbo].[SSI_USAS_1] TO [epicoradmin]
+GO
+GRANT DELETE ON  [dbo].[SSI_USAS_1] TO [epicoradmin]
+GO
+GRANT UPDATE ON  [dbo].[SSI_USAS_1] TO [epicoradmin]
+GO
+GRANT SELECT ON  [dbo].[SSI_USAS_1] TO [public]
+GO
+GRANT INSERT ON  [dbo].[SSI_USAS_1] TO [public]
+GO
+GRANT DELETE ON  [dbo].[SSI_USAS_1] TO [public]
+GO
+GRANT UPDATE ON  [dbo].[SSI_USAS_1] TO [public]
+GO

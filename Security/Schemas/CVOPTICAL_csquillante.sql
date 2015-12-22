@@ -1,0 +1,3 @@
+CREATE SCHEMA [CVOPTICAL\csquillante]
+AUTHORIZATION [CVOPTICAL\csquillante]
+GO

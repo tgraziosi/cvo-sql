@@ -1,0 +1,7 @@
+SET QUOTED_IDENTIFIER OFF
+GO
+
+
+CREATE DEFAULT [dbo].[smFalse_df] 
+AS 0 
+GO

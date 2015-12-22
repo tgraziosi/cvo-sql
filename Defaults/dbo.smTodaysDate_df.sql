@@ -1,0 +1,7 @@
+SET QUOTED_IDENTIFIER OFF
+GO
+
+
+CREATE DEFAULT [dbo].[smTodaysDate_df] 
+AS GETDATE()
+GO

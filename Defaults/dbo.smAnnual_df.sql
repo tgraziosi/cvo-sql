@@ -1,0 +1,7 @@
+SET QUOTED_IDENTIFIER OFF
+GO
+
+
+CREATE DEFAULT [dbo].[smAnnual_df] 
+AS 12 
+GO

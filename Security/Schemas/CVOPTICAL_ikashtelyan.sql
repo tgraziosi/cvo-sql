@@ -1,0 +1,3 @@
+CREATE SCHEMA [CVOPTICAL\ikashtelyan]
+AUTHORIZATION [CVOPTICAL\ikashtelyan]
+GO

@@ -1,0 +1,3 @@
+CREATE SCHEMA [CVOPTICAL\slachenmeyer]
+AUTHORIZATION [CVOPTICAL\slachenmeyer]
+GO

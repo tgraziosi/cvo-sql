@@ -1,0 +1,3 @@
+CREATE SCHEMA [tdcsql]
+AUTHORIZATION [tdcsql]
+GO

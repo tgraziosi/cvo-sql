@@ -1,0 +1,3 @@
+CREATE SCHEMA [CVOPTICAL\pvalladares]
+AUTHORIZATION [CVOPTICAL\pvalladares]
+GO
