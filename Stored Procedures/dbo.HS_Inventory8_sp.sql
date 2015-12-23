@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -8,7 +9,7 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT * FROM dbo.cvo_hs_inventory_8
+-- SELECT * FROM dbo.cvo_hs_inventory_8 where mastersku like 'rr%'
 -- DROP TABLE dbo.cvo_hs_inventory_8
 -- 		
 -- 072814 - tag - 1) add special values, 2) performance updates
@@ -20,6 +21,7 @@ GO
 -- 8/26/2015 - tweaks for CH SellDown - put on their own category:1, and inventory qty > 10
 -- add sun lens color for REVO
 -- 100715 -- change revo mastersku from 8 characters to 6
+-- 122315 - add support  for Red Raven - as of 12/29
 --
 -- =============================================
 
@@ -164,7 +166,9 @@ left outer join cvo_apr_tbl #apr on #apr.sku = i.part_no
 left outer join dpr_report drp (nolock) on drp.part_no = i.part_no and drp.location = @location
 
 WHERE i.VOID <> 'V' AND category not in ('CORP','FP','BT')
-  AND (ISNULL(FIELD_32,'') NOT IN ('HVC','RETAIL','COSTCO')) 
+  AND (ISNULL(FIELD_32,'') NOT IN ('HVC','RETAIL','COSTCO')
+      OR (category IN ('RR') AND ia.field_2 NOT IN ('Rutgers','Vanderbilt','Wildcat') AND GETDATE() >='12/29/2015')
+	  ) 
   AND (i.TYPE_CODE IN ('SUN','FRAME') OR isnull(field_36,'') = 'HSPOP')
   -- 6/29/2015 - set to 1 day.  was 11.  have no idea why
   AND (field_26 <= DATEADD(D,1,@today) OR  #apr.sku is not null )
@@ -510,4 +514,5 @@ END
 
 
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
+
 GO
