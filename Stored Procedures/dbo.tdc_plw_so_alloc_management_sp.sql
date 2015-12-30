@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -32,6 +33,8 @@ GO
 -- v11.8 CB 18/06/2013 - Issue #1346 - Additional fix for in stock figure
 -- v11.9 CB 20/11/2013 - Issye #1422 - Issue with available stock for custom frames
 -- v12.0 CB 20/05/2014 - Issue #1481 - Include -3 status on soft alloc
+-- v12.1 CB 11/11/2015 - #1576 - POP should not allocate on there own when frames are on the order and do not allocate
+
     
  CREATE PROCEDURE [dbo].[tdc_plw_so_alloc_management_sp]      
  @criteria_template varchar(50),      
@@ -1941,6 +1944,10 @@ END
  --JVM 07/23/2010    
   EXEC CVO_validate_promo_kits_sp 0, 0    
  --END   SED007 -- Promo Kit    
+
+-- v12.1 Start
+  EXEC CVO_validate_pop_gifts_sp 0, 0    
+-- v12.1 End
     
  -- v1.5    
 -- v10.3    
@@ -1964,5 +1971,6 @@ END
 --DELETE tdc_main WHERE consolidation_no NOT IN (SELECT consolidation_no  FROM tdc_cons_ords (NOLOCK))      
 RETURN 
 GO
+
 GRANT EXECUTE ON  [dbo].[tdc_plw_so_alloc_management_sp] TO [public]
 GO

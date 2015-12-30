@@ -292,4 +292,16 @@ AS
 
 
 
+
+GO
+
+GRANT REFERENCES ON  [dbo].[cvo_commission_bldr_r2_vw] TO [public]
+GO
+GRANT SELECT ON  [dbo].[cvo_commission_bldr_r2_vw] TO [public]
+GO
+GRANT INSERT ON  [dbo].[cvo_commission_bldr_r2_vw] TO [public]
+GO
+GRANT DELETE ON  [dbo].[cvo_commission_bldr_r2_vw] TO [public]
+GO
+GRANT UPDATE ON  [dbo].[cvo_commission_bldr_r2_vw] TO [public]
 GO

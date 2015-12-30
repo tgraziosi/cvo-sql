@@ -167,7 +167,7 @@ left outer join dpr_report drp (nolock) on drp.part_no = i.part_no and drp.locat
 
 WHERE i.VOID <> 'V' AND category not in ('CORP','FP','BT')
   AND (ISNULL(FIELD_32,'') NOT IN ('HVC','RETAIL','COSTCO')
-      OR (category IN ('RR') AND ia.field_2 NOT IN ('Rutgers','Vanderbilt','Wildcat') AND GETDATE() >='12/29/2015')
+      OR (category IN ('RR') AND ia.field_2 NOT IN ('Rutgers','Vanderbilt','Wildcat Peak') AND GETDATE() >='12/29/2015')
 	  ) 
   AND (i.TYPE_CODE IN ('SUN','FRAME') OR isnull(field_36,'') = 'HSPOP')
   -- 6/29/2015 - set to 1 day.  was 11.  have no idea why
@@ -514,5 +514,6 @@ END
 
 
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
+
 
 GO

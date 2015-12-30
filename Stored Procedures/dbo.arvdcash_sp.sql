@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER OFF
 GO
 SET ANSI_NULLS ON
@@ -604,8 +605,6 @@ BEGIN
 	AND   pdt.sub_apply_num = age.doc_ctrl_num
 	AND   pdt.sub_apply_type = age.trx_type
 	AND   pdt.date_aging = age.date_aging
-	-- tag for CVO
-	-- and   pdt.payer_cust_code = age.customer_code
 	AND   trx.doc_ctrl_num = @doc_ctrl_num
 	AND   trx.customer_code = @cust_code
 
@@ -617,5 +616,6 @@ BEGIN
 END
 
 GO
+
 GRANT EXECUTE ON  [dbo].[arvdcash_sp] TO [public]
 GO

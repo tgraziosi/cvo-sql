@@ -1,10 +1,12 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
--- EXEC dbo.cvo_process_release_date_sp 2336289, 0
+-- EXEC dbo.cvo_process_release_date_sp 1420223, 0
 CREATE PROC [dbo].[cvo_process_release_date_sp] @order_no	int,
-											@order_ext int
+											@order_ext	int,
+											@check_only	int = 0 -- v1.2
 AS
 BEGIN
 	-- DIRECTIVES
@@ -13,6 +15,7 @@ BEGIN
 	-- DECLARATIONS
 	DECLARE	@status			varchar(8),
 			@hold_reason	varchar(30)
+
 	-- Working Tables
 	CREATE TABLE #release_date (
 		row_id			int IDENTITY(1,1),
@@ -47,74 +50,91 @@ BEGIN
 	SET		released_flag = 0
 	WHERE	release_date > CONVERT(varchar(10),GETDATE(),121)
 
-	-- select * from #release_date
-
-	-- Check for any unreleased records
-	IF EXISTS (SELECT 1 FROM #release_date WHERE released_flag = 0)
+	-- v1.2 Start
+	IF (@check_only = 1)
 	BEGIN
-
-		SELECT	@status = status,
-				@hold_reason = hold_reason
-		FROM	orders_all (NOLOCK)
-		WHERE	order_no = @order_no
-		AND		ext = @order_ext
-
-		IF (@status = 'A') 
+		IF EXISTS (SELECT 1 FROM #release_date WHERE released_flag = 0)
 		BEGIN
-			IF (@hold_reason <> 'RD' )
-			BEGIN
-				UPDATE	cvo_orders_all WITH (ROWLOCK)
-				SET		prior_hold = 'RD'
-				WHERE	order_no = @order_no
-				AND		ext = @order_ext
-			END
-			SELECT 0
+			SELECT -1
 			RETURN -1
 		END
+		ELSE
+		BEGIN
+			SELECT 0
+			RETURN 0
+		END			
+	END
+	ELSE
+	BEGIN
+		-- Check for any unreleased records
+		IF EXISTS (SELECT 1 FROM #release_date WHERE released_flag = 0)
+		BEGIN
 
-			IF (@status IN ('C','H','B'))
+			SELECT	@status = status,
+					@hold_reason = hold_reason
+			FROM	orders_all (NOLOCK)
+			WHERE	order_no = @order_no
+			AND		ext = @order_ext
+
+			IF (@status = 'A') 
 			BEGIN
-				UPDATE	cvo_orders_all WITH (ROWLOCK)
-				SET		prior_hold = 'RD'
-				WHERE	order_no = @order_no
-				AND		ext = @order_ext
-
+				IF (@hold_reason <> 'RD' )
+				BEGIN
+					UPDATE	cvo_orders_all WITH (ROWLOCK)
+					SET		prior_hold = 'RD'
+					WHERE	order_no = @order_no
+					AND		ext = @order_ext
+				END
 				SELECT 0
 				RETURN -1
 			END
 
-			IF (@status = 'N')					
-			BEGIN
-				UPDATE	orders_all WITH (ROWLOCK)
-				SET		status = 'A',
-						hold_reason = 'RD'
-				WHERE	order_no = @order_no
-				AND		ext = @order_ext
+				IF (@status IN ('C','H','B'))
+				BEGIN
+					UPDATE	cvo_orders_all WITH (ROWLOCK)
+					SET		prior_hold = 'RD'
+					WHERE	order_no = @order_no
+					AND		ext = @order_ext
 
-				SELECT -1
-				RETURN -1
-			END
+					SELECT 0
+					RETURN -1
+				END
+
+				IF (@status = 'N')					
+				BEGIN
+					UPDATE	orders_all WITH (ROWLOCK)
+					SET		status = 'A',
+							hold_reason = 'RD'
+					WHERE	order_no = @order_no
+					AND		ext = @order_ext
+
+					SELECT -1
+					RETURN -1
+				END
+		END
+		ELSE
+		BEGIN
+
+			UPDATE	orders_all WITH (ROWLOCK)
+			SET		status = 'N',
+					hold_reason = ''
+			WHERE	order_no = @order_no
+			AND		ext = @order_ext
+			AND		hold_reason = 'RD'
+
+			UPDATE	cvo_orders_all WITH (ROWLOCK)
+			SET		prior_hold = ''
+			WHERE	order_no = @order_no
+			AND		ext = @order_ext
+			AND		prior_hold = 'RD'
+
+			SELECT 0
+			RETURN 0
+		END
 	END
-	ELSE
-	BEGIN
-
-		UPDATE	orders_all WITH (ROWLOCK)
-		SET		status = 'N',
-				hold_reason = ''
-		WHERE	order_no = @order_no
-		AND		ext = @order_ext
-		AND		hold_reason = 'RD'
-
-		UPDATE	cvo_orders_all WITH (ROWLOCK)
-		SET		prior_hold = ''
-		WHERE	order_no = @order_no
-		AND		ext = @order_ext
-		AND		prior_hold = 'RD'
-
-		SELECT 0
-		RETURN 0
-	END
+	-- v1.2 End
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_process_release_date_sp] TO [public]
 GO

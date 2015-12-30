@@ -1,8 +1,8 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-
 
 CREATE procedure [dbo].[adm_rpt_poform] @order int = 0, @po_no varchar(16) = '', 
 @range varchar(8000) = '0=0' as
@@ -10,7 +10,7 @@ begin
 set nocount on
 
 --v2.0	TM	04/18/2012 - Place Product Type into Project_3
-
+--v2.1  CB	24/11/2015 - Outsourcing - replace make process with final frame part number and description
 create table #po (po_key int, po_ext int NULL, printed char(1))
 
 select @range = replace(@range,'"','''')
@@ -327,6 +327,20 @@ from #rpt_poform r, inv_master i (nolock)								--v2.0
 where r.l_part_no = i.part_no											--v2.0
 --v2.0
 
+-- v2.1 Start
+UPDATE	a
+SET		l_part_no = c.asm_no,
+		l_description = d.description
+FROM	#rpt_poform a
+JOIN	inv_master b (NOLOCK)
+ON		a.l_part_no = b.part_no 
+JOIN	what_part c (NOLOCK)
+ON		a.l_part_no = c.part_no
+JOIN	inv_master d (NOLOCK)
+ON		c.asm_no = d.part_no
+WHERE	b.status = 'Q'
+-- v2.1 End
+
 
 select * from #rpt_poform
 order by 
@@ -334,9 +348,7 @@ case when @order = 0 then p_vendor_no else '' end,
 p_po_key,l_shipto_code, l_shipto_name, l_addr1, l_addr2,l_addr3,l_addr4,l_addr5,l_project3,l_part_no		--v2.0
 
 end
-
-
-
 GO
+
 GRANT EXECUTE ON  [dbo].[adm_rpt_poform] TO [public]
 GO

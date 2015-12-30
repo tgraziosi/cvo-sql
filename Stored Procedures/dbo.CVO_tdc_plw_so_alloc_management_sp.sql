@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -25,6 +26,7 @@ Copyright:   Epicor Software 2010.  All rights reserved.
 -- v10.6 CB 05/06/2013 - Fix for polarized not allocating correctly
 -- v10.7 CT 11/06/2013 - If this is called by the Backorder Processing job, then only allocate the relevant lines/qtys
 -- v10.8 CB 24/01/2014 - #excluded_bins needs to be populated with location
+-- v10.9 CB 11/11/2015 - #1576 - POP should not allocate on there own when frames are on the order and do not allocate
 
 */
 
@@ -530,15 +532,21 @@ BEGIN
 	
 	END 
 	-- END v10.7
+
 	 
 	EXEC CVO_Calculate_qty_to_alloc_eBO_sp @order_no_, @order_ext_ 
-	 
+ 
 	--BEGIN SED007 -- Promo Kit
 	--JVM 07/23/2010
 	EXEC CVO_validate_promo_kits_sp @order_no_, @order_ext_
 	--END   SED007 -- Promo Kit
 
+	-- v10.9 Start
+	EXEC CVO_validate_pop_gifts_sp @order_no_, @order_ext_
+	-- v10.9 End
+
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[CVO_tdc_plw_so_alloc_management_sp] TO [public]
 GO

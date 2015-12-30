@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -153,30 +154,30 @@ BEGIN
 	--ia.category_5 as Frame_Color_Group,
 	-- I
 	-- ia.field_3 as Frame_Color_Description,
-	ISNULL(cmi.colorname, ia.field_3) colorname,
+	ISNULL(cmi.colorname, ia.field_3) Frame_Color_Description,
 	-- J
-	'' as Frame_color_code,
+	' ' as Frame_color_code,
 	-- K
-	'' as Lens_color_code,
+	' ' as Lens_color_code,
 	-- L
-	'' as LENS_COLOR_DESCRIPTION,
+	' ' as LENS_COLOR_DESCRIPTION,
 	-- M
 	-- cast(ia.field_17 as int) as Eye_Size,
 	cast(ISNULL(cmi.eye_size,ia.field_17) as int) as Eye_Size,
 	-- N
 	--cast(ia.field_19 as int) as A,
-	 '' as A,
+	' ' as A,
 	-- cast(cmi.a_size as int) as A,
 	-- O
 	--cast(ia.field_20 as int) as B,
-	'' as B,
+	' ' as B,
 	-- cast(cmi.b_size as int) as B,
 	-- P
 	--cast(ia.field_21 as int) as ED,
-	'' as ED,
+	' ' as ED,
 	-- cast(cmi.ed_size as int) as ED, 
 	-- Q
-	'' as ED_Angle,
+	' ' as ED_Angle,
 	-- R
 	-- ia.field_8 as Temple_length,
 	ISNULL(cmi.temple_size, ia.field_8) as Temple_length,
@@ -206,11 +207,11 @@ BEGIN
 		when ia.field_10 like '%plastic%' then 'Plastic'
 		else '***' end,
 	-- Y
-	'' as Material_description,
+	' ' as Material_description,
 	-- Z
-	'' as Precious_Metal_type,
+	' ' as Precious_Metal_type,
 	-- AA
-	'' as Precious_Metal_description,
+	' ' as Precious_Metal_description,
 	-- AB
 	Country_of_Origin = 
 	case i.country_code
@@ -233,14 +234,14 @@ BEGIN
 		when ia.field_13 like '%cable%' then 'Cable'
 		else 'Skull' end, -- Skull
 	-- AD
-	'' as Temple_Description,
+	' ' as Temple_Description,
 	-- AE
 	Bridge_type = 
 		case when ia.field_10 like '%metal%' then 'Adjustable nose pads' -- adjustable nose pads
 			when ia.field_10 like '%plastic%' then 'Universal' -- Universal
 		else 'Universal' end,
 	-- AF
-	'' as Bridge_Description,
+	' ' as Bridge_Description,
 	-- AG
 	--'' as Sunglass_Lens_type,
 	Sunglass_Lens_type = 
@@ -256,17 +257,17 @@ BEGIN
 		then isnull(ia.field_23,'????')
 		else '' end,
 	--AI
-	'' as Trim_type,
+	' ' as Trim_type,
 	-- AJ 
-	'' as Trim_description,
+	' ' as Trim_description,
 	-- ak
-	'' as clip_sun_glass_type,
+	' ' as clip_sun_glass_type,
 	--AL
-	'' Clip_sunglass_description,
+	' ' Clip_sunglass_description,
 	-- am
-	'' as sideshields_type,
+	' ' as sideshields_type,
 	-- AN
-	'' as Side_Shields_Description,
+	' ' as Side_Shields_Description,
 	-- AO
 	Case_type = 
 	case i.category 
@@ -274,7 +275,7 @@ BEGIN
 		when 'jmc' then 'Soft case included.' -- soft case included
 		else 'Hard case included.' end, -- hard case included
 	--AP
-	'' as Case_Type_Description,
+	' ' as Case_Type_Description,
 	--AQ
 	--'' as Hinge_Type, -- field_13
 	Hinge_type = 
@@ -290,7 +291,7 @@ BEGIN
 	--	when 'Semi-rimless' then 'Semi-Rimless'
 	--	else '????' end,
 	Rim_Type = 
-		case isnull(cmi.frame_category,'')
+		case isnull(cmi.frame_category,' ')
 			when 'Full Acetate' then 'full rim'
 			when 'Full plastic' then 'full rim'
 			when 'Full metal' then 'full rim'
@@ -333,7 +334,7 @@ BEGIN
 	inner join what_part bom (nolock) on ic.part_no = bom.part_no
 	where ic.category_3 = 'front' and bom.asm_no = i.part_no), 0),2) as decimal(8,2)) as Front_price,
 	--AX
-	0 as Temple_pair_price,
+	'0' as Temple_pair_price,
 	--isnull( (select sum(pp.price_a) from inv_master_add ic (nolock)
 	--inner join part_price pp (nolock) on ic.part_no = pp.part_no
 	--inner join what_part bom (nolock) on ic.part_no = bom.part_no
@@ -345,7 +346,7 @@ BEGIN
 	inner join what_part bom (nolock) on ic.part_no = bom.part_no
 	where ic.category_3 = 'temple-L' and bom.asm_no = i.part_no), 0),2) as decimal(8,2)) as Temple_price,
 	--AZ
-	'' as Price_Description,
+	' ' as Price_Description,
 	--BA
 	'' as Features,
 	--BB
@@ -385,6 +386,8 @@ BEGIN
 END
 
 
+
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_Frames_Data_Extract_sp] TO [public]
 GO
