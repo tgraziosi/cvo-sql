@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -9,6 +10,7 @@ GO
 -- v1.3 CT 24/04/14 - Issue #572 - when joining between carton hdr and detail, join on order number as well as carton no
 -- v1.4 CB 05/05/2015 - Issue #1538 - Not displaying free frames correctly for BGs
 -- v1.5 CB 15/07/2015 - Fix for v1.4
+-- v1.6 CB 03/12/2015 - Fix for BG customer set to regular invoice
 -- requires temp table
 /*
 CREATE TABLE #detail(
@@ -29,7 +31,8 @@ CREATE TABLE #detail(
 
 CREATE PROC [dbo].[cvo_get_pack_list_details_sp] (	@order_no	INT,
 												@order_ext	INT,
-												@location	VARCHAR(10))
+												@location	VARCHAR(10),
+												@inv_option varchar(8) = '0') -- v1.6
 		
 AS
 BEGIN
@@ -194,29 +197,62 @@ BEGIN
 		IF @bg_order = 1
 		-- END v1.1
 		BEGIN
-				SELECT	
-					@list_price	= CAST(c.list_price	AS DECIMAL(20,2)),
-					@note     = SUBSTRING(IsNull(l.note,''),1,10),
-					-- v1.5 Start
-					@discount_pct	= CASE l.price WHEN 0 THEN 0				
-									  ELSE CASE c.list_price WHEN 0 THEN 0
-									  ELSE CAST(ROUND((((c.list_price - (l.curr_price - ROUND(c.amt_disc,2))) / c.list_price) * 100),2,1) AS DECIMAL(20,2)) END END
-					-- v1.5 End
-				FROM   
-					dbo.ord_list l (NOLOCK)
-				LEFT OUTER JOIN 
-					dbo.cvo_ord_list c (NOLOCK) 
-				ON 
-					l.order_no = c.order_no 
-					AND l.order_ext = c.order_ext 
-					AND l.line_no = c.line_no
-				WHERE  
-					l.order_no  = @order_no 
-					AND l.order_ext = @order_ext 
-					AND l.part_no = @part_no   
-					AND l.line_no = @line_no
-					AND l.location  = @Location	
-			    
+				-- v1.6 Start
+				IF (@inv_option = '0')
+				BEGIN
+
+					SELECT	
+						@gross_price	= CAST(ROUND(@pack_qty * (l.curr_price - ROUND(c.amt_disc,2)),2,1) AS DECIMAL(20,2)),
+						@net_price		= CAST(ROUND((l.curr_price - ROUND(c.amt_disc,2)),2,1) AS DECIMAL(20,2)),							
+						@ext_net_price	= CAST((@pack_qty * ROUND((l.curr_price - ROUND(c.amt_disc,2)),2,1)) AS DECIMAL(20,2)),							
+						@discount_amount	=CAST(((c.list_price - l.curr_price) + ROUND(c.amt_disc,2)) AS DECIMAL(20,2)), 
+						@discount_pct	= CASE l.price WHEN 0 THEN 0				
+										  ELSE CASE c.list_price WHEN 0 THEN 0
+										  ELSE CAST(ROUND((((c.list_price - (l.curr_price - ROUND(c.amt_disc,2))) / c.list_price) * 100),2,1) AS DECIMAL(20,2)) END END, 
+						@list_price		= CAST(c.list_price AS DECIMAL(20,2)),
+						@note		= SUBSTRING(IsNull(l.note,''),1,10)		
+						-- v1.5 End
+					FROM   
+						dbo.ord_list l (NOLOCK)
+					LEFT OUTER JOIN 
+						dbo.cvo_ord_list c (NOLOCK) 
+					ON 
+						l.order_no = c.order_no 
+						AND l.order_ext = c.order_ext 
+						AND l.line_no = c.line_no
+					WHERE  
+						l.order_no  = @order_no 
+						AND l.order_ext = @order_ext 
+						AND l.part_no = @part_no   
+						AND l.line_no = @line_no
+				
+				END
+				ELSE
+				BEGIN
+					SELECT	
+						@list_price	= CAST(c.list_price	AS DECIMAL(20,2)),
+						@note     = SUBSTRING(IsNull(l.note,''),1,10),
+						-- v1.5 Start
+						@discount_pct	= CASE l.price WHEN 0 THEN 0				
+										  ELSE CASE c.list_price WHEN 0 THEN 0
+										  ELSE CAST(ROUND((((c.list_price - (l.curr_price - ROUND(c.amt_disc,2))) / c.list_price) * 100),2,1) AS DECIMAL(20,2)) END END
+						-- v1.5 End
+					FROM   
+						dbo.ord_list l (NOLOCK)
+					LEFT OUTER JOIN 
+						dbo.cvo_ord_list c (NOLOCK) 
+					ON 
+						l.order_no = c.order_no 
+						AND l.order_ext = c.order_ext 
+						AND l.line_no = c.line_no
+					WHERE  
+						l.order_no  = @order_no 
+						AND l.order_ext = @order_ext 
+						AND l.part_no = @part_no   
+						AND l.line_no = @line_no
+						AND l.location  = @Location	
+			    END
+				-- v1.6 End
 		END
 		ELSE
 		BEGIN
@@ -330,5 +366,6 @@ select * from #parts
 	-- END v1.2
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_get_pack_list_details_sp] TO [public]
 GO

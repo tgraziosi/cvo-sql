@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -32,7 +33,7 @@ GO
 -- v11.3 CB 13/05/2015 - Issue #1446 - Add invoice notes from customer
 -- v11.4 CB 01/07/2015 - Fix issue when free frames are given on a bg with bg inv option set
 -- v11.5 CB 08/09/2015 - As per Tine - They want to see the gross price (list price) as whatever it is (non-zero), and the net price to show as $0.
-
+-- v11.6 CB 03/12/2015 - Fix for BG customer set to regular invoice
 
 */
 
@@ -867,7 +868,7 @@ BEGIN
 			BREAK
 
 		-- Get order details
-		EXEC dbo.cvo_get_pack_list_details_sp @order_no, @order_ext, @Location
+		EXEC dbo.cvo_get_pack_list_details_sp @order_no, @order_ext, @Location, @inv_option -- v11.6
 
 		-- Store details
 		INSERT INTO #cons_orders_det(
@@ -1588,9 +1589,23 @@ BEGIN
 					END
 					ELSE
 					BEGIN
-						SELECT	@list_price	= 0,				
-								@order_ext_list = 0
-					END -- v11.5 End
+						-- v11.6 Start
+						IF (@is_free = 0 AND @inv_option = '0')
+						BEGIN
+							SELECT	@list_price	= CAST(@c_list_price AS DECIMAL (20,2)),				
+									@order_ext_list = @c_list_price * @Sum_Line_Ship,
+									@discount_amount	=CAST(@c_discount_amount AS DECIMAL(20,2)),
+									@gross_price	= CAST(@c_gross_price AS DECIMAL(20,2)),
+									@net_price		= CAST(@c_net_price AS DECIMAL(20,2))
+
+						END
+						ELSE
+						BEGIN
+							SELECT	@list_price	= 0,				
+									@order_ext_list = 0
+						END -- v11.5 End
+					END
+					-- v11.6 End
 				END
 				-- v11.2 End
 			

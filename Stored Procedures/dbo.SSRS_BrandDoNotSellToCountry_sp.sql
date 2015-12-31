@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -8,6 +9,7 @@ GO
 -- Description:	By Brand Do Not Sell To Country Report
 -- EXEC SSRS_BrandDoNotSellToCountry_sp '4/1/2014','6/1/2014'
 -- 022015 - OP ok's sales to Ecuador and El Salvador
+-- 123015 - Add Bermuda ME and Guatemala ET as ok to sell
 -- =============================================
 CREATE PROCEDURE [dbo].[SSRS_BrandDoNotSellToCountry_sp] 
 
@@ -46,7 +48,7 @@ OR (ship_to_country_cd in ('AT') and category in ('CH','ET','IZOD','IZX','OP','M
 OR (ship_to_country_cd in ('') and category in ('ET','IZOD','IZX','OP') )  --BARBUDA
 OR (ship_to_country_cd in ('BE') and category in ('CH','ET','IZOD','IZX','OP','ME') )  --BELGIUM
 OR (ship_to_country_cd in ('BZ') and category in ('IZOD','IZX') )  --BELIZE
-OR (ship_to_country_cd in ('BM') and category in ('ME') )  --BERMUDA
+-- OR (ship_to_country_cd in ('BM') and category in ('ME') )  --BERMUDA -- all as of 123115
 OR (ship_to_country_cd in ('BO') and category in ('ET','OP') )  --BOLIVIA
 OR (ship_to_country_cd in ('BQ') and category in ('IZOD','IZX') )  --BONAIRE
 OR (ship_to_country_cd in ('BR') and category in ('ET','OP','ME') )  --BRAZIL
@@ -74,7 +76,7 @@ OR (ship_to_country_cd in ('GF') and category in ('CH','ET','IZOD','IZX','OP','M
 OR (ship_to_country_cd in ('DE') and category in ('CH','ET','IZOD','IZX','OP','ME') )  --gremany
 OR (ship_to_country_cd in ('GR') and category in ('CH','ET','IZOD','IZX','OP','ME') )  --greece
 --OR (ship_to_country_cd in ('GD') and category in () )   --grenada all
-OR (ship_to_country_cd in ('GT') and category in ('ET','OP') )  --guatemala
+OR (ship_to_country_cd in ('GT') and category in ('OP') )  --guatemala
 OR (ship_to_country_cd in ('GY') and category in ('IZOD','IZX') )  --guyana
 OR (ship_to_country_cd in ('HT') and category in ('IZOD','IZX') )  --haiti
 OR (ship_to_country_cd in ('HN') and category in ('ET','OP') )  --honduras
@@ -133,4 +135,5 @@ date_shipped, total_amt_order, QtyOrd, QtyShip
 FROM #LIST
 
 END
+
 GO

@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -29,6 +30,7 @@ GO
 -- v11.6 CB 15/07/2015 - Fix v11.4
 -- v11.7 CB 24/07/2015 - For BG invoices only list price to show on free frames as zero
 -- v11.8 CB 08/09/2015 - As per Tine - They want to see the gross price (list price) as whatever it is (non-zero), and the net price to show as $0.
+-- v11.9 CB 30/12/2015 - Issue #1585 Use BG Setting
 
 CREATE PROCEDURE [dbo].[tdc_print_ord_pack_list_sp](  
    @user_id    varchar(50),  
@@ -404,8 +406,9 @@ SET @BG_Order	= 0
 
 IF EXISTS(SELECT buying_group FROM CVO_orders_all WHERE order_no = @order_no AND ext = @order_ext AND buying_group IS NOT NULL AND buying_group != '' )
 BEGIN
-	IF @Cust_Type = 'Buying Group'
-	BEGIN
+	-- v11.9 Start
+--	IF @Cust_Type = 'Buying Group'
+--	BEGIN
 	-- v10.7	SELECT  @order_tax      = CAST((o.tot_ord_tax) AS DECIMAL (20,2)),
 		SELECT  @order_tax      = CAST((o.total_tax) AS DECIMAL (20,2)),
 				@order_frt      = CAST((o.freight) AS DECIMAL (20,2)), -- v6.5
@@ -414,22 +417,23 @@ BEGIN
 				@BG_Order		= 1
 		FROM  orders o (nolock)
 		WHERE o.order_no = @order_no AND o.ext = @order_ext
-	END
-	ELSE
-	BEGIN
-		SELECT  --@order_gross    = CAST((o.total_amt_order) AS DECIMAL (20,2)),
+--	END
+--	ELSE
+--	BEGIN
+--		SELECT  --@order_gross    = CAST((o.total_amt_order) AS DECIMAL (20,2)),
 				--@order_disc     = CAST((o.tot_ord_disc) AS DECIMAL (20,2)),
 				--@order_total    = CAST(((o.total_amt_order - o.tot_ord_disc) + o.tot_ord_tax + o.tot_ord_freight) AS DECIMAL (20,2)),
 				--@order_net      = CAST(((o.total_amt_order - o.tot_ord_disc)) AS DECIMAL (20,2)),
-				@order_tax      = CAST((o.total_tax) AS DECIMAL (20,2)),
+--				@order_tax      = CAST((o.total_tax) AS DECIMAL (20,2)),
 	-- v10.7			@order_tax      = CAST((o.tot_ord_tax) AS DECIMAL (20,2)),
-				@order_frt      = CAST((o.freight) AS DECIMAL (20,2)), -- v6.5
+--				@order_frt      = CAST((o.freight) AS DECIMAL (20,2)), -- v6.5
 	-- v6.5					@order_frt      = CAST((o.tot_ord_freight) AS DECIMAL (20,2)),
-				@bg_message		= ' ',
-				@BG_Order		= 0
-		FROM  orders o (nolock)
-		WHERE o.order_no = @order_no AND o.ext = @order_ext
-	END
+--				@bg_message		= ' ',
+--				@BG_Order		= 0
+--		FROM  orders o (nolock)
+--		WHERE o.order_no = @order_no AND o.ext = @order_ext
+--	END
+	-- v11.9 End
 END
 ELSE
 BEGIN
@@ -1196,5 +1200,6 @@ DEALLOCATE print_cursor
   
 RETURN
 GO
+
 GRANT EXECUTE ON  [dbo].[tdc_print_ord_pack_list_sp] TO [public]
 GO
