@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -31,6 +32,8 @@ TRUNCATE TABLE #xfer_no
 DECLARE @xfer_no INT, @type VARCHAR(2)
 DECLARE @parent INT, @child INT 
 
+-- cvo
+RETURN 0
 
 INSERT INTO #xfer_no (xfer_no) SELECT DISTINCT p.order_no FROM xfers x (nolock), tdc_dist_item_pick p (nolock) WHERE x.xfer_no = p.order_no AND x.status = 'S' AND p.[function] = 'T'	
 
@@ -149,6 +152,8 @@ DEALLOCATE back_up
 
 RETURN 0
 
+
 GO
+
 GRANT EXECUTE ON  [dbo].[tdc_move_into_backup_tables] TO [public]
 GO

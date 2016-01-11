@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -38,16 +39,8 @@ o.invoice_date,
 o.total_amt_order,
 o.tot_ord_freight,
 o.tot_ord_tax, 
-(select sum(ordered) 
- from ord_list ol (nolock)
- inner join inv_master i (nolock) on ol.part_no = i.part_no
- where o.order_no = ol.order_no and o.ext = ol.order_ext
-	and i.type_code in ('FRAME','SUN') ) as tot_ord_qty, 
-(select sum(shipped) 
- from ord_list ol (nolock)
- inner join inv_master i (nolock) on ol.part_no = i.part_no
- where o.order_no = ol.order_no and o.ext = ol.order_ext
-	and i.type_code in ('FRAME','SUN') ) as tot_shp_qty,  
+ISNULL(ordlist.tot_ord_qty,0) tot_ord_qty,
+ISNULL(ordlist.tot_shp_qty,0) tot_shp_qty,
  o.status,
  CASE o.status        
    WHEN 'A' THEN 'User Hold' -- per KB request 062413 
@@ -130,10 +123,13 @@ o.void
 from orders o (nolock) 
 inner join cvo_orders_all cvo (nolock)
 on o.order_no = cvo.order_no and o.ext = cvo.ext
---join ord_list od 
---on o.order_no = od.order_no and o.ext = od.order_ext
---left outer join tdc_carton_tx c on o.order_no = c.order_no and o.ext = c.order_ext
--- where clause for orders
+LEFT OUTER JOIN
+(select ol.order_no, ol.order_ext, SUM(shipped) tot_shp_qty, SUM(ordered) tot_ord_qty
+ from ord_list ol (nolock)
+ inner join inv_master i (nolock) on ol.part_no = i.part_no
+ WHERE i.type_code in ('FRAME','SUN')
+ GROUP BY ol.order_no, ol.order_ext ) ordlist
+	ON ordlist.order_no = o.order_no AND ordlist.order_ext = o.ext
 where o.status <> 'V' and o.void = 'N' and o.type='I'
 -- 092412 - don't need it anymore -- and left(o.user_category,2)='ST' 
 -- and right(o.user_category,2) not in ('RB','TB','PM') 
@@ -144,6 +140,8 @@ where o.status <> 'V' and o.void = 'N' and o.type='I'
 --and o.status = 'p'
 
 
+
 GO
+
 GRANT SELECT ON  [dbo].[cvo_Daily_Order_Log_detail_vw] TO [public]
 GO

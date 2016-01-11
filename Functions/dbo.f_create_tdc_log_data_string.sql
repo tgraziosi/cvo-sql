@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -144,11 +145,11 @@ BEGIN
 
 	SET @data = @data + 'LP_CUBIC_FEET: '	+ ISNULL(CAST(@cubic_feet AS VARCHAR(10)),'') + '; '
 	SET @data = @data + 'LP_SO_QTY_INCR: '	+ ISNULL(CAST(CAST(@so_qty_increment AS INT) AS VARCHAR(10)),'') + '; '
-	SET @data = @data + 'LP_WEIGHT: '		+ ISNULL(CAST(@weight_ea AS VARCHAR(10)),'') + '; '
+	SET @data = @data + 'LP_WEIGHT: '		+ ISNULL(CAST(CAST(@weight_ea AS DECIMAL(10,3)) AS VARCHAR(10)),'') + '; '
 	SET @data = @data + 'LP_CMDTY_CODE: '	+ ISNULL(@cmdty_code,'') + '; '
 	SET @data = @data + 'LP_LENGTH: '		+ ISNULL(CAST(@length AS VARCHAR(10)),'') + '; '
 
-	SET @data = @data + 'LP_WIDTH: '		+ ISNULL(CAST(@width AS VARCHAR(10)),'') + '; '
+	SET @data = @data + 'LP_WIDTH: '		+ ISNULL(CAST(@width AS VARCHAR(10)),'') + '; ' -- tag - round the value
 	SET @data = @data + 'LP_HEIGHT: '		+ ISNULL(CAST(@height AS VARCHAR(10)),'') + '; '
 	SET @data = @data + 'LP_SKU: '			+ ISNULL(@sku_code,'') + '; '
 	SET @data = @data + 'LP_ORDERED_QTY: '	+ ISNULL(CAST(CAST(@ordered AS INT) AS VARCHAR(10)),'') + '; '
@@ -176,7 +177,9 @@ BEGIN
 
 END
 
+
 GO
+
 GRANT REFERENCES ON  [dbo].[f_create_tdc_log_data_string] TO [public]
 GO
 GRANT EXECUTE ON  [dbo].[f_create_tdc_log_data_string] TO [public]

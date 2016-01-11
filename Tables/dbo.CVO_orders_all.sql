@@ -47,6 +47,7 @@ CREATE TABLE [dbo].[CVO_orders_all]
 [upsell_flag] [int] NULL
 ) ON [PRIMARY]
 GO
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -68,200 +69,211 @@ v1.3	CT	16/09/2014	Issue #1483 - Promo hold reason
 */
 
 CREATE TRIGGER [dbo].[cvo_orders_all_ins_trg] ON [dbo].[CVO_orders_all]
-FOR INSERT
+    FOR INSERT
 AS
-BEGIN
-	DECLARE	@order_no		int,
-			@ext			int,
-			@commission		decimal(5,2),
+    BEGIN
+        DECLARE @order_no INT ,
+            @ext INT ,
+            @commission DECIMAL(5, 2) ,
 			-- START v1.3
-			@hold_reason	VARCHAR(10),
-			@location		VARCHAR(10),
-			@data			VARCHAR(7500),
-			@hold_desc		VARCHAR(40),
-			@order_type		VARCHAR(10),
-			@promo_id		VARCHAR(20),
-			@promo_level	VARCHAR(30)
+            @hold_reason VARCHAR(10) ,
+            @location VARCHAR(10) ,
+            @data VARCHAR(7500) ,
+            @hold_desc VARCHAR(40) ,
+            @order_type VARCHAR(10) ,
+            @promo_id VARCHAR(20) ,
+            @promo_level VARCHAR(30);
 			-- END v1.3
 
-	SET @order_no = 0
+        SET @order_no = 0;
 		
 	-- Get the order to action
-	WHILE 1=1
-	BEGIN
+        WHILE 1 = 1
+            BEGIN
 	
-		SELECT TOP 1 
-			@order_no = order_no
-		FROM 
-			inserted 
-		WHERE
-			order_no > @order_no
-		ORDER BY 
-			order_no
+                SELECT TOP 1
+                        @order_no = order_no
+                FROM    inserted
+                WHERE   order_no > @order_no
+                ORDER BY order_no;
 
-		IF @@RowCount = 0
-			Break
+                IF @@RowCount = 0
+                    BREAK;
 
 		-- Loop through order extensions
-		SET @ext = -1
-		WHILE 1=1
-		BEGIN
+                SET @ext = -1;
+                WHILE 1 = 1
+                    BEGIN
 		
-			SELECT TOP 1 
-				@ext = ext
-			FROM 
-				inserted 
-			WHERE
-				order_no = @order_no
-				AND ext > @ext
-			ORDER BY 
-				ext
+                        SELECT TOP 1
+                                @ext = ext
+                        FROM    inserted
+                        WHERE   order_no = @order_no
+                                AND ext > @ext
+                        ORDER BY ext;
 
-			IF @@RowCount = 0
-				Break
+                        IF @@RowCount = 0
+                            BREAK;
 		
 			-- START v1.1
-			IF NOT EXISTS (SELECT 1 FROM dbo.orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @ext AND type = 'C' and orig_no <> 0) -- v1.2
-			BEGIN
-				SELECT @commission = dbo.f_get_order_commission(@order_no,@ext) 
+                        IF NOT EXISTS ( SELECT  1
+                                        FROM    dbo.orders_all (NOLOCK)
+                                        WHERE   order_no = @order_no
+                                                AND ext = @ext
+                                                AND type = 'C'
+                                                AND orig_no <> 0 ) -- v1.2
+                            BEGIN
+                                SELECT  @commission = dbo.f_get_order_commission(@order_no,
+                                                              @ext); 
 
-				UPDATE
-					cvo_orders_all
-				SET 
-					commission_pct = ISNULL(@commission,0)
-				WHERE
-					order_no = @order_no
-					AND ext = @ext
-			END
+                                UPDATE  CVO_orders_all
+                                SET     commission_pct = ISNULL(@commission, 0)
+                                WHERE   order_no = @order_no
+                                        AND ext = @ext;
+                            END;
 			-- END v1.1
-			
-		END
 
-	END		
+			
+			-- tag -- 1/5/16 - check if we need CH WTY note
+                        UPDATE  co
+                        SET     co.invoice_note = CASE WHEN ISNULL(co.invoice_note,
+                                                              '') = ''
+                                                       THEN 'Cole Haan frames are for replacement purposes.'
+                                                       ELSE ISNULL(co.invoice_note,
+                                                              '') + CHAR(13)
+                                                            + CHAR(10)
+                                                            + 'Cole Haan frames are for replacement purposes.'
+                                                  END
+                        FROM    dbo.CVO_orders_all AS co
+                                JOIN dbo.orders AS o ( NOLOCK ) ON o.order_no = co.order_no
+                                                              AND o.ext = co.ext
+                        WHERE   co.order_no = @order_no
+                                AND co.ext = @ext
+                                AND o.type = 'I'
+                                AND o.user_category LIKE 'RX%'
+                                AND EXISTS ( SELECT 1
+                                             FROM   ord_list OL ( NOLOCK )
+                                                    JOIN inv_master i ( NOLOCK ) ON i.part_no = OL.part_no
+                                             WHERE  OL.order_no = @order_no
+                                                    AND OL.order_ext = @ext
+                                                    AND i.category = 'CH'
+                                                    AND i.type_code IN (
+                                                    'frame', 'sun' ) )
+                                AND CHARINDEX('Cole Haan frames are for replacement purposes',
+                                              ISNULL(co.invoice_note, '')) = 0;
+		
+                    END;
+
+            END;		
 	
 	-- START v1.3
 	-- Promo hold reason
-	SET @order_no = 0
+        SET @order_no = 0;
 		
 	-- Get the order to action
-	WHILE 1=1
-	BEGIN
+        WHILE 1 = 1
+            BEGIN
 	
-		SELECT TOP 1 
-			@order_no = i.order_no
-		FROM 
-			inserted i 
-		INNER JOIN
-			dbo.orders_all o (NOLOCK)
-		ON
-			i.order_no = o.order_no
-			AND i.ext = o.ext
-		INNER JOIN
-			dbo.cvo_promotions p (NOLOCK)
-		ON
-			i.promo_id = p.promo_id
-			AND i.promo_level = p.promo_level
-		WHERE
-			i.order_no > @order_no
-			AND o.[type] = 'I'
-			AND o.[status] = 'N'
-			AND ISNULL(o.hold_reason,'') = ''
-			AND ISNULL(i.prior_hold,'') = ''
-			AND ISNULL(p.hold_reason,'') <> ''
-		ORDER BY 
-			i.order_no
+                SELECT TOP 1
+                        @order_no = i.order_no
+                FROM    inserted i
+                        INNER JOIN dbo.orders_all o ( NOLOCK ) ON i.order_no = o.order_no
+                                                              AND i.ext = o.ext
+                        INNER JOIN dbo.CVO_promotions p ( NOLOCK ) ON i.promo_id = p.promo_id
+                                                              AND i.promo_level = p.promo_level
+                WHERE   i.order_no > @order_no
+                        AND o.type = 'I'
+                        AND o.status = 'N'
+                        AND ISNULL(o.hold_reason, '') = ''
+                        AND ISNULL(i.prior_hold, '') = ''
+                        AND ISNULL(p.hold_reason, '') <> ''
+                ORDER BY i.order_no;
 
-		IF @@RowCount = 0
-			Break
+                IF @@RowCount = 0
+                    BREAK;
 
 		-- Loop through order extensions
-		SET @ext = -1
-		WHILE 1=1
-		BEGIN
+                SET @ext = -1;
+                WHILE 1 = 1
+                    BEGIN
 		
-			SELECT TOP 1 
-				@ext = i.ext,
-				@hold_reason = p.hold_reason,
-				@location = o.location,
-				@order_type = o.user_category,
-				@promo_id = i.promo_id,
-				@promo_level = i.promo_level
-			FROM 
-				inserted i
-			INNER JOIN
-				dbo.orders_all o (NOLOCK)
-			ON
-				i.order_no = o.order_no
-				AND i.ext = o.ext
-			INNER JOIN
-				dbo.cvo_promotions p (NOLOCK)
-			ON
-				i.promo_id = p.promo_id
-				AND i.promo_level = p.promo_level
-			WHERE
-				i.order_no = @order_no
-				AND i.ext > @ext
-				AND o.[type] = 'I'
-				AND o.[status] = 'N'
-				AND ISNULL(o.hold_reason,'') = ''
-				AND ISNULL(i.prior_hold,'') = ''
-				AND ISNULL(p.hold_reason,'') <> ''
-			ORDER BY 
-				i.ext
+                        SELECT TOP 1
+                                @ext = i.ext ,
+                                @hold_reason = p.hold_reason ,
+                                @location = o.location ,
+                                @order_type = o.user_category ,
+                                @promo_id = i.promo_id ,
+                                @promo_level = i.promo_level
+                        FROM    inserted i
+                                INNER JOIN dbo.orders_all o ( NOLOCK ) ON i.order_no = o.order_no
+                                                              AND i.ext = o.ext
+                                INNER JOIN dbo.CVO_promotions p ( NOLOCK ) ON i.promo_id = p.promo_id
+                                                              AND i.promo_level = p.promo_level
+                        WHERE   i.order_no = @order_no
+                                AND i.ext > @ext
+                                AND o.type = 'I'
+                                AND o.status = 'N'
+                                AND ISNULL(o.hold_reason, '') = ''
+                                AND ISNULL(i.prior_hold, '') = ''
+                                AND ISNULL(p.hold_reason, '') <> ''
+                        ORDER BY i.ext;
 
-			IF @@RowCount = 0
-				Break
+                        IF @@RowCount = 0
+                            BREAK;
 		
 			-- Put order on hold
-			UPDATE
-				dbo.orders_all
-			SET 
-				[status] = 'A',
-				hold_reason = @hold_reason
-			WHERE
-				order_no = @order_no
-				AND ext = @ext
+                        UPDATE  dbo.orders_all
+                        SET     status = 'A' ,
+                                hold_reason = @hold_reason
+                        WHERE   order_no = @order_no
+                                AND ext = @ext;
 
 			-- Write tdc_log record
-			SELECT @hold_desc = hold_reason FROM dbo.adm_oehold (NOLOCK) WHERE hold_code = @hold_reason
+                        SELECT  @hold_desc = hold_reason
+                        FROM    dbo.adm_oehold (NOLOCK)
+                        WHERE   hold_code = @hold_reason;
 			
-			SET @data = 'STATUS:A/USER HOLD; HOLD REASON:' + @hold_reason + ' - ' + @hold_desc + '; ORDER TYPE: ' + @order_type + '; PROMO ID: ' + @promo_id + ' ; PROMO LEVEL: ' + @promo_level
+                        SET @data = 'STATUS:A/USER HOLD; HOLD REASON:'
+                            + @hold_reason + ' - ' + @hold_desc
+                            + '; ORDER TYPE: ' + @order_type + '; PROMO ID: '
+                            + @promo_id + ' ; PROMO LEVEL: ' + @promo_level;
 
-			INSERT INTO tdc_log(
-				tran_date,
-				UserID,
-				trans_source,
-				module,
-				trans,
-				tran_no,
-				tran_ext,
-				part_no,
-				lot_ser,
-				bin_no,
-				location,
-				quantity,
-				data)
-			SELECT
-				GETDATE(),
-				SUSER_SNAME(),
-				'BO',
-				'ADM',
-				'ORDER UPDATE',
-				CAST(@order_no AS VARCHAR),
-				CAST(@ext AS VARCHAR),
-				'',
-				'',
-				'',
-				@location,
-				'',
-				@data
-		END
+                        INSERT  INTO tdc_log
+                                ( tran_date ,
+                                  UserID ,
+                                  trans_source ,
+                                  module ,
+                                  trans ,
+                                  tran_no ,
+                                  tran_ext ,
+                                  part_no ,
+                                  lot_ser ,
+                                  bin_no ,
+                                  location ,
+                                  quantity ,
+                                  data
+                                )
+                                SELECT  GETDATE() ,
+                                        SUSER_SNAME() ,
+                                        'BO' ,
+                                        'ADM' ,
+                                        'ORDER UPDATE' ,
+                                        CAST(@order_no AS VARCHAR) ,
+                                        CAST(@ext AS VARCHAR) ,
+                                        '' ,
+                                        '' ,
+                                        '' ,
+                                        @location ,
+                                        '' ,
+                                        @data;
+                    END;
 
-	END			
+            END;			
 	-- END v1.3	
-END
+    END;
 
 
+GO
 GO
 SET QUOTED_IDENTIFIER ON
 GO
@@ -578,6 +590,7 @@ END
 
 
 GO
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -596,35 +609,32 @@ v1.1 CT 22/04/2013 Issue 1230 - change in commission logic - always recalc for S
 v1.2 CT 07/05/2013 Issue 1261 - TBB credit returns failing due to trigger recursion - moving commission recalc to cvo_orders_all_insupd_trg
 */  
   
-CREATE TRIGGER [dbo].[cvo_orders_all_upd_trg] ON [dbo].[CVO_orders_all]  
-FOR UPDATE  
-AS  
-BEGIN  
-	DECLARE @order_no		INT,  
-			@ext			INT,  
-			@commission		DECIMAL(5,2),
-			@i_promo_id		VARCHAR(20),
-			@i_promo_level	VARCHAR(30),  
-			@d_promo_id		VARCHAR(20),
-			@d_promo_level	VARCHAR(30)  
+CREATE TRIGGER [dbo].[cvo_orders_all_upd_trg] ON [dbo].[CVO_orders_all]
+    FOR UPDATE
+AS
+    BEGIN  
+        DECLARE @order_no INT ,
+            @ext INT ,
+            @commission DECIMAL(5, 2) ,
+            @i_promo_id VARCHAR(20) ,
+            @i_promo_level VARCHAR(30) ,
+            @d_promo_id VARCHAR(20) ,
+            @d_promo_level VARCHAR(30);  
 
-	SET @order_no = 0  
+        SET @order_no = 0;  
 
 	-- Get the order to action  
-	WHILE 1=1  
-	BEGIN  
+        WHILE 1 = 1
+            BEGIN  
 
-		SELECT TOP 1   
-			@order_no = order_no  
-		FROM   
-			inserted 
-		WHERE  
-			order_no > @order_no 
-		ORDER BY   
-			order_no  
+                SELECT TOP 1
+                        @order_no = order_no
+                FROM    inserted
+                WHERE   order_no > @order_no
+                ORDER BY order_no;  
 
-		IF @@RowCount = 0  
-			Break  
+                IF @@RowCount = 0
+                    BREAK;  
 
 		-- START v1.2 - only do this for orders
 		/*
@@ -632,42 +642,73 @@ BEGIN
 		IF NOT EXISTS (SELECT 1 FROM dbo.orders_all (NOLOCK) WHERE order_no = @order_no AND ext = 0 AND type = 'C' and orig_no <> 0)
 		*/
 		-- Only do this for orders
-		IF EXISTS (SELECT 1 FROM dbo.orders_all (NOLOCK) WHERE order_no = @order_no AND ext = 0 AND [type] = 'I')
+                IF EXISTS ( SELECT  1
+                            FROM    dbo.orders_all (NOLOCK)
+                            WHERE   order_no = @order_no
+                                    AND ext = 0
+                                    AND type = 'I' )
 		-- END v1.2
 		-- END v1.1
-		BEGIN
+                    BEGIN
 
 			-- START v1.1
 			-- Now do this for all extensions 
-			SET @ext = -1  
-			WHILE 1=1  
-			BEGIN  
+                        SET @ext = -1;  
+                        WHILE 1 = 1
+                            BEGIN  
 
-				SELECT TOP 1   
-					@ext = ext
-				FROM   
-					inserted 
-				WHERE  
-					order_no = @order_no  
-					AND ext > @ext  
-				ORDER BY   
-					ext  
+                                SELECT TOP 1
+                                        @ext = ext
+                                FROM    inserted
+                                WHERE   order_no = @order_no
+                                        AND ext > @ext
+                                ORDER BY ext;  
 
-				IF @@RowCount = 0  
-					Break  
+                                IF @@RowCount = 0
+                                    BREAK;  
 
 
 				-- Recalculate commission
-				SELECT @commission = dbo.f_get_order_commission(@order_no,@ext)   					
+                                SELECT  @commission = dbo.f_get_order_commission(@order_no,
+                                                              @ext);   					
 
-				UPDATE  
-					dbo.cvo_orders_all  
-				SET   
-					commission_pct = ISNULL(@commission,0)  
-				WHERE  
-					order_no = @order_no  
-					AND ext = @ext  
-			END
+                                UPDATE  dbo.CVO_orders_all
+                                SET     commission_pct = ISNULL(@commission, 0)
+                                WHERE   order_no = @order_no
+                                        AND ext = @ext;  
+
+							-- tag -- 1/5/16 - check if we need CH WTY note
+                                UPDATE  co
+                                SET     co.invoice_note = CASE
+                                                              WHEN ISNULL(co.invoice_note,
+                                                              '') = ''
+                                                              THEN 'Cole Haan frames are for replacement purposes.'
+                                                              ELSE ISNULL(co.invoice_note,
+                                                              '') + CHAR(13)
+                                                              + CHAR(10)
+                                                              + 'Cole Haan frames are for replacement purposes.'
+                                                          END
+                                FROM    dbo.CVO_orders_all AS co
+                                        JOIN dbo.orders AS o ( NOLOCK ) ON o.order_no = co.order_no
+                                                              AND o.ext = co.ext
+                                WHERE   co.order_no = @order_no
+                                        AND co.ext = @ext
+                                        AND o.type = 'I'
+                                        AND o.user_category LIKE 'RX%'
+                                        AND EXISTS ( SELECT 1
+                                                     FROM   ord_list OL ( NOLOCK )
+                                                            JOIN inv_master i ( NOLOCK ) ON i.part_no = OL.part_no
+                                                     WHERE  OL.order_no = @order_no
+                                                            AND OL.order_ext = @ext
+                                                            AND i.category = 'CH'
+                                                            AND i.type_code IN (
+                                                            'frame', 'sun' ) )
+                                        AND CHARINDEX('Cole Haan frames are for replacement purposes',
+                                                      ISNULL(co.invoice_note,
+                                                             '')) = 0;
+
+
+                            END;
 			
 			/*
 			-- Loop through order extensions where promo has changed 
@@ -721,12 +762,13 @@ BEGIN
 				END
 			END 
 			*/
-		END     
-	END
-END  
+                    END;     
+            END;
+    END;  
   
   
 GO
+
 CREATE NONCLUSTERED INDEX [CVO_orders_all_bg_032814] ON [dbo].[CVO_orders_all] ([buying_group]) INCLUDE ([order_no], [ext]) ON [PRIMARY]
 GO
 CREATE UNIQUE CLUSTERED INDEX [ord1] ON [dbo].[CVO_orders_all] ([order_no], [ext]) ON [PRIMARY]

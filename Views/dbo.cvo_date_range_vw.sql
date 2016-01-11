@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -69,7 +70,11 @@ select
 	Convert(varchar(100),'Last Year') as [Period]
 	,convert(datetime,'1/1/' + cast(year(getdate())-1 as varchar(4))) as BeginDate
 	,convert(datetime,'1/1/' + cast(year(getdate()) as varchar(4)))-1 as EndDate
-
+UNION ALL
+select 
+	Convert(varchar(100),'This Year') as [Period]
+	,convert(datetime,'1/1/' + cast(year(getdate()) as varchar(4))) as BeginDate
+	,convert(datetime,'1/1/' + cast(year(getdate())+1 as varchar(4)))-1 as EndDate
 union all
 select 
 	Convert(varchar(100),'Last 7 days') as [Period]
@@ -145,6 +150,7 @@ select
 --	Convert(varchar(100),'Next Year to Date') as [Period]
 --	,Convert(datetime,'1/1/' + cast(YEAR(GETDATE())+1 as varchar(4))) as BeginDate
 --	,Convert(datetime,cast(MONTH(GETDATE()) as varchar(2)) + '/' + cast(DAY(GETDATE()) as varchar(2)) + '/' + cast(YEAR(GETDATE())+1 as varchar(4)))  as EndDate
+
 
 
 GO

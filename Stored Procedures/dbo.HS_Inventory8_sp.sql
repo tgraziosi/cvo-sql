@@ -102,13 +102,24 @@ CASE WHEN i.category ='revo' AND i.type_code IN ('other','pop') THEN CONVERT(VAR
 	ELSE CONVERT(varchar(150),(CAT.Description + ' ' + FIELD_2)) END AS longDesc, 
 
 variantdescription = case when i.type_code in ('other','pop') then i.description 
+		WHEN i.type_code = 'sun' THEN
+			convert(varchar(150),(CAT.Description + ' ' + FIELD_2 + ' ' + FIELD_3 + ' ' 
+			+ (ISNULL(CAST(str(FIELD_17, 2, 0) AS VARCHAR(2)),'') 
+			+ '/' + ISNULL(CAST(field_6 AS VARCHAR(2)),'') 
+			+ '/' + ISNULL(CAST(field_8 AS VARCHAR(3)),'') ) 
+			+ ' ' + ISNULL(field_23,'') -- sun lens color - 1/11/16
+			)) 
 		else
-		convert(varchar(150),(CAT.Description + ' ' + FIELD_2 + ' ' + FIELD_3 + ' ' + (ISNULL(CAST(str(FIELD_17, 2, 0) AS VARCHAR(2)),'') + '/' + ISNULL(CAST(field_6 AS VARCHAR(2)),'') + '/' + ISNULL(CAST(field_8 AS VARCHAR(3)),'') ) )) 
+		convert(varchar(150),(CAT.Description + ' ' + FIELD_2 + ' ' + FIELD_3 + ' ' 
+		+ (ISNULL(CAST(str(FIELD_17, 2, 0) AS VARCHAR(2)),'') + '/' + ISNULL(CAST(field_6 AS VARCHAR(2)),'') 
+		+ '/' + ISNULL(CAST(field_8 AS VARCHAR(3)),'') ) )) 
 		end,
  '' as imageURLs, 
 [category:1] = CASE 
 	 WHEN I.part_no = 'OPZSUNSKIT' THEN 'SUN'
 	 WHEN i.TYPE_CODE IN ('OTHER','POP') THEN 'POP'
+	 -- 1/11/2016
+	 WHEN i.category = 'CH' AND ia.FIELD_32 = 'LastChance' THEN 'CHLastChance'
 	 WHEN i.category = 'CH' AND @TODAY >= @CH THEN 'CH SELL-DOWN'
 	 WHEN ISNULL(FIELD_28,@TODAY) >= @today THEN I.TYPE_CODE
 	 WHEN EXISTS (SELECT 1 FROM #EOS WHERE #EOS.PART_NO = I.PART_NO) THEN 'SUN SPECIALS'

@@ -11,7 +11,7 @@ as
 set nocount on
 BEGIN
 
--- exec cvo_territory_sales_r2016_sp 2015, 20201
+-- exec cvo_territory_sales_r2016_sp 2016, 20201
 
 --DECLARE @compareyear INT, @territory VARCHAR(1000)
 --SELECT @compareyear = 2015, @territory = '20201'
@@ -54,23 +54,23 @@ IF(OBJECT_ID('tempdb.dbo.#territory') is not null)  drop table #territory
 CREATE TABLE #territory ([territory] VARCHAR(10),
 						 [region] VARCHAR(3),
 						 [r_id] INT,
-						 [t_id] INT IDENTITY (1,1))
+						 [t_id] INT )
 
 if @terr is null
 begin
 	insert #territory
-	select distinct territory_code, dbo.calculate_region_fn(territory_code) region, 0
+	select distinct territory_code, dbo.calculate_region_fn(territory_code) region, 0, 0
 	from armaster where territory_code is not NULL
     ORDER BY territory_code
 end
 else
 begin
-	INSERT INTO #territory ([territory],[region])
-	SELECT distinct LISTITEM, dbo.calculate_region_fn(listitem) region FROM dbo.f_comma_list_to_table(@terr)
+	INSERT INTO #territory ([territory],[region], [r_id], [t_id])
+	SELECT distinct LISTITEM, dbo.calculate_region_fn(listitem) region, 0, 0 FROM dbo.f_comma_list_to_table(@terr)
 	ORDER BY ListItem
 END
 
-UPDATE t SET t.r_id = r.r_id
+UPDATE t SET t.r_id = r.r_id, t.t_id = tr.t_id
 -- SELECT * 
 FROM #territory AS t
 join
@@ -79,6 +79,11 @@ SELECT DISTINCT region, rank() OVER (ORDER BY region) r_id
 FROM (SELECT DISTINCT region FROM #territory) AS r
 ) AS r 
 on t.region = r.region
+JOIN 
+(SELECT DISTINCT territory, RANK() OVER (PARTITION BY region ORDER BY territory) t_id
+FROM (SELECT DISTINCT region, territory FROM #territory) AS tr
+) AS tr
+ON t.territory = tr.territory
 
 -- SELECT * FROM #territory AS t
 
@@ -191,13 +196,13 @@ group by a.territory_code, a.x_month, a.year, a.month --, a.tot
 
 -- fixup sales person names
 
-select t.territory territory_code
-, salesperson_code = isnull((select top 1 salesperson_name from arsalesp
+select LTRIM(RTRIM(t.territory)) territory_code
+, salesperson_code = LTRIM(RTRIM(ISNULL((select top 1 salesperson_name from arsalesp
 	where salesperson_code <> 'smithma' 
 	and territory_code = t.territory 
 	and isnull(date_of_hire,'1/1/1900') <= @today
 	and status_type = 1)
-	, 'Empty')
+	, 'Empty')))
 -- , dbo.calculate_region_fn(t.territory) as region
 	, t.region
 	, t.r_id
@@ -227,6 +232,7 @@ round (currentmonthsales,2) currentmonthsales,
 			end as Q
 ,#s1.r_id
 ,#s1.t_id
+,col = CASE WHEN #s1.t_id % 2 = 1 THEN 'L' ELSE 'R' end 
   From #ty -- ty
   left outer join #s1 on #s1.territory_code = #ty.territory_code
 Union ALL
@@ -248,6 +254,7 @@ round (currentmonthsales,2) currentmonthsales,
 			end as Q
 ,#s1.r_id
 ,#s1.t_id
+,col = CASE WHEN #s1.t_id % 2 = 1 THEN 'L' ELSE 'R' end 
 FROM #ly -- ly
 left outer join #s1 on #s1.territory_code = #ly.territory_code
 -- where #ly.tot = ' Core'
@@ -300,6 +307,8 @@ left outer join #s1 on #s1.territory_code = #ly.territory_code
 	
 
 end
+
+
 
 
 
