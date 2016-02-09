@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -13,6 +14,7 @@ CREATE PROCEDURE [dbo].[cvo_promotions_tracker_terr_sp]
 as
 
 -- 122614 put parameters into local variables to prevent 'sniffing'
+-- 011816 - change who_entered criteria
 
 declare @startdate datetime, @enddate datetime
 set @startdate = @sdate
@@ -107,7 +109,8 @@ and (o.promo_id in (@PromoLevel))
 AND (o.date_entered BETWEEN @StartDate AND 
 dateadd(ms, -3, dateadd(dd, datediff(dd,0,@EndDate)+1, 0)))
 -- AND (o.Territory IN (@Territory)) 
-AND ((o.who_entered <> 'backordr' and o.ext = 0) or o.who_entered = 'outofstock') 
+AND o.who_entered <> 'backordr' -- 1/18/2016
+-- AND ((o.who_entered <> 'backordr' and o.ext = 0) or o.who_entered = 'outofstock') 
 -- AND              (o.order_type <> 'st-rb') 
 and o.status <> 'V' -- 110714 - exclude void orders
 
@@ -236,5 +239,6 @@ from #temp
 
 
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_promotions_tracker_terr_sp] TO [public]
 GO

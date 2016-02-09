@@ -1,5 +1,6 @@
 CREATE TABLE [dbo].[cvo_hs_cir_tbl]
 (
+[report_id] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [customer] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [ship_to] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [mastersku] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,

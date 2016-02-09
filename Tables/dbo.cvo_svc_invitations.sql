@@ -41,6 +41,9 @@ CREATE TABLE [dbo].[cvo_svc_invitations]
 [sv_pom] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__sv_po__63D7FEEF] DEFAULT ((0)),
 [ch] [tinyint] NULL,
 [ch_show] [tinyint] NULL,
-[ch_order] [int] NULL
+[ch_order] [int] NULL,
+[chs] [tinyint] NULL,
+[chs_show] [int] NULL,
+[chs_order] [int] NULL
 ) ON [PRIMARY]
 GO

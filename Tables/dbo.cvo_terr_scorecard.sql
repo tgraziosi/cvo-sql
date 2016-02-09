@@ -25,8 +25,9 @@ CREATE TABLE [dbo].[cvo_terr_scorecard]
 [D500_Retn_Pct] [decimal] (18, 2) NULL,
 [Core_Goal_Amt] [decimal] (20, 8) NULL,
 [Revo_Goal_Amt] [decimal] (20, 8) NULL,
-[Blutech_Goal_Amt] [decimal] (20, 8) NULL
+[Blutech_Goal_Amt] [decimal] (20, 8) NULL,
+[RSM_Territory_Code] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
-GO
-CREATE UNIQUE CLUSTERED INDEX [pk_terr_scorecard] ON [dbo].[cvo_terr_scorecard] ([Territory_Code], [Stat_Year]) ON [PRIMARY]
+CREATE UNIQUE CLUSTERED INDEX [pk_terr_scorecard] ON [dbo].[cvo_terr_scorecard] ([Territory_Code], [Stat_Year], [Salesperson_name]) ON [PRIMARY]
+
 GO

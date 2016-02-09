@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -10,7 +11,11 @@ set nocount on
 
 exec cvo_mass_order_update_sp
 
-select * From cvo_interim_order_updates where proc_flag is null
+select co.allocation_date, i.* From cvo_interim_order_updates i
+join cvo_orders_all co on i.order_no = co.order_no
+where date_time between '12/21/2015' and '12/22/2015'
+ order by date_time desc
+ where proc_flag is null
 
 update cvo_interim_order_updates set userid = 'tgraziosi' where userid = 'rlanka'
 update cvo_interim_order_updates set userid = 'jberman' where order_no = 2084285           
@@ -65,19 +70,25 @@ begin
 	     isnull(@sch_ship_date,@today) < isnull(@allocation_date,@today) )
 	insert into #log (ret,err_msg) values (-1,'Invalid ship or allocation date update')
 	else
-	begin
-		update cvo_orders_all set allocation_date = @allocation_date
-		where order_no = @order_no and ext = @order_ext 
-		and allocation_date <> isnull(@allocation_date,@today)
-		if (@@error <> 0) 
-			insert into #log (ret,err_msg) values (-1,'Error updating allocation date')
+	BEGIN
+		IF @allocation_date IS NOT NULL
+        begin
+			update cvo_orders_all set allocation_date = @allocation_date
+			where order_no = @order_no and ext = @order_ext 
+			and allocation_date <> @allocation_date
+			if (@@error <> 0) 
+				insert into #log (ret,err_msg) values (-1,'Error updating allocation date')
+		end
 		
-		update orders_all set req_ship_date = @sch_ship_date
-		where order_no = @order_no and ext = @order_ext 
-		and req_ship_date <> isnull(@sch_ship_date,req_ship_date)
-		if (@@error <> 0) 
-			insert into #log (ret,err_msg) values (-1,'Error updating delivery date')
-
+		IF @sch_ship_date IS NOT NULL
+        begin
+			update orders_all set req_ship_date = @sch_ship_date
+			where order_no = @order_no and ext = @order_ext 
+			and req_ship_date <> @sch_ship_date
+			if (@@error <> 0) 
+				insert into #log (ret,err_msg) values (-1,'Error updating delivery date')
+		END
+        
 		if object_id('tempdb..#cvo_order_update_temp') is not null
 		drop table #cvo_order_update_temp
 		create table #cvo_order_update_temp
@@ -137,6 +148,8 @@ while @userid is not null
 
  end -- while @userid is not null
  
+
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_mass_order_update_sp] TO [public]
 GO

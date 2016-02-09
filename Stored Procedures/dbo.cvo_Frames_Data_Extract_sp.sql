@@ -7,7 +7,7 @@ GO
 -- Create Data for Frames Data SmartSubmit Template ver. 8/11/2009
 -- Author: Tine Graziosi for ClearVision 
 -- 2/4/2013
--- exec cvo_frames_data_extract_sp '01/05/2015'
+-- exec cvo_frames_data_extract_sp '02/23/2016'
 -- 4/2015 - update for CMI
 -- 10/15 - update to pull from epicor if not in cmi - (revo support)
 -- =============================================
@@ -24,6 +24,10 @@ BEGIN
 	-- SET NOCOUNT ON added to prevent extra result sets from
 	-- interfering with SELECT statements.
 	SET NOCOUNT ON;
+	SET ANSI_WARNINGS OFF;
+
+	--DECLARE @RELEASEDATE DATETIME, @BRAND VARCHAR(1000)
+	--SELECT @RELEASEDATE = '2/23/2016', @BRAND = NULL
 
 	CREATE TABLE #brand ([brand] VARCHAR(10))
 	if @brand is null
@@ -38,9 +42,9 @@ BEGIN
 	end
 
 	select 
-	TOP 100 percent
+	-- TOP 100 percent
 	--A
-	i.upc_code as UPC,
+	CAST(ISNULL(i.upc_code,'') AS VARCHAR(13)) as UPC,
 	--B
 	i.part_no as Frame_SKU,
 	--C
@@ -59,29 +63,29 @@ BEGIN
 			when 'DI' then 'digit. collection'
 			when 'ET' then 'Ellen Tracy Collection'
 			when 'IZOD' then 
-				case when ia.category_2 like '%child%' then -- gender
+				case when ISNULL(ia.category_2,'') like '%child%' then -- gender
 					'Izod Boy''s Collection'
 				else 'Izod Collection' end
 			when 'IZX' then 
-				case when ia.category_2 like '%child%' then
+				case when ISNULL(ia.category_2,'') like '%child%' then
 					'Izod PerformX Boy''s Collection'
 				else 'Izod PerformX Collection' end
 			when 'JMC' then 
-				case when ia.category_2 like '%child%' then
+				case when ISNULL(ia.category_2,'') like '%child%' then
 					'Jessica Girls Collection'
 				else 'Jessica Collection' end
 			when 'JC' then 'Junction City Collection'
 			when 'ME' then 'Mark Ecko Collection'
 			when 'OP' then 
-				case when ia.category_2 like '%child%' then
+				case when ISNULL(ia.category_2,'') like '%child%' then
 					'Op-Ocean Pacific Kids Collection'
 				else 'Op-Ocean Pacific Collection' end
 			when 'PT' then 'Puriti Collection' -- 2/2014
 			when 'RR' then 'Red Raven'	-- 040915
-			else '** Undefined **' end
+			else '**Undefined**' end
 			
 	  when 'sun' then
-		case i.category
+		case ISNULL(i.category,'')
 			when 'AS' then 'Aspire Sunglass Collection'
 			when 'bcbg' then 'BCBG Max Azria Sunglass Collection'
 			when 'CH' then 'Cole Haan Sunglass Collection'
@@ -93,11 +97,11 @@ BEGIN
 			when 'OP' then 'Op-Ocean Pacific Sunglass Collection'
 			when 'PT' then 'Puriti Sunglass Collection'
 			WHEN 'REVO' THEN 'REVO Sunglass Collection'
-			else '** Undefined **' end
+			else '**Undefined**' end
 	  end,
 	-- E 
 	Brand_id = 
-	case i.category 
+	case ISNULL(i.category,'') 
 		when 'AS' then '8311'  -- 040915
 		when 'bcbg' then '6799'
 		when 'CVO' then 
@@ -124,17 +128,17 @@ BEGIN
 	-- G
 	Product_Group_type = 
 	case when i.type_code = 'sun' then 'Sunglasses' -- Sunglasses
-		 when ia.category_2 like '%child%' then 'Children''s' -- Childrens
-		 when ia.field_11 like '%rimless%' then 'Rimless' -- Rimless
-		 when ia.field_11 like '%combo%' then 'Combinations'
-		 when ia.field_10 like '%metal%' then 'Metal' -- Metal
-		 when ia.field_10 like '%plastic%' then 'Plastic' 
+		 when ISNULL(ia.category_2,'') like '%child%' then 'Children''s' -- Childrens
+		 when ISNULL(ia.field_11,'') like '%rimless%' then 'Rimless' -- Rimless
+		 when ISNULL(ia.field_11,'') like '%combo%' then 'Combinations'
+		 when ISNULL(ia.field_10,'') like '%metal%' then 'Metal' -- Metal
+		 when ISNULL(ia.field_10,'') like '%plastic%' then 'Plastic' 
 		 else '** Undefined **' end,
 	-- i.cmdty_code as Product_Group_Type,
 	-- H
 	Frame_Color_Group = 
 	case -- ia.category_5 
-		ISNULL(cmi.colorgroupcode, ia.category_5)
+		ISNULL(cmi.colorgroupcode, ISNULL(ia.category_5,''))
 		when 'bla' then 'Black' -- Black
 		when 'BLU' then 'Blue' -- Blue
 		when 'BRN' then 'Brown' -- Brown,
@@ -154,7 +158,7 @@ BEGIN
 	--ia.category_5 as Frame_Color_Group,
 	-- I
 	-- ia.field_3 as Frame_Color_Description,
-	ISNULL(cmi.colorname, ia.field_3) Frame_Color_Description,
+	ISNULL(cmi.colorname, ISNULL(ia.field_3,'')) Frame_Color_Description,
 	-- J
 	' ' as Frame_color_code,
 	-- K
@@ -163,7 +167,7 @@ BEGIN
 	' ' as LENS_COLOR_DESCRIPTION,
 	-- M
 	-- cast(ia.field_17 as int) as Eye_Size,
-	cast(ISNULL(cmi.eye_size,ia.field_17) as int) as Eye_Size,
+	cast(ISNULL(cmi.eye_size,ISNULL(ia.field_17,0)) as int) as Eye_Size,
 	-- N
 	--cast(ia.field_19 as int) as A,
 	' ' as A,
@@ -180,10 +184,10 @@ BEGIN
 	' ' as ED_Angle,
 	-- R
 	-- ia.field_8 as Temple_length,
-	ISNULL(cmi.temple_size, ia.field_8) as Temple_length,
+	ISNULL(cmi.temple_size, ISNULL(ia.field_8,'')) as Temple_length,
 	-- S
 	-- ia.field_6 as Bridge_Size,
-	ISNULL(cmi.dbl_size, ia.field_6) as Bridge_Size,
+	ISNULL(cmi.dbl_size, ISNULL(ia.field_6,'')) as Bridge_Size,
 	-- T
 	-- cmi.dbl_size as DBL,
 	'' as DBL,
@@ -230,15 +234,15 @@ BEGIN
 		else '***' end,
 	-- AC
 	Temple_type = 
-	case when ia.field_13 like '%skull%' then 'Skull' 
-		when ia.field_13 like '%cable%' then 'Cable'
+	case when ISNULL(ia.field_13,' ') like '%skull%' then 'Skull' 
+		when ISNULL(ia.field_13,' ') like '%cable%' then 'Cable'
 		else 'Skull' end, -- Skull
 	-- AD
 	' ' as Temple_Description,
 	-- AE
 	Bridge_type = 
-		case when ia.field_10 like '%metal%' then 'Adjustable nose pads' -- adjustable nose pads
-			when ia.field_10 like '%plastic%' then 'Universal' -- Universal
+		case when ISNULL(ia.field_10,'') like '%metal%' then 'Adjustable nose pads' -- adjustable nose pads
+			when ISNULL(ia.field_10,'') like '%plastic%' then 'Universal' -- Universal
 		else 'Universal' end,
 	-- AF
 	' ' as Bridge_Description,
@@ -246,8 +250,8 @@ BEGIN
 	--'' as Sunglass_Lens_type,
 	Sunglass_Lens_type = 
 	case when i.type_code = 'sun' then
-	case when ia.field_24 like '%polycarb%' then 'Polycarbonate'
-		when ia.field_24 like '%CR39%' then 'CR-39'
+	case when ISNULL(ia.field_24,'') like '%polycarb%' then 'Polycarbonate'
+		when ISNULL(ia.field_24,'') like '%CR39%' then 'CR-39'
 		else '????' end
 	else '' end,
 	--AH
@@ -280,8 +284,8 @@ BEGIN
 	--'' as Hinge_Type, -- field_13
 	Hinge_type = 
 	case 
-		when ia.field_13 like '%spring%' then 'Spring Hinge'
-		when ia.field_13 like '%standard%' then 'Regular Hinge'
+		when ISNULL(ia.field_13,'') like '%spring%' then 'Spring Hinge'
+		when ISNULL(ia.field_13,'') like '%standard%' then 'Regular Hinge'
 		else 'Regular Hinge' end,
 	--AR
 	-- Rim_Type = isnull(cmi.frame_category,''), --Rim_Type = '',
@@ -327,7 +331,7 @@ BEGIN
 	--AU
 	datepart(yy,ia.field_26) as Year_Introduced,
 	--AV
-	cast(round(p.price_a,2) as decimal(8,2))  as Complete_Price,
+	cast(round(ISNULL(p.price_a,0),2) as decimal(8,2))  as Complete_Price,
 	--AW
 	cast(round( isnull( (select pp.price_a from inv_master_add ic (nolock)
 	inner join part_price pp (nolock) on ic.part_no = pp.part_no
@@ -375,11 +379,12 @@ BEGIN
 	inner join cvo_inv_master_r2_vw ci (nolock) on ci.part_no = i.part_no
 	left outer join cvo_cmi_catalog_view cmi (nolock) on cmi.collection = ci.collection
 		and cmi.model = ci.model and cmi.colorname = ci.colorname and cmi.eye_size = ci.eye_size
-		inner join part_price p (nolock) on p.part_no = i.part_no
+	inner join part_price p (nolock) on p.part_no = i.part_no
 
 	where i.void = 'N'
 	AND I.TYPE_code in ('frame','sun')
-	and (ia.field_26 = @ReleaseDate or @releasedate = '1/1/1900')
+	-- AND i.entered_who = 'CMI'
+	and ( @ReleaseDate = ia.field_26 OR @releasedate = '1/1/1900')
 	order by i.part_no
 
 
@@ -387,7 +392,9 @@ END
 
 
 
+
 GO
+
 
 GRANT EXECUTE ON  [dbo].[cvo_Frames_Data_Extract_sp] TO [public]
 GO

@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -8,6 +9,7 @@ GO
 -- Create date: 5/17/2013
 -- Description:	LISTS FOR QOP AND EOR ORDER FORMS
 -- EXEC CVO_QOPEOR_SSRS_SP
+-- 1/13/169 - remove CH
 -- =============================================
 CREATE PROCEDURE [dbo].[CVO_QOPEOR_SSRS_SP]
 
@@ -37,13 +39,15 @@ case when gender LIKE '%CHILD%' THEN 'Kids'
 	when gender = 'FEMALE-ADULT' THEN 'Womens' 
 	else 'Mens' end as Gender, 
 Avail, ReserveQty, case when ReserveQty >5 then Avail else (case when Avail<=5 then 0 else avail-5 End) end as  TrueAvail
- from cvo_items_discontinue_vw where pom_date between @QOPStart and @QOPEnd and Avail >=1 and type in ('frame') 
+ from cvo_items_discontinue_vw 
+ WHERE Brand <> 'ch' AND pom_date between @QOPStart and @QOPEnd and Avail >=1 and type in ('frame') 
 UNION ALL
 select 'EOR' as Prog, Brand, style, part_no, pom_date, 
 case when gender LIKE '%CHILD%' THEN 'Kids' 
 	when gender = 'FEMALE-ADULT' THEN 'Womens' 
 	else 'Mens' end as Gender, Avail, ReserveQty, Avail as TrueAvail
-from cvo_items_discontinue_vw where pom_date < @EORDate and Avail >=1 and type in ('frame')  )tmp 
+from cvo_items_discontinue_vw 
+WHERE Brand <> 'CH' AND pom_date < @EORDate and Avail >=1 and type in ('frame')  )tmp 
 order by Prog, gender, brand, style, part_no
 
 delete from #data where TrueAvail=0
@@ -71,4 +75,6 @@ t1.Prog, t1.Brand, t1.Style, t1.part_no, t1.pom_date,
  from #Data t1 join #num t2 on t1.prog=t2.prog and t1.gender=t2.gender and t1.brand=t2.brand and t1.style=t2.style order by Prog, Gender, Brand, Style
 
 END
+
+
 GO

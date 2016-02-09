@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -25,6 +26,7 @@ GO
 -- v6.2 CB 11/09/2013 - Issue #1370 - Object already created
 -- v6.3 CT 10/04/2014 - Issue #572 - Label is now shared with consolidated pick list, some field labels now passed as parameters
 -- v6.4 CB 10/06/2015 - Fix issue when lines are deleted on the order but have not been unallocated. Page numbering goes out.
+-- v6.5 CB 13/01/2016 - #1586 - When orders are allocated or a picking list printed then update backorder processing
 
 CREATE PROCEDURE [dbo].[tdc_print_plw_so_pick_ticket_sp]  
  @user_id     varchar(50),  
@@ -1307,6 +1309,11 @@ BEGIN
 	DROP TABLE #cvo_ord_list
 END
 -- v5.9 End
+
+-- v6.5 Start
+EXEC dbo.cvo_update_bo_processing_sp 'P', @order_no, @order_ext
+-- v6.5 End
+
   
 RETURN 
 
@@ -1315,5 +1322,6 @@ RETURN
 
 
 GO
+
 GRANT EXECUTE ON  [dbo].[tdc_print_plw_so_pick_ticket_sp] TO [public]
 GO

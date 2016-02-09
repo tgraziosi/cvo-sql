@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -19,7 +20,7 @@ BEGIN
 -- generate sku's from cmi into epicor
 --  
 -- 
--- exec [cvo_cmi_sku_generate_sp] 'bcbg', 'justine', null, null, '08/30/2016','Y', 1
+-- exec [cvo_cmi_sku_generate_sp] 'izod', '2009', 'GREEN', null, '06/30/2016','N', 1
 
 SET XACT_ABORT, NOCOUNT ON;
 
@@ -111,7 +112,12 @@ SELECT part_no ,
        date_added ,
        dim_release_date ,
        model_lead_time ,
-       lens_color	 
+       lens_color,
+	   short_color_name = CASE WHEN LEFT(cmi.ColorName,3) = 'GRE' THEN
+			 CASE when cmi.ColorGroupCode = 'GRY' THEN 'GRE' -- Grey
+				  WHEN cmi.colorgroupcode = 'GRN' THEN 'GRN'
+				  ELSE LEFT(colorname,3) END
+		    ELSE LEFT(colorname,3) end -- 1/26/2016	 
 INTO #cmi
 -- FROM [cvo-db-03].cvo.dbo.cvo_cmi_catalog_view cmi
 FROM dbo.cvo_cmi_catalog_view cmi
@@ -248,7 +254,7 @@ INSERT  INTO #parts_list
                 'FRAME' ,
                 UPPER(
 				LEFT(c.Collection, 2) + RTRIM(smn.short_model)
-                + ISNULL(LEFT(c.ColorName, 3), 'ccc')
+                + ISNULL(short_color_name, 'ccc')
                 + CAST(c.eye_size AS VARCHAR(2))
                 + CAST(c.dbl_size AS VARCHAR(2))
 				)
@@ -279,7 +285,7 @@ INSERT  INTO #parts_list
                 'FRONT' ,
                 UPPER(
 				LEFT(c.Collection, 2) + RTRIM(smn.short_model)
-                + ISNULL(LEFT(c.ColorName, 3), 'ccc') + 'F'
+                + ISNULL(short_color_name, 'ccc') + 'F'
                 + CAST(c.eye_size AS VARCHAR(2))
 				)
         FROM    #cmi c
@@ -339,7 +345,7 @@ INSERT  INTO #parts_list
                 'DEMOLEN' ,
                 UPPER(
 				LEFT(c.Collection, 2) + RTRIM(smn.short_model)
-                + 'SUN' + ISNULL(LEFT(c.ColorName, 3), 'ccc') 
+                + 'SUN' + ISNULL(short_color_name, 'ccc') 
                 + CAST(c.eye_size AS VARCHAR(2))
 				)
         FROM    #cmi c
@@ -371,7 +377,7 @@ INSERT  INTO #parts_list
                 'TEMPLE-L' ,
                 UPPER(
 				LEFT(c.Collection, 2) + RTRIM(smn.short_model)
-                + ISNULL(LEFT(c.ColorName, 3), 'ccc') + 'LS'
+                + ISNULL(short_color_name, 'ccc') + 'LS'
                 + CAST(CAST(c.temple_size AS INT) AS VARCHAR(3))
 				)
         FROM    #cmi c
@@ -402,7 +408,7 @@ INSERT  INTO #parts_list
                 'TEMPLE-R' ,
                 upper(
 				LEFT(c.Collection, 2) + RTRIM(smn.short_model)
-                + ISNULL(LEFT(c.ColorName, 3), 'ccc') + 'RS'
+                + ISNULL(short_color_name, 'ccc') + 'RS'
                 + CAST(CAST(c.temple_size AS INT) AS VARCHAR(3))
 				)
         FROM    #cmi c
@@ -412,6 +418,8 @@ INSERT  INTO #parts_list
 				AND c.colorname = ISNULL(@colorname,c.colorname)
 				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
                 AND CHARINDEX('cable', c.hinge_type) = 0;
+
+/* Cant do this yet - 1/26/2016
 
 INSERT  INTO #parts_list
         ( collection ,
@@ -433,7 +441,7 @@ INSERT  INTO #parts_list
                 'TEMPLE-TIP' ,
                 UPPER(
 				LEFT(c.Collection, 2) + RTRIM(smn.short_model)
-                + ISNULL(LEFT(c.ColorName, 3), 'ccc') + 'TT'
+                + ISNULL(short_color_name, 'ccc') + 'TT'
                 + CAST(c.eye_size AS VARCHAR(2))
 				)
         FROM    #cmi c
@@ -443,6 +451,7 @@ INSERT  INTO #parts_list
 				AND c.colorname = ISNULL(@colorname,c.colorname)
 				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
                 AND ISNULL(c.temple_tip_material, '') > ''; 
+*/
 
 INSERT  INTO #parts_list
         ( collection ,
@@ -464,7 +473,7 @@ INSERT  INTO #parts_list
                 'CABLE-L' ,
 				UPPER(
                 LEFT(c.Collection, 2) + RTRIM(smn.short_model)
-                + ISNULL(LEFT(c.ColorName, 3), 'ccc') + 'LC'
+                + ISNULL(short_color_name, 'ccc') + 'LC'
                 + CAST(CAST(c.temple_size AS INT) AS VARCHAR(3))
 				)
         FROM    #cmi c
@@ -495,7 +504,7 @@ INSERT  INTO #parts_list
                 'CABLE-R' ,
 				UPPER(
                 LEFT(c.Collection, 2) + RTRIM(smn.short_model)
-                + ISNULL(LEFT(c.ColorName, 3), 'ccc') + 'RC'
+                + ISNULL(short_color_name, 'ccc') + 'RC'
                 + CAST(CAST(c.temple_size AS INT) AS VARCHAR(3))
 				)
         FROM    #cmi c
@@ -1808,6 +1817,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

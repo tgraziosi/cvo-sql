@@ -110,6 +110,12 @@ select
 	Convert(varchar(100),'Last 90 days') as [Period]
 	,convert(datetime,datediff(dd,0,getdate()))-90 as BeginDate
 	,convert(datetime,datediff(dd,0,getdate())) as EndDate
+UNION all
+select 
+	Convert(varchar(100),'Two Years Ago to Date') as [Period]
+	,convert(datetime,'1/1/' + cast(year(getdate())-2 as varchar(4))) as BeginDate
+	,dateadd(yy,-2,convert(datetime,datediff(dd,0,getdate())))-1 as EndDate
+
 --union all
 --select 
 --	Convert(varchar(100),'This Calendar Quarter') as [Period]
@@ -150,6 +156,7 @@ select
 --	Convert(varchar(100),'Next Year to Date') as [Period]
 --	,Convert(datetime,'1/1/' + cast(YEAR(GETDATE())+1 as varchar(4))) as BeginDate
 --	,Convert(datetime,cast(MONTH(GETDATE()) as varchar(2)) + '/' + cast(DAY(GETDATE()) as varchar(2)) + '/' + cast(YEAR(GETDATE())+1 as varchar(4)))  as EndDate
+
 
 
 

@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -491,7 +492,7 @@ BEGIN
 	DELETE	cvo_ord_list_fc
 	WHERE	order_no = @order_no
 	AND		order_ext = @order_ext
-
+	
 	INSERT	dbo.cvo_ord_list_fc  WITH (ROWLOCK) (order_no, order_ext, line_no, part_no, case_part, pattern_part)
 	SELECT	a.order_no, a.order_ext, a.line_no, a.part_no, ISNULL(inv.field_1,''), ISNULL(inv.field_4,'')
 	FROM	ord_list a (NOLOCK)
@@ -503,11 +504,38 @@ BEGIN
 	AND		a.order_ext = @order_ext	
 	AND		b.type_code IN ('FRAME','SUN')
 	ORDER BY a.order_no, a.order_ext, a.line_no
-
 	-- v3.0 End
+
+	-- v3.5 Start - Add polarized_part
+	UPDATE	a
+	SET		polarized_part = c.part_no
+	FROM	cvo_ord_list_fc a
+	JOIN	cvo_ord_list b (NOLOCK)
+	ON		a.order_no = b.order_no
+	AND		a.order_ext = b.order_ext
+	AND		a.line_no = b.from_line_no
+	JOIN	ord_list c (NOLOCK)
+	ON		b.order_no = c.order_no
+	AND		b.order_ext = c.order_ext
+	AND		b.line_no = c.line_no
+	JOIN	cvo_ord_list d (NOLOCK)
+	ON		a.order_no = d.order_no
+	AND		a.order_ext = d.order_ext
+	AND		a.line_no = d.line_no
+	WHERE	a.order_no = @order_no
+	AND		a.order_ext = @order_ext
+	AND		d.add_polarized = 'Y'
+
+	UPDATE	cvo_ord_list
+	SET		from_line_no = 0
+	WHERE	order_no = @order_no
+	AND		order_ext = @order_ext
+	AND		from_line_no > 0
+	-- v3.5 End
 
 
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_soft_alloc_apply_sp] TO [public]
 GO

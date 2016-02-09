@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -1073,6 +1074,10 @@ DELETE tdc_main WHERE consolidation_no NOT IN (SELECT consolidation_no  FROM tdc
 -- v1.3 - Call autopack routine
 EXEC dbo.CVO_build_autopack_carton_sp @order_no, @order_ext
 
+-- v3.0 Start
+EXEC dbo.cvo_update_bo_processing_sp 'A', @order_no, @order_ext
+-- v3.0 End
+
 -- v2.9 Start
 IF OBJECT_ID('tempdb..#consolidate_picks') IS NOT NULL
 	DROP TABLE #consolidate_picks
@@ -1132,5 +1137,6 @@ COMMIT TRAN
   
 RETURN   
 GO
+
 GRANT EXECUTE ON  [dbo].[tdc_plw_so_allocbylot_process_sp] TO [public]
 GO

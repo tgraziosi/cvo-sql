@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -15,6 +16,7 @@ Called by:
 Copyright:   Epicor Software 2010.  All rights reserved.  
  v1.0 CB 01/05/2012 - Stop the routine being called for orders that are not selected in PWB
  v1.1 CB 01/05/2013 - Replace cursors
+ v1.2 CB 26/01/2016 - #1581 2nd Polarized Option
 */
 CREATE PROCEDURE [dbo].[CVO_allocate_by_bin_group_adjust_sp]
 	@alloc_from_ebo	INT = 0
@@ -42,7 +44,8 @@ DECLARE @order_no				INT,
 		@needed_part_no			VARCHAR(30),	
 		@needed_line_no			INT,
 		@needed_qty				DECIMAL(20,8),
-		@log_info				VARCHAR(100)	
+		@log_info				VARCHAR(100),	
+		@polarized_type			varchar(10) -- v1.2
 
 -- v1.1 Start
 DECLARE	@row_id				int,
@@ -54,7 +57,8 @@ DECLARE	@row_id				int,
 	SET @frame		= [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_FRAME')
 	SET @case		= [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_CASE')
 	SET @pattern	= [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_PATTERN')
-	SET @polarized	= [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_POLARIZED') 
+	SET @polarized_type = 'PARTS' -- v1.2
+-- v1.2	SET @polarized	= [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_POLARIZED') 
 
 	--HEADER
 	--works with a copy of #so_alloc_management
@@ -274,6 +278,15 @@ DECLARE	@row_id				int,
 --		WHILE @@FETCH_STATUS = 0
 --		BEGIN					
 	-- v1.1 End
+
+		-- v1.2 Start
+		SELECT	@polarized = polarized_part
+		FROM	cvo_ord_list_fc (NOLOCK)
+		WHERE	order_no = @order_no
+		AND		order_ext = @order_ext
+		AND		line_no = @line_no
+		-- v1.2 End
+
 		--if package is not picked
 			IF(SELECT SUM(qty_picked) FROM #so_allocation_detail_view_BAK WHERE (line_no = @line_no OR from_line_no	= @line_no) AND order_no = @order_no AND order_ext = @order_ext AND location = @location) = 0
 			BEGIN
@@ -352,7 +365,7 @@ DECLARE	@row_id				int,
 								location		= @location) = 2 AND
 					   (SELECT COUNT(*)
 						FROM   #so_allocation_detail_view_BAK 
-						WHERE  (line_no = @line_no OR (from_line_no = @line_no AND type_code = @polarized))	AND
+						WHERE  (line_no = @line_no OR (from_line_no = @line_no AND type_code = @polarized_type))	AND -- v1.2
 								order_no		= @order_no													AND  
 								order_ext		= @order_ext												AND  
 								location		= @location) = 2 
@@ -505,5 +518,6 @@ DECLARE	@row_id				int,
 END
 -- Permissions
 GO
+
 GRANT EXECUTE ON  [dbo].[CVO_allocate_by_bin_group_adjust_sp] TO [public]
 GO

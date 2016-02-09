@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -22,7 +23,8 @@ BEGIN
    @from_bin  varchar(12),  
    @to_bin   varchar(12),  
    @line_no  int,  
-   @last_line  int  
+   @last_line  int,
+   @consolidation_no int -- v2.2
   
       -- If order# = 0 this is initial creation we exit  
       IF @order_no = 0  
@@ -227,6 +229,19 @@ BEGIN
  EXEC dbo.CVO_build_autopack_carton_sp @order_no, @order_ext
  -- END v1.8  
 
+-- v2.2 Start
+IF EXISTS (SELECT 1 FROM cvo_masterpack_consolidation_det (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext)
+BEGIN
+	SELECT	@consolidation_no = consolidation_no
+	FROM	cvo_masterpack_consolidation_det (NOLOCK)
+	WHERE	order_no = @order_no 
+	AND		order_ext = @order_ext
+
+	EXEC cvo_masterpack_unconsolidate_pick_records_sp @consolidation_no
+
+END
+-- v2.2 End
+
 -- v2.0 Start
 IF (@recreate <> 0)
 BEGIN
@@ -243,5 +258,6 @@ END
   
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_UnAllocate_sp] TO [public]
 GO

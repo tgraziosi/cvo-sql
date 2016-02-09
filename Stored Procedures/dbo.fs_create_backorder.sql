@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -66,6 +67,7 @@ SET NOCOUNT ON
 -- v11.7 CB 18/03/2015 - Initialize st_consolidate flag on a backorder
 -- v11.8 CT 15/05/2015 - Issue #1474 - don't create backorder if only out of stock items are cases
 -- v11.9 CB 21/08/2015 - Issue #1563 - Upsell flag
+-- v12.0 CB 26/01/2016 - #1581 2nd Polarized Option
   
 exec @err = fs_updordtots @ordno, @ordext  
  if @@error != 0  
@@ -567,8 +569,8 @@ DELETE	cvo_ord_list_fc
 WHERE	order_no = @ordno
 AND		order_ext = @ext
 
-INSERT	dbo.cvo_ord_list_fc (order_no, order_ext, line_no, part_no, case_part, pattern_part)
-SELECT	order_no, @ext, line_no, part_no, case_part, pattern_part
+INSERT	dbo.cvo_ord_list_fc (order_no, order_ext, line_no, part_no, case_part, pattern_part, polarized_part) -- v12.0
+SELECT	order_no, @ext, line_no, part_no, case_part, pattern_part, polarized_part -- v12.0
 FROM	cvo_ord_list_fc (NOLOCK)
 WHERE	order_no = @ordno
 AND		order_ext = @ordext	
@@ -597,5 +599,6 @@ END
   
 return 1
 GO
+
 GRANT EXECUTE ON  [dbo].[fs_create_backorder] TO [public]
 GO

@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -14,7 +15,7 @@ CREATE view [dbo].[cvo_sc_addr_vw]
 as 
 
 
--- select * From cvo_sc_addr_vw
+-- select * From cvo_sc_addr_vw where rsm_territory_code is null
 
 select  
 slp.salesperson_code,
@@ -35,12 +36,16 @@ security_code = case when x.status = 1 then x.security_code else '' end,
 email_address = case when x.status = 1 then x.email_address else '' end, 
 slp.salesperson_type,
 slp.sales_mgr_code,
-(select salesperson_name from arsalesp where salesperson_code = slp.sales_mgr_code) sales_mgr_name,
-(select addr_sort2 from arsalesp where salesperson_code = slp.sales_mgr_code) sales_mgr_email
+rsm.salesperson_name sales_mgr_name,
+rsm.addr_sort2 sales_mgr_email,
+CASE WHEN ISNULL(rsm.territory_code,'') = '' THEN ISNULL(slp.sales_mgr_code,'900') ELSE rsm.territory_code END AS rsm_territory_code
 
 from arsalesp slp (nolock)
 left outer join cvo_territoryxref x (nolock) on x.territory_code = slp.territory_code 
 	and x.salesperson_code = slp.salesperson_code
+LEFT OUTER JOIN arsalesp rsm (NOLOCK)
+	ON rsm.salesperson_code = slp.sales_mgr_code
+
 where (isnull(x.salesperson_code,'') not in ('internal','ss'))
 and (slp.status_type = 1)
 -- or (slp.status_type = 0 and x.status = 1))
@@ -52,7 +57,10 @@ and (slp.status_type = 1)
 
 
 
+
+
 GO
+
 GRANT REFERENCES ON  [dbo].[cvo_sc_addr_vw] TO [public]
 GO
 GRANT SELECT ON  [dbo].[cvo_sc_addr_vw] TO [public]

@@ -14,6 +14,7 @@ CREATE TABLE [dbo].[cvo_commission_bldr_work_tbl]
 [Promo_id] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [Level] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [type] [varchar] (3) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+[Net_Sales] [float] NULL,
 [Amount] [float] NULL,
 [Comm_pct] [decimal] (5, 2) NULL,
 [Comm_amt] [float] NULL,
@@ -23,10 +24,13 @@ CREATE TABLE [dbo].[cvo_commission_bldr_work_tbl]
 [draw_amount] [decimal] (14, 2) NULL,
 [invoicedate_dt] [datetime] NOT NULL,
 [dateshipped_dt] [datetime] NOT NULL,
+[fiscal_period] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [added_date] [datetime] NOT NULL,
 [added_by] [nvarchar] (128) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[id] [bigint] NULL
+[id] [bigint] NOT NULL
 ) ON [PRIMARY]
+ALTER TABLE [dbo].[cvo_commission_bldr_work_tbl] ADD 
+CONSTRAINT [PK__cvo_commission_b__64F0176C] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
 GO
 GRANT REFERENCES ON  [dbo].[cvo_commission_bldr_work_tbl] TO [public]
 GO

@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -17,6 +18,7 @@ GO
 -- v11.1 CB 11/02/2014 - Issue #1452 - Remove call to release date hold
 -- v11.2 CB 22/09/2014 - #572 Masterpack - Stock Order Consolidation
 -- v11.3 CB 15/01/2015 - Only call consolidation routine if the record is selected
+-- v11.4 CB 12/01/2016 - #1586 - When orders are allocated or a picking list printed then update backorder processing
 
 CREATE PROCEDURE [dbo].[tdc_plw_so_save_sp]
 			@con_no			   int,
@@ -785,7 +787,9 @@ BEGIN
 -- v11.1	EXEC dbo.cvo_hold_rel_date_allocations_sp @order_no, @order_ext -- moved from tdc_plw_so_alloc_management_sp
 -- v11.0	EXEC dbo.cvo_hold_ship_complete_allocations_sp @order_no, @order_ext -- moved from tdc_plw_so_alloc_management_sp
 
-
+	-- v11.4 Start
+	EXEC dbo.cvo_update_bo_processing_sp 'A', @order_no, @order_ext
+	-- v11.4 End
 
 	SET	@last_row_id = @row_id
 
@@ -858,5 +862,6 @@ SELECT order_no, order_ext, location, curr_alloc_pct, getdate(), @user_id, 'S'  
 
 
 GO
+
 GRANT EXECUTE ON  [dbo].[tdc_plw_so_save_sp] TO [public]
 GO

@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -77,7 +78,7 @@ BEGIN
 	-- Find the resource type for case, pattern, polarized
 	SET @case	   = [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_CASE')
 	SET @pattern   = [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_PATTERN')  
-	SET @polarized = [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_POLARIZED') 
+	SET @polarized = 'PARTS' -- v1.4 [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_POLARIZED') 
 
 	SET @type_code = @case + ',' + @pattern + ',' + @polarized
 
@@ -168,5 +169,6 @@ BEGIN
 
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[CVO_Consolidate_Pick_queue_sp] TO [public]
 GO

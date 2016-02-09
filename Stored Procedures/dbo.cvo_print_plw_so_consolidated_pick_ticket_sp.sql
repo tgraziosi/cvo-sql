@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -7,6 +8,7 @@ GO
 -- v10.1 - TAG - 10/07/2014 - CVO Change - print special instructions
 -- v10.2 CB 03/01/2015 - Fix records returned
 -- v10.3 CB 09/02/2015 - Fix issue with freight calc for consolidated orders
+-- v10.4 CB 13/01/2016 - #1586 - When orders are allocated or a picking list printed then update backorder processing
 
 
 CREATE PROCEDURE [dbo].[cvo_print_plw_so_consolidated_pick_ticket_sp]  
@@ -1249,9 +1251,39 @@ BEGIN
 		DROP TABLE #cvo_ord_list
 	END
 	-- v5.9 End
+
+	-- v10.4 Start
+	CREATE TABLE #cvo_chk_bo_print (
+		row_id		int IDENTITY(1,1),
+		order_no	int,
+		order_ext	int)
+
+	INSERT	#cvo_chk_bo_print (order_no, order_ext)
+	SELECT	order_no, order_ext
+	FROM	#cons_orders
+
+	SET @row_id = 0
+	WHILE 1=1 
+	BEGIN	
+		SELECT	TOP 1 @row_id = row_id,
+				@c_order_no = order_no,
+				@c_ext = order_ext
+		FROM	#cvo_chk_bo_print
+		WHERE	row_id > @row_id
+		ORDER BY row_id ASC
+
+		IF @@ROWCOUNT = 0
+			BREAK
+
+		EXEC dbo.cvo_update_bo_processing_sp 'P', @c_order_no, @c_ext
+	END
+	
+	DROP TABLE #cvo_chk_bo_print
+	-- v10.4 End
 	  
 	RETURN 
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_print_plw_so_consolidated_pick_ticket_sp] TO [public]
 GO

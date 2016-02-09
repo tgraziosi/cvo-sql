@@ -1,9 +1,10 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
 
-create PROC [dbo].[cvo_upc_upload_tag_sp]
+CREATE PROC [dbo].[cvo_upc_upload_tag_sp]
   @loc VARCHAR(10) = NULL
 , @bin VARCHAR(20) = NULL
 , @direction INT = 1
@@ -14,7 +15,7 @@ BEGIN
 
 /*
 
-EXEC CVO_UPC_UPLOAD_tag_SP '308 - MUSS','308', -1, 'writeoff'
+EXEC CVO_UPC_UPLOAD_tag_SP '999','999', 1, -- 'writeoff'
 
 select * From tdc_bin_master where bin_no = '308'
 
@@ -111,7 +112,7 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=3945514
 	INSERT	#cvo_inv_adj (location, upc_code, part_no, bin_no, qty)
 	-- SELECT	location, upc_code, '', bin_no, reason_code, qty
 	SELECT @LOC, UPC_CODE, '', @BIN, SUM(ISNULL(QTY,1)) QTY
-	FROM	dbo.cvo_upc_upload_tag
+	FROM	dbo.cvo_upc_upload
 	GROUP BY UPC_CODE
 
 	-- validate data

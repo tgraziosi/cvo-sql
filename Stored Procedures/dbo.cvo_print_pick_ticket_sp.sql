@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -232,7 +233,12 @@ BEGIN
 	SELECT GETDATE(),'BACKORDER','BO','ADM','PICK TICKET', CAST(@order_no as varchar(20)), CAST(@order_ext as varchar(10)), '', '', '', @location, '', 'STATUS:Q; HOLDREASON:'
 	-- v1.5 End
 
+	-- v1.6 Start
+	EXEC dbo.cvo_update_bo_processing_sp 'P', @order_no, @order_ext
+	-- v1.6 End
+
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_print_pick_ticket_sp] TO [public]
 GO

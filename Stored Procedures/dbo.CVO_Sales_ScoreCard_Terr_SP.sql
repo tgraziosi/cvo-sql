@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -465,8 +466,8 @@ ISNULL(sum(ret),0) Ret,
 ISNULL(sum(retSA),0) RetSa, 
 ISNULL(sum(rx),0) RX 
 -- add sales goal for the year ending @dateto
-, TerrGoal = (SELECT SUM(ISNULL(goal_amt,0)) FROM dbo.CVO_Territory_goal g 
-					WHERE t.terr = g.territory_code AND g.yyear = YEAR(@dateto))
+, TerrGoal = ISNULL((SELECT SUM(ISNULL(goal_amt,0)) FROM dbo.CVO_Territory_goal g 
+					WHERE t.terr = g.territory_code AND g.yyear = YEAR(@dateto)),0)
 INTO #TerrSales 
 from #Terrs T
 left outer join #t1 t1 on T.Terr=T1.Terr

@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -261,12 +262,57 @@ GROUP BY w.cust_code ,
          w.ship_to
 
 
+IF(OBJECT_ID('dbo.cvo_cust_benefit_scorecard_tbl') is null)
+BEGIN
+CREATE TABLE [dbo].[cvo_cust_benefit_scorecard_tbl](
+	[cust_code] [VARCHAR](10) NULL,
+	[ship_to] [VARCHAR](8) NULL,
+	[seq] [INT] NOT NULL,
+	[ben_type] [VARCHAR](60) NULL,
+	[ben_title] [VARCHAR](60) NULL,
+	[val_1_lbl] [VARCHAR](60) NULL,
+	[val_1_int] [INT] NULL,
+	[val_2_lbl] [VARCHAR](60) NULL,
+	[val_2_int] [INT] NULL,
+	[val_3_lbl] [VARCHAR](60) NULL,
+	[val_3_dec] [DECIMAL](20, 8) NULL,
+	[val_4_lbl] [VARCHAR](60) NULL,
+	[val_4_dec] [DECIMAL](20, 8) NULL
+) ON [PRIMARY]
+GRANT  SELECT, INSERT, UPDATE, DELETE ON dbo.cvo_cust_benefit_scorecard_tbl TO PUBLIC
+CREATE CLUSTERED INDEX [pk_cust_beni_idx] ON [dbo].[cvo_cust_benefit_scorecard_tbl]
+(
+	[cust_code] ASC,
+	[ship_to] ASC,
+	[seq] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, 
+	   DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
 
-SELECT seq ,
-       cust_code = 
+END
+
+TRUNCATE TABLE dbo.cvo_cust_benefit_scorecard_tbl
+
+INSERT dbo.cvo_cust_benefit_scorecard_tbl
+        ( cust_code ,
+          ship_to ,
+		  seq,
+          ben_type ,
+          ben_title ,
+          val_1_lbl ,
+          val_1_int ,
+          val_2_lbl ,
+          val_2_int ,
+          val_3_lbl ,
+          val_3_dec ,
+          val_4_lbl ,
+          val_4_dec
+        )
+
+SELECT cust_code = 
 		 CASE WHEN LEN(cust_code) = 6 THEN cust_code ELSE 
-				(SELECT TOP 1 #t.cust_code FROM #t WHERE #narrative.cust_code = RIGHT(#t.cust_code,5)) end ,
+				(SELECT TOP 1 #t.cust_code FROM #t WHERE #narrative.cust_code = RIGHT(#t.cust_code,5)) END ,
        ship_to ,
+	   seq,
        ben_type ,
        ben_title ,
        val_1_lbl ,
@@ -278,5 +324,11 @@ SELECT seq ,
        val_4_lbl ,
        val_4_dec
  From #narrative
+ WHERE  CASE WHEN LEN(cust_code) = 6 THEN cust_code ELSE 
+				(SELECT TOP 1 #t.cust_code FROM #t WHERE #narrative.cust_code = RIGHT(#t.cust_code,5)) END
+ IS NOT NULL
+ 
  ORDER BY cust_code, ship_to, seq
+
+
 GO

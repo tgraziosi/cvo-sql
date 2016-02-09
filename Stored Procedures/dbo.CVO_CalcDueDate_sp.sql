@@ -1,9 +1,11 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
 -- v1.3 13/03/2013 - Fix issues with due date calculation
 -- v1.4 15/05/2014 - Further fix
+-- v1.5 27/01/2016 - February again!!
 CREATE PROC [dbo].[CVO_CalcDueDate_sp]  @customer_code varchar(8),  
          @date_doc  int,  
          @date_due  int OUTPUT,  
@@ -117,7 +119,7 @@ BEGIN
    -- Calculate the next statement date  
 -- TAG -- 2/28/2013 IF (@day > @statement_day)   
    --IF (@day >= @statement_day) -- v1.3  
-   IF ((@day > @statement_day) OR (@orig_month = 1 AND @day >= @statement_day)) -- v1.3  
+   IF ((@day > @statement_day) OR (@orig_month = 1 AND @day >= @statement_day AND @days_due < 31)) -- v1.3 v1.5 
 
   
    BEGIN  
@@ -218,5 +220,6 @@ BEGIN
 END  
 
 GO
+
 GRANT EXECUTE ON  [dbo].[CVO_CalcDueDate_sp] TO [public]
 GO

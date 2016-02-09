@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -21,6 +22,7 @@ Copyright:   Epicor Software 2010.  All rights reserved.
 -- v1.1 CB 04/09/2012 - Issue #839 Alloc / UnAlloc associated cases etc when running by line
 -- v1.2 CB 10/10/2012 - When unallocating then use the allocated quantity
 -- v1.3 CB 07/06/2013 - Issue #1289 - Frame/case relationship at order entry
+-- v1.4 CB 26/01/2016 - #1581 2nd Polarized Option
 
 CREATE PROCEDURE [dbo].[CVO_Include_alloc_unalloc_byline_sp] AS
 
@@ -63,7 +65,7 @@ BEGIN
 
 	SET @case	   = [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_CASE')
 	SET @pattern   = [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_PATTERN')
-	SET @polarized = [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_POLARIZED') 
+-- v1.4	SET @polarized = [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_POLARIZED') 
 
 	-- v1.1 #Splits table shows the relationship of cases to frames
 	INSERT	#splits (order_no, order_ext, line_no, location, part_no, has_case, has_pattern, has_polarized, case_part, 
@@ -80,7 +82,8 @@ BEGIN
 			CASE WHEN ISNULL(b.add_case,'N') = 'Y' THEN fc.case_part ELSE '' END, -- v1.3
 -- v1.3		CASE WHEN ISNULL(b.add_pattern,'N') = 'Y' THEN c.field_4 ELSE '' END,
 			CASE WHEN ISNULL(b.add_pattern,'N') = 'Y' THEN fc.pattern_part ELSE '' END, -- v1.3
-			CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized ELSE '' END,
+-- v1.4		CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized ELSE '' END,
+			CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN fc.polarized_part ELSE '' END, -- v1.4
 			a.ordered,
 			CASE WHEN LEFT(c.field_10,5) = 'metal' THEN 1 ELSE CASE WHEN LEFT(c.field_10,7) = 'plastic' THEN 2 ELSE 0 END END,
 			d.type_code,
@@ -216,6 +219,46 @@ BEGIN
 			END
 			-- v1.1 End - Add cases and patterns
 		  
+			-- v1.4 Start - Polarized
+			SELECT	@polarized = polarized_part,
+					@qty_override = quantity
+			FROM	#splits
+			WHERE	order_no = @order_no
+			AND		order_ext = @order_ext
+			AND		line_no = @line_no
+			AND		has_polarized = 1
+
+			IF (ISNULL(@polarized,'') > '') -- Pattern exists
+			BEGIN
+
+				-- v1.2 Start
+				SELECT	@from_line_no = line_no
+				FROM	#splits
+				WHERE	order_no = @order_no
+				AND		order_ext = @order_ext
+				AND		part_no = @polarized
+				AND		@polarized IS NOT NULL
+
+				SELECT	@qty_alloc = SUM(qty)
+				FROM	tdc_soft_alloc_tbl (NOLOCK)
+				WHERE	order_no = @order_no
+				AND		order_ext = @order_ext
+				AND		line_no = @from_line_no	
+				AND		order_type = 'S'	
+
+				IF @qty_alloc < @qty_override
+					SET @qty_override = @qty_alloc
+				-- v1.2 End
+				INSERT INTO #so_soft_alloc_byline_tbl_TMP (order_no, order_ext,  line_no, part_no, from_line_no, type_code, qty_override)
+				SELECT @order_no, @order_ext, line_no, part_no, @from_line_no, part_type, @qty_override
+				FROM	#splits
+				WHERE	order_no = @order_no
+				AND		order_ext = @order_ext
+				AND		part_no = @polarized
+			END
+			-- v1.1 End - Add cases and patterns
+
+
 		   FETCH NEXT FROM unalloc_cur 
 		   INTO @order_no, @order_ext, @line_no, @part_no, @from_line_no, @type_code--@is_case, @is_pattern, @is_polarized
 		END
@@ -241,5 +284,6 @@ WHERE	ISNULL(b.allocation_date,GETDATE()-1) > GETDATE()
 	
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[CVO_Include_alloc_unalloc_byline_sp] TO [public] WITH GRANT OPTION
 GO

@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -11,7 +12,7 @@ CREATE procedure [dbo].[cvo_matl_fcst_style_season_sp]
 @collection varchar(1000) = null,
 @Style varchar(8000) = NULL,
 @SpecFit varchar(1000) = NULL,
-@usg_option CHAR(1) = 'S'
+@usg_option CHAR(1) = 'O'
 , @Season_start int = NULL
 , @Season_end int = NULL
 , @Season_mult DECIMAL (20,8) = null
@@ -20,15 +21,15 @@ CREATE procedure [dbo].[cvo_matl_fcst_style_season_sp]
 /*
  exec cvo_matl_fcst_style_season_sp
  @startrank = '12/23/2013',
- @asofdate = '12/9/2015', 
- @endrel = '12/9/2015', 
+ @asofdate = '1/1/2016', 
+ @endrel = '1/1/2016', 
  @usedrp = 1, 
  @current = 1, 
- @collection = 'me', 
- @style = 'voyeur', 
+ @collection = 'jmc', 
+ @style = '049', 
  @specfit = '*all*',
  @usg_option = 'o',
- @debug = 1 -- debug
+ @debug = 0 -- debug
 
  
 */
@@ -657,8 +658,9 @@ inner join inv_master inv (nolock) on inv.part_no = i.part_no
 left outer join releases r (nolock) on #t.part_no = r.part_no AND r.location = @loc
 where 1=1
 -- AND r.inhouse_date <= @pomdate 
-and  #t.mm = case when month(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) < month(@asofdate)
-	 AND YEAR(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) <= YEAR(@asofdate)
+--and  #t.mm = case when month(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) < month(@asofdate)
+--					and YEAR(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) < YEAR(@asofdate)
+and  #t.mm = case when DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < @asofdate
 	 THEN month(@asofdate) 
 	 ELSE month(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) end
 and type_code in ('frame','sun','bruit')
@@ -949,5 +951,6 @@ end
 
 
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_matl_fcst_style_season_sp] TO [public]
 GO

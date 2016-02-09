@@ -2,13 +2,22 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[cvo_desig_sls_week_sp] AS
-BEGIN
-DECLARE @startdate DATETIME , @enddate DATETIME, @desig VARCHAR(10)
-SELECT @startdate = '1/1/2015', @enddate = '12/31/2015', @desig = 'rx5'
+CREATE PROCEDURE [dbo].[cvo_desig_sales_by_week_sp] 
+  @startdate DATETIME 
+, @enddate DATETIME
+, @desig VARCHAR(10)
 
-DECLARE @sd DATETIME, @ed datetime
-SELECT @sd = @startdate, @ed = @enddate
+AS 
+
+BEGIN
+
+SET NOCOUNT ON
+SET ANSI_WARNINGS OFF
+
+-- SELECT @startdate = '1/1/2015', @enddate = '12/31/2015', @desig = 'rx5'
+
+DECLARE @sd DATETIME, @ed DATETIME, @d VARCHAR(10)
+SELECT @sd = @startdate, @ed = @enddate, @d = @desig
 
 IF ( OBJECT_ID('tempdb.dbo.#sales') IS NOT NULL ) DROP TABLE dbo.#sales;
 
@@ -22,7 +31,7 @@ FROM
 dbo.cvo_cust_designation_codes d
 JOIN arcust ar ON ar.customer_code = d.customer_code
 JOIN cvo_sbm_details s ON ar.customer_code = s.customer AND ar.ship_to_code = ar.ship_to_code
-WHERE d.code = @desig AND ISNULL(d.start_date,@ed) <= @ed  AND ISNULL(d.end_date,@ed) >= @ed
+WHERE d.code = @d AND ISNULL(d.start_date,@ed) <= @ed  AND ISNULL(d.end_date,@ed) >= @ed
 AND s.yyyymmdd BETWEEN @sd AND @ed
 GROUP BY DATEPART(WEEK, s.yyyymmdd) ,
          ar.territory_code ,
@@ -30,7 +39,8 @@ GROUP BY DATEPART(WEEK, s.yyyymmdd) ,
          ar.ship_to_code ,
          s.c_year
 
-SELECT #sales.territory_code ,
+SELECT terr.region,
+	   #sales.territory_code ,
        #sales.customer_code ,
        #sales.ship_to_code ,
 	   ar.address_name,
@@ -48,6 +58,8 @@ DATEADD(WEEK, week_num - 1, DATEADD(dd, 1 - DATEPART(dw, '1/1/' + CONVERT(VARCHA
 FROM #sales) Week_starts
 ON Week_starts.c_year = #sales.c_year AND Week_starts.week_num = #sales.week_num
 INNER JOIN armaster ar ON ar.customer_code = #sales.customer_code AND ar.ship_to_code = #sales.ship_to_code
+INNER JOIN (SELECT DISTINCT territory_code, dbo.calculate_region_fn(territory_code) Region
+			FROM arterr) terr ON terr.territory_code = #sales.territory_code
 LEFT OUTER JOIN ( SELECT  distinct RIGHT(customer_code, 5) MergeCust ,
                             STUFF(( SELECT  DISTINCT '; ' + code
                                     FROM    cvo_cust_designation_codes (NOLOCK) cc
@@ -67,6 +79,8 @@ LEFT OUTER JOIN ( SELECT  distinct RIGHT(customer_code, 5) MergeCust ,
                             AND ISNULL(start_date, @ed) <= @ed
                             AND ( ISNULL(end_date, @ed) >= @ed )
                 ) AS p ON p.MergeCust = RIGHT(ar.customer_code, 5)
+	  
 END
-
+GO
+GRANT EXECUTE ON  [dbo].[cvo_desig_sales_by_week_sp] TO [public]
 GO

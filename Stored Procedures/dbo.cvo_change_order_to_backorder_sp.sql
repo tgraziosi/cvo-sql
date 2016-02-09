@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -28,6 +29,8 @@ v1.11	12/02/14 CB Issue #1302 - Commission Override
 v1.12	11/11/14 CT Issue #1505 - Add email address
 tag		4/28/2015 - add rowlock to update statements
 v1.13 CB 21/08/2015 - Issue #1563 - Upsell flag
+v1.14 CB 25/01/2016 - Add missing column
+v1.15 CB 26/01/2016 - #1581 2nd Polarized Option
 
 
 
@@ -104,10 +107,12 @@ BEGIN
 	-- cvo_orders_all  
 	INSERT INTO CVO_orders_all(order_no,ext,add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,  
 		commission_pct, stage_hold, prior_hold, credit_approved, replen_inv, xfer_no, stock_move, stock_move_cust_code,  
-		stock_move_ship_to, stock_move_replace_inv, stock_move_order_no, stock_move_ext, stock_move_ri_order_no, stock_move_ri_ext, invoice_note, commission_override, email_address, upsell_flag)     -- v1.4 v1.11 v1.12 v1.13
+		stock_move_ship_to, stock_move_replace_inv, stock_move_order_no, stock_move_ext, stock_move_ri_order_no, stock_move_ri_ext, invoice_note, commission_override, email_address, upsell_flag,     -- v1.4 v1.11 v1.12 v1.13
+		st_consolidate) -- v1.14
 	SELECT order_no, @new_order_ext, add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,dbo.f_cvo_get_buying_group(@cust_code,GETDATE()), allocation_date, -- v1.8 
 		commission_pct, stage_hold, prior_hold, credit_approved, replen_inv, xfer_no, stock_move, stock_move_cust_code,  
-		stock_move_ship_to, stock_move_replace_inv, stock_move_order_no, stock_move_ext, stock_move_ri_order_no, stock_move_ri_ext, invoice_note, commission_override, email_address, upsell_flag -- v1.4 v1.11  v1.12 v1.13
+		stock_move_ship_to, stock_move_replace_inv, stock_move_order_no, stock_move_ext, stock_move_ri_order_no, stock_move_ri_ext, invoice_note, commission_override, email_address, upsell_flag, -- v1.4 v1.11  v1.12 v1.13
+		st_consolidate -- v1.14
 	FROM cvo_orders_all (NOLOCK)  
 	WHERE order_no = @order_no  
 	AND  ext = @order_ext  
@@ -182,8 +187,8 @@ BEGIN
 
 	-- START v1.7
 	-- cvo_ord_list_fc
-	INSERT	dbo.cvo_ord_list_fc (order_no, order_ext, line_no, part_no, case_part, pattern_part)
-	SELECT	order_no, @new_order_ext, line_no, part_no, case_part, pattern_part
+	INSERT	dbo.cvo_ord_list_fc (order_no, order_ext, line_no, part_no, case_part, pattern_part, polarized_part) -- v1.15
+	SELECT	order_no, @new_order_ext, line_no, part_no, case_part, pattern_part, polarized_part -- v1.15
 	FROM	cvo_ord_list_fc (NOLOCK)
 	WHERE	order_no = @order_no
 	AND		order_ext = @order_ext	
@@ -318,5 +323,6 @@ BEGIN
 END  
 
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_change_order_to_backorder_sp] TO [public]
 GO

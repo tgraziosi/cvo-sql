@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -28,15 +29,17 @@ v10.2 CB 11/10/2012 - Fix issue - need to take into account the quantity already
 v10.3 CB 18/12/2012 - Deal with pre-soft alloc
 v10.4 CB 05/06/2013 - Issue #1297 - Deal with polarized items
 v10.5 CB 07/06/2013 - Issue #1289 - Frame/case relationship at order entry
+v10.6 CB 18/06/2013 - Fix for when order is partially picked and then unallocated and reallocated - cases do not allocate
+v10.7 CB 26/01/2016 - #1581 2nd Polarized Option
 */
 CREATE PROCEDURE [dbo].[CVO_Calculate_qty_to_alloc_sp] AS
 BEGIN				  	
 	DECLARE @order_no				INT,
 			@order_ext				INT, 
-			@location				VARCHAR(30),
-			@polarized				VARCHAR(10)
+			@location				VARCHAR(30)--,
+			-- v10.7 @polarized				VARCHAR(10)
 		
-	SET @polarized = [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_POLARIZED') 
+-- v10.7	SET @polarized = [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_POLARIZED') 
 
 	-- v1.9
 	UPDATE	a
@@ -112,7 +115,8 @@ BEGIN
 				CASE WHEN ISNULL(b.add_case,'N') = 'Y' THEN fc.case_part ELSE '' END,
 	-- v10.5	CASE WHEN ISNULL(b.add_pattern,'N') = 'Y' THEN c.field_4 ELSE '' END,
 				CASE WHEN ISNULL(b.add_pattern,'N') = 'Y' THEN fc.pattern_part ELSE '' END,
-				CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized ELSE '' END,
+-- v10.7		CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized ELSE '' END,
+				CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN fc.polarized_part ELSE '' END, -- v10.7
 				a.ordered, 
 				d.type_code, 0.0,
 				ISNULL(a.create_po_flag,0),
@@ -221,6 +225,11 @@ BEGIN
 		WHERE	a.order_no = @order_no
 		AND		a.order_ext = @order_ext
 
+		-- v10.6 alloc_qty < 0 when partially picked
+		UPDATE	#splits
+		SET		alloc_qty = 0 
+		WHERE	alloc_qty < 0
+
 		-- Get the quantities for cases, patterns and polarized adjusted for non allocated frames
 		INSERT	#part_splits (part_no, quantity, diff)
 		SELECT	case_part,
@@ -252,6 +261,7 @@ BEGIN
 		AND		order_ext = @order_ext
 		GROUP BY polarized_part
 
+
 		-- v10.3 Start
 		IF NOT EXISTS (SELECT 1 FROM cvo_ord_list (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext AND ISNULL(from_line_no,0) <> 0)
 		BEGIN
@@ -267,9 +277,14 @@ BEGIN
 			AND		polarized_part = ''
 			AND		a.order_no = @order_no
 			AND		a.order_ext = @order_ext
-			AND		a.part_no <> @polarized -- v10.4		
+-- v10.7	AND		a.part_no <> @polarized -- v10.4	
+			AND		a.part_no NOT IN (SELECT part_no FROM cvo_polarized_vw) -- v10.7
+
+	
 		END
 		-- v10.3 End
+
+
 
 		-- v10.4 Start
 		UPDATE	a
@@ -287,6 +302,7 @@ BEGIN
 		AND		b.alloc_qty = 0
 		-- v10.4 End
 
+
 		-- Update back to the processing table
 		UPDATE	a
 		SET		qty_to_alloc = b.alloc_qty
@@ -298,6 +314,7 @@ BEGIN
 		AND		a.part_no = b.part_no
 		WHERE	a.order_no = @order_no
 		AND		a.order_ext = @order_ext
+
 
 		-- v10.1 Start
 		IF OBJECT_ID('tempdb..#plw_alloc_by_lot_bin') IS NOT NULL
@@ -314,12 +331,14 @@ BEGIN
 		END
 		ELSE
 		BEGIN
+	
 			-- Populate the CVO_qty_to_alloc_tbl table
 			INSERT	CVO_qty_to_alloc_tbl (order_no, order_ext, location, from_line_no, line_no, part_no, qty_to_alloc )  
 			SELECT	order_no, order_ext, location, from_line_no, line_no, part_no, qty_to_alloc  
 			FROM	#so_allocation_detail_view_Detail  
 			WHERE	order_no = @order_no
 			AND		order_ext = @order_ext
+
 		END
 		-- v10.1 End
 
@@ -377,5 +396,6 @@ BEGIN
 
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[CVO_Calculate_qty_to_alloc_sp] TO [public]
 GO

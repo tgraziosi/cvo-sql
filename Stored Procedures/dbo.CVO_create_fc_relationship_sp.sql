@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -11,10 +12,10 @@ BEGIN
 	SET NOCOUNT ON
 
 	-- Declarations
-	DECLARE	@polarized		varchar(10)
+-- v1.2	DECLARE	@polarized		varchar(10)
 
 	-- Init
-	SET @polarized = [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_POLARIZED') 
+-- v1.2	SET @polarized = [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_POLARIZED') 
 
 	-- Working tables
 	IF (OBJECT_ID('tempdb..#splits') IS NOT NULL) 
@@ -54,7 +55,8 @@ BEGIN
 			CASE WHEN ISNULL(b.add_case,'N') = 'Y' THEN fc.case_part ELSE '' END, -- v1.1
 -- v1.1		CASE WHEN ISNULL(b.add_pattern,'N') = 'Y' THEN c.field_4 ELSE '' END,
 			CASE WHEN ISNULL(b.add_pattern,'N') = 'Y' THEN fc.pattern_part ELSE '' END, -- v1.1
-			CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized ELSE '' END,
+-- v1.2		CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized ELSE '' END,
+			CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN fc.polarized_part ELSE '' END, -- v1.2
 			a.ordered, 
 			d.type_code, 0.0,
 			ISNULL(a.create_po_flag,0)
@@ -176,7 +178,8 @@ BEGIN
 		-- Insert lines that are polarized and are related
 		INSERT	#cvo_ord_list(order_no, order_ext, line_no, add_case, add_pattern, from_line_no, is_case, is_pattern, add_polarized, is_polarized, is_pop_gif)
 		SELECT	a.order_no, a.order_ext, a.line_no, 'N', 'N', 
-				b.line_no, 0, 0, 'N', CASE WHEN (a.part_type = 'PARTS' AND a.part_no = @polarized) THEN 1 ELSE 0 END, 0
+-- v1.2			b.line_no, 0, 0, 'N', CASE WHEN (a.part_type = 'PARTS' AND a.part_no = @polarized) THEN 1 ELSE 0 END, 0
+				b.line_no, 0, 0, 'N', CASE WHEN (a.part_type = 'PARTS' AND a.part_no IN (SELECT part_no FROM cvo_polarized_vw)) THEN 1 ELSE 0 END, 0 -- v1.2
 		FROM	#splits a
 		JOIN	#splits b
 		ON		a.order_no = b.order_no
@@ -188,5 +191,6 @@ BEGIN
 
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[CVO_create_fc_relationship_sp] TO [public]
 GO

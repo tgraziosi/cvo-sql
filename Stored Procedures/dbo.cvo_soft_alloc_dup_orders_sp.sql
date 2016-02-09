@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -25,10 +26,10 @@ BEGIN
 			@routing			varchar(10),
 			@freight_allow_type	varchar(10),
 			@order_value		decimal(20,8),
-			@freight_charge		smallint, 
-			@polarized			VARCHAR(30)
+			@freight_charge		smallint--, 
+-- v1.9		@polarized			VARCHAR(30)
 
-	SET @polarized = [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_POLARIZED') 
+-- v1.9	SET @polarized = [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_POLARIZED') 
 
 	-- Get the next system number for soft allocation
 	BEGIN TRAN
@@ -218,7 +219,8 @@ BEGIN
 			CASE WHEN ISNULL(b.add_case,'N') = 'Y' THEN fc.case_part ELSE '' END, -- v1.5
 -- v1.5		CASE WHEN ISNULL(b.add_pattern,'N') = 'Y' THEN c.field_4 ELSE '' END,
 			CASE WHEN ISNULL(b.add_pattern,'N') = 'Y' THEN fc.pattern_part ELSE '' END, -- v1.5
-			CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized ELSE '' END,
+-- v1.9		CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized ELSE '' END,
+			CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN fc.polarized_part ELSE '' END, -- v1.9
 			a.ordered, 
 			d.type_code, 0.0,
 			ISNULL(a.create_po_flag,0)
@@ -311,6 +313,20 @@ BEGIN
 		RETURN -1
 	END
 
+	-- v1.9 Start
+	CREATE TABLE #cvo_ord_list_fc (
+		order_no		int, 
+		order_ext		int, 
+		line_no			int, 
+		polarized_part	varchar(30) NULL)
+
+	INSERT	#cvo_ord_list_fc
+	SELECT	@new_order_no, order_ext, line_no, polarized_part
+	FROM	cvo_ord_list_fc (NOLOCK)
+	WHERE	order_no = @order_no
+	AND		order_ext = @order_ext
+	-- v1.9 End
+
 	-- v1.5 Start
 	DELETE	cvo_ord_list_fc
 	WHERE	order_no = @new_order_no
@@ -329,9 +345,22 @@ BEGIN
 	ORDER BY a.order_no, a.order_ext, a.line_no
 	-- v1.5 End
 
+	-- v1.9 Start
+	UPDATE	a
+	SET		polarized_part = b.polarized_part
+	FROM	dbo.cvo_ord_list_fc a
+	JOIN	#cvo_ord_list_fc b
+	ON		a.order_no = b.order_no
+	AND		a.order_ext = b.order_ext
+	AND		a.line_no = b.line_no
+
+	DROP TABLE #cvo_ord_list_fc
+	-- v1.9 End
+
 	RETURN 0
 
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_soft_alloc_dup_orders_sp] TO [public]
 GO

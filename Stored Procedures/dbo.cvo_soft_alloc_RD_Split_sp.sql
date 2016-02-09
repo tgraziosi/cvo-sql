@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -50,9 +51,9 @@ BEGIN
 			@ship_date			datetime
 
 	-- Initialize
-	SELECT	@polarized_part = value_str FROM tdc_config (NOLOCK) WHERE [function] = 'DEF_RES_TYPE_POLARIZED'
-	IF @polarized_part IS NULL
-		SET @polarized_part = 'CVZDEMRM'
+-- v1.3	SELECT	@polarized_part = value_str FROM tdc_config (NOLOCK) WHERE [function] = 'DEF_RES_TYPE_POLARIZED'
+-- v1.3	IF @polarized_part IS NULL
+-- v1.3		SET @polarized_part = 'CVZDEMRM'
 
 	-- Create Working Table
 	CREATE TABLE #rd_split (row_id			int IDENTITY(1,1),
@@ -107,6 +108,7 @@ BEGIN
 	AND		b.order_ext = @order_ext
 	AND		a.field_26 IS NOT NULL	
 	AND		a.field_26 > GETDATE()
+	AND		b.status = 'N' -- v1.2
 	UNION
 	SELECT	DISTINCT a.field_26, b.line_no, 1, 0
 	FROM	inv_master_add a (NOLOCK)
@@ -122,6 +124,7 @@ BEGIN
 	AND		c.replaced = 'S'
 	AND		a.field_26 IS NOT NULL	
 	AND		a.field_26 > GETDATE()
+	AND		b.status = 'N' -- v1.2
 	ORDER BY a.field_26 ASC
 	
 	IF (@@ROWCOUNT = 0)
@@ -194,7 +197,8 @@ BEGIN
 			CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN 1 ELSE 0 END,
 			CASE WHEN ISNULL(b.add_case,'N') = 'Y' THEN fc.case_part ELSE '' END, 
 			CASE WHEN ISNULL(b.add_pattern,'N') = 'Y' THEN fc.pattern_part ELSE '' END, 
-			CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized_part ELSE '' END,
+-- v1.3		CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized_part ELSE '' END,
+			CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN fc.polarized_part ELSE '' END, -- v1.3
 			a.ordered,
 			a.ordered,
 			d.type_code,
@@ -881,6 +885,20 @@ BEGIN
 		-- Manually call the update order totals
 		EXEC dbo.fs_updordtots @order_no, @new_ext
 
+		-- v1.3 Start
+		CREATE TABLE #cvo_ord_list_fc (
+			order_no		int, 
+			order_ext		int, 
+			line_no			int, 
+			polarized_part	varchar(30) NULL)
+
+		INSERT	#cvo_ord_list_fc
+		SELECT	order_no, @new_ext, line_no, polarized_part
+		FROM	cvo_ord_list_fc (NOLOCK)
+		WHERE	order_no = @order_no
+		AND		order_ext = @order_ext
+		-- v1.3 End
+
 		DELETE	cvo_ord_list_fc
 		WHERE	order_no = @order_no
 		AND		order_ext = @new_ext
@@ -896,6 +914,18 @@ BEGIN
 		AND		a.order_ext = @new_ext	
 		AND		b.type_code IN ('FRAME','SUN')
 		ORDER BY a.order_no, a.order_ext, a.line_no
+
+		-- v1.3 Start
+		UPDATE	a
+		SET		polarized_part = b.polarized_part
+		FROM	dbo.cvo_ord_list_fc a
+		JOIN	#cvo_ord_list_fc b
+		ON		a.order_no = b.order_no
+		AND		a.order_ext = b.order_ext
+		AND		a.line_no = b.line_no
+	
+		DROP TABLE #cvo_ord_list_fc
+		-- v1.3 End
 
 		SET	@last_new_ext = @new_ext
 
@@ -921,5 +951,6 @@ BEGIN
 
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_soft_alloc_RD_Split_sp] TO [public]
 GO

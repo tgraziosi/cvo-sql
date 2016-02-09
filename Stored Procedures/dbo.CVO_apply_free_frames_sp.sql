@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -5,6 +6,7 @@ GO
 /*
 v1.0 CT 02/07/2013 - Created
 v1.1 CB 19/06/2014 - Peformance
+v1.2 CB 26/01/2016 - #1581 2nd Polarized Option
 
 
 
@@ -352,14 +354,17 @@ BEGIN
 					line_no,
 					part_no,
 					case_part,
-					pattern_part)
+					pattern_part,
+					polarized_part) -- v1.2
+
 				SELECT
 					order_no,
 					order_ext,
 					@new_line_no,
 					part_no,
 					case_part,
-					pattern_part
+					pattern_part,
+					polarized_part -- v1.2
 				FROM 
 					dbo.cvo_ord_list_fc (NOLOCK) 
 				WHERE 
@@ -394,5 +399,6 @@ BEGIN
 END
 
 GO
+
 GRANT EXECUTE ON  [dbo].[CVO_apply_free_frames_sp] TO [public]
 GO

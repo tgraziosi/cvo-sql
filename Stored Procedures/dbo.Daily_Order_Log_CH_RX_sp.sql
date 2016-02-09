@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -47,13 +48,14 @@ select @orderdate = '02/05/2014'
                                 date_shipped ,
                                 DATENAME(dw, ol.date_entered) AS Day_Name ,
                                 DATEPART(WEEKDAY, ol.date_entered) AS Day ,
--- tag - 021414
+								-- tag - 021414
                                 ROW_NUMBER() OVER ( PARTITION BY ol.cust_code,
                                                     DATENAME(dw,
                                                              ol.date_entered) ORDER BY ol.cust_code, DATENAME(dw,
                                                               ol.date_entered) ) AS UC ,
                                 CASE WHEN ol.tot_ord_qty >= 5 THEN 1
-                                END AS qual_order
+                                END AS qual_order,
+								who_entered
                        FROM     
 (select 
 --top 100
@@ -156,7 +158,27 @@ AND date_entered BETWEEN @startdate AND @enddate
 )	ol							
 )
 
-            SELECT  *
+            SELECT  C.territory ,
+                    C.salesperson ,
+                    C.cust_code ,
+                    C.ship_to ,
+                    C.customer_name ,
+                    C.order_no ,
+                    C.date_entered ,
+                    C.tot_shp_qty ,
+                    C.status ,
+                    C.status_desc ,
+                    C.tot_ord_qty ,
+                    C.promo_level ,
+                    C.promo_id ,
+                    C.tracking ,
+                    C.tot_inv_sales ,
+                    C.date_shipped ,
+                    C.Day_Name ,
+                    C.Day ,
+                    C.UC ,
+                    C.qual_order,
+					c.who_entered
             INTO    #T1
             FROM    C;
 
@@ -184,7 +206,9 @@ r.territory_code = ar.territory_code  -- EL added territory_code match 1/7/2012
                                     )
 -- order by r.territory_code
                      )
-            SELECT  *
+            SELECT  C.territory_code ,
+                    C.salesperson ,
+                    C.Region
             INTO    #T2
             FROM    C;
 
@@ -209,7 +233,8 @@ r.territory_code = ar.territory_code  -- EL added territory_code match 1/7/2012
                 tot_inv_sales ,
                 date_shipped ,
                 Day_Name ,
-                Day
+                Day,
+				who_entered
         FROM    #T2 c
                 FULL OUTER JOIN #T1 ol ON c.territory_code = ol.territory
         ORDER BY Region ,

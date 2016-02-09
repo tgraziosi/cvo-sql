@@ -1,7 +1,10 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
+
+
 
 
 -- SELECT * FROM cvo_loc_bin_vw
@@ -32,7 +35,7 @@ SELECT TOP 1000 location ,
        maximum_level
 	   
 	    FROM tdc_bin_master
-		WHERE((LOCATION = '001' AND BIN_NO = 'RR REFURB') OR location = '008')
+		WHERE((LOCATION = '001' AND BIN_NO = 'RR REFURB') OR location IN ('999','008'))
 		AND group_code NOT IN ( 'pickarea','highbay','overflow','rdock')
 		AND status = 'a'
 /*UNION ALL 
@@ -65,7 +68,10 @@ SELECT TOP 1000 location ,
 
 */
 
+
+
 GO
+
 GRANT REFERENCES ON  [dbo].[cvo_loc_bin_vw] TO [public]
 GO
 GRANT SELECT ON  [dbo].[cvo_loc_bin_vw] TO [public]

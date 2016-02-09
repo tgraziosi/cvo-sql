@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -6,6 +7,7 @@ GO
 -- v1.1 CT 18/06/2013 - Issue #1311 - Don't add pop gifts which are obsolete and out of stock
 -- v1.2 CB 26/06/2013 - Issue #1330 - Promo gifts get added again one allocated
 -- v1.3 CT 18/10/2013 - Issue #1399 - IF promo is overridden the don't check frequency on pop gifts
+-- v1.4 CB 02/02/2016 - When checking if item already exists on the order include ext > 0
 
 CREATE PROC [dbo].[cvo_soft_alloc_add_promo_sp]	@soft_alloc_no	int,
 											@order_no		int,
@@ -64,8 +66,9 @@ BEGIN
 		BEGIN
 
 			-- v1.2 Start
-			IF NOT EXISTS (SELECT 1 FROM ord_list (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext AND part_no = @part_no
-											AND ordered = @qty)
+-- v1.4			IF NOT EXISTS (SELECT 1 FROM ord_list (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext AND part_no = @part_no
+-- v1.4											AND ordered = @qty)
+			IF NOT EXISTS (SELECT 1 FROM ord_list (NOLOCK) WHERE order_no = @order_no AND part_no = @part_no AND ordered = @qty) -- v1.4
 			BEGIN
 
 				-- START v1.1
@@ -97,5 +100,6 @@ BEGIN
 
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_soft_alloc_add_promo_sp] TO [public]
 GO

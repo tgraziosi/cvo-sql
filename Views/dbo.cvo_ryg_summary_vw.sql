@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -30,7 +31,7 @@ from cvo_pom_tl_status
 where style_pom_status <> 'all' AND ACTIVE = 1 and tl <> ''
 
 union all 
-select distinct collection, style, 'PRE-2012 POM' as color_desc, tl, pom_date as pom_date
+select distinct collection, style, 'PRE-2013 POM' as color_desc, tl, pom_date as pom_date
 from cvo_pom_tl_status
 where tl = '' AND ACTIVE = 1
 
@@ -40,6 +41,8 @@ where tl = '' AND ACTIVE = 1
 
 
 
+
 GO
+
 GRANT SELECT ON  [dbo].[cvo_ryg_summary_vw] TO [public]
 GO

@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -25,16 +26,17 @@ v10.0 CB 23/05/2012 - Soft Allocation
 v10.1 CB 05/06/2013 - Issue #1297 - Deal with polarized items
 v10.2 CB 07/06/2013 - Issue #1289 - Frame/case relationship at order entry
 v10.3 CB 05/06/2014 - Fix issue when case has been fully unallocated due to change but does not fully allocate qty
+v10.4 CB 26/01/2016 - #1581 2nd Polarized Option
 */
 CREATE PROCEDURE  [dbo].[CVO_Calculate_qty_to_alloc_eBO_sp]	@order_no	int,
 													@order_ext	int 
 AS
 BEGIN     
         
-	DECLARE @location			VARCHAR(30),
-			@polarized			VARCHAR(10)
+	DECLARE @location			VARCHAR(30)--,
+			-- v10.4 @polarized			VARCHAR(10)
 
-	SET @polarized	= [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_POLARIZED')   
+-- v10.4 SET @polarized	= [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_POLARIZED')   
 
 	-- v1.9
 	UPDATE	a
@@ -89,7 +91,8 @@ BEGIN
 			CASE WHEN ISNULL(b.add_case,'N') = 'Y' THEN fc.case_part ELSE '' END,
 -- v10.2	CASE WHEN ISNULL(b.add_pattern,'N') = 'Y' THEN c.field_4 ELSE '' END,
 			CASE WHEN ISNULL(b.add_pattern,'N') = 'Y' THEN fc.pattern_part ELSE '' END,
-			CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized ELSE '' END,
+-- v10.4	CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized ELSE '' END,
+			CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN fc.polarized_part ELSE '' END, -- v10.4
 			a.ordered, 
 			d.type_code, 0.0,
 			ISNULL(a.create_po_flag,0),
@@ -168,7 +171,8 @@ BEGIN
 	WHERE	case_part = ''
 	AND		pattern_part = ''
 	AND		polarized_part = ''
-    AND		a.part_no <> @polarized -- v10.1
+-- v10.4 AND	a.part_no <> @polarized -- v10.1
+    AND		a.part_no NOT IN (SELECT part_no FROM cvo_polarized_vw) -- v10.4
 
 	-- v10.1 Start
 	UPDATE	a
@@ -221,5 +225,6 @@ BEGIN
 
 END  
 GO
+
 GRANT EXECUTE ON  [dbo].[CVO_Calculate_qty_to_alloc_eBO_sp] TO [public]
 GO

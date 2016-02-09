@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -53,18 +54,21 @@ END
 -- SELECT COUNT(customer_code) FROM arcust ar
 
 IF ( OBJECT_ID('cvo.dbo.cvo_cust_agent_tbl') IS  null )
+begin
 	CREATE TABLE dbo.cvo_cust_agent_tbl ( phone_num VARCHAR(30), QUEUE_NAME VARCHAR(20), 
 		 agent_id VARCHAR(40) , CUSTOMER_CODE VARCHAR(10) )
+	GRANT ALL ON cvo.dbo.cvo_cust_agent_tbl TO PUBLIC
+end
 
 -- drop TABLE dbo.cvo_cust_agent_tbl
 
 TRUNCATE TABLE dbo.cvo_cust_agent_tbl
-INSERT INTO dbo.cvo_cust_agent_tbl ( phone_num, QUEUE_NAME, agent_id, CUSTOMER_CODE )
-VALUES ('7596','CSQ-CustomerCare','HKaufman','012345')
-INSERT INTO dbo.cvo_cust_agent_tbl ( phone_num, QUEUE_NAME, agent_id, CUSTOMER_CODE )
-VALUES ('7596','CSQ-KeyAccounts','HKaufman', '011111')
-INSERT INTO dbo.cvo_cust_agent_tbl ( phone_num, QUEUE_NAME, agent_id, CUSTOMER_CODE )
-VALUES ('7596','CSQ-SalesSupport','HKaufman', '011111')
+--INSERT INTO dbo.cvo_cust_agent_tbl ( phone_num, QUEUE_NAME, agent_id, CUSTOMER_CODE )
+--VALUES ('7596','CSQ-CustomerCare','HKaufman','012345')
+--INSERT INTO dbo.cvo_cust_agent_tbl ( phone_num, QUEUE_NAME, agent_id, CUSTOMER_CODE )
+--VALUES ('7596','CSQ-KeyAccounts','HKaufman', '011111')
+--INSERT INTO dbo.cvo_cust_agent_tbl ( phone_num, QUEUE_NAME, agent_id, CUSTOMER_CODE )
+--VALUES ('7596','CSQ-SalesSupport','HKaufman', '011111')
 
 INSERT INTO cvo_cust_agent_tbl( phone_num, QUEUE_NAME, agent_id, customer_code)
 SELECT TOP 100 phone_num, CASE WHEN queue_name = 'KA' THEN 'CSQ-KeyAccounts' 
@@ -80,9 +84,11 @@ SELECT TOP 100 phone_num, CASE WHEN queue_name = 'KA' THEN 'CSQ-KeyAccounts'
 
 
 
--- SELECT agent, count(phone_num) FROM cvo_cust_agent_tbl group by agent
+--SELECT agent_id, count(phone_num) FROM cvo_cust_agent_tbl group by agent_id
 
+--DELETE FROM cvo_cust_agent_tbl WHERE agent_id IN ('avespoli','lajohnston','cpicon','psalmeron')
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_refresh_cust_agent_tbl_sp] TO [public]
 GO

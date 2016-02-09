@@ -1,11 +1,23 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
 
+/* 1/31/16
+1
+011-TRUNK
+1011-TRUNK
+304 - NELS
+426 - OLTH
+530 - SEST
+728 - COWL
+785 - KNOX
+Nordstrom
+*/
 /*
 BEGIN TRAN 
-	EXEC dbo.cvo_stock_sync_sp 0, '001' -- Report only for location 001
+	EXEC dbo.cvo_stock_sync_sp 1, 'Nordstrom' -- Report only for location 001
 
 	EXEC dbo.cvo_stock_sync_sp 1, '001' -- Run for location 001
 
@@ -14,6 +26,7 @@ BEGIN TRAN
 ROLLBACK TRAN
 COMMIT TRAN
 */
+
 CREATE PROC [dbo].[cvo_stock_sync_sp]	@run		smallint = 0, 
 									@location	varchar(10) = NULL
 AS
@@ -338,5 +351,6 @@ BEGIN
 
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_stock_sync_sp] TO [public]
 GO

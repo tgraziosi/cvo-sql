@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -19,6 +20,7 @@ AS
 -- v1.7 CB 04/07/2013 - Issue #1325 - Keep soft alloc no
 -- v1.8 CB 04/02/2014 - Issue #1358 - Remove call to ship complete hold
 -- v1.9 CB 31/07/2015 - Rebuild consolidated picks
+-- v2.0 CB 12/01/2016 - #1586 - When orders are allocated or a picking list printed then update backorder processing
   
 DECLARE @order_no  int,  
  @order_ext  int,  
@@ -473,6 +475,10 @@ DECLARE allocate_cursor CURSOR FOR
 -- v1.8	EXEC @iret = dbo.cvo_hold_ship_complete_allocations_sp @order_no, @order_ext
 	-- v1.6 End
 
+	-- v2.0 Start
+	EXEC dbo.cvo_update_bo_processing_sp 'A', @order_no, @order_ext
+	-- v2.0 End
+
  END 
  -- END v1.1
 
@@ -505,5 +511,6 @@ DROP TABLE #consolidate_picks
 -- v1.9 End
 
 GO
+
 GRANT EXECUTE ON  [dbo].[tdc_plw_so_allocate_selected_lines] TO [public]
 GO

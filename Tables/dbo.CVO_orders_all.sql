@@ -161,6 +161,27 @@ AS
                                                     'frame', 'sun' ) )
                                 AND CHARINDEX('Cole Haan frames are for replacement purposes',
                                               ISNULL(co.invoice_note, '')) = 0;
+					
+					-- 2/2/16 - add note for online special offer
+	                   UPDATE  co
+                        SET     co.invoice_note = CASE WHEN ISNULL(co.invoice_note,
+                                                              '') = ''
+                                                       THEN 'Place an order online during the month of February and receive FREE shipping! Visit www.cvoptical.com for details!'
+                                                       ELSE ISNULL(co.invoice_note,
+                                                              '') + CHAR(13)
+                                                            + CHAR(10)
+                                                            + 'Place an order online during the month of February and receive FREE shipping! Visit www.cvoptical.com for details!'
+                                                  END
+                        FROM    dbo.CVO_orders_all AS co
+                                JOIN dbo.orders AS o ( NOLOCK ) ON o.order_no = co.order_no
+                                                              AND o.ext = co.ext
+                        WHERE   co.order_no = @order_no
+                                AND co.ext = @ext
+                                AND o.type = 'I'
+                                AND o.date_entered BETWEEN '2/1/2016' AND '3/1/2016'
+                                AND CHARINDEX('Place an order online during the month of February',
+                                              ISNULL(co.invoice_note, '')) = 0
+								AND 255 >= LEN(ISNULL(co.invoice_note,'')) + 116;
 		
                     END;
 
@@ -273,6 +294,7 @@ AS
     END;
 
 
+GO
 GO
 GO
 SET QUOTED_IDENTIFIER ON

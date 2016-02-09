@@ -9,7 +9,7 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT * FROM dbo.cvo_hs_inventory_8 where mastersku like 'rr%'
+-- SELECT * FROM dbo.cvo_hs_inventory_8 where mastersku like 'iz201%'
 -- DROP TABLE dbo.cvo_hs_inventory_8
 -- 		
 -- 072814 - tag - 1) add special values, 2) performance updates
@@ -131,7 +131,9 @@ variantdescription = case when i.type_code in ('other','pop') then i.description
 	 WHEN datediff(m,isnull(field_28,@today),@today) >= 9 THEN 'QOP'
 
 	 ELSE I.TYPE_CODE END,
-[CATEGORY:2] = case when i.category in ('izod','izx') then 'IZOD' ELSE CAT.DESCRIPTION END,
+[CATEGORY:2] = case when i.category in ('izod','izx') then 'IZOD' 
+WHEN ia.field_32 = 'lastchance' THEN '' 
+ELSE CAT.DESCRIPTION END,
 ISNULL(FIELD_3,'') AS Color,
 -- sun lens color for REVO
 CASE WHEN i.type_code = 'sun' AND i.category = 'revo' THEN REPLACE(ISNULL(field_23,'NoLens'),' ','') ELSE -- use lens color as dimension for revo
@@ -157,6 +159,7 @@ case when isnull(field_28,@today) < @today then 'POM' else '' end as POM,
 shelfqty = 0,
 ISNULL(invupd.shelfqty,'999') ShelfQty2,
 cia.nextpoduedate
+, cia.NextPOOnOrder
 , isnull(drp.e12_wu,0) drp_usg
 , isnull(cia.qty_avl,0) qty_avl
 , New_shelfqty = case when isnull(cia.qty_avl,0) <= isnull(drp.e12_wu,0) then 0 else isnull(cia.qty_avl,0) end
@@ -301,7 +304,9 @@ Size,
 COLL, Model, POMDate, ReleaseDate, Status, GENDER, SpecialtyFit, APR, New, SUNPS, CostCo
 -- , ShelfQty
 , ShelfQty = 
-	CASE WHEN t1.apr = 'y' or t1.sunps = 'sunps' OR t1.[CATEGORY:2] = 'revo' THEN 2000 -- APR and sunps and revo
+-- 2/4/16 - add izod interchangeable fudge qty for 2/23 release
+	CASE WHEN t1.brand = 'izod' AND t1.Model IN ('6001','6002','6003','6004') THEN t1.qty_avl + t1.NextPOOnOrder 
+		 WHEN t1.apr = 'y' or t1.sunps = 'sunps' OR t1.[CATEGORY:2] = 'revo' THEN 2000 -- APR and sunps and revo
 		 when t1.[category:1] in ('spv','qop','eor') then isnull(t1.qty_avl,0)
 		 WHEN T1.[CATEGORY:1] = 'CH SELL-DOWN' -- AND ISNULL(T1.QTY_AVL,0) < 10 
 			THEN t1.qty_avl
@@ -320,7 +325,12 @@ update #final set Hide =
 			   WHEN ShelfQty <= 0 and [category:1] in ('EOR','EORS') THEN 1
 			   else 0 END
 
-update #final set Hide = case when COLL = 'revo' AND isnull(pomdate,@today) = '01/01/2010' then 1 else 0 end
+update #final set Hide = case when COLL = 'revo' AND isnull(pomdate,@today) = '01/01/2010' then 1
+							  WHEN mastersku IN ('iz2014','iz2015','iz2016','iz2017') THEN 1
+							   else 0 end
+
+	
+-- SELECT * FROM dbo.cvo_hs_inventory_8 AS chi WHERE chi.mastersku LIKE 'iz201%'
 			   
 -- 8/21/2015 - hide these until JB says to release
 

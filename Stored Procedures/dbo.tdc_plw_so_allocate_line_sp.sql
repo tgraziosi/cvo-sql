@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -17,6 +18,7 @@ GO
 -- v2.2 CB 18/06/2013 - Fix Issue when case are partially picked
 -- v2.3 CB 27/06/2013 - Issue #1330 - If lines are deleted from an order and the order is then manually allocated in PWB then soft alloc is never processed
 -- v2.4 CB 11/02/2015 - Issue #  - Check shipped qty when allocating
+-- v2.5 CB 26/01/2016 - #1581 2nd Polarized Option
 
 CREATE PROC [dbo].[tdc_plw_so_allocate_line_sp]            
  @user_id   varchar(50),             
@@ -89,9 +91,9 @@ DECLARE @dist_cust_pick  char(1),
 IF EXISTS(SELECT * FROM orders (NOLOCK) WHERE order_no = @order_no AND ext = @order_ext AND status > 'Q') return            
          
 -- v1.3 Start 
-SELECT	@polarized_part = value_str FROM tdc_config (NOLOCK) WHERE [function] = 'DEF_RES_TYPE_POLARIZED'
-IF @polarized_part IS NULL
-	SET @polarized_part = 'CVZDEMRM'   
+-- v2.5SELECT	@polarized_part = value_str FROM tdc_config (NOLOCK) WHERE [function] = 'DEF_RES_TYPE_POLARIZED'
+-- v2.5IF @polarized_part IS NULL
+-- v2.5	SET @polarized_part = 'CVZDEMRM'   
 -- v1.3 End
 
 -- v2.3 Start
@@ -213,7 +215,8 @@ BEGIN
 			CASE WHEN ISNULL(b.add_case,'N') = 'Y' THEN fc.case_part ELSE '' END, -- v1.9
 -- v1.9		CASE WHEN ISNULL(b.add_pattern,'N') = 'Y' THEN c.field_4 ELSE '' END,
 			CASE WHEN ISNULL(b.add_pattern,'N') = 'Y' THEN fc.pattern_part ELSE '' END, -- v1.9
-			CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized_part ELSE '' END,
+-- v2.5		CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized_part ELSE '' END,
+			CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN fc.polarized_part ELSE '' END, -- v2.5
 			a.ordered,
 			CASE WHEN LEFT(c.field_10,5) = 'metal' THEN 1 ELSE CASE WHEN LEFT(c.field_10,7) = 'plastic' THEN 2 ELSE 0 END END,
 			d.type_code,
@@ -1059,5 +1062,6 @@ BEGIN
 END   
   
 GO
+
 GRANT EXECUTE ON  [dbo].[tdc_plw_so_allocate_line_sp] TO [public]
 GO

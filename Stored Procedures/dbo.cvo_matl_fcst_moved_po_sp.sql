@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -6,7 +7,7 @@ CREATE procedure [dbo].[cvo_matl_fcst_moved_po_sp]  @DateFrom DATETIME  , @DaysT
 
 as
 
--- exec cvo_matl_fcst_moved_po_sp '08/06/2015' 
+-- exec cvo_matl_fcst_moved_po_sp '01/11/2016' 
 
 -- 021815 - tag - only call out items where the shipment is not yet intransit
 -- 030615 -- incorporate new line level packing list setting
@@ -86,6 +87,9 @@ s_sales_m1_12 decimal(20,0),
 s_e4_wu decimal(20,0),
 s_e12_wu decimal(20,0),
 s_e52_wu decimal(20,0),
+-- 1/12/16
+s_promo_w4 DECIMAL(20,0),
+s_promo_w12 DECIMAL(20,0),
 line_type varchar(3),
 sku varchar(40),
 mm int,
@@ -97,6 +101,7 @@ qoh int,
 atp INT,
 quantity int,
 mult decimal(20,8),
+s_mult DECIMAL(20,8),
 sort_seq int,
 pct_of_style decimal(20,8),
 pct_first_po decimal(20,8),
@@ -104,6 +109,8 @@ pct_sales_style_m1_3 decimal(20,8),
 p_e4_wu int,
 p_e12_wu int,
 p_e52_wu int,
+p_subs_w4 INT,
+p_subs_w12 INT,
 s_mth_usg decimal(20,0),
 p_mth_usg decimal(20,0),
 s_mth_usg_mult decimal(20,8),
@@ -115,7 +122,9 @@ p_po_qty_y1 decimal(20,0)
 )
 
 insert into #mpo
-exec cvo_matl_fcst_style_sp 
+-- exec cvo_matl_fcst_style_sp 
+exec cvo_matl_fcst_style_season_sp 
+
 	@startrank = @rankdate
 	, @asofdate = @asofdate 
 	, @endrel = @asofdate

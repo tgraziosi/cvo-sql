@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -31,8 +32,9 @@ SET ANSI_WARNINGS OFF;
 DECLARE @qty DECIMAL(20,8), @qty_to_process DECIMAL(20,8)
 , @line_no INT, @station_id INT, @user_id VARCHAR(50), @tran_id INT
 , @cart_order_no varchar(20)
+, @asofdate DATETIME
 
-SELECT @station_id = 777, @user_id = ''
+SELECT @station_id = 777, @user_id = '', @asofdate = GETDATE()
 
 SELECT @cart_order_no = REPLACE(CONVERT(VARCHAR(10),@order_no) + '-' + CONVERT(VARCHAR(5),@order_ext),' ','')
 
@@ -107,7 +109,8 @@ begin
 			@station_id , -- int
 			@user_id = '' -- varchar(50)
 		end
-		UPDATE pp SET ISPICKED = 'Y' FROM CVO_CART_PARTS_PROCESSED PP
+		UPDATE pp SET ISPICKED = 'Y', PP.pick_complete_dt = @asofdate
+			    FROM CVO_CART_PARTS_PROCESSED PP
 				WHERE TRAN_ID = @tran_id and ispicked <> 'y'
 		
 		SELECT @tran_id = MIN(p.tran_id) FROM tdc_pick_queue p
@@ -115,6 +118,9 @@ begin
 				AND p.tran_id > @tran_id
 
 	END -- processing loop
+	
+	UPDATE dbo.cvo_cart_orders_processed SET processed_date = @asofdate WHERE @order_no = @cart_order_no
+
     END -- proc_option = 1
     
 IF @proc_option = 99

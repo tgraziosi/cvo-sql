@@ -34,7 +34,9 @@ CREATE TABLE [dbo].[cvo_cmi_variants]
 [nose_pad_color] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [lens_color] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [nose_pads] [varchar] (80) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[isDefaultImage] [tinyint] NULL CONSTRAINT [DF__cvo_cmi_v__isDef__5D60D6E1] DEFAULT ((0))
+[isDefaultImage] [tinyint] NULL CONSTRAINT [DF__cvo_cmi_v__isDef__5D60D6E1] DEFAULT ((0)),
+[var_asterisk_1] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[var_asterisk_2] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_cmi_variants] ADD CONSTRAINT [PK__cvo_cmi_variants__6EF3AEBF] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

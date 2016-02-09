@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -23,6 +24,7 @@ GO
 -- v2.8 CB 05/02/2013 - Fix issue with std routine - Causes mulitple unallocations per line
 -- v2.9 CB 11/02/2014 - Issue #1452 - Remove call to release date hold
 -- v3.0 CB 19/06/2014 - Performance
+-- v3.1 CB 12/01/2016 - #1586 - When orders are allocated or a picking list printed then update backorder processing
 CREATE PROCEDURE [dbo].[tdc_order_after_save]	@order_no  int,  
 											@ext		int  
 AS  
@@ -665,6 +667,9 @@ BEGIN
 	EXEC CVO_allocate_by_bin_group_adjust_sp 1  
 	--END   SED009 -- AutoAllocation    
 
+	-- v3.1 Start
+	EXEC dbo.cvo_update_bo_processing_sp 'A', @order_no, @ext
+	-- v3.2 End
 
 	-- v1.8 Start
 	IF OBJECT_ID('tempdb..#no_stock_orders') IS NOT NULL
@@ -734,5 +739,6 @@ BEGIN
 	RETURN 0  
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[tdc_order_after_save] TO [public]
 GO

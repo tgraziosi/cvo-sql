@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -69,9 +70,9 @@ BEGIN
 	WHERE	customer_code = @customer_code
 	AND		ship_to = @ship_to
 
-	SELECT	@polarized_part = value_str FROM tdc_config (NOLOCK) WHERE [function] = 'DEF_RES_TYPE_POLARIZED'
-	IF @polarized_part IS NULL
-		SET @polarized_part = 'CVZDEMRM'
+-- v12.3	SELECT	@polarized_part = value_str FROM tdc_config (NOLOCK) WHERE [function] = 'DEF_RES_TYPE_POLARIZED'
+-- v12.3	IF @polarized_part IS NULL
+-- v12.3		SET @polarized_part = 'CVZDEMRM'
 
 	-- Get the next ext number
 	SELECT	@max_ext = MAX(ext)
@@ -136,7 +137,8 @@ BEGIN
 			CASE WHEN d.type_code = 'POP' THEN '' ELSE CASE WHEN ISNULL(b.add_case,'N') = 'Y' THEN fc.case_part ELSE '' END END, -- v11.3 11.4
 -- v11.4	CASE WHEN ISNULL(b.add_pattern,'N') = 'Y' THEN c.field_4 ELSE '' END,
 			CASE WHEN ISNULL(b.add_pattern,'N') = 'Y' THEN fc.pattern_part ELSE '' END, -- v11.4
-			CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized_part ELSE '' END,
+-- v12.3	CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized_part ELSE '' END,
+			CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN fc.polarized_part ELSE '' END, -- v12.3
 			a.ordered,
 			a.curr_price,
 			CASE WHEN LEFT(c.field_10,5) = 'metal' THEN 1 ELSE CASE WHEN LEFT(c.field_10,7) = 'plastic' THEN 2 ELSE 0 END END,
@@ -1459,6 +1461,20 @@ BEGIN
 			-- Manually call the update order totals
 			EXEC dbo.fs_updordtots @order_no, @new_ext
 
+			-- v12.3 Start
+			CREATE TABLE #cvo_ord_list_fc (
+				order_no		int, 
+				order_ext		int, 
+				line_no			int, 
+				polarized_part	varchar(30) NULL)
+
+			INSERT	#cvo_ord_list_fc
+			SELECT	order_no, @new_ext, line_no, polarized_part
+			FROM	cvo_ord_list_fc (NOLOCK)
+			WHERE	order_no = @order_no
+			AND		order_ext = @order_ext
+			-- v12.3 End
+
 			-- v11.4 Start
 			DELETE	cvo_ord_list_fc
 			WHERE	order_no = @order_no
@@ -1475,8 +1491,19 @@ BEGIN
 			AND		a.order_ext = @new_ext	
 			AND		b.type_code IN ('FRAME','SUN')
 			ORDER BY a.order_no, a.order_ext, a.line_no
-
 			-- v11.4 End
+
+			-- v12.3 Start
+			UPDATE	a
+			SET		polarized_part = b.polarized_part
+			FROM	dbo.cvo_ord_list_fc a
+			JOIN	#cvo_ord_list_fc b
+			ON		a.order_no = b.order_no
+			AND		a.order_ext = b.order_ext
+			AND		a.line_no = b.line_no
+		
+			DROP TABLE #cvo_ord_list_fc
+			-- v12.3 End
 
 			SET	@last_new_ext = @new_ext
 
@@ -1501,5 +1528,6 @@ BEGIN
 
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[CVO_Split_dollar_orders_sp] TO [public]
 GO
