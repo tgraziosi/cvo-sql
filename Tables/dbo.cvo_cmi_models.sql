@@ -62,7 +62,10 @@ CREATE TABLE [dbo].[cvo_cmi_models]
 [hinge_smooth_movement] [smallint] NULL CONSTRAINT [DF__cvo_cmi_m__hinge__7CBE18E9] DEFAULT ('0'),
 [material_composition] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [print_flag] [varchar] (24) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[isEP] [tinyint] NULL CONSTRAINT [DF__cvo_cmi_mo__isEP__19617DA6] DEFAULT ((0))
+[isEP] [tinyint] NULL CONSTRAINT [DF__cvo_cmi_mo__isEP__19617DA6] DEFAULT ((0)),
+[frame_only] [tinyint] NULL CONSTRAINT [DF__cvo_cmi_m__frame__49D20CDC] DEFAULT ((0)),
+[lens_cost] [float] NULL,
+[lens_vendor] [varchar] (120) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_cmi_models] ADD CONSTRAINT [PK__cvo_cmi_models__6D0B664D] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

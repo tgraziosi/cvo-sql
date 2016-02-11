@@ -235,10 +235,16 @@ when isnull(reason,'') = '' and not exists (select 1 from cvo_promo_override_aud
 else 0 end,	
 (select top 1 ltrim(rtrim(failure_reason)) from cvo_promo_override_audit poa where poa.order_no = #temp.order_no and poa.order_ext = #temp.ext order by override_date desc) override_reason
 , UC  
+-- 2/10/16 - for region weekly summary
+,Convert(varchar, DateAdd(dd, 1-(DatePart(dw,date_entered) - 1),date_entered), 101) wk_Begindate
+,Convert(varchar, DateAdd(dd, (9 - DatePart(dw, date_entered)), date_entered), 101) wk_EndDate
+
 from #temp
 
 
+
 GO
+
 
 GRANT EXECUTE ON  [dbo].[cvo_promotions_tracker_terr_sp] TO [public]
 GO

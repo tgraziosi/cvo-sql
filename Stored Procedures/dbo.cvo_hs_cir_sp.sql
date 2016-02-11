@@ -13,7 +13,7 @@ BEGIN
 /*
 select c.* From cvo_hs_cir_tbl c
 JOIN armaster ar on ar.customer_code = c.customer AND ar.ship_to_code = c.ship_to
-WHERE ar.territory_code IN ('20206','40454')
+WHERE ar.territory_code IN ('40456','40454')
 */
 
 SET NOCOUNT ON 
@@ -107,6 +107,7 @@ FROM #t order by customer, ship_to, part_no
 end
 
 GO
+
 
 GRANT EXECUTE ON  [dbo].[cvo_hs_cir_sp] TO [public]
 GO

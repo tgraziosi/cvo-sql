@@ -17,8 +17,8 @@ AS
 -- select * From cvo_cart_order_parts
 -- select * from cvo_cart_scan_orders
 -- exec cvo_pick_cart_process_sp 1, 2350742, 0, 99 -- void
--- exec cvo_pick_cart_process_sp 1, 2427544, 0, 0 -- check in
--- exec cvo_pick_cart_process_sp 1, 2663446, 0, 1 -- pick and check out
+-- exec cvo_pick_cart_process_sp 1, 2721133, 0, 0 -- check in
+-- exec cvo_pick_cart_process_sp 1, 2721133, 0, 1 -- pick and check out
 
 /*
  SELECT tx_lock, user_id, mfg_batch, * FROM tdc_pick_queue WHERE trans_type_no = 2663446
@@ -108,10 +108,12 @@ begin
 			@qty, -- decimal
 			@station_id , -- int
 			@user_id = '' -- varchar(50)
-		end
-		UPDATE pp SET ISPICKED = 'Y', PP.pick_complete_dt = @asofdate
+			
+			UPDATE pp SET ISPICKED = 'Y', PP.pick_complete_dt = @asofdate
 			    FROM CVO_CART_PARTS_PROCESSED PP
 				WHERE TRAN_ID = @tran_id and ispicked <> 'y'
+		end
+
 		
 		SELECT @tran_id = MIN(p.tran_id) FROM tdc_pick_queue p
 				WHERE trans_type_no = @order_no AND trans_type_ext = @order_ext
@@ -119,7 +121,7 @@ begin
 
 	END -- processing loop
 	
-	UPDATE dbo.cvo_cart_orders_processed SET processed_date = @asofdate WHERE @order_no = @cart_order_no
+	UPDATE dbo.cvo_cart_orders_processed SET processed_date = @asofdate WHERE order_no = @cart_order_no
 
     END -- proc_option = 1
     
@@ -138,6 +140,8 @@ begin
 END -- proc_option = 99
 
  
+
+
 
 
 GO

@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -29,6 +30,9 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	bm.nose_pads,
 	bm.hinge_type,
 	bm.release_date,
+	bm.frame_only, -- 2/10/2016 - for BT And REvo
+	bm.lens_cost,
+	bm.lens_vendor,
 	'1' AS prim_img,
 	v.color_family AS ColorGroupCode, 
 	v.color AS ColorName,
@@ -45,6 +49,7 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	-- tag - more fields for line sheets and Epicor in general
 	bm.temple_tip_material,
 	bm.suns_only,
+	bm.suns_only lens_material,
 	bm.lens_base,
 	bm.front_price,
 	bm.temple_price,
@@ -74,6 +79,7 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	, d.frame_cost
 	, d.front_cost
 	, d.temple_cost
+	, ISNULL(d.dim_lens_cost,0) dim_lens_cost -- 2/10/16
 	, bm.cost_currency
 	, bm.single_cable_cost
 	, d.ws_ship1_qty
@@ -92,6 +98,7 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	, bm.model_lead_time
 	, v.lens_color
 
+
 	FROM 
 	
 	cvo_cmi_models bm 
@@ -104,13 +111,6 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 		AND d.eye_size =  i.eye_size AND v.color = i.colorname
 	
 	WHERE v.isActive = 1
-
-
-
-
-
-
-
 
 
 GO

@@ -29,16 +29,9 @@ CREATE TABLE [dbo].[cvo_commission_bldr_work_tbl]
 [added_by] [nvarchar] (128) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [id] [bigint] NOT NULL
 ) ON [PRIMARY]
+GO
+
+
 ALTER TABLE [dbo].[cvo_commission_bldr_work_tbl] ADD 
 CONSTRAINT [PK__cvo_commission_b__64F0176C] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
-GO
-GRANT REFERENCES ON  [dbo].[cvo_commission_bldr_work_tbl] TO [public]
-GO
-GRANT SELECT ON  [dbo].[cvo_commission_bldr_work_tbl] TO [public]
-GO
-GRANT INSERT ON  [dbo].[cvo_commission_bldr_work_tbl] TO [public]
-GO
-GRANT DELETE ON  [dbo].[cvo_commission_bldr_work_tbl] TO [public]
-GO
-GRANT UPDATE ON  [dbo].[cvo_commission_bldr_work_tbl] TO [public]
 GO

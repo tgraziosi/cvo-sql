@@ -130,7 +130,7 @@ SELECT DISTINCT
         Collection ,
         model ,
         UPPER(LEFT(model, 4)) short_model_calc ,
-        short_model ,
+        UPPER(short_model) short_model ,
         0 AS ok
 
 INTO    #short_model_name
@@ -202,7 +202,7 @@ INSERT  INTO #parts_list
                 0 ,
                 NULL ,
                 'BRUIT' ,
-                UPPER(LEFT(c.Collection, 2) + RTRIM(smn.short_model))
+                CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
@@ -228,7 +228,7 @@ INSERT  INTO #parts_list
                 0 ,
                 NULL ,
                 'PATTERN' ,
-                UPPER(LEFT(c.Collection, 2) + RTRIM(smn.short_model) + 'P')
+                CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model) + 'P'
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
@@ -253,7 +253,7 @@ INSERT  INTO #parts_list
                 c.temple_size ,
                 'FRAME' ,
                 UPPER(
-				LEFT(c.Collection, 2) + RTRIM(smn.short_model)
+				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
                 + ISNULL(short_color_name, 'ccc')
                 + CAST(c.eye_size AS VARCHAR(2))
                 + CAST(c.dbl_size AS VARCHAR(2))
@@ -284,7 +284,7 @@ INSERT  INTO #parts_list
                 NULL ,
                 'FRONT' ,
                 UPPER(
-				LEFT(c.Collection, 2) + RTRIM(smn.short_model)
+				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
                 + ISNULL(short_color_name, 'ccc') + 'F'
                 + CAST(c.eye_size AS VARCHAR(2))
 				)
@@ -314,10 +314,9 @@ INSERT  INTO #parts_list
                 c.eye_size ,
                 NULL ,
                 'DEMOLEN' ,
-                UPPER(
-				LEFT(c.Collection, 2) + RTRIM(smn.short_model) + 'DEM'
+                CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model) + 'DEM'
                 + CAST(c.eye_size AS VARCHAR(2))
-				)
+				
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
@@ -343,11 +342,10 @@ INSERT  INTO #parts_list
                 c.eye_size ,
                 NULL ,
                 'DEMOLEN' ,
-                UPPER(
-				LEFT(c.Collection, 2) + RTRIM(smn.short_model)
+                CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
                 + 'SUN' + ISNULL(short_color_name, 'ccc') 
                 + CAST(c.eye_size AS VARCHAR(2))
-				)
+				
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
@@ -375,11 +373,10 @@ INSERT  INTO #parts_list
                 0 ,
                 CAST(c.temple_size AS DECIMAL(18,1)) ,
                 'TEMPLE-L' ,
-                UPPER(
-				LEFT(c.Collection, 2) + RTRIM(smn.short_model)
+				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
                 + ISNULL(short_color_name, 'ccc') + 'LS'
                 + CAST(CAST(c.temple_size AS INT) AS VARCHAR(3))
-				)
+				
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
@@ -406,11 +403,10 @@ INSERT  INTO #parts_list
                 0 ,
                 c.temple_size ,
                 'TEMPLE-R' ,
-                upper(
-				LEFT(c.Collection, 2) + RTRIM(smn.short_model)
+                CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
                 + ISNULL(short_color_name, 'ccc') + 'RS'
                 + CAST(CAST(c.temple_size AS INT) AS VARCHAR(3))
-				)
+				
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
@@ -471,11 +467,10 @@ INSERT  INTO #parts_list
                 0 ,
                 c.temple_size ,
                 'CABLE-L' ,
-				UPPER(
-                LEFT(c.Collection, 2) + RTRIM(smn.short_model)
+				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
                 + ISNULL(short_color_name, 'ccc') + 'LC'
                 + CAST(CAST(c.temple_size AS INT) AS VARCHAR(3))
-				)
+				
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
@@ -503,7 +498,7 @@ INSERT  INTO #parts_list
                 c.temple_size ,
                 'CABLE-R' ,
 				UPPER(
-                LEFT(c.Collection, 2) + RTRIM(smn.short_model)
+                CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
                 + ISNULL(short_color_name, 'ccc') + 'RC'
                 + CAST(CAST(c.temple_size AS INT) AS VARCHAR(3))
 				)

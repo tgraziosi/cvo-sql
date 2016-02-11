@@ -305,7 +305,7 @@ COLL, Model, POMDate, ReleaseDate, Status, GENDER, SpecialtyFit, APR, New, SUNPS
 -- , ShelfQty
 , ShelfQty = 
 -- 2/4/16 - add izod interchangeable fudge qty for 2/23 release
-	CASE WHEN t1.brand = 'izod' AND t1.Model IN ('6001','6002','6003','6004') THEN t1.qty_avl + t1.NextPOOnOrder 
+	CASE WHEN t1.coll = 'izod' AND t1.Model IN ('6001','6002','6003','6004') THEN t1.qty_avl + t1.NextPOOnOrder 
 		 WHEN t1.apr = 'y' or t1.sunps = 'sunps' OR t1.[CATEGORY:2] = 'revo' THEN 2000 -- APR and sunps and revo
 		 when t1.[category:1] in ('spv','qop','eor') then isnull(t1.qty_avl,0)
 		 WHEN T1.[CATEGORY:1] = 'CH SELL-DOWN' -- AND ISNULL(T1.QTY_AVL,0) < 10 
@@ -326,6 +326,7 @@ update #final set Hide =
 			   else 0 END
 
 update #final set Hide = case when COLL = 'revo' AND isnull(pomdate,@today) = '01/01/2010' then 1
+							  WHEN coll = 'revo' AND model IN ('Straightshot','Bearing','Heading') THEN 1 -- 2/10/2016
 							  WHEN mastersku IN ('iz2014','iz2015','iz2016','iz2017') THEN 1
 							   else 0 end
 
@@ -535,6 +536,7 @@ END
 
 
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
+
 
 
 GO

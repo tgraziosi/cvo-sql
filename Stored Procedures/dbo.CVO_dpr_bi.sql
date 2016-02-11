@@ -455,18 +455,6 @@ from inv_master  where VOID ='N'
             FROM    #TBB a
                     LEFT JOIN inv_master_add (NOLOCK) b ON a.part_no = b.part_no;                          
              
--- Pull Reserve Level, In Stock
-            IF ( OBJECT_ID('tempdb.dbo.#vs1DPRInventory') IS NOT NULL )
-                DROP TABLE #vs1DPRInventory;
-            SELECT  part_no ,
-                    MAX(ISNULL(min_stock, 0)) RL ,
-                    SUM(ISNULL(in_stock, 0)) on_hand
-            INTO    #vs1DPRInventory
-            FROM    #locations l
-                    INNER JOIN cvo_item_avail_vw (NOLOCK) c ON c.location = l.location
--- Where location in (Select * From #locations)
-GROUP BY            part_no;  
-
 -- Pull QC ON HAND
             IF ( OBJECT_ID('tempdb.dbo.#vs2DPRInventory') IS NOT NULL )
                 DROP TABLE #vs2DPRInventory;
@@ -484,7 +472,10 @@ GROUP BY            part_no;
                 DROP TABLE #vs3DPRInventory;
 --SELECT part_no, sum(ISNULL( DBO.f_cvo_get_soft_alloc_stock('0', LOCATION, PART_NO),0) ) AS SA_Alloc  -- GET RID OF FUNCTION
             SELECT  part_no ,
-                    ( SUM(ISNULL(Allocated, 0)) + SUM(ISNULL(SOF, 0)) ) SA_Alloc
+			        MAX(ISNULL(min_stock, 0)) RL ,
+                    SUM(ISNULL(in_stock, 0)) on_hand,
+                    ( SUM(ISNULL(Allocated, 0)) + SUM(ISNULL(SOF, 0)) ) SA_Alloc,
+					 SUM(ISNULL(qty_avl, 0)) AS SA_ALLOCATED   
             INTO    #vs3DPRInventory
             FROM    #locations l
                     INNER JOIN cvo_item_avail_vw t1 ( NOLOCK ) ON t1.location = l.location
@@ -500,36 +491,18 @@ GROUP BY            part_no;
 --Group By part_no, location
 
 
-
--- add soft allocation table
-            IF ( OBJECT_ID('tempdb.dbo.#vs4DPRInventory') IS NOT NULL )
-                DROP TABLE #vs4DPRInventory;
-            SELECT  part_no ,
-                    SUM(ISNULL(qty_avl, 0)) AS SA_ALLOCATED    -- SA_Allocated is actually Available to Promise
-            INTO    #vs4DPRInventory
-            FROM    #locations l
-                    INNER JOIN cvo_item_avail_vw (NOLOCK) c ON c.location = l.location
--- Where location in (Select * From #locations)
-GROUP BY            part_no;
-
---     SELECT * FROM #vs1DPRInventory WHERE part_no='BC804HOR5818'
---     SELECT * FROM #DPR_ApMaster  WHERE part_no='BC804HOR5818'
-
-
 --  Add INV Master data to RL & OH & QC
             IF ( OBJECT_ID('tempdb.dbo.#DPR_Inventory') IS NOT NULL )
                 DROP TABLE #DPR_Inventory;                           
             SELECT  a.* ,
-                    b.RL ,
-                    SUM(ISNULL(b.on_hand, 0) + ISNULL(c.QCOH, 0)) on_hand ,
+                    d.RL ,
+                    SUM(ISNULL(d.on_hand, 0) + ISNULL(c.QCOH, 0)) on_hand ,
                     D.SA_Alloc ,
-                    e.SA_ALLOCATED  -- SA_Allocated is actually Available to Promise
+                    d.SA_ALLOCATED  -- SA_Allocated is actually Available to Promise
             INTO    #DPR_Inventory
             FROM    #DPR_InvMaster a
-                    LEFT JOIN #vs1DPRInventory b ON a.part_no = b.part_no
                     LEFT JOIN #vs2DPRInventory c ON a.part_no = c.part_no
                     LEFT JOIN #vs3DPRInventory D ON a.part_no = D.part_no
-                    LEFT JOIN #vs4DPRInventory e ON a.part_no = e.part_no
             GROUP BY a.part_no ,
                     a.e4_wu ,
                     a.e12_wu ,
@@ -549,9 +522,9 @@ GROUP BY            part_no;
                     a.POM ,
                     a.RD ,
                     a.style ,
-                    b.RL ,
+                    d.RL ,
                     D.SA_Alloc ,
-                    e.SA_ALLOCATED;
+                    d.SA_ALLOCATED;
 
 -- Add Addl LT
             IF ( OBJECT_ID('tempdb.dbo.#DPR_ApMaster') IS NOT NULL )
@@ -1400,6 +1373,7 @@ GROUP BY                                t2.part_no
 
 
 GO
+
 
 GRANT EXECUTE ON  [dbo].[CVO_dpr_bi] TO [public]
 GO

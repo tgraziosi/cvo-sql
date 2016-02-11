@@ -5,6 +5,7 @@ SET ANSI_NULLS ON
 GO
 
 
+
 CREATE VIEW [dbo].[cvo_item_avail_vw] AS
 -- tag - 4/17/2012 - rewrite from cvo_ss_item_vw
 -- tag - 2/3/2012 - changed available calculation to match tdc_get_alloc_qntd_sp logic
@@ -153,17 +154,17 @@ lbr.location = t3.location AND lbr.part_no = t1.part_no),0)
 
 -- select top 10 * from lot_bin_recv
         
--- 2/8/16
-, ISNULL(drp.e4_WU,0) e4_wu
-, ISNULL(drp.e12_wu,0) e12_wu
+---- 2/8/16
+--, ISNULL(drp.e4_WU,0) e4_wu
+--, ISNULL(drp.e12_wu,0) e12_wu
 
 FROM inv_master t1 (NOLOCK) 
 INNER JOIN inv_master_add t8 (NOLOCK) ON t1.part_no = t8.part_no
 -- inner join inventory t3 (nolock) on t1.part_no = t3.part_no
 INNER JOIN cvo_inventory2 t3 (NOLOCK) ON t1.part_no = t3.part_no
--- 2/8/16
-LEFT join dpr_report drp (nolock) 
-on drp.part_no = t3.part_no AND drp.location = t3.location
+---- 2/8/16
+--LEFT JOIN dpr_report drp (NOLOCK) 
+--ON drp.part_no = t3.part_no AND drp.location = t3.location
 -- left join dbo.f_get_excluded_bins(1) z1 on t1.part_no = z1.part_no and t3.location = z1.location
 LEFT JOIN dbo.f_get_excluded_bins_1_vw z1 ON t1.part_no = z1.part_no AND t3.location = z1.location
 LEFT JOIN 
@@ -205,7 +206,9 @@ WHERE  t3.void<>'V'
 
 
 
+
 GO
+
 
 GRANT REFERENCES ON  [dbo].[cvo_item_avail_vw] TO [public]
 GO
