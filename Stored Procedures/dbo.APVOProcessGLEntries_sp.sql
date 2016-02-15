@@ -3,7 +3,6 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
--- v1.0 CB 01/02/2016 - #1583 Extend GL Description Field  
 CREATE PROC [dbo].[APVOProcessGLEntries_sp]	@process_group_num varchar(16),  
 											@date_applied int,  
 											@batch_ctrl_num varchar(16),  
@@ -99,7 +98,7 @@ BEGIN
 	CREATE TABLE #gldetail (  
 		account_code varchar(32),  
 		vendor_code varchar(12),  
-		gl_desc varchar(60), -- v1.0 
+		gl_desc varchar(40), 
 		rec_company_code varchar(8),  
 		doc_ctrl_num varchar(16),  
 		trx_ctrl_num varchar(16),  
@@ -466,10 +465,6 @@ BEGIN
 	INNER JOIN apaccts b ON a.posting_code = b.posting_code  
 	INNER JOIN Organization c ON a.org_id = c.organization_id  
 	WHERE	@credit_invoice_flag = 1    
-
-	-- v1.0 Start
-	ALTER TABLE #gltrxdet ALTER COLUMN description varchar(60) 
-	-- v1.0 End
 	  
 	IF @gl_desc_def = 1  
 	BEGIN  
@@ -513,7 +508,7 @@ BEGIN
 		IF ( @debug_level > 1 ) SELECT CONVERT(char,getdate(),109) + '  ' + 'apvopgle.cpp' + ', line ' + STR( 656, 5 ) + ' -- MSG: ' + 'Get the item description'  
     
 		UPDATE	#gldetail  
-		SET		gl_desc = SUBSTRING(IsNull(v.vendor_short_name,'') + '/' + b.line_desc,1,60) -- v1.0
+		SET		gl_desc = SUBSTRING(IsNull(v.vendor_short_name,'') + '/' + b.line_desc,1,40)
 		FROM	#gldetail  
 		INNER JOIN #apvocdt_work b ON #gldetail.trx_ctrl_num = b.trx_ctrl_num AND #gldetail.sequence_id = b.sequence_id  
 		LEFT OUTER JOIN apvend v ON #gldetail.vendor_code = v.vendor_code     
@@ -528,7 +523,7 @@ BEGIN
 		journal_ctrl_num varchar(16),  
 		rec_company_code varchar(8),   
 		account_code  varchar(32),   
-		description  varchar(60), -- v1.0 
+		description  varchar(40), 
 		document_1  varchar(16),    
 		document_2  varchar(16),    
 		reference_code  varchar(32),   
@@ -646,6 +641,7 @@ BEGIN
 	RETURN 0  
 END
 GO
+
 
 GRANT EXECUTE ON  [dbo].[APVOProcessGLEntries_sp] TO [public]
 GO

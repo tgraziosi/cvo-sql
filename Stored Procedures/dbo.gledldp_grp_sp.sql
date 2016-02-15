@@ -87,7 +87,7 @@ SELECT
    d.rec_company_code,   
    d.nat_cur_code,   
    d.document_1,   
-   LEFT(d.description,40), -- v1.0  
+   d.description,
    d.reference_code,   
    d.balance,   
    d.nat_balance,   
@@ -815,6 +815,7 @@ IF ( @debug_level > 1 ) SELECT CONVERT(char,getdate(),109) + "  " + "gledldp_grp
   
 RETURN  
 GO
+
 
 GRANT EXECUTE ON  [dbo].[gledldp_grp_sp] TO [public]
 GO

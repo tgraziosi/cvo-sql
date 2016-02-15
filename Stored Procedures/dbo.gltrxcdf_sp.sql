@@ -15,7 +15,7 @@ BEGIN
 	CREATE TABLE #gltrxdet_temp1 ( 
 		id int IDENTITY, mark_flag smallint NOT NULL, trx_state smallint NOT NULL, journal_ctrl_num varchar(16) NOT NULL, sequence_id int NOT NULL,   
 		rec_company_code varchar(8) NOT NULL, company_id smallint NOT NULL, account_code varchar(32) NOT NULL,  
-		description varchar(60) NOT NULL, -- v1.0
+		description varchar(40) NOT NULL,
 		document_1 varchar(16) NOT NULL, document_2 varchar(16) NOT NULL,   
 		reference_code varchar(32) NOT NULL, balance float NOT NULL, nat_balance float NOT NULL,   
 		nat_cur_code varchar(8) NOT NULL, rate float NOT NULL, posted_flag smallint NOT NULL,   
@@ -171,6 +171,7 @@ BEGIN
 		RETURN 0  
 END
 GO
+
 
 GRANT EXECUTE ON  [dbo].[gltrxcdf_sp] TO [public]
 GO

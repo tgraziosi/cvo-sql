@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -52,6 +53,7 @@ IF @minsales IS NULL SELECT @minsales = 1000
 
 
 SELECT ar.territory_code, ar.customer_code, ar.ship_to_code, ar.address_name, ar.city, ar.postal_code
+, CASE WHEN promo.cust_code IS NULL THEN 'No' ELSE 'Yes' END AS Promo_Activity
 		, SUM(custsales.NetSales_2013) NetSales_2013
 		, SUM(custsales.NetSales_2014) NetSales_2014
 		, SUM(custsales.NetSales_2015) NetSales_2015
@@ -74,11 +76,20 @@ AND i.void = 'N'
 GROUP BY customer, ship_to,
 		 c_year
 ) custsales
+
 INNER JOIN armaster ar ON ar.customer_code = custsales.customer AND ar.ship_to_code = custsales.ship_to
+LEFT OUTER JOIN
+(SELECT DISTINCT o.cust_code, ship_to
+FROM cvo_orders_all co JOIN orders o ON o.ext = co.ext AND o.order_no = co.order_no
+WHERE co.promo_id = 'IZOD CLEAR' OR (CO.PROMO_ID = 'IZOD' AND CO.promo_level IN ('CARBON','PROFLEX','T & C')) 
+AND o.status = 't'
+) promo ON promo.ship_to = custsales.ship_to AND promo.cust_code = custsales.customer
 WHERE custsales.NetSales_2013 > @MinSales OR custsales.NetSales_2014 > @MinSales OR custsales.NetSales_2015 > @MinSales
-GROUP BY ar.territory_code, ar.customer_code, ar.ship_to_code, ar.address_name, ar.city, ar.postal_code
+GROUP BY ar.territory_code, ar.customer_code, ar.ship_to_code, ar.address_name, ar.city, ar.postal_code, promo.cust_code
 
 END
+
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_izod_planner_0316_sp] TO [public]
 GO

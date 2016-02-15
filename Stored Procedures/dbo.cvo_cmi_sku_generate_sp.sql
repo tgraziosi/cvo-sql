@@ -1005,11 +1005,11 @@ INSERT  #ia
 									 ELSE ''
                            END , -- temple material, if different than frame
                 field_13 = CASE WHEN c.part_type NOT IN ( 'pattern', 'demolen' ,'front')
-                                THEN ( SELECT TOP 1
+                                THEN ISNULL(( SELECT TOP 1
                                                 kys
                                        FROM     dbo.CVO_temple_hindge
                                        WHERE    description = c.hinge_type AND ISNULL(void,'N') = 'N'
-                                     )
+                                     ), 'Skull-Spring')  -- 2/15/2016
 									 ELSE ''
                            END , -- hinge type
 			    field_17 = CASE WHEN c.part_type IN ( 'frame', 'front',
@@ -1179,6 +1179,7 @@ INSERT  #i
                        or CHARINDEX('child',c.primarydemographic,0)>0
 					   OR CHARINDEX('kid',c.primarydemographic,0)>0 )
 					   THEN 'Kid'
+					   WHEN c.collection ='PT' AND LEFT(c.primarydemographic,3) = 'WOM' THEN 'Women'
                        ELSE LEFT(c.PrimaryDemographic, 3)
                   END ,
                 country_code = ISNULL ((SELECT TOP 1 country_code 
@@ -1812,6 +1813,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

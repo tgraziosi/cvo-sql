@@ -6,7 +6,7 @@ CREATE TABLE [dbo].[gltrxdet]
 [rec_company_code] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [company_id] [smallint] NOT NULL,
 [account_code] [varchar] (32) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
-[description] [varchar] (60) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+[description] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [document_1] [varchar] (16) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [document_2] [varchar] (16) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [reference_code] [varchar] (32) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
