@@ -48,6 +48,8 @@ CREATE TABLE [dbo].[inv_list]
 [qc_qty] [decimal] (20, 8) NULL CONSTRAINT [DF__inv_list__qc_qty__38063650] DEFAULT ((0)),
 [so_qty_increment] [decimal] (20, 8) NULL
 ) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [cvo_inv_list_location_051515] ON [dbo].[inv_list] ([location]) INCLUDE ([in_stock], [issued_mtd], [min_stock], [part_no]) ON [PRIMARY]
+
 GO
 SET QUOTED_IDENTIFIER ON
 GO
@@ -720,8 +722,7 @@ END
 GO
 ALTER TABLE [dbo].[inv_list] ADD CONSTRAINT [CK_inv_list_abc_code_frozen_flag] CHECK (([abc_code_frozen_flag]=(1) OR [abc_code_frozen_flag]=(0)))
 GO
-CREATE NONCLUSTERED INDEX [cvo_inv_list_location_051515] ON [dbo].[inv_list] ([location]) INCLUDE ([in_stock], [part_no], [issued_mtd]) ON [PRIMARY]
-GO
+
 CREATE NONCLUSTERED INDEX [locstatIncPart_idx] ON [dbo].[inv_list] ([location], [status]) INCLUDE ([part_no]) WITH (ALLOW_PAGE_LOCKS=OFF) ON [PRIMARY]
 GO
 CREATE UNIQUE CLUSTERED INDEX [invl_loc1] ON [dbo].[inv_list] ([part_no], [location]) ON [PRIMARY]

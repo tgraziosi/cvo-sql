@@ -7,6 +7,8 @@ CREATE TABLE [dbo].[cvo_ephs_order_tracking]
 [cust_name] [varchar] (60) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [order_amount] [float] NULL,
 [order_date] [datetime] NULL,
-[email] [varchar] (120) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[email] [varchar] (120) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[last_sync] [datetime] NULL,
+[territory] [varchar] (6) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO

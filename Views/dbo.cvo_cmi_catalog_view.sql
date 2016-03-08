@@ -6,6 +6,8 @@ GO
 
 
 
+
+
 -- select img_34, img_front, img_temple, * from cvo_cmi_catalog_view where model = 'cupcake'
 
 
@@ -55,6 +57,7 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	bm.temple_price,
 	bm.wholesale_price,
 	bm.retail_price,
+	bm.frame_price, -- 2/22/2016
 	bm.progressive_type,
 	bm.component_1,
 	bm.component_2,
@@ -62,7 +65,11 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	bm.spare_temple_length,
 	v.asterisk_1,
 	v.asterisk_2,
-	v.asterisk_3,
+	v.asterisk_3
+	, v.var_asterisk_1
+	, v.var_asterisk_2
+	, d.dim_asterisk_1
+	, d.dim_asterisk_2,
 	-- v.highres_34_img img_34,
 	v.varImported,
 	v.varImportDate,
@@ -89,6 +96,7 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	, i.img_temple AS img_temple
 	, i.img_front AS img_front
 	, i.img_sku
+	, I.IMG_WEB -- 02/25/16
 	, bm.print_flag
 	-- 08/25/2015 - add for sku gen project
 	-- , x.part_no
@@ -111,6 +119,9 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 		AND d.eye_size =  i.eye_size AND v.color = i.colorname
 	
 	WHERE v.isActive = 1
+
+
+
 
 
 GO

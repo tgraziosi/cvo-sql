@@ -1,37 +1,41 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
 
-CREATE view [dbo].[cvo_SalesByCustomerType_vw] as
+
+CREATE VIEW [dbo].[cvo_SalesByCustomerType_vw] AS
 -- tag - 052312 - add salesperson and territory
 -- tag - 082812 - address armaster at ship-to level
-select 
+SELECT 
 b.addr_sort1,
 b.salesperson_code,
 b.territory_code,
 a.customer, 
 a.customer_name, 
 a.year,
-sum(isnull((case a.x_month when 1 then a.anet end), 0)) as jan,
-sum(isnull((case a.x_month when 2 then a.anet end), 0)) as feb,
-sum(isnull((case a.x_month when 3 then a.anet end), 0)) as mar,
-sum(isnull((case a.x_month when 4 then a.anet end), 0)) as apr,
-sum(isnull(case a.x_month when 5 then a.anet end, 0)) as may,
-sum(isnull(case a.x_month when 6 then a.anet end, 0)) as jun,
-sum(isnull(case a.x_month when 7 then a.anet end, 0)) as jul,
-sum(isnull(case a.x_month when 8 then a.anet end, 0)) as aug,
-sum(isnull(case a.x_month when 9 then a.anet end, 0)) as sep,
-sum(isnull(case a.x_month when 10 then a.anet end, 0)) as oct,
-sum(isnull(case a.x_month when 11 then a.anet end, 0)) as nov,
-sum(isnull(case a.x_month when 12 then a.anet end, 0))as dec,
-sum(isnull(a.anet,0)) as Total
+SUM(ISNULL((CASE a.x_month WHEN 1 THEN a.anet END), 0)) AS jan,
+SUM(ISNULL((CASE a.x_month WHEN 2 THEN a.anet END), 0)) AS feb,
+SUM(ISNULL((CASE a.x_month WHEN 3 THEN a.anet END), 0)) AS mar,
+SUM(ISNULL((CASE a.x_month WHEN 4 THEN a.anet END), 0)) AS apr,
+SUM(ISNULL(CASE a.x_month WHEN 5 THEN a.anet END, 0)) AS may,
+SUM(ISNULL(CASE a.x_month WHEN 6 THEN a.anet END, 0)) AS jun,
+SUM(ISNULL(CASE a.x_month WHEN 7 THEN a.anet END, 0)) AS jul,
+SUM(ISNULL(CASE a.x_month WHEN 8 THEN a.anet END, 0)) AS aug,
+SUM(ISNULL(CASE a.x_month WHEN 9 THEN a.anet END, 0)) AS sep,
+SUM(ISNULL(CASE a.x_month WHEN 10 THEN a.anet END, 0)) AS oct,
+SUM(ISNULL(CASE a.x_month WHEN 11 THEN a.anet END, 0)) AS nov,
+SUM(ISNULL(CASE a.x_month WHEN 12 THEN a.anet END, 0))AS dec,
+SUM(ISNULL(a.anet,0)) AS Total
 
-from cvo_csbm_shipto a (nolock) left outer join armaster b (nolock) 
-on a.customer = b.customer_code  and a.ship_to = b.ship_to_code
+FROM dbo.cvo_sbm_details a (NOLOCK) LEFT OUTER JOIN armaster b (NOLOCK) 
+ON a.customer = b.customer_code  AND a.ship_to = b.ship_to_code
 
-group by b.addr_sort1, b.salesperson_code, b.territory_code, a.customer, a.customer_name, a.year
+GROUP BY b.addr_sort1, b.salesperson_code, b.territory_code, a.customer, a.customer_name, a.year
+
 GO
+
 GRANT REFERENCES ON  [dbo].[cvo_SalesByCustomerType_vw] TO [public]
 GO
 GRANT SELECT ON  [dbo].[cvo_SalesByCustomerType_vw] TO [public]

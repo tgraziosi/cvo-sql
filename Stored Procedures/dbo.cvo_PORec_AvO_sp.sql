@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -6,7 +7,7 @@ GO
 -- Author:		ELaBarbera
 -- Create date: 8/8/2013
 -- Description:	PO Received Air vs Ocean Report
--- EXEC cvo_PORec_AvO_sp '10/1/2013','12/31/2013'
+-- EXEC cvo_PORec_AvO_sp '01/01/2015','12/31/2016'
 -- =============================================
 CREATE PROCEDURE [dbo].[cvo_PORec_AvO_sp] 
 	
@@ -32,7 +33,7 @@ CASE WHEN p.ship_via_method IS NULL AND PA.SHIP_VIA_METHOD IS NULL THEN 2
 	WHEN p.ship_via_method IS NULL THEN PA.SHIP_VIA_METHOD 
 	WHEN p.ship_via_method = 0 THEN 2
 ELSE P.SHIP_VIA_METHOD END SHIP_VIA,
-recv_date, CONVERT(VARCHAR(25),DATEADD(dd,-(DAY(recv_date)-1),recv_date),101) AS Mth,
+recv_date, CONVERT(VARCHAR(25),DATEADD(dd,-(DAY(recv_date)-1),recv_date),111) AS Mth, -- 030316 - was 101
 re.quantity, (re.quantity*re.unit_cost) extd_cost, re.unit_cost, re.std_cost, re.std_ovhd_dolrs, re.std_util_dolrs, user_category
 INTO #D1
 from pur_list p (nolock) 
@@ -71,4 +72,5 @@ select Vendor_no, Method, CASE WHEN Mth=@DateFrom THEN 1  	WHEN DATEADD(MONTH,+1
 
   
 END
+
 GO

@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -68,8 +69,8 @@ drop table dbo.#ContrCust
 select distinct customer_key into #ContrCust from c_quote where ship_to_no <> '*type*' and (date_expires is NULL or date_Expires >getdate())
 
 SELECT DISTINCT t1.*, 
-ISNULL(round((select sum(anet) from cvo_csbm_shipto t2 where  t1.customer_code=t2.customer and t2.year=datepart(year,getdate()-1)),2),'') LY_TYD_NetSales,
-ISNULL(round((select sum(anet) from cvo_csbm_shipto t2 where  t1.customer_code=t2.customer and t2.yyyymmdd between dateadd(year,-1,getdate()) and getdate()),2),'') R12_NetSales,
+ISNULL(round((select sum(anet) from dbo.cvo_sbm_details t2 where  t1.customer_code=t2.customer and t2.year=datepart(year,getdate()-1)),2),'') LY_TYD_NetSales,
+ISNULL(round((select sum(anet) from dbo.cvo_sbm_details t2 where  t1.customer_code=t2.customer and t2.yyyymmdd between dateadd(year,-1,getdate()) and getdate()),2),'') R12_NetSales,
 case when customer_key is not null then 'Y' else '' end as 'CntrPrc',
 (Select Top 1 Audit_date from cvo_cust_designation_codes_audit DCA where DCA.customer_code= t1.customer_code order by audit_date desc)as DesigAuditDate,
 (Select Top 1 user_id from cvo_cust_designation_codes_audit DCA where DCA.customer_code= t1.customer_code order by audit_date desc)as DesigUserMod,
@@ -85,5 +86,6 @@ left join #ContrCust t3 on t1.customer_code=t3.customer_key
 -- EXEC CustDesigPriceType_SSRS_sp
 
 END
+
 
 GO

@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -9,8 +10,10 @@ CREATE PROCEDURE [dbo].[cvo_promotions_tracker_terr_desig_sp]
 , @Promo varchar(5000) = null, @PromoLevel varchar(5000) = null
 -- updates
 -- 10/30 - make promo multi-value list - need to repmove parameter
--- exec cvo_promotions_tracker_terr_desig_sp '1/1/2016','02/12/2016', null , 'bep,rxe'
+-- exec cvo_promotions_tracker_terr_desig_sp '1/1/2016','03/12/2016', null , 'bep,rxe'
 as
+
+SET NOCOUNT ON;
 
 -- 122614 put parameters into local variables to prevent 'sniffing'
 -- 011816 - change who_entered criteria
@@ -288,10 +291,9 @@ else 0 end,
 (select top 1 ltrim(rtrim(failure_reason)) from cvo_promo_override_audit poa where poa.order_no = #temp.order_no and poa.order_ext = #temp.ext order by override_date desc) override_reason
 , UC  
 -- 2/10/16 - for region weekly summary
-,Convert(varchar, DateAdd(dd, 1-(DatePart(dw,date_entered) - 1),date_entered), 101) wk_Begindate
-,Convert(varchar, DateAdd(dd, (9 - DatePart(dw, date_entered)), date_entered), 101) wk_EndDate
+,Convert(varchar, dateadd(wk, datediff(wk, 0, date_entered), 0) , 101) wk_Begindate
+,Convert(varchar, dateadd(wk, datediff(wk, 0, date_entered), 0) + 6, 101) wk_EndDate
 
 from #temp
-
 
 GO

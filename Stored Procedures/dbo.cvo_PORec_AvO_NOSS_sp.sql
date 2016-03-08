@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -32,7 +33,7 @@ CASE WHEN p.ship_via_method IS NULL AND PA.SHIP_VIA_METHOD IS NULL THEN 2
 	WHEN p.ship_via_method IS NULL THEN PA.SHIP_VIA_METHOD 
 	WHEN p.ship_via_method = 0 THEN 2
 ELSE P.SHIP_VIA_METHOD END SHIP_VIA,
-recv_date, CONVERT(VARCHAR(25),DATEADD(dd,-(DAY(recv_date)-1),recv_date),101) AS Mth,
+recv_date, CONVERT(VARCHAR(25),DATEADD(dd,-(DAY(recv_date)-1),recv_date),111) AS Mth,
 re.quantity, (re.quantity*re.unit_cost) extd_cost, re.unit_cost, re.std_cost, re.std_ovhd_dolrs, re.std_util_dolrs, user_category
 INTO #D1
 from pur_list p (nolock) 
@@ -70,4 +71,5 @@ select Vendor_no, Method, CASE WHEN Mth=@DateFrom THEN 1  	WHEN DATEADD(MONTH,+1
   from #D2 t1 Order by Vendor_NO, Method, Mth
 
 END
+
 GO

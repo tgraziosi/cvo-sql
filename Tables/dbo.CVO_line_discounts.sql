@@ -9,7 +9,8 @@ CREATE TABLE [dbo].[CVO_line_discounts]
 [list] [varchar] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__CVO_line_d__list__309193BF] DEFAULT ('N'),
 [cust] [varchar] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__CVO_line_d__cust__3185B7F8] DEFAULT ('N'),
 [price_override] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[price] [decimal] (20, 8) NULL
+[price] [decimal] (20, 8) NULL,
+[discount_price_per] [decimal] (20, 8) NULL CONSTRAINT [DF__CVO_line___disco__643BEA55] DEFAULT ((0))
 ) ON [PRIMARY]
 GO
 CREATE UNIQUE CLUSTERED INDEX [idx_CVO_line_discounts] ON [dbo].[CVO_line_discounts] ([promo_ID], [line_no], [promo_level]) ON [PRIMARY]

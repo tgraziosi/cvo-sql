@@ -1,9 +1,11 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
 /*
 v1.0 CT 23/04/2013 - Created
+v1.1 CB 04/02/2016 - #1588 Add flat dollar discount to promos
 
 retval values: 
 -1	= successful, but nothing to process
@@ -62,7 +64,8 @@ BEGIN
 			@new_packed			DECIMAL(20,8),
 			@credit_packed		DECIMAL(20,8),
 			@brand				VARCHAR(10),  
-			@category			VARCHAR(10)
+			@category			VARCHAR(10),
+			@promo_price_disc	decimal(20,8) -- v1.1
 
 	SET NOCOUNT ON
 
@@ -281,7 +284,8 @@ BEGIN
 		-- Promo pricing
 		SET @promo_disc = 0
 		SELECT TOP 1  
-			@promo_disc = ISNULL(discount_per,0)  
+			@promo_disc = ISNULL(discount_per,0),
+			@promo_price_disc = ISNULL(discount_price_per,0) -- v1.1
 		FROM  
 			dbo.cvo_line_discounts (NOLOCK)  
 		WHERE  
@@ -293,6 +297,20 @@ BEGIN
 			AND ISNULL(list,'N') = 'N'
 		ORDER BY  
 			line_no  
+
+		-- v1.1 Start
+		IF (@promo_price_disc > 0)
+		BEGIN
+			IF (@promo_price_disc >= @std_price)
+			BEGIN
+				SET @promo_disc = 100
+			END
+			ELSE
+			BEGIN
+				SET @promo_disc = 100 - (((@std_price - @promo_price_disc) / @std_price) * 100)
+			END
+		END
+		-- v1.1 End
 
 		UPDATE
 			#order_lines
@@ -527,5 +545,6 @@ BEGIN
 
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[CVO_calculate_discount_adjustment_sp] TO [public]
 GO

@@ -2929,20 +2929,7 @@ CREATE NONCLUSTERED INDEX [ordlst3m] ON [dbo].[ord_list] ([part_no], [location],
 GO
 CREATE UNIQUE NONCLUSTERED INDEX [ordlst2] ON [dbo].[ord_list] ([row_id]) ON [PRIMARY]
 GO
-CREATE STATISTICS [_dta_stat_961399190_4_2] ON [dbo].[ord_list] ([line_no], [order_no])
-GO
-CREATE STATISTICS [_dta_stat_961399190_4_6_2] ON [dbo].[ord_list] ([line_no], [part_no], [order_no])
-GO
-CREATE STATISTICS [_dta_stat_961399190_4_6_58_5_2] ON [dbo].[ord_list] ([line_no], [part_no], [ship_to], [location], [order_no])
-GO
-CREATE STATISTICS [_dta_stat_961399190_3_4] ON [dbo].[ord_list] ([order_ext], [line_no])
-GO
-CREATE STATISTICS [_dta_stat_961399190_3_2_6_58] ON [dbo].[ord_list] ([order_ext], [order_no], [part_no], [ship_to])
-GO
-CREATE STATISTICS [_dta_stat_961399190_2_3_10] ON [dbo].[ord_list] ([order_no], [order_ext], [shipped])
-GO
-CREATE STATISTICS [_dta_stat_961399190_6_2_3_4_58_5] ON [dbo].[ord_list] ([part_no], [order_no], [order_ext], [line_no], [ship_to], [location])
-GO
+
 GRANT REFERENCES ON  [dbo].[ord_list] TO [public]
 GO
 GRANT SELECT ON  [dbo].[ord_list] TO [public]

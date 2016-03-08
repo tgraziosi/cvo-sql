@@ -59,7 +59,7 @@ OR (ship_to_country_cd in ('CA') and category in ('ME') )  --CANADA
 --OR (ship_to_country_cd in ('KY') and category in () )  --CAYMAN ISL  ALL
 OR (ship_to_country_cd in ('CL') and category in ('ET','OP') )  --CHILIE
 OR (ship_to_country_cd in ('CO') and category in ('ET','OP') )  --COLUMBIA
-OR (ship_to_country_cd in ('CR') and category in ('OP') )  --COSTA RICA
+-- OR (ship_to_country_cd in ('CR') and category in ('OP') )  --COSTA RICA - OP ok to CR 02/29/2016
 --OR (ship_to_country_cd in ('CW') and category in () )  --curaco  ALL
 OR (ship_to_country_cd in ('CZ') and category in ('CH','ET','IZOD','IZX','OP','ME') )  --czech rep
 OR (ship_to_country_cd in ('DK') and category in ('CH','ET','IZOD','IZX','OP','ME') )  --denmark
@@ -135,5 +135,6 @@ date_shipped, total_amt_order, QtyOrd, QtyShip
 FROM #LIST
 
 END
+
 
 GO

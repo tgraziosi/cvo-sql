@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -49,12 +50,12 @@ IF(OBJECT_ID('tempdb.dbo.#DataPull') is not null)
 drop table #DataPull
 -- select * from cvo_rad_shipto
 SELECT distinct right(Customer,5) MCust, Customer, ship_to,
-isnull((select sum(ANET) from CVO_CSBM_SHIPTO t11 where t1.customer=t11.customer and t1.ship_to=t11.ship_to and  yyyymmdd between @P1From and @P1To),0) as 'CY', 
-isnull((select sum(ANET) from CVO_CSBM_SHIPTO t11 where t1.customer=t11.customer and t1.ship_to=t11.ship_to and  yyyymmdd between @P2From and @P2To),0) as 'PY',
-isnull((select sum(ANET) from CVO_CSBM_SHIPTO t11 where t1.customer=t11.customer and t1.ship_to=t11.ship_to and  yyyymmdd between @P3From and @P3To),0) as 'PYL1',
-isnull((select sum(ANET) from CVO_CSBM_SHIPTO t11 where t1.customer=t11.customer and t1.ship_to=t11.ship_to and  yyyymmdd between @P4From and @P4To),0) as 'PYL2',
-isnull((select sum(ANET) from CVO_CSBM_SHIPTO t11 where t1.customer=t11.customer and t1.ship_to=t11.ship_to and  yyyymmdd between @P5From and @P5To),0) as 'PYL3',
-isnull((select sum(ANET) from CVO_CSBM_SHIPTO t11 where t1.customer=t11.customer and t1.ship_to=t11.ship_to and  yyyymmdd between @P6From and @P6To),0) as 'PYL4',
+isnull((select sum(ANET) from cvo_sbm_details t11 where t1.customer=t11.customer and t1.ship_to=t11.ship_to and  yyyymmdd between @P1From and @P1To),0) as 'CY', 
+isnull((select sum(ANET) from cvo_sbm_details t11 where t1.customer=t11.customer and t1.ship_to=t11.ship_to and  yyyymmdd between @P2From and @P2To),0) as 'PY',
+isnull((select sum(ANET) from cvo_sbm_details t11 where t1.customer=t11.customer and t1.ship_to=t11.ship_to and  yyyymmdd between @P3From and @P3To),0) as 'PYL1',
+isnull((select sum(ANET) from cvo_sbm_details t11 where t1.customer=t11.customer and t1.ship_to=t11.ship_to and  yyyymmdd between @P4From and @P4To),0) as 'PYL2',
+isnull((select sum(ANET) from cvo_sbm_details t11 where t1.customer=t11.customer and t1.ship_to=t11.ship_to and  yyyymmdd between @P5From and @P5To),0) as 'PYL3',
+isnull((select sum(ANET) from cvo_sbm_details t11 where t1.customer=t11.customer and t1.ship_to=t11.ship_to and  yyyymmdd between @P6From and @P6To),0) as 'PYL4',
 Datepart(year,@P1From) as 'DCY', 
 Datepart(year,@P2From) as 'DPY',
 Datepart(year,@P3From) as 'DPYL1',
@@ -62,7 +63,7 @@ Datepart(year,@P4From) as 'DPYL2',
 Datepart(year,@P5From) as 'DPYL3',
 Datepart(year,@P6From) as 'DPYL4'
 INTO #DataPull
-FROM CVO_CSBM_SHIPTO (nolock) t1
+FROM cvo_sbm_details (nolock) t1
 order by Customer
 -- select * from #DataPull
 
@@ -104,6 +105,7 @@ JOIN #CustInfo t2 on t1.Cust=t2.MCust and t1.ship_to=t2.ship_to_code
 order by terr, Cust, ship_to, CY desc, PY, PYL1
 
 END
+
 
 
 

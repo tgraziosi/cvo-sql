@@ -137,6 +137,8 @@ CREATE TABLE [dbo].[orders_all]
 [tax_valid_ind] [int] NULL,
 [addr_valid_ind] [int] NULL
 ) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [index_orders_all_void_stat] ON [dbo].[orders_all] ([void], [status]) INCLUDE ([cust_code], [tot_ord_disc], [tot_ord_freight], [tot_ord_tax], [total_amt_order], [type]) ON [PRIMARY]
+
 GO
 SET QUOTED_IDENTIFIER OFF
 GO

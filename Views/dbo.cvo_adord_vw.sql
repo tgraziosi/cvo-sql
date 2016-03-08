@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -58,10 +59,9 @@ SELECT
 		else orders.tot_ord_freight
 		end,        
 -- tag - 5/21/2012 - add qty ordered and shipped per KM request
- qty_ordered = (select sum(isnull(ordered,0)-isnull(cr_ordered,0)) from ord_list ol (nolock) where
-		orders.order_no = ol.order_no and orders.ext = ol.order_ext),
- qty_shipped = (select sum(isnull(shipped,0)-isnull(cr_shipped,0)) from ord_list ol (nolock) where
-		orders.order_no = ol.order_no and orders.ext = ol.order_ext),
+ qty_ordered = qtys.qty_ordered,
+ qty_shipped = qtys.qty_shipped,
+
   --orders.total_invoice , 
  total_invoice = 
 	case orders.status
@@ -133,16 +133,10 @@ SELECT
  -- convert(varchar(10),orders.user_def_fld4) user_def_fld4, --fzambada add Megasys orders      
 -- 080212 - TAG
 -- 082312 - tag - only tally up frames and suns
-ISNULL( (select sum(ordered) 
- from ord_list ol (nolock)
- inner join inv_master i (nolock) on ol.part_no = i.part_no
- where ORDERS.order_no = ol.order_no and ORDERS.ext = ol.order_ext
-	and i.type_code in ('FRAME','SUN') ), 0) as FramesOrdered, 
-ISNULL( (select sum(shipped) 
- from ord_list ol (nolock)
- inner join inv_master i (nolock) on ol.part_no = i.part_no
- where ORDERS.order_no = ol.order_no and ORDERS.ext = ol.order_ext
-	and i.type_code in ('FRAME','SUN') ), 0) as FramesShipped, 
+
+ISNULL( qtys.framesordered , 0) as FramesOrdered, 
+ISNULL( qtys.framesshipped , 0) as FramesShipped, 
+
  orders.back_ord_flag,
  isnull(ar.addr_sort1,'') as Cust_type,
  isnull(user_def_fld4,'') as HS_order_no, -- 101613 - as per HK
@@ -161,6 +155,16 @@ FROM orders orders (nolock) LEFT OUTER JOIN
 --        ON ( orders.order_no = EAI_ord_xref.BO_order_no  )   
 left join cvo_orders_all cvo (nolock) on ( orders.order_no = cvo.order_no and orders.ext = cvo.ext ) -- tag = add promos       
 left outer join armaster ar (nolock) on orders.cust_code = ar.customer_code and orders.ship_to = ar.ship_to_code
+LEFT OUTER JOIN 
+( SELECT order_no, order_ext,
+	sum(isnull(ordered,0)-isnull(cr_ordered,0) ) qty_ordered,
+	sum(isnull(shipped,0)-isnull(cr_shipped,0) ) qty_shipped,
+	SUM(CASE WHEN i.type_code IN ('frame','sun') THEN ordered ELSE 0 end) framesordered,
+	SUM(CASE WHEN i.type_code IN ('frame','sun') THEN shipped ELSE 0 end) framesshipped
+	FROM ORD_LIST OL (NOLOCK) JOIN INV_MASTER I (NOLOCK) ON OL.part_no = I.part_no
+	GROUP BY order_no, order_ext
+) qtys ON qtys.order_no = orders.order_no AND qtys.order_ext = orders.ext
+
 WHERE  orders.type = 'I' 
 -- and orders.status<>'V'  and orders.status<>'X'  
   
@@ -292,7 +296,9 @@ WHERE  t1.type = 'I'
 
 
 
+
 GO
+
 GRANT REFERENCES ON  [dbo].[cvo_adord_vw] TO [public]
 GO
 GRANT SELECT ON  [dbo].[cvo_adord_vw] TO [public]

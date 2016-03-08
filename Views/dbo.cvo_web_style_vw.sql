@@ -1,7 +1,9 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
+
 
 
 
@@ -16,6 +18,7 @@ GO
 -- 6/16/15 - tag - only look at the img_34 fields for image files
 -- 10/13/15 - tag - show sku list as only the web sellable ones
 -- 10/28/15 - tag - use img_sku instead of img_34
+-- 2/25/16 - TAG - ADD WEB IMAGE
 
 CREATE VIEW [dbo].[cvo_web_style_vw] AS
 	SELECT collection+'-'+model AS mastersku
@@ -26,7 +29,7 @@ CREATE VIEW [dbo].[cvo_web_style_vw] AS
 			 FROM cvo_inv_master_r2_vw ci
 			 WHERE ci.collection = c.collection AND ci.model = c.model AND ISNULL(ci.web_saleable_flag,'') = 'Y'
 			 FOR XML PATH('') ),1,1, '' ) AS skus
-		, image = ISNULL((SELECT TOP 1 ISNULL(img_sku,CASE WHEN CHARINDEX('.jpg',img_34_hr)>0 THEN img_34_hr ELSE '' END) 
+		, image = ISNULL((SELECT TOP 1 ISNULL(IMG_WEB,ISNULL(img_sku,CASE WHEN CHARINDEX('.jpg',img_34_hr)>0 THEN img_34_hr ELSE '' END) )
 						  FROM cvo_inv_master_r2_vw cc 
 						  WHERE cc.collection = c.collection AND cc.model = c.model
 						  AND ISNULL(cc.web_saleable_flag,'') = 'Y'
@@ -36,6 +39,9 @@ CREATE VIEW [dbo].[cvo_web_style_vw] AS
 			SELECT DISTINCT ';' + '/'+collection+'/'+images 
 			FROM 
 			(
+			-- 2/25/16
+			SELECT DISTINCT Collection, model, ISNULL(IMG_WEB,'') IMAGES FROM dbo.cvo_inv_master_r2_vw AS cimrv
+			UNION ALL
 			SELECT DISTINCT collection, model, ISNULL(img_sku,'') images FROM cvo_inv_master_r2_vw
 			UNION ALL
 			SELECT DISTINCT collection, model, ISNULL(CASE WHEN CHARINDEX('.jpg',img_34_hr) > 0 THEN img_34_hr ELSE '' END,'') images 
@@ -101,7 +107,9 @@ CREATE VIEW [dbo].[cvo_web_style_vw] AS
 
 
 
+
 GO
+
 GRANT REFERENCES ON  [dbo].[cvo_web_style_vw] TO [public]
 GO
 GRANT SELECT ON  [dbo].[cvo_web_style_vw] TO [public]

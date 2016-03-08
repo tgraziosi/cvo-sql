@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -7,6 +8,7 @@ v1.0 CT 02/07/2013 - Created
 v1.1 CB 16/07/2013 - Issue #927 - Buying Group Switching
 v1.2 CT 19/11/2013 - Issue #1421 - Shipping Method is no longer linked to Free Shipping
 v1.3 CB 19/06/2014 - Performance
+v1.4 CB 04/02/2016 - #1588 Add flat dollar discount to promos
 */
 CREATE PROCEDURE [dbo].[CVO_apply_promo_sp]	@order_no		INT, 
 										@ext			INT, 
@@ -48,7 +50,8 @@ BEGIN
 			@suser_sname		VARCHAR(1000),
 			@charpos			SMALLINT,
 			@parent				varchar(10), -- v1.1
-			@order_date			varchar(10) -- v1.1
+			@order_date			varchar(10), -- v1.1
+			@discount_price_per	decimal(20,8) -- v1.4
 
 	SET NOCOUNT ON
 	SET @disc_applied = 0
@@ -174,7 +177,8 @@ BEGIN
 				@list = list,   
 				@cust = cust,
 				@price_override = price_override,
-				@price = price 
+				@price = price,
+				@discount_price_per = discount_price_per -- v1.4   
 			FROM 
 				dbo.CVO_line_discounts (NOLOCK)
 			WHERE 
@@ -285,7 +289,25 @@ BEGIN
 					BEGIN
 						IF ISNULL(@list_price,0) > 0
 						BEGIN
-							SET @disc_amt = ROUND(@list_price * (@discount_per/100),2)
+							-- v1.4 Start
+							IF (@discount_price_per > 0)
+							BEGIN
+								IF (@discount_price_per >= @list_price)
+								BEGIN
+									SET @discount_per = 100
+									SET @disc_amt = @list_price
+								END
+								ELSE
+								BEGIN
+									SET @discount_per = 100 - (((@list_price - @discount_price_per) / @list_price) * 100)
+									SET @disc_amt = @discount_price_per
+								END
+							END
+							ELSE
+							BEGIN
+								SET @disc_amt = ROUND(@list_price * (@discount_per/100),2)
+							END
+							-- v1.4 End
 
 							IF @is_bg = 1
 							BEGIN
@@ -369,10 +391,26 @@ BEGIN
 						BEGIN
 							IF ISNULL(@list_price,0) > 0
 							BEGIN
-							
-								SET @orig_disc = ROUND((1 - (@curr_price / @list_price)) * 100,2)
-								SET @disc_amt = ROUND(@list_price * (@discount_per/100),2)
 
+								-- v1.4 Start
+								IF (@discount_price_per > 0)
+								BEGIN
+									IF (@discount_price_per >= @list_price)
+									BEGIN
+										SET @disc_amt = @list_price
+									END
+									ELSE
+									BEGIN
+										SET @disc_amt = @discount_price_per
+									END
+								END
+								ELSE
+								BEGIN						
+									SET @orig_disc = ROUND((1 - (@curr_price / @list_price)) * 100,2)
+									SET @disc_amt = ROUND(@list_price * (@discount_per/100),2)
+								END
+								-- v1.4 End								
+	
 								UPDATE 
 									dbo.ord_list  WITH (ROWLOCK)
 								SET
@@ -424,7 +462,24 @@ BEGIN
 						END
 						ELSE
 						BEGIN
-							SET @disc_amt = ROUND(@curr_price * (@discount_per/100),2)
+
+							-- v1.4 Start
+							IF (@discount_price_per > 0)
+							BEGIN
+								IF (@discount_price_per >= @list_price)
+								BEGIN
+									SET @disc_amt = @list_price
+								END
+								ELSE
+								BEGIN
+									SET @disc_amt = @discount_price_per
+								END
+							END
+							ELSE
+							BEGIN						
+								SET @disc_amt = ROUND(@curr_price * (@discount_per/100),2)
+							END
+							-- v1.4 End						
 
 							UPDATE 
 								dbo.ord_list  WITH (ROWLOCK)
@@ -497,5 +552,6 @@ BEGIN
 END
 
 GO
+
 GRANT EXECUTE ON  [dbo].[CVO_apply_promo_sp] TO [public]
 GO

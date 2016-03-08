@@ -48,6 +48,9 @@ set @edate = Case
 		dateadd(ms, -2, (dateadd(year, (@cy) - 1900 + 1 , '01-01-1900')))
 		End
 
+-- SELECT @sdately, @edately, @sdate, @edate
+
+
 IF(OBJECT_ID('tempdb.dbo.#temp') is not null)  drop table #temp
 
 IF(OBJECT_ID('tempdb.dbo.#territory') is not null)  drop table #territory
@@ -233,6 +236,7 @@ round (currentmonthsales,2) currentmonthsales,
 ,#s1.r_id
 ,#s1.t_id
 ,col = CASE WHEN #s1.t_id % 2 = 1 THEN 'L' ELSE 'R' end 
+, ly_ytd = 0
   From #ty -- ty
   left outer join #s1 on #s1.territory_code = #ty.territory_code
 Union ALL
@@ -255,7 +259,10 @@ round (currentmonthsales,2) currentmonthsales,
 ,#s1.r_id
 ,#s1.t_id
 ,col = CASE WHEN #s1.t_id % 2 = 1 THEN 'L' ELSE 'R' end 
-FROM #ly -- ly
+, ly_ytd = CASE WHEN x_month < MONTH(@edately) THEN ROUND(anet,2)
+				WHEN x_month = MONTH(@edately) THEN ROUND(currentmonthsales,2)
+				ELSE 0 END
+            FROM #ly -- ly
 left outer join #s1 on #s1.territory_code = #ly.territory_code
 -- where #ly.tot = ' Core'
 
@@ -307,6 +314,8 @@ left outer join #s1 on #s1.territory_code = #ly.territory_code
 	
 
 end
+
+
 
 
 

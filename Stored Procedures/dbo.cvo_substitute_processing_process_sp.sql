@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -8,6 +9,7 @@ v1.1 - CT 09/10/13 - Issue #1392 - Move note from order line to order header
 v1.2 - CT 09/10/13 - Change case log message to be based on config setting
 v1.3 - CB 14/09/2015 - #1550 - Add location
 v1.4 - CB 10/11/2015 - Fix for list price
+v1.5 - CB 04/02/2016 - #1588 Add flat dollar discount to promos
 Returns:	0 = Sucess
 			-1 = Nothing marked to process
 			1 = Not all orders processed
@@ -79,7 +81,8 @@ BEGIN
 			@curr_price				DECIMAL(20,8),
 			@oper_price				DECIMAL(20,8),
 			@orders_processed		SMALLINT,
-			@replacement_pattern	VARCHAR(30)
+			@replacement_pattern	VARCHAR(30),
+			@promo_price_disc		decimal(20,8) -- v1.5
 
 
 
@@ -400,7 +403,8 @@ BEGIN
 					@list = ISNULL(list,'N'),
 					@price_override = ISNULL(price_override,'N'),
 					@promo_price = price,
-					@promo_disc = ISNULL(discount_per,0)
+					@promo_disc = ISNULL(discount_per,0),
+					@promo_price_disc = ISNULL(discount_price_per,0) -- v1.5
 
 				FROM
 					dbo.cvo_line_discounts (NOLOCK)
@@ -429,16 +433,49 @@ BEGIN
 					BEGIN
 						IF @list = 'Y'
 						BEGIN
-							SET @discount = @promo_disc
-							SET @price = @list_price
-
+							-- v1.5 Start
+							IF (@promo_price_disc > 0)
+							BEGIN
+								IF (@promo_price_disc >= @list_price)
+								BEGIN
+									SET @discount = 100
+									SET @price = 0
+								END
+								ELSE
+								BEGIN
+									SET @discount = 100 - (((@list_price - @promo_price_disc) / @list_price) * 100)
+									SET @price = @list_price
+								END
+							END
+							ELSE
+							BEGIN
+								SET @discount = @promo_disc
+								SET @price = @list_price
+							END
+							-- v1.5 End
 							-- Log
 							SET @log_msg = 'Promo: List discount - ' + CAST(CAST(@discount AS MONEY) AS VARCHAR(10))
 							EXEC dbo.cvo_substitute_processing_log_sp @log_msg, @log_level
 						END
 						ELSE
 						BEGIN
-							SET @discount = @promo_disc
+							-- v1.5 Start
+							IF (@promo_price_disc > 0)
+							BEGIN
+								IF (@promo_price_disc >= @curr_price)
+								BEGIN
+									SET @discount = 100
+								END
+								ELSE
+								BEGIN
+									SET @discount = 100 - (((@curr_price - @promo_price_disc) / @curr_price) * 100)
+								END
+							END
+							ELSE
+							BEGIN
+								SET @discount = @promo_disc
+							END
+							-- v1.5 End
 							-- Log
 							SET @log_msg = 'Promo: Customer discount - ' + CAST(CAST(@discount AS MONEY) AS VARCHAR(10))
 							EXEC dbo.cvo_substitute_processing_log_sp @log_msg, @log_level
@@ -1261,5 +1298,6 @@ BEGIN
 END
 
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_substitute_processing_process_sp] TO [public]
 GO

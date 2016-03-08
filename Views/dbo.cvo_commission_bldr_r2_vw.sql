@@ -4,6 +4,7 @@ GO
 SET ANSI_NULLS ON
 GO
 
+
   
 -- Author = TG - rewrite of cvo_commission_bldr_vw
 -- 12/2015 - allow for multiple commission rates on an order/invoice
@@ -72,11 +73,11 @@ AS
         ISNULL(CONVERT(VARCHAR, date_of_hire, 101), '') AS HireDate ,
         draw_amount
 		-- for testing
-		, clv.brand Brnd
-		, co.commission_pct comm_pct
-		, slp.escalated_commissions
-		, slp.commission
-		, p.commission_pct
+		--, clv.brand Brnd
+		--, co.commission_pct comm_pct
+		--, slp.escalated_commissions
+		--, slp.commission
+		--, p.commission_pct
 
  FROM   artrx x ( NOLOCK )
         LEFT OUTER JOIN orders_invoice oi ( NOLOCK ) ON oi.doc_ctrl_num = CASE
@@ -180,11 +181,11 @@ AS
         ISNULL(CONVERT(VARCHAR, slp.date_of_hire, 101), '') AS HireDate ,
         draw_amount
 				-- for testing
-		, clv.brand brnd
-		, co.commission_pct comm_pct
-		, slp.escalated_commissions
-		, slp.commission
-		, p.commission_pct
+		--, clv.brand brnd
+		--, co.commission_pct comm_pct
+		--, slp.escalated_commissions
+		--, slp.commission
+		--, p.commission_pct
  FROM   arinpchg x ( NOLOCK )
         LEFT OUTER JOIN orders_invoice oi ON oi.doc_ctrl_num = CASE
                                                               WHEN CHARINDEX('-',
@@ -245,7 +246,9 @@ AS
 
 
 
+
 GO
+
 
 
 GRANT REFERENCES ON  [dbo].[cvo_commission_bldr_r2_vw] TO [public]

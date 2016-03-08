@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -15,7 +16,7 @@ GO
 
 CREATE PROCEDURE [dbo].[HS_Cust_tbl_sp] 
 AS
-BEGIN
+BEGIN 
 
 	SET NOCOUNT ON;
 	
@@ -23,7 +24,7 @@ BEGIN
       ;WITH C AS 
 			( SELECT DISTINCT ar.territory_code, ar.customer_code 
 			from
-            ( SELECT DISTINCT territory_code FROM armaster (NOLOCK) 
+            ( SELECT DISTINCT territory_code FROM arterr (NOLOCK) 
 			   WHERE dbo.calculate_region_fn(territory_code) < '800') Terr
 			   join
 			( SELECT distinct customer_code, territory_code FROM armaster (nolock) ) ar
@@ -144,6 +145,8 @@ AND ADDRESS_TYPE=0
 END
 
 
+
 GO
+
 GRANT EXECUTE ON  [dbo].[HS_Cust_tbl_sp] TO [public]
 GO

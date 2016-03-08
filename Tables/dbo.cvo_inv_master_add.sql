@@ -15,7 +15,8 @@ CREATE TABLE [dbo].[cvo_inv_master_add]
 [Sugg_Retail_Price] [decimal] (20, 8) NULL,
 [img_34_hr] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [img_34] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[IMG_SKU] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[IMG_SKU] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[IMG_WEB] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
 CREATE UNIQUE CLUSTERED INDEX [idx_part_no] ON [dbo].[cvo_inv_master_add] ([part_no]) ON [PRIMARY]

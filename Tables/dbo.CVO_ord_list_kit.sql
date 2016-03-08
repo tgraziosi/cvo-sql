@@ -122,8 +122,7 @@ CREATE UNIQUE CLUSTERED INDEX [idx_CVO_ord_list_kit] ON [dbo].[CVO_ord_list_kit]
 GO
 CREATE NONCLUSTERED INDEX [cvo_ord_list_kit_ind0] ON [dbo].[CVO_ord_list_kit] ([order_no], [order_ext], [line_no], [replaced]) ON [PRIMARY]
 GO
-CREATE STATISTICS [_dta_stat_843371015_3_4_5_1] ON [dbo].[CVO_ord_list_kit] ([line_no], [location], [part_no], [order_no])
-GO
+
 GRANT REFERENCES ON  [dbo].[CVO_ord_list_kit] TO [public]
 GO
 GRANT SELECT ON  [dbo].[CVO_ord_list_kit] TO [public]

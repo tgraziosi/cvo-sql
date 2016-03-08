@@ -7,7 +7,7 @@ GO
 -- Create Data for Frames Data SmartSubmit Template ver. 8/11/2009
 -- Author: Tine Graziosi for ClearVision 
 -- 2/4/2013
--- exec cvo_frames_data_extract_sp '02/23/2016'
+-- exec cvo_frames_data_extract_sp '04/26/2016'
 -- 4/2015 - update for CMI
 -- 10/15 - update to pull from epicor if not in cmi - (revo support)
 -- =============================================
@@ -27,7 +27,9 @@ BEGIN
 	SET ANSI_WARNINGS OFF;
 
 	--DECLARE @RELEASEDATE DATETIME, @BRAND VARCHAR(1000)
-	--SELECT @RELEASEDATE = '2/23/2016', @BRAND = NULL
+	--SELECT @RELEASEDATE = '4/26/2016', @BRAND = NULL
+
+	IF(OBJECT_ID('tempdb.dbo.#brand') IS NOT NULL) DROP TABLE #brand
 
 	CREATE TABLE #brand ([brand] VARCHAR(10))
 	if @brand is null
@@ -100,7 +102,7 @@ BEGIN
 			else '**Undefined**' end
 	  end,
 	-- E 
-	Brand_id = 
+	Brand_id = CAST(
 	case ISNULL(i.category,'') 
 		when 'AS' then '8311'  -- 040915
 		when 'bcbg' then '6799'
@@ -122,7 +124,7 @@ BEGIN
 		when 'PT' then '6435' -- 02/2014
 		when 'RR' then '8212' -- 05/27/2014
 		WHEN 'REVO' THEN '8353' -- 10/16/2015
-	else '** Undefined **' end,
+	else '**Undefined**' END AS VARCHAR(20)),
 	--  F
 	Status = 'A',
 	-- G
@@ -133,7 +135,8 @@ BEGIN
 		 when ISNULL(ia.field_11,'') like '%combo%' then 'Combinations'
 		 when ISNULL(ia.field_10,'') like '%metal%' then 'Metal' -- Metal
 		 when ISNULL(ia.field_10,'') like '%plastic%' then 'Plastic' 
-		 else '** Undefined **' end,
+		 when ISNULL(ia.field_10,'') like '%TR-90%' then 'Plastic' 
+		 else '**Undefined**' end,
 	-- i.cmdty_code as Product_Group_Type,
 	-- H
 	Frame_Color_Group = 
@@ -167,7 +170,7 @@ BEGIN
 	' ' as LENS_COLOR_DESCRIPTION,
 	-- M
 	-- cast(ia.field_17 as int) as Eye_Size,
-	cast(ISNULL(cmi.eye_size,ISNULL(ia.field_17,0)) as int) as Eye_Size,
+	cast(ISNULL(cmi.eye_size,ISNULL(ia.field_17,0)) as VARCHAR(5)) as Eye_Size,
 	-- N
 	--cast(ia.field_19 as int) as A,
 	' ' as A,
@@ -184,10 +187,14 @@ BEGIN
 	' ' as ED_Angle,
 	-- R
 	-- ia.field_8 as Temple_length,
-	ISNULL(cmi.temple_size, ISNULL(ia.field_8,'')) as Temple_length,
+	Temple_length = 
+	CAST(
+	CASE WHEN cmi.temple_size IS NULL THEN ISNULL(ia.field_8,'') ELSE cmi.temple_size END AS VARCHAR(10)
+	),
 	-- S
 	-- ia.field_6 as Bridge_Size,
-	ISNULL(cmi.dbl_size, ISNULL(ia.field_6,'')) as Bridge_Size,
+	CAST (ISNULL(cmi.dbl_size, ISNULL(ia.field_6,'')) AS VARCHAR(10)) as Bridge_Size,
+
 	-- T
 	-- cmi.dbl_size as DBL,
 	'' as DBL,
@@ -209,6 +216,7 @@ BEGIN
 	case when ia.field_10 like '%titanium%' then 'Titanium'
 		when ia.field_10 like '%metal%' then 'Metal'
 		when ia.field_10 like '%plastic%' then 'Plastic'
+		when ia.field_10 like '%TR-90%' then 'Plastic'
 		else '***' end,
 	-- Y
 	' ' as Material_description,
@@ -297,6 +305,7 @@ BEGIN
 	Rim_Type = 
 		case isnull(cmi.frame_category,' ')
 			when 'Full Acetate' then 'full rim'
+			when 'Acetate' then 'full rim'
 			when 'Full plastic' then 'full rim'
 			when 'Full metal' then 'full rim'
 			when 'Plastic combo' then 'full rim'
@@ -372,7 +381,7 @@ BEGIN
 	--BJ
 	'' as Warranty_description
 
-
+	INTO #framesdatalist
 	from #brand b 
 	inner join inv_master i (nolock) on b.brand = i.category
 	inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
@@ -387,6 +396,9 @@ BEGIN
 	and ( @ReleaseDate = ia.field_26 OR @releasedate = '1/1/1900')
 	order by i.part_no
 
+	SELECT * FROM #framesdatalist
+
+	-- tempdb..sp_help #framesdatalist
 
 END
 
@@ -394,6 +406,7 @@ END
 
 
 GO
+
 
 
 GRANT EXECUTE ON  [dbo].[cvo_Frames_Data_Extract_sp] TO [public]

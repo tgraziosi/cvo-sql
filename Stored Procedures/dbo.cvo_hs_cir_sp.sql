@@ -3,13 +3,13 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[cvo_hs_cir_sp] AS 
+CREATE PROCEDURE [dbo].[cvo_hs_cir_sp]  @t VARCHAR(1000) = NULL AS 
 
 BEGIN
 
 -- 11/17/2015 - tag - Create csv file for HS CIR
 
--- EXEC cvo_hs_cir_sp
+-- EXEC cvo_hs_cir_sp 
 /*
 select c.* From cvo_hs_cir_tbl c
 JOIN armaster ar on ar.customer_code = c.customer AND ar.ship_to_code = c.ship_to
@@ -17,14 +17,36 @@ WHERE ar.territory_code IN ('40456','40454')
 */
 
 SET NOCOUNT ON 
-SET ANSI_WARNINGS off
+SET ANSI_WARNINGS OFF
 
-DECLARE @asofdate DATETIME, @startdate datetime
+DECLARE @asofdate DATETIME, @startdate DATETIME, @terr varchar(1000)
 SELECT @asofdate = GETDATE()
 , @startdate = DATEADD(YEAR,-2, GETDATE())
+, @terr = @t
 
 IF(OBJECT_ID('tempdb.dbo.#t') is not null)  drop table #t
 IF(OBJECT_ID('dbo.cvo_hs_cir_tbl') is not null)  drop table cvo_hs_cir_tbl
+
+IF(OBJECT_ID('tempdb.dbo.#territory') is not null)  drop table #territory
+CREATE TABLE #territory ([territory] VARCHAR(10),
+						 [region] VARCHAR(3))
+
+SELECT @terr = '20206,40456,50503,20220,30302,70765,40440,30310,70720'
+
+if @terr is NULL 
+begin
+	insert #territory
+	select distinct territory_code, dbo.calculate_region_fn(territory_code) region
+	from arterr where territory_code is not NULL
+    ORDER BY territory_code
+end
+else
+begin
+	INSERT INTO #territory ([territory],[region])
+	SELECT distinct LISTITEM, dbo.calculate_region_fn(listitem) region FROM dbo.f_comma_list_to_table(@terr)
+	ORDER BY ListItem
+END
+
 
 CREATE TABLE [dbo].[cvo_hs_cir_tbl](
 	[report_id] VARCHAR(10) NOT NULL,
@@ -60,8 +82,12 @@ INTO #t
 FROM inv_master i (NOLOCK) 
 INNER JOIN inv_master_add ia (NOLOCK) ON ia.part_no = i.part_no
 INNER join cvo_sbm_details s (NOLOCK) oN s.part_no = i.part_no
+INNER JOIN armaster ar (NOLOCK) ON ar.customer_code = s.customer AND ar.ship_to_code = s.ship_to
+INNER JOIN #territory AS t ON t.territory = ar.territory_code
 WHERE s.yyyymmdd >= @startdate AND i.type_code IN ('frame','sun') AND ISNULL(i.void,'n') = 'n'
 AND i.category NOT IN ('FP')
+AND EXISTS (SELECT 1 FROM dbo.hs_cust_tbl AS hct WHERE hct.id = s.customer)
+
 GROUP BY s.customer ,
          s.ship_to ,
          s.part_no ,
@@ -101,12 +127,16 @@ SELECT 'CIR v2',
        RYG,
 	   CAST(size AS INT) size,
 	   upper(ISNULL(color,'')) color
-FROM #t order by customer, ship_to, part_no
+FROM #t 
+
+WHERE mastersku > ''
+order by customer, ship_to, part_no
 
 
 end
 
 GO
+
 
 
 GRANT EXECUTE ON  [dbo].[cvo_hs_cir_sp] TO [public]

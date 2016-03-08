@@ -1,7 +1,9 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
+
 
 -- select * From cvo_inv_master_r2_vw where collection = 'op' and model = '808'
 -- select * From cvo_cmi_catalog_view where model = 'simona'
@@ -21,6 +23,7 @@ cia.img_front_hr,
 cia.img_temple_hr,
 cia.img_34_hr, -- 040214
 cia.IMG_SKU, -- 082415
+CIA.IMG_WEB, -- 022516
 cia.img_specialtyfit,
 cia.future_releasedate,
 cia.prim_img,
@@ -43,6 +46,7 @@ ISNULL(x.ed_size,ia.field_21) AS ed_size,
 ia.field_6 AS dbl_size, -- cia.dbl_size, -- bridge size = dbl_size
 ia.field_8 AS temple_size,
 -- no longer used - 11/25/2014 ia.field_9 as overall_temple_length,
+ISNULL(x.dim_unit,'') AS dim_unit,
 ISNULL(ft.description,'') AS frame_type,
 ISNULL(fm.description,'') AS front_material,
 ISNULL(tm.description,'') AS temple_material,
@@ -118,7 +122,7 @@ LEFT OUTER JOIN cvo_inv_features_vw pf ON
 	AND pf.feature_group = 'Progressive Friendly'
 -- 12/4/2015 get a,b,ed from cmi if available
 LEFT OUTER JOIN 
-(SELECT part_no, a_size, b_size, ed_size 
+(SELECT part_no, a_size, b_size, ed_size, d.dim_unit
  FROM dbo.cvo_cmi_sku_xref xref
  JOIN dbo.cvo_cmi_dimensions d ON xref.dim_id = d.id
  ) AS x  ON x.part_no = i.part_no
@@ -134,7 +138,10 @@ WHERE i.void='n' AND i.type_code IN ('frame','sun')
 
 
 
+
+
 GO
+
 GRANT REFERENCES ON  [dbo].[cvo_inv_master_r2_vw] TO [public]
 GO
 GRANT SELECT ON  [dbo].[cvo_inv_master_r2_vw] TO [public]

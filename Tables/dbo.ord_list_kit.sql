@@ -1436,12 +1436,7 @@ CREATE UNIQUE CLUSTERED INDEX [ordlstkit1] ON [dbo].[ord_list_kit] ([order_no], 
 GO
 CREATE NONCLUSTERED INDEX [ordlstkit2m] ON [dbo].[ord_list_kit] ([part_no], [location], [status], [part_type], [shipped], [conv_factor], [qty_per]) WITH (FILLFACTOR=80) ON [PRIMARY]
 GO
-CREATE STATISTICS [_dta_stat_1896458626_2_3_6_4_5_26] ON [dbo].[ord_list_kit] ([order_no], [order_ext], [part_no], [line_no], [location], [row_id])
-GO
-CREATE STATISTICS [_dta_stat_1896458626_6_4_5_2] ON [dbo].[ord_list_kit] ([part_no], [line_no], [location], [order_no])
-GO
-CREATE STATISTICS [_dta_stat_1896458626_26_2_3] ON [dbo].[ord_list_kit] ([row_id], [order_no], [order_ext])
-GO
+
 GRANT REFERENCES ON  [dbo].[ord_list_kit] TO [public]
 GO
 GRANT SELECT ON  [dbo].[ord_list_kit] TO [public]

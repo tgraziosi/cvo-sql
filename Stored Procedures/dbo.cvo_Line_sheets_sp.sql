@@ -1,9 +1,10 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
 
--- exec cvo_line_sheets_sp 'me'
+-- exec cvo_line_sheets_sp 'bcbg'
 
 CREATE procedure [dbo].[cvo_Line_sheets_sp] 
 --@startdate datetime, 
@@ -72,6 +73,7 @@ component_3 varchar(255), -- special comp 3
 asterisk_1 varchar(255), -- asterisks 1
 asterisk_2 varchar(255), -- asterisks 2
 asterisk_3 varchar(255), -- asterisks 3
+asterisk_4 varchar(255), -- asterisks 3
 spare_temple_length varchar(255), -- spare temples lengths
 temple_tip_material varchar(255) -- temple tip material
 , source varchar(3) -- cmi or cvo
@@ -323,20 +325,45 @@ begin
 				and #f.collection = @collection and #f.style = @style
 				and #f.feature_group = 'special components'
 	end
-	-- get asterisks
+	---- get asterisks
+ --   select @seq_no = min(seq_no) from #f where #f.collection = @collection and #f.style = @style
+	--		and #f.feature_group = 'asterisks'
+	--select @counter = 1
+	--while @seq_no is not null and @counter <=3
+	--begin
+	--	  update l set 
+	--		l.asterisk_1 = case when @counter = 1 and l.asterisk_1 is null
+	--		then #f.feature_desc else l.asterisk_1 end,
+	--		l.asterisk_2 = case when @counter = 2 and l.asterisk_2 is null
+	--		then #f.feature_desc else l.asterisk_2 end,
+	--		l.asterisk_3 = case when @counter = 3 and l.asterisk_3 is null
+	--		then #f.feature_desc else l.asterisk_3 end
+	--	  	from #f inner join #line_sheet l 
+	--		on #f.collection = l.collection and #f.style = l.style
+	--		where #f.seq_no = @seq_no
+	--		and #f.feature_group = 'asterisks'
+			
+	--	 select @counter = @counter + 1
+	--	 select @seq_no = min(seq_no) from #f where seq_no > @seq_no 
+	--			and #f.collection = @collection and #f.style = @style
+	--			and #f.feature_group = 'asterisks'
+	--end
+		-- get asterisks
     select @seq_no = min(seq_no) from #f where #f.collection = @collection and #f.style = @style
 			and #f.feature_group = 'asterisks'
 	select @counter = 1
-	while @seq_no is not null and @counter <=3
+	while @seq_no is not null and @counter <=4
 	begin
 		  update l set 
 			l.asterisk_1 = case when @counter = 1 and l.asterisk_1 is null
 			then #f.feature_desc else l.asterisk_1 end,
 			l.asterisk_2 = case when @counter = 2 and l.asterisk_2 is null
 			then #f.feature_desc else l.asterisk_2 end,
-			l.asterisk_3 = case when @counter = 3 and l.asterisk_3 is null
-			then #f.feature_desc else l.asterisk_3 end
-		  	from #f inner join #line_sheet l 
+			l.asterisk_3 = case when @counter = 3 and l.asterisk_3 IS null
+			then #f.feature_desc else l.asterisk_3 END,
+			l.asterisk_4 = case when @counter = 4 and l.asterisk_4 is null
+			then #f.feature_desc else l.asterisk_4 END
+			from #f inner join #line_sheet l 
 			on #f.collection = l.collection and #f.style = l.style
 			where #f.seq_no = @seq_no
 			and #f.feature_group = 'asterisks'
@@ -345,7 +372,8 @@ begin
 		 select @seq_no = min(seq_no) from #f where seq_no > @seq_no 
 				and #f.collection = @collection and #f.style = @style
 				and #f.feature_group = 'asterisks'
-	end
+	END
+    
 	-- get progressive type
 	update l set l.progressive_type =  #f.feature_desc
 		  	from #f inner join #line_sheet l 
@@ -425,13 +453,15 @@ select distinct -- get cmi stuff
 		 else isnull(i.specialty_fit,'') end as img_specialtyfit,
 	future_releasedate = 
 		case when isnull(i.variant_release_date,getdate()) > getdate() then
-			case when (isnull(i.asterisk_1,'') like ('%new%size%') 
-					or isnull(i.asterisk_2,'') like ('%new%size%') 
-					or isnull(i.asterisk_3,'') like ('%new%size%') ) then
+			case when (isnull(i.var_asterisk_1,'') like ('%new%size%') 
+					or isnull(i.var_asterisk_2,'') like ('%new%size%') 
+					or isnull(i.dim_asterisk_1,'') like ('%new%size%') 
+					or isnull(i.dim_asterisk_2,'') like ('%new%size%') ) then
 					'NewSizeAvailable'+datename(month,isnull(dateadd(m,1,i.variant_release_date),getdate()))+'.eps'
-				 when  (isnull(i.asterisk_1,'') like ('%new%color%') 
-					or  isnull(i.asterisk_2,'') like ('%new%color%') 
-					or  isnull(i.asterisk_3,'') like ('%new%color%') ) then
+				 when  (isnull(i.var_asterisk_1,'') like ('%new%color%') 
+					or  isnull(i.var_asterisk_2,'') like ('%new%color%') 
+					or  isnull(i.dim_asterisk_1,'') like ('%new%color%') 
+					or  isnull(i.dim_asterisk_2,'') like ('%new%color%') ) then
 					'NewColorAvailable'+datename(month,isnull(dateadd(m,1,i.variant_release_date),getdate()))+'.eps'
 				else
 				'Available'+datename(month,isnull(dateadd(m,1,i.variant_release_date),getdate()))+'.eps'
@@ -475,9 +505,10 @@ select distinct -- get cmi stuff
 	isnull(i.component_1,'') as component_1,
 	isnull(i.component_2,'') as component_2,
 	isnull(i.component_3,'') as component_3,
-	isnull(i.asterisk_1,'') as asterisk_1,
-	isnull(i.asterisk_2,'') as asterisk_2,
-	isnull(i.asterisk_3,'') as asterisk_3,
+	isnull(i.var_asterisk_1,'') as asterisk_1,
+	isnull(i.var_asterisk_2,'') as asterisk_2,
+	isnull(i.dim_asterisk_1,'') as asterisk_3,
+	isnull(i.dim_asterisk_2,'') as asterisk_4,
 	isnull(i.spare_temple_length,'') spare_temple_length,
 	isnull(i.temple_tip_material,'') as temple_tip_material
 	, l.source
@@ -577,6 +608,7 @@ select distinct  -- from Epicor Database
 	isnull(l.asterisk_1,'') asterisk_1,
 	isnull(l.asterisk_2,'') asterisk_2,
 	isnull(l.asterisk_3,'') asterisk_3,
+	isnull(l.asterisk_4,'') asterisk_4,
 	isnull(l.spare_temple_length,'') spare_temple_length,
 	isnull(l.temple_tip_material,'') temple_tip_material
 	, l.source
@@ -598,6 +630,8 @@ and l.source = 'cvo'
 END
 
 
+
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_Line_sheets_sp] TO [public]
 GO

@@ -9,7 +9,7 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT * FROM dbo.cvo_hs_inventory_8 where mastersku like 'iz201%'
+-- SELECT * FROM dbo.cvo_hs_inventory_8 where MASTERSKU like 'IZ600%'
 -- DROP TABLE dbo.cvo_hs_inventory_8
 -- 		
 -- 072814 - tag - 1) add special values, 2) performance updates
@@ -119,8 +119,8 @@ variantdescription = case when i.type_code in ('other','pop') then i.description
 	 WHEN I.part_no = 'OPZSUNSKIT' THEN 'SUN'
 	 WHEN i.TYPE_CODE IN ('OTHER','POP') THEN 'POP'
 	 -- 1/11/2016
-	 WHEN i.category = 'CH' AND ia.FIELD_32 = 'LastChance' THEN 'CHLastChance'
-	 WHEN i.category = 'CH' AND @TODAY >= @CH THEN 'CH SELL-DOWN'
+	 -- WHEN i.category = 'CH' AND ia.FIELD_32 = 'LastChance' THEN 'CHLastChance'
+	 WHEN i.category = 'CH' AND @TODAY >= @CH THEN 'CH RETURNS'
 	 WHEN ISNULL(FIELD_28,@TODAY) >= @today THEN I.TYPE_CODE
 	 WHEN EXISTS (SELECT 1 FROM #EOS WHERE #EOS.PART_NO = I.PART_NO) THEN 'SUN SPECIALS'
 	 -- 12/12/14 - sunps takes precedence
@@ -132,7 +132,7 @@ variantdescription = case when i.type_code in ('other','pop') then i.description
 
 	 ELSE I.TYPE_CODE END,
 [CATEGORY:2] = case when i.category in ('izod','izx') then 'IZOD' 
-WHEN ia.field_32 = 'lastchance' THEN '' 
+					-- WHEN ia.field_32 = 'lastchance' THEN '' 
 ELSE CAT.DESCRIPTION END,
 ISNULL(FIELD_3,'') AS Color,
 -- sun lens color for REVO
@@ -201,12 +201,10 @@ UPDATE  #Data1 SET NAME='IZOD CLEAR DISPLAY FRAME KIT'
 	    WHERE sku = 'IZCLDISKITA'
 
 
-
-
 -- 06/26/2015
 UPDATE  #Data1 SET [CATEGORY:1]= 'FRAME', MANUFACTURER= 'CLEARVISION' 
 		, longdesc = variantdescription, name = variantdescription, size = ''--, model = 'READER'
-	    WHERE sku in ('ETREADER','izztr90kit','bczdisplaykit')
+	    WHERE sku in ('ETREADER','izztr90kit','bczdisplaykit','izodinter')
 
 UPDATE  #Data1 SET longDesc = REPLACE (longDesc,'PERFORMX ','IZOD PERFORMX ') 
 			, name = REPLACE (name,'PERFORMX ','IZOD PERFORMX ') 
@@ -269,6 +267,9 @@ delete from #SPEC1 where mastersku=''
 update #Data1 set mastersku = 'BCGLIL' where sku like 'bcglil%' 
 update #Data1 set mastersku = 'BCANGS' where sku like 'bcANG_______S' 
 
+--2/25/2016
+UPDATE #data1 SET mastersku = mastersku+'X' WHERE mastersku IN ('RE4064','RE4066') AND POMDate <= '1/1/2010'
+
 UPDATE  #Data1 SET NAME='OCEAN PACIFIC SUNS KIT'
 		, LongDesc='OCEAN PACIFIC SUNS KIT'
 		, [CATEGORY:1]= 'SUN', MANUFACTURER= 'CLEARVISION' 
@@ -305,11 +306,12 @@ COLL, Model, POMDate, ReleaseDate, Status, GENDER, SpecialtyFit, APR, New, SUNPS
 -- , ShelfQty
 , ShelfQty = 
 -- 2/4/16 - add izod interchangeable fudge qty for 2/23 release
-	CASE WHEN t1.coll = 'izod' AND t1.Model IN ('6001','6002','6003','6004') THEN t1.qty_avl + t1.NextPOOnOrder 
+	CASE WHEN t1.coll = 'izod' AND t1.Model IN ('6001','6002','6003','6004') THEN t1.qty_avl + ISNULL(t1.NextPOOnOrder, 0)
+		 WHEN T1.coll = 'CH' then 0
+		 WHEN SKU = 'IZODINTER' THEN 2000 -- ISNULL(T1.QTY_AVL,0) + ISNULL(t1.NextPOOnOrder,0)
 		 WHEN t1.apr = 'y' or t1.sunps = 'sunps' OR t1.[CATEGORY:2] = 'revo' THEN 2000 -- APR and sunps and revo
 		 when t1.[category:1] in ('spv','qop','eor') then isnull(t1.qty_avl,0)
-		 WHEN T1.[CATEGORY:1] = 'CH SELL-DOWN' -- AND ISNULL(T1.QTY_AVL,0) < 10 
-			THEN t1.qty_avl
+		 
 	ELSE case when t1.qty_avl < t1.drp_usg then 0 else isnull(t1.qty_avl,0) end
 	END
 , NextPODueDate
@@ -328,10 +330,10 @@ update #final set Hide =
 update #final set Hide = case when COLL = 'revo' AND isnull(pomdate,@today) = '01/01/2010' then 1
 							  WHEN coll = 'revo' AND model IN ('Straightshot','Bearing','Heading') THEN 1 -- 2/10/2016
 							  WHEN mastersku IN ('iz2014','iz2015','iz2016','iz2017') THEN 1
+							  WHEN MASTERSKU IN ('IZ6001','IZ6002','IZ6003','IZ6004') THEN 1
 							   else 0 end
 
-	
--- SELECT * FROM dbo.cvo_hs_inventory_8 AS chi WHERE chi.mastersku LIKE 'iz201%'
+-- SELECT * FROM dbo.cvo_hs_inventory_8 AS chi WHERE chi.mastersku LIKE 'iz600%'
 			   
 -- 8/21/2015 - hide these until JB says to release
 
@@ -469,7 +471,7 @@ create table #cats
 crank int,
 category varchar(15)
 )
-INSERT INTO #CATS VALUES(1,'CH SELL-DOWN')
+INSERT INTO #CATS VALUES(1,'CH RETURNS')
 insert into #cats values(2,'FRAME')
 insert into #cats values(3,'SUN')
 insert into #cats values(4,'SUN SPECIALS')
@@ -536,6 +538,7 @@ END
 
 
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
+
 
 
 

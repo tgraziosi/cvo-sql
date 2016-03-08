@@ -1,8 +1,10 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
 -- v1.0 CB 08/05/2015 - #1085 - Show distribution customer logs in C&C and visa versa  
+-- v1.1 CB 01/03/2016 - Use the timestamp as a comment id to ensure the notes are split
 CREATE PROCEDURE [dbo].[cc_comments_s_sp] @customer_code varchar(20)   
 AS 
 BEGIN 
@@ -31,7 +33,8 @@ BEGIN
 	AND		( from_alerts <> 1 OR from_alerts IS NULL )  
 --	ORDER BY c.comment_id DESC, row_num ASC 
 	UNION 
-	SELECT	-1 comment_id,
+--	SELECT	-1 comment_id, -- v1.1
+	SELECT	CAST(timestamp as int) comment_id, -- v1.1
 			who_entered user_name,
 			CONVERT(varchar(30), date_entered,101) note_date, 	
 			note comment,
@@ -43,5 +46,6 @@ BEGIN
 	ORDER BY order_date DESC		
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[cc_comments_s_sp] TO [public]
 GO

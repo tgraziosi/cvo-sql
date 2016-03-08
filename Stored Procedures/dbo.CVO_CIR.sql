@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -78,7 +79,7 @@ SET @first=(SELECT CONVERT(VARCHAR(25),getdate(),101)) -- today
 set @pom_asof = @first
 
 -- UNCOMMENT FOR THE PRINTED CIR RUN
--- set @pom_asof = '08/25/2015'
+-- set @pom_asof = '02/23/2016'
           
 -- set @first = '08/28/2013'
                   
@@ -446,7 +447,8 @@ sum(case when yyyymmdd between @lystart and dateadd(yy,-1,@last) then anet else 
 --sum(case when [year] = datepart(yy,dateadd(yy,-1,@first)) and [x_month] <= month(@last) then anet else 0 end) as YTDLY
 into #cs
 -- from cvo_csbm_shipto cs (nolock)
-from cvo_csbm_shipto_daily cs (nolock)
+-- from cvo_csbm_shipto_daily cs (nolock)
+FROM dbo.cvo_sbm_details AS cs (nolock)
 inner join armaster ar (nolock) on cs.customer = ar.customer_code and cs.ship_to = ar.ship_to_code
 where yyyymmdd between @f24 and @last
 group by ar.territory_code, cs.customer,

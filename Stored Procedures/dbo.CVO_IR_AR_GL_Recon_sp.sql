@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -56,10 +57,12 @@ GROUP BY POSTED_FLAG
 
 union all
 select 'TSR', 'YES', ROUND(SUM(ANET),2) TSR_SALES FROM
-cvo_csbm_shipto_daily where yyyymmdd between @datefrom and @dateto
+dbo.cvo_sbm_details where yyyymmdd between @datefrom and @dateto
 
 END
 
+
 GO
+
 GRANT EXECUTE ON  [dbo].[CVO_IR_AR_GL_Recon_sp] TO [public]
 GO

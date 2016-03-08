@@ -24,6 +24,7 @@ CREATE TABLE [dbo].[cvo_ship_labels]
 [update_user] [varchar] (24) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [update_time] [datetime] NULL,
 [package_weight] [float] NULL,
-[isArchived] [tinyint] NULL CONSTRAINT [DF__cvo_ship___isArc__5A103441] DEFAULT ((0))
+[isArchived] [tinyint] NULL CONSTRAINT [DF__cvo_ship___isArc__5A103441] DEFAULT ((0)),
+[last_track_updated] [datetime] NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO

@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -319,14 +320,25 @@ SELECT
 ,  LY_TY_Sales_Incr_Pct = NULL -- can't calculate here
 
 , TerrGoalPCT = CASE WHEN SUM(ISNULL(cts.Core_Goal_Amt,0)) = 0 THEN 0
-				ELSE SUM(ISNULL(cts.LY_TY_Sales_Incr_Pct,0)) / SUM(ISNULL(cts.Core_Goal_Amt,0)) end
-, RXPct = null
-, RetPct = null
+				ELSE SUM(ISNULL(cts.LY_TY_Sales_Incr_Pct,0)) / SUM(ISNULL(cts.Core_Goal_Amt,0)) END
+                
+ , RXPct = CASE WHEN SUM(cts.Net_Sales_TY) = 0 THEN 0	
+  			else SUM(rx_ty.RXs)/ SUM(cts.Net_Sales_TY) END
+
+ , RetPct = CASE WHEN SUM(rx_ty.gross) = 0 AND SUM(rx_ty.RetSRATY) = 0 THEN 0
+				WHEN SUM(rx_ty.gross) = 0 THEN 0 
+				ELSE SUM(rx_ty.RetSRATY)/SUM(rx_ty.gross) END
+
 , SUM(ISNULL(cts.Doors_500,0) ) Doors_500
 , SlowRetentionPct = NULL
 , cts.rsm_territory_code
 
 From dbo.cvo_terr_scorecard AS cts 
+LEFT OUTER JOIN 
+( SELECT rt.Terr, SUM(rxs) RXs, SUM(rt.RetSRATY) RetSRATY, SUM(rt.GrossSTY) gross
+ FROM #report_ty AS rt
+GROUP BY rt.Terr) RX_TY ON RX_TY.terr = cts.Territory_Code
+
 WHERE cts.Stat_Year LIKE '%A'
 GROUP BY cts.rsm_territory_code, cts.Stat_Year
 

@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -1027,13 +1028,13 @@ DELETE #invoices where ABS(balance) < 0.001 -- v2.0
        
  UPDATE #FINAL     
  SET     
- YTDCREDS = isnull((select sum(areturns) from cvo_csbm_shipto where    
+ YTDCREDS = isnull((select sum(areturns) from dbo.cvo_sbm_details  where    
     customer = f.customer_code and yyyymmdd >=@curryrstart), 0),    
- YTDSALES = isnull((select sum(anet) from cvo_csbm_shipto where    
+ YTDSALES = isnull((select sum(anet) from dbo.cvo_sbm_details where    
     customer = f.customer_code and yyyymmdd >=@curryrstart), 0),    
- LYRSALES = isnull((select sum(anet) from cvo_csbm_shipto where    
+ LYRSALES = isnull((select sum(anet) from dbo.cvo_sbm_details where    
     customer = f.customer_code and yyyymmdd  BETWEEN @LASTYRSTART AND @LASTYREND), 0),    
- r12Sales = isnull((select sum(anet) from cvo_sbm_details where    
+ r12Sales = isnull((select sum(anet) from dbo.cvo_sbm_details where    
      customer = f.customer_code and yyyymmdd >=@r12Start), 0)    
  from #final F     
       
@@ -1337,6 +1338,8 @@ DELETE #invoices where ABS(balance) < 0.001 -- v2.0
     
  SET NOCOUNT off       
 end -- CVO_ARAGING_SP DATA       
+
 GO
+
 GRANT EXECUTE ON  [dbo].[CVO_ARAGING_SP] TO [public]
 GO

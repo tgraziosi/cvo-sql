@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER OFF
 GO
 SET ANSI_NULLS OFF
@@ -7,9 +8,11 @@ GO
 
 
 
+
 -- updated 3/12/2013 - tag - add posted date
 -- select journal_type, app_id, trx_type, * from gltrx where journal_type = 'ap' 
--- select * from cvo_jrnlines_vw where journal_type = 'ap' 
+-- select * from cvo_jrnlines_vw where journal_type = 'ap' and journal_ctrl_num = 'jrnl00082149'
+-- SELECT * FROM apvodet WHERE trx_ctrl_num = 'vo031046'
 -- select * From apvohdr
 -- select * From apmaster
 
@@ -20,24 +23,26 @@ CREATE VIEW [dbo].[CVO_Jrnlines_vw] AS
   	t2.date_applied,
   	t2.date_posted, -- 3/12/13 - tag
   	t1.sequence_id,
-  	cast(t1.account_code as varchar(36)) as account_code, 
+  	CAST(t1.account_code AS VARCHAR(36)) AS account_code, 
   	-- 021814 - tag - add vendor name and vendor code for AP entries
   	-- 033114 - tag - add customer name for AR entries
-  	case when t2.trx_type between 4011 and 4099 -- ap voucher/debit entries
-        then isnull((select top 1 ap.address_name from apmaster ap
-        inner join apvohdr vo  on vo.vendor_code = ap.vendor_code
-         where vo.trx_ctrl_num = t1.document_2),'')
-         when t2.trx_type between 2002 and 2162
-            then isnull((select top 1 ar.customer_name from arcust ar
-                where ar.customer_code = t1.document_1),'')
-        else '' end as address_name,
-    case when t2.trx_type between 4011 and 4099 -- ap voucher/debit entries
-        then isnull((select top 1 vendor_code from apvohdr where trx_ctrl_num = t1.document_2),'')
-        else '' end as vendor_code,
-    case when t2.trx_type between 4011 and 4099
-        then (select top 1 date_doc from apvohdr where trx_ctrl_num = t1.document_2) 
-        end as date_doc, -- 032414
-  	t1.description,
+  	CASE WHEN t2.trx_type BETWEEN 4011 AND 4099 -- ap voucher/debit entries
+        THEN ISNULL((SELECT TOP 1 ap.address_name FROM apmaster ap
+        INNER JOIN apvohdr vo  ON vo.vendor_code = ap.vendor_code
+         WHERE vo.trx_ctrl_num = t1.document_2),'')
+         WHEN t2.trx_type BETWEEN 2002 AND 2162
+            THEN ISNULL((SELECT TOP 1 ar.customer_name FROM arcust ar
+                WHERE ar.customer_code = t1.document_1),'')
+        ELSE '' END AS address_name,
+    CASE WHEN t2.trx_type BETWEEN 4011 AND 4099 -- ap voucher/debit entries
+        THEN ISNULL((SELECT TOP 1 vendor_code FROM apvohdr WHERE trx_ctrl_num = t1.document_2),'')
+        ELSE '' END AS vendor_code,
+    CASE WHEN t2.trx_type BETWEEN 4011 AND 4099
+        THEN (SELECT TOP 1 date_doc FROM apvohdr WHERE trx_ctrl_num = t1.document_2) 
+        END AS date_doc, -- 032414
+  	CASE WHEN CHARINDEX('/',t1.description) > 0 THEN -- 03/2016 - longer ap description
+		LEFT(t1.description,(CHARINDEX('/',t1.description))) + ISNULL(b.line_desc,'')
+		ELSE t1.description END AS [description],
 	t1.document_1,
 	t1.document_2,
 	t1.nat_cur_code, 
@@ -51,10 +56,10 @@ CREATE VIEW [dbo].[CVO_Jrnlines_vw] AS
 	t1.rate_oper,
 	t2.oper_cur_code,
 	t1.balance_oper,
-	posted_flag = case t1.posted_flag 
-		when 0 then 'No'
-		when 1 then 'Yes'
-	end,
+	posted_flag = CASE t1.posted_flag 
+		WHEN 0 THEN 'No'
+		WHEN 1 THEN 'Yes'
+	END,
  	x_date_applied=t2.date_applied,
  	x_sequence_id=t1.sequence_id,
  	x_nat_balance=t1.nat_balance,
@@ -63,12 +68,14 @@ CREATE VIEW [dbo].[CVO_Jrnlines_vw] AS
 	x_rate_oper=t1.rate_oper,
 	x_balance_oper=t1.balance_oper
 FROM 
-  	gltrxdet t1 inner join gltrx t2 on t1.journal_ctrl_num = t2.journal_ctrl_num
-
-
-
+  	gltrxdet t1 INNER JOIN gltrx t2 ON t1.journal_ctrl_num = t2.journal_ctrl_num
+	LEFT JOIN apvodet b(nolock)
+	ON t1.document_2 = b.trx_ctrl_num
+	AND t1.seq_ref_id = b.sequence_id
+	
 
 GO
+
 GRANT REFERENCES ON  [dbo].[CVO_Jrnlines_vw] TO [public]
 GO
 GRANT SELECT ON  [dbo].[CVO_Jrnlines_vw] TO [public]
