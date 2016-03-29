@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -24,6 +25,7 @@ select sum(asales), sum(areturns), sum(qsales), sum(qreturns) from cvo_csbm_ship
 -- 11/8/2013 - add identity column for Data Warehouse. move Drop/Create table right before insert
 -- 5/2014 - add isCL and isBO indicators
 -- 10/2014 - add salesperson on order/invoice for Sales Details in Cube
+-- 03/16 - fix asales calculation for rounding of discounts
 
 CREATE PROCEDURE [dbo].[CVO_sbm_details_sp]
 AS
@@ -107,13 +109,22 @@ datepart(year,convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101))
 datepart(month,convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101))x_month,
 datename(month,convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101))month,
 datepart(year,convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101))year,
+--case o.type when 'i' then 
+--	case isnull(cl.is_amt_disc,'n')
+--		when 'y' then round (ol.shipped * ol.curr_price,2) - round(ol.shipped*isnull(cl.amt_disc,0),2)
+--		else round(ol.shipped*ol.curr_price,2) - round(ol.shipped*(ol.curr_price*(ol.discount/100.00)),2) 
+--	end
+--else 0
+--end as asales,
+
 case o.type when 'i' then 
 	case isnull(cl.is_amt_disc,'n')
-		when 'y' then round (ol.shipped * ol.curr_price,2) - round(ol.shipped*isnull(cl.amt_disc,0),2)
-		else round(ol.shipped*ol.curr_price,2) - round(ol.shipped*(ol.curr_price*(ol.discount/100.00)),2) 
+		when 'y' then round (ol.shipped * (ol.curr_price - ROUND(ISNULL(cl.amt_disc,0),2)),2,1)
+		ELSE ROUND( ol.shipped * (ol.curr_price - ROUND(ol.curr_price*(ol.discount/100.00),2)) ,2) 
 	end
 else 0
 end as asales,
+
 case o.type when 'c' then 
 	round(ol.cr_shipped * ol.curr_price,2) - round(ol.cr_shipped * (ol.curr_price * (ol.discount/100.00)),2)
 else 0
@@ -171,13 +182,23 @@ datepart(year,convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101))
 datepart(month,convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101))x_month,
 datename(month,convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101))month,
 datepart(year,convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101))year,
+--case o.type when 'i' then 
+--	case isnull(cl.is_amt_disc,'n')
+--		when 'y' then round (ol.shipped * ol.curr_price,2) - round(ol.shipped*isnull(cl.amt_disc,0),2)
+--		else round(ol.shipped*ol.curr_price,2) - round(ol.shipped*(ol.curr_price*(ol.discount/100.00)),2) 
+--	end
+--else 0
+--end as asales,
+
+
 case o.type when 'i' then 
 	case isnull(cl.is_amt_disc,'n')
-		when 'y' then round (ol.shipped * ol.curr_price,2) - round(ol.shipped*isnull(cl.amt_disc,0),2)
+		when 'y' then round (ol.shipped * (ol.curr_price - ROUND(ISNULL(cl.amt_disc,0),2)),2,1)
 		else round(ol.shipped*ol.curr_price,2) - round(ol.shipped*(ol.curr_price*(ol.discount/100.00)),2) 
 	end
 else 0
 end as asales,
+
 case o.type when 'c' then 
 	round(ol.cr_shipped * ol.curr_price,2) - round(ol.cr_shipped * (ol.curr_price * (ol.discount/100.00)),2)
 else 0

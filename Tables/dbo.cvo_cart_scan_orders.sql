@@ -7,6 +7,8 @@ CREATE TABLE [dbo].[cvo_cart_scan_orders]
 [order_status] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [sno] [int] NULL
 ) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [cartorders] ON [dbo].[cvo_cart_scan_orders] ([order_no], [scan_user]) ON [PRIMARY]
+
 CREATE NONCLUSTERED INDEX [CT_ORD] ON [dbo].[cvo_cart_scan_orders] ([order_no], [scan_user]) ON [PRIMARY]
 
 GO

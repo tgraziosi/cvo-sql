@@ -263,16 +263,18 @@ select
  t1.user_category as order_type,		-- tag 01/25/2012     
   
 -- convert(varchar(10),t1.user_def_fld4) user_def_fld4, --fzambada add Megasys orders      
-ISNULL((select sum(ordered) 
- from CVO_ord_list_HIST ol (nolock)
- inner join inv_master i (nolock) on ol.part_no = i.part_no
- where T1.order_no = ol.order_no and T1.ext = ol.order_ext
-	and i.type_code in ('FRAME','SUN','PARTS') ), 0) as FramesOrdered, 
-ISNULL((select sum(shipped) 
- from CVO_ord_list_HIST ol (nolock)
- inner join inv_master i (nolock) on ol.part_no = i.part_no
- where T1.order_no = ol.order_no and T1.ext = ol.order_ext
-	and i.type_code in ('FRAME','SUN','PARTS') ), 0) as FramesShipped,  
+ISNULL(col.FramesOrdered,0) FramesOrdered,
+--ISNULL((select sum(ordered) 
+-- from CVO_ord_list_HIST ol (nolock)
+-- inner join inv_master i (nolock) on ol.part_no = i.part_no
+-- where T1.order_no = ol.order_no and T1.ext = ol.order_ext
+--	and i.type_code in ('FRAME','SUN','PARTS') ), 0) as FramesOrdered, 
+ISNULL(col.FramesShipped,0) FramesShipped,
+--ISNULL((select sum(shipped) 
+-- from CVO_ord_list_HIST ol (nolock)
+-- inner join inv_master i (nolock) on ol.part_no = i.part_no
+-- where T1.order_no = ol.order_no and T1.ext = ol.order_ext
+--	and i.type_code in ('FRAME','SUN','PARTS') ), 0) as FramesShipped,  
  t1.back_ord_flag,
  isnull(ar.addr_sort1,'') as Cust_type,
   isnull(user_def_fld4,'') as HS_order_no, -- 101613 - as per HK
@@ -283,6 +285,15 @@ ISNULL((select sum(shipped)
  x_date_shipped = dbo.adm_get_pltdate_f(t1.date_shipped) ,
  source = 'M' -- tag   
 FROM cvo_orders_all_hist t1 (nolock)  
+LEFT OUTER JOIN 
+(SELECT SUM(ordered) FramesOrdered, SUM(shipped) FramesShipped, order_no, order_ext
+FROM cvo_ord_list_hist ol (NOLOCK)
+INNER JOIN inv_master i (NOLOCK) ON ol.part_no = i.part_no
+WHERE i.type_code IN ('frame','sun','parts')
+GROUP BY ol.order_no, ol.order_ext
+
+) col ON col.order_no = t1.order_no AND col.order_ext = t1.ext
+
 left outer join armaster ar (nolock) on t1.cust_code = ar.customer_code and t1.ship_to = ar.ship_to_code
 
 WHERE  t1.type = 'I'
@@ -297,7 +308,9 @@ WHERE  t1.type = 'I'
 
 
 
+
 GO
+
 
 GRANT REFERENCES ON  [dbo].[cvo_adord_vw] TO [public]
 GO

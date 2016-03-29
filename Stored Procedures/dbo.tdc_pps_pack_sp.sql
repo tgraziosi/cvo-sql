@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -6,6 +7,7 @@ GO
 -- v1.1 CT 06/08/2012 - Remove changes made in v1.0
 -- v1.2 CB 18/09/2014 - #572 Masterpack - Third Party Ship To 
 -- v1.3 CB 23/04/2015 - Performance Changes
+-- v1.4 CB 11/03/2016 - Fix issue with truncation error
 CREATE PROC [dbo].[tdc_pps_pack_sp]  @is_cube_active  char(1),  
 								@carton_no  int,  
 								@carton_code  varchar(10),  
@@ -81,7 +83,7 @@ BEGIN
 			SELECT @order_no, @order_ext, @carton_no, @carton_code, @pack_type, o.cust_code, o.cust_po, o.routing, '',    
 				o.ship_to, o.ship_to_name, b.tp_address_1, b.tp_address_2,    
 				b.tp_address_3, b.tp_city, b.tp_state,    
-				b.tp_zip, b.tp_country, o.attention, o.date_shipped, 0, 'LB',    
+				LEFT(b.tp_zip,10), b.tp_country, o.attention, o.date_shipped, 0, 'LB',   -- v1.4
 				'', '', NULL, '', '', NULL, NULL, '', NULL, NULL, NULL, NULL,    
 				NULL, o.freight_to, NULL , NULL, @user_id, 0 , '0',    
 				'O', @station_id, o.freight_allow_type, o.bill_to_key, getdate(), @user_id,    
@@ -106,7 +108,7 @@ BEGIN
 			SELECT @order_no, @order_ext, @carton_no, @carton_code, @pack_type, o.cust_code, o.cust_po, o.routing, '',    
 				o.ship_to, o.ship_to_name, o.ship_to_add_1, o.ship_to_add_2,    
 				o.ship_to_add_3, o.ship_to_city, o.ship_to_state,    
-				o.ship_to_zip, o.ship_to_country, o.attention, o.date_shipped, 0, 'LB',    
+				LEFT(o.ship_to_zip,10), o.ship_to_country, o.attention, o.date_shipped, 0, 'LB',  -- v1.4
 				'', '', NULL, '', '', NULL, NULL, '', NULL, NULL, NULL, NULL,    
 				NULL, o.freight_to, NULL , NULL, @user_id, 0 , '0',    
 				'O', @station_id, o.freight_allow_type, o.bill_to_key, getdate(), @user_id,    
@@ -757,5 +759,6 @@ BEGIN
 	RETURN 0  
 END
 GO
+
 GRANT EXECUTE ON  [dbo].[tdc_pps_pack_sp] TO [public]
 GO

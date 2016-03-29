@@ -137,6 +137,8 @@ CREATE TABLE [dbo].[orders_all]
 [tax_valid_ind] [int] NULL,
 [addr_valid_ind] [int] NULL
 ) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [orders_all_idx_hs] ON [dbo].[orders_all] ([date_entered], [who_entered], [status], [user_def_fld4]) INCLUDE ([ext], [order_no], [routing], [user_def_fld3]) ON [PRIMARY]
+
 CREATE NONCLUSTERED INDEX [index_orders_all_void_stat] ON [dbo].[orders_all] ([void], [status]) INCLUDE ([cust_code], [tot_ord_disc], [tot_ord_freight], [tot_ord_tax], [total_amt_order], [type]) ON [PRIMARY]
 
 GO
@@ -2666,8 +2668,7 @@ CREATE NONCLUSTERED INDEX [ord3] ON [dbo].[orders_all] ([status], [order_no], [e
 GO
 CREATE NONCLUSTERED INDEX [ord10_110613] ON [dbo].[orders_all] ([type], [orig_no], [orig_ext], [status]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [orders_all_idx_hs] ON [dbo].[orders_all] ([user_def_fld4], [date_entered], [who_entered], [status]) ON [PRIMARY]
-GO
+
 CREATE NONCLUSTERED INDEX [cvo_ord_void_status_051415] ON [dbo].[orders_all] ([void], [status]) INCLUDE ([gross_sales], [type], [total_tax], [cust_code], [order_no], [ext], [total_discount], [freight]) ON [PRIMARY]
 GO
 CREATE STATISTICS [_dta_stat_337396967_4_44] ON [dbo].[orders_all] ([cust_code], [type])

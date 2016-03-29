@@ -8,7 +8,7 @@ GO
 
 
 
--- select img_34, img_front, img_temple, * from cvo_cmi_catalog_view where model = 'cupcake'
+-- select * from cvo_cmi_catalog_view where collection = 'revo'
 
 
 CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS 
@@ -39,6 +39,7 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	v.color_family AS ColorGroupCode, 
 	v.color AS ColorName,
 	d.fit AS specialty_fit,
+	bm.special_program,
 	'Y' AS web_saleable_flag,
 	d.eye_size,
 	CAST(d.a_size AS DECIMAL(18,1)) AS a_size, 
@@ -83,10 +84,12 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	, v.ispolarizedavailable
 	, bm.supplier
 	, bm.country_origin
+	, bm.pattern_text -- 03/25/2016
 	, d.frame_cost
 	, d.front_cost
 	, d.temple_cost
 	, ISNULL(d.dim_lens_cost,0) dim_lens_cost -- 2/10/16
+	, ISNULL(d.dim_frame_only_cost,0) dim_frame_only_cost -- 3/28/2016
 	, bm.cost_currency
 	, bm.single_cable_cost
 	, d.ws_ship1_qty
@@ -104,7 +107,7 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	, x.date_added
 	, ISNULL(	CASE WHEN d.dim_release_date='1/1/1900' THEN NULL ELSE d.dim_release_date END, bm.release_date) dim_release_date
 	, bm.model_lead_time
-	, v.lens_color
+	, ISNULL(d.dim_lens_color, v.lens_color) lens_color
 
 
 	FROM 
@@ -114,11 +117,15 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	LEFT JOIN 	cvo_cmi_dimensions d ON (v.id = d.variant_id) 
 	LEFT JOIN 	cvo_cmi_worksheet w ON (v.id = w.variant_id)
 	LEFT JOIN   dbo.cvo_cmi_sku_xref x ON (x.dim_id = d.id)
-	LEFT JOIN   cvo_inv_master_r2_vw i 
-		ON i.collection = bm.brand AND i.model= bm.model_name
-		AND d.eye_size =  i.eye_size AND v.color = i.colorname
+	LEFT JOIN   cvo_inv_master_r2_vw i ON (i.part_no = x.part_no) -- 3/28/2016
+		--ON i.collection = bm.brand AND i.model= bm.model_name
+		--AND d.eye_size =  i.eye_size AND v.color = i.colorname
 	
 	WHERE v.isActive = 1
+
+
+
+
 
 
 

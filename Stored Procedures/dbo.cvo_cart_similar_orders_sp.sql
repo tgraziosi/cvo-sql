@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -9,8 +10,22 @@ BEGIN
 
 SET NOCOUNT ON;
 
+
 -- usage:
--- exec cvo_cart_similar_orders_sp 2622825, 0
+-- exec cvo_cart_similar_orders_sp 2692549, 0
+/* 
+ select * From cvo_adord_vw where status = 'n' and date_sch_ship <= '03/29/2016' 
+ and who_entered <> 'backordr' and order_type like 'st%' and framesordered > 5 -- open order list
+
+ select part_no, count(order_no) num_orders, min(order_no) min_order_no
+  -- select * 
+  from cvo_open_order_detail_vw
+  where allocation_date <= getdate() and sch_ship_date <= getdate()
+  and status = 'n' and restype in ('frame','sun') and qty_avl > 0
+  group by part_no
+ order by count(order_no) desc
+
+*/
 
 DECLARE @threshold INT, 
 -- @baseorder_no INT, @base_ext INT, 
@@ -45,6 +60,8 @@ and o.status in ('n')
 and o.type = 'i'
 AND i.type_code IN ('frame','sun')
 AND ISNULL(CO.st_consolidate,0) = 0
+AND co.allocation_date <= GETDATE()
+AND o.sch_ship_date <= GETDATE()
 group by allorder.order_no, allorder.order_ext, co.promo_id, co.promo_level, o.sch_ship_date, CO.allocation_date
 HAVING
 COUNT(*) > @thresholdord_list
@@ -73,5 +90,6 @@ END
 
 GRANT ALL ON cvo_cart_similar_orders_sp TO PUBLIC
 GO
+
 GRANT EXECUTE ON  [dbo].[cvo_cart_similar_orders_sp] TO [public]
 GO

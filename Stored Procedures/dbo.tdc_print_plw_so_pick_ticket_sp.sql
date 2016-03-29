@@ -27,6 +27,7 @@ GO
 -- v6.3 CT 10/04/2014 - Issue #572 - Label is now shared with consolidated pick list, some field labels now passed as parameters
 -- v6.4 CB 10/06/2015 - Fix issue when lines are deleted on the order but have not been unallocated. Page numbering goes out.
 -- v6.5 CB 13/01/2016 - #1586 - When orders are allocated or a picking list printed then update backorder processing
+-- v6.6 CB 02/03/2016 - Add link to polarized lines
 
 CREATE PROCEDURE [dbo].[tdc_print_plw_so_pick_ticket_sp]  
  @user_id     varchar(50),  
@@ -60,7 +61,8 @@ DECLARE @printed_on_the_page int,
  @detail_add_note     varchar(255),
  @prt_line_no             int,					--v2.,0
  @display_line            int,					--v4.,0
- @order_time		varchar(10)		--v2.1.5
+ @order_time		varchar(10),		--v2.1.5
+ @polarized_line varchar(40) -- v6.6
    
 DECLARE @sku_code VARCHAR(16), @height DECIMAL(20,8), @width DECIMAL(20,8), @cubic_feet DECIMAL(20,8),  
   @length DECIMAL(20,8), @cmdty_code VARCHAR(8), @weight_ea DECIMAL(20,8), @so_qty_increment DECIMAL(20,8),   
@@ -1107,7 +1109,18 @@ END
 	  INSERT INTO #tdc_print_ticket (print_value) SELECT 'LP_TOPICK_'       + RTRIM(CAST(@printed_on_the_page AS char(4))) + ',' + isnull(@topick,           '')  
   END
 
-  INSERT INTO #tdc_print_ticket (print_value) SELECT 'LP_PART_NO_'      + RTRIM(CAST(@printed_on_the_page AS char(4))) + ',' + isnull(@part_no,           '')  
+  -- v6.6 Start
+	IF EXISTS (SELECT 1 FROM #cvo_ord_list WHERE from_line_no = @line_no AND is_polarized = 1)
+	BEGIN
+		SELECT @polarized_line = ISNULL(@part_no,'') + ' (Plrzd Ln ' + CAST(line_no as varchar(10)) + ')' FROM #cvo_ord_list WHERE from_line_no = @line_no AND is_polarized = 1
+		INSERT INTO #tdc_print_ticket (print_value) SELECT 'LP_PART_NO_'      + RTRIM(CAST(@printed_on_the_page AS char(4))) + ',' + isnull(@polarized_line,'')
+	END
+	ELSE
+	BEGIN
+		INSERT INTO #tdc_print_ticket (print_value) SELECT 'LP_PART_NO_'      + RTRIM(CAST(@printed_on_the_page AS char(4))) + ',' + isnull(@part_no,           '')  
+	END
+  -- v6.6 End
+
   INSERT INTO #tdc_print_ticket (print_value) SELECT 'LP_LOT_SER_'      + RTRIM(CAST(@printed_on_the_page AS char(4))) + ',' + isnull(@lot_ser,                      '')  
   INSERT INTO #tdc_print_ticket (print_value) SELECT 'LP_BIN_NO_'       + RTRIM(CAST(@printed_on_the_page AS char(4))) + ',' + isnull(@bin_no,                       '')  
   INSERT INTO #tdc_print_ticket (print_value) SELECT 'LP_ITEM_NOTE_'  + RTRIM(CAST(@printed_on_the_page AS char(4))) + ',' + isnull(@item_note,                    '')  
@@ -1322,6 +1335,7 @@ RETURN
 
 
 GO
+
 
 GRANT EXECUTE ON  [dbo].[tdc_print_plw_so_pick_ticket_sp] TO [public]
 GO

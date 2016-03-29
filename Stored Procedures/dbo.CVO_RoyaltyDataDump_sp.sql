@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -19,62 +20,99 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
+-- exec cvo_royaltydatadump_sp '1/1/2016','2/29/2016'
+
+
 --declare @dfrom datetime
 --declare @dto datetime
 declare @Gfrom int
 declare @Gto int
 --SET @DFrom = '2/1/2013'
 --SET @DTo = '2/28/2013'
-	SET @DTo=dateadd(second,-1,@DTo)
-	SET @DTo=dateadd(day,1,@DTo)
-set @Gfrom = datediff(day,'1/1/1950',convert(datetime,convert(varchar( 8), (year(@dfrom) * 10000) + (month(@dfrom) * 100) + day(@dfrom)))  ) + 711858
-set @Gto = datediff(day,'1/1/1950',convert(datetime,convert(varchar( 8), (year(@dto) * 10000) + (month(@dto) * 100) + day(@dto)))  ) + 711858
--- select @dfrom, @Dto, @Gfrom, @Gto
--- -- select * from #Data
-IF(OBJECT_ID('tempdb.dbo.#Data') is not null)  
-drop table #Data
-select *,
+	SElect @DTo=dateadd(second,-1,@DTo)
+	SElect @DTo=dateadd(day,1,@DTo)
+select @Gfrom = dbo.adm_get_pltdate_f(@dfrom)
+
+SElect @Gto = dbo.adm_get_pltdate_f(@dto)
+
+IF(OBJECT_ID('tempdb.dbo.#Data') is not null)  drop table #Data
+select order_no ,
+       order_ext ,
+       Invoice ,
+       line_no ,
+       part_no ,
+       promo_id ,
+       promo_level ,
+       cust_type ,
+       cust_code ,
+       customer_name ,
+       region ,
+       territory ,
+       ar_territory ,
+       salesperson ,
+       order_type ,
+       date_shipped ,
+       date_applied ,
+       doc_type ,
+       product_group ,
+       product_type ,
+       product_style ,
+       product_gender ,
+       Obsolete ,
+       dom_intl ,
+       country_code ,
+       state_code ,
+       units_sold ,
+       list_price ,
+       net_amt ,
+       discount_amount ,
+       DISCOUNT_PCT ,
+       return_code ,
+       cust_po ,
+       x_date_shipped,
 case when list_price=0 then 100 else (100-((100*NET_amt)/List_price)) END as  DiscPerc,
 datepart(year,date_shipped)Yr,  datepart(quarter,date_shipped)Qtr,  datepart(month,date_shipped)Mth 
-into #Data from cvo_royalties_vw where product_type in ('frame','sun') and date_shipped between @Dfrom and @Dto
+into #Data 
+FROM cvo_royalties_vw 
+WHERE product_type in ('frame','sun') 
+AND date_shipped between @Dfrom and @Dto
 -- --
 -- --
-select distinct product_group, product_style, product_type, product_gender, doc_type,
-case when product_style in ('hope', 'faith', 'believe', 'dream', 'strength', 'courage') then 'Y' else '' end as Charitable, Country_code as Country, dom_intl, cust_type,
-case when doc_type='invoice' then sum(list_price) else 0 end as  'ListSold',
+select product_group, product_style, product_type, product_gender, doc_type,
+case when product_style in ('hope', 'faith', 'believe', 'dream', 'strength', 'courage') then 'Y' else '' end as Charitable, 
+Country_code as Country, dom_intl, cust_type,
+SUM(case when doc_type='invoice' THEN ISNULL(list_price,0) else 0 END) as  'ListSold',
+SUM(CASE WHEN  DiscPerc >=80 THEN ISNULL(NET_AMT,0) ELSE 0 END) AS 'CL(Net80Pct)',
+SUM(CASE WHEN  cust_code='045217' THEN ISNULL(NET_AMT,0) ELSE 0 END) AS 'CL(NetCust)',
+SUM(CASE WHEN CUST_CODE = '045217' THEN ISNULL(UNITS_SOLD,0) ELSE 0 END) AS 'CL(UnitCust)',
 
-	isnull((select sum(net_amt) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type AND DiscPerc >=80),0) 'CL(Net80Pct)',
+SUM(CASE WHEN cust_code='045217' THEN ISNULL(discount_amount,0) ELSE 0 END) AS 'CL(DiscCust)',
 
-	isnull((select sum(net_amt) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type AND cust_code='045217'),0) 'CL(NetCust)',
-	isnull((select sum(units_sold) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type AND cust_code='045217'),0) 'CL(UnitCust)',
-	isnull((select sum(discount_amount) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type  AND cust_code='045217'),0) 'CL(DiscCust)',
-
-
-	isnull((select sum(discount_amount) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type ),0) 'Discounts',
+Sum(ISNULL(discount_amount,0))  'Discounts',
 	
-	isnull((select sum(net_amt) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type and doc_type='invoice' and promo_id='BEP'),0) 'BEPsNetSold',
-	isnull((select sum(net_amt) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type and doc_type='invoice'),0) 'Gross-NetSold',
-	isnull((select sum(net_amt) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type and doc_type<>'invoice'),0) 'Returns',
-	isnull((select sum(net_amt) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type and doc_type<>'invoice' and promo_id<>'BEP'),0) 'Returns-NoBEP',
-	
-	isnull((select sum(units_sold) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type and doc_type='invoice'),0) 'GrossUnits-NetSold',
-	isnull((select sum(units_sold) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type and doc_type='invoice' and dom_intl ='Intnl'),0) 'IntlGrossUnits-NetSold',
-	
-	isnull((select sum(units_sold) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type and doc_type<>'invoice' and promo_id<>'BEP'),0) 'RetUnits-NoBEP',
-		isnull((select sum(units_sold) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type and doc_type<>'invoice' and promo_id<>'BEP' and dom_intl ='Intnl'),0) 'IntlRetUnits-NoBEP',
-		
-	isnull((select sum(units_sold) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type),0) 'NetUnits',
-	isnull((select sum(units_sold) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type and dom_intl ='Intnl'),0) 'IntlNetUnits',
+SUM(CASE WHEN doc_type='invoice' and promo_id='BEP' THEN isnull(net_amt,0) ELSE 0 END) AS 'BEPsNetSold',
+SUM(CASE WHEN doc_type='invoice' THEN isnull(net_amt,0) ELSE 0 END) AS 'Gross-NetSold',
+SUM(CASE WHEN doc_type<>'invoice' THEN isnull(net_amt,0) ELSE 0 END) AS 'Returns',
+SUM(CASE WHEN doc_type<>'invoice' and promo_id<>'BEP' THEN ISNULL(NET_AMT,0) ELSE 0 END) AS 'Returns-NoBEP',
 
-	isnull((select sum(units_sold) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type and doc_type='invoice' and cust_type='Distributor'),0) 'DistrGrossUnits-NetSold',
-	isnull((select sum(units_sold) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type and doc_type<>'invoice' and promo_id<>'BEP' and cust_type='Distributor'),0) 'DistrRetUnits-NoBEP',
-	isnull((select sum(units_sold) from #data t11 where T1.product_group=T11.product_group AND T1.product_style=T11.product_style AND T1.product_type=T11.product_type AND T1.product_gender=T11.Product_gender AND T1.Country_code=T11.Country_code AND T1.dom_intl=T11.dom_intl AND T1.cust_type=T11.cust_type and t1.doc_type=t11.doc_type and cust_type='Distributor'),0) 'DistrNetUnits',
+SUM(CASE WHEN  doc_type='invoice' THEN ISNULL(UNITS_SOLD,0) ELSE 0 END) AS 'GrossUnits-NetSold',
+SUM(CASE WHEN  doc_type='invoice' and dom_intl ='Intnl' THEN ISNULL(UNITS_SOLD,0) ELSE 0 END) AS 'IntlGrossUnits-NetSold',
+
+SUM(CASE WHEN doc_type<>'invoice' and promo_id<>'BEP' THEN ISNULL(UNITS_SOLD,0) ELSE 0 END) AS 'RetUnits-NoBEP',
+SUM(CASE WHEN doc_type<>'invoice' and promo_id<>'BEP' and dom_intl ='Intnl' THEN ISNULL(UNITS_SOLD,0) ELSE 0 END) AS 'IntlRetUnits-NoBEP',
+
+SUM(ISNULL(UNITS_SOLD,0)) 'NetUnits',
+SUM(CASE WHEN DOM_INTL='Intnl' THEN ISNULL(UNITS_SOLD,0)  ELSE 0 END) AS 'IntlNetUnits',
+SUM(CASE WHEN doc_type='invoice' and cust_type='Distributor' THEN ISNULL(units_sold,0) ELSE 0 end) AS 'DistrGrossUnits-NetSold',
+SUM(CASE WHEN doc_type<>'invoice' and promo_id<>'BEP' and cust_type='Distributor' THEN ISNULL(units_sold,0) ELSE 0 END) AS 'DistrRetUnits-NoBEP',
+SUM(CASE WHEN cust_type='Distributor' THEN ISNULL(units_sold,0) ELSE 0 END) AS 'DistrNetUnits',
 dateadd(day,-1,dateadd(second,1,@DTo)) as Mnt
 
 from #Data t1
 group by product_group, product_style, product_type, product_gender, Country_code, dom_intl, cust_type, doc_type
 order by product_group, product_style, product_type, product_gender, Country_code, dom_intl, cust_type
 END
+
 
 
 GO

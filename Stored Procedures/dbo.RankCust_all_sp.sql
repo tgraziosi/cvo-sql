@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -12,6 +13,7 @@ GO
 -- EXEC RankCustshipTo_sp '1/1/2014','12/31/2014','TRUE'
 -- 12/5/2014 - tag - update RA figures to be only ra returns.  was including wty too
 -- 12/19/14 - tag - update ra amounts to exclude RBs
+-- 3/2016 - update coop info so there is only one record/per customer
 -- -- SF STANDS FOR SUN FRAME ONLY DEFAULT IS ALL
 -- =============================================
 
@@ -229,10 +231,8 @@ AS
                                             STUFF(( SELECT  '; ' + code
                                                     FROM    cvo_cust_designation_codes (NOLOCK)
                                                     WHERE   customer_code = c.customer_code
-                                                            AND ISNULL(start_date,
-                                                              @DateToTY) <= @DateToTY
-                                                            AND ISNULL(end_date,
-                                                              @DateToty) >= @DateToty
+                                                            AND ISNULL(start_date, @DateToTY) <= @DateToTY
+                                                            AND ISNULL(end_date, @DateToty) >= @DateToty
                                                   FOR
                                                     XML PATH('')
                                                   ), 1, 1, '') desig
@@ -468,7 +468,7 @@ AS
 
         INSERT  INTO #coopdata
                 EXEC cvo_coop_status_sp;
--- SELECT * FROM #COOPDATA
+-- SELECT * FROM #COOPDATA where customer_code = '18422'
         CREATE INDEX [idx_COOP] ON #coopdata (customer_code) INCLUDE (yyear);
 
 
@@ -503,8 +503,7 @@ AS
                 AND t1.status = 't'
                 AND t1.tot_ord_freight = 0
                 AND t1.routing NOT IN ( 'hold', 'slp' )
-                AND ISNULL(t1.freight_allow_type, '') NOT IN ( 'collect',
-                                                              'thrdprty' )
+                AND ISNULL(t1.freight_allow_type, '') NOT IN ( 'collect', 'thrdprty' )
                 AND t1.date_shipped BETWEEN @DateFromTY AND @DateToTY
                 AND type = 'I'
 				AND t1.who_entered <> 'backordr'
@@ -883,9 +882,11 @@ AS
                 End_date AS PriEnd ,
                 ISNULL(Parent, '') PARENT ,
                 ISNULL(CustType, '') CustType ,
-                ISNULL(coop_eligible, 'N') Coop_Eligible ,
-               	ISNULL((coop_earned), 0) COOP_Earned ,
-                ISNULL((coop_redeemed), 0) COOP_ReDeemed ,
+                ISNULL(s3.coop_eligible, 'N') Coop_Eligible ,
+               	--ISNULL((coop_earned), 0) COOP_Earned ,
+                --ISNULL((coop_redeemed), 0) COOP_ReDeemed ,
+				coop.coop_earned COOP_Earned,
+				coop.coop_redeemed COOP_ReDeemed,
                 pastdueamt ,
                 interval ,
                 ISNULL(T2.goal1, 0) Goal1 ,
@@ -933,7 +934,12 @@ AS
                 LEFT OUTER JOIN #RankCusts_S3 S3 ON S3.MergeCust = T1.customer
                                                     AND S3.ship_to = T1.ship_to
                 LEFT OUTER JOIN cvo_designation_rebates T2 ON T2.code = ISNULL(S3.PriDesig,'') AND progyear = DATEPART(YEAR,@DateToty)
-				LEFT OUTER JOIN #coopdata ON t1.customer = #coopdata.customer_code AND yyear = DATEPART(YEAR, @DateToTY)
+				LEFT OUTER JOIN
+                (SELECT customer_code, SUM(COOP_earned) coop_earned, SUM(coop_redeemed) coop_redeemed
+				FROM #coopdata
+				WHERE yyear = DATEPART(YEAR, @datetoTY)
+				GROUP BY customer_code) coop ON coop.customer_code = t1.customer
+				-- LEFT OUTER JOIN #coopdata ON t1.customer = #coopdata.customer_code AND yyear = DATEPART(YEAR, @DateToTY)
                 LEFT OUTER JOIN #LastST t3 ON T1.customer = t3.Cust
                                               AND T1.ship_to = t3.ship_to
 				LEFT OUTER JOIN #R12 r12_ty on     T1.customer = R12_TY.Customer AND T1.ship_to = R12_TY.ship_to AND R12_TY.years = 'TY'
@@ -966,5 +972,6 @@ AS
     END;
 
 GO
+
 GRANT EXECUTE ON  [dbo].[RankCust_all_sp] TO [public]
 GO

@@ -19,13 +19,15 @@ WHERE ar.territory_code IN ('40456','40454')
 SET NOCOUNT ON 
 SET ANSI_WARNINGS OFF
 
+--DECLARE @t VARCHAR(1000)
+--SELECT @t = NULL
+
 DECLARE @asofdate DATETIME, @startdate DATETIME, @terr varchar(1000)
 SELECT @asofdate = GETDATE()
 , @startdate = DATEADD(YEAR,-2, GETDATE())
 , @terr = @t
 
 IF(OBJECT_ID('tempdb.dbo.#t') is not null)  drop table #t
-IF(OBJECT_ID('dbo.cvo_hs_cir_tbl') is not null)  drop table cvo_hs_cir_tbl
 
 IF(OBJECT_ID('tempdb.dbo.#territory') is not null)  drop table #territory
 CREATE TABLE #territory ([territory] VARCHAR(10),
@@ -47,23 +49,41 @@ begin
 	ORDER BY ListItem
 END
 
-
+IF(OBJECT_ID('dbo.cvo_hs_cir_tbl') is null)  
+begin
 CREATE TABLE [dbo].[cvo_hs_cir_tbl](
-	[report_id] VARCHAR(10) NOT NULL,
-	[customer] [varchar](10) NOT NULL,
-	[ship_to] [varchar](10) NULL,
-	[mastersku] [varchar](30) NULL,
-	[part_no] [varchar](30) NULL,
-	[st_units] [float] NULL,
-	[rx_units] [float] NULL,
-	[ret_units] [float] NULL,
-	[first_st] VARCHAR(10) NULL,
-	[last_st] VARCHAR(10) NULL,
-	[CL] VARCHAR(2) NULL,
-	[RYG] varchar(1) NULL,
-	[size] [int] NULL,
-	[color] VARCHAR(40) null
+	[report_id] [VARCHAR](10) NOT NULL,
+	[customer] [VARCHAR](10) NOT NULL,
+	[ship_to] [VARCHAR](10) NULL,
+	[mastersku] [VARCHAR](30) NULL,
+	[part_no] [VARCHAR](30) NULL,
+	[st_units] [FLOAT] NULL,
+	[rx_units] [FLOAT] NULL,
+	[ret_units] [FLOAT] NULL,
+	[first_st] [VARCHAR](10) NULL,
+	[last_st] [VARCHAR](10) NULL,
+	[CL] [VARCHAR](2) NULL,
+	[RYG] [VARCHAR](1) NULL,
+	[size] [INT] NULL,
+	[color] [VARCHAR](40) NULL,
+	[rec_id] [INT] IDENTITY(1,1) NOT NULL,
+	[last_update] [DATETIME] NULL,
+	[date_added] [DATETIME] NULL
 ) ON [PRIMARY]
+
+
+CREATE CLUSTERED INDEX [pk_hs_cir] ON [dbo].[cvo_hs_cir_tbl]
+(
+	[rec_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [idx_hs_cir_main] ON [dbo].[cvo_hs_cir_tbl]
+(
+	[customer] ASC,
+	[ship_to] ASC,
+	[part_no] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+
+END
 
 -- SELECT '** get sales data'	, GETDATE()
 SELECT s.customer, s.ship_to
@@ -112,30 +132,114 @@ UPDATE #T SET MASTERSKU = ISNULL(HS.MASTERSKU,'')
 FROM #t
 LEFT OUTER JOIN dbo.cvo_hs_inventory_8 hs (NOLOCK) ON hs.sku = #T.part_no
 
-INSERT dbo.cvo_hs_cir_tbl 
-SELECT 'CIR v2',
+
+SELECT 'CIR v2' report_id,
 		customer ,
        ship_to ,
        mastersku ,
        upper(part_no) part_no ,
-       st_units ,
-       rx_units ,
-       ret_units ,
+       ISNULL(st_units,0) st_units ,
+       ISNULL(rx_units,0) rx_units ,
+       ISNULL(ret_units,0) ret_units ,
        ' '+ISNULL(CAST(DATEPART(MONTH,first_st) AS VARCHAR(2)) + '/' + RIGHT(CAST(DATEPART(YEAR,first_st) AS VARCHAR(4)),2),'') AS first_st  ,
        ' '+ISNULL(CAST(DATEPART(MONTH,last_st) AS VARCHAR(2)) + '/' + RIGHT(CAST(DATEPART(YEAR,last_st) AS VARCHAR(4)),2),'') AS last_st ,
-       CL = CASE WHEN #t.CL > 0 THEN 'CL' ELSE '' END ,
-       RYG,
-	   CAST(size AS INT) size,
+       CL = CASE WHEN ISNULL(#t.CL,0) > 0 THEN 'CL' ELSE '' END ,
+       ISNULL(RYG,'') ryg,
+	   CAST(ISNULL(size,0) AS INT) size,
 	   upper(ISNULL(color,'')) color
+INTO #cir
 FROM #t 
 
 WHERE mastersku > ''
-order by customer, ship_to, part_no
+-- order by customer, ship_to, part_no
 
+-- add new records
 
-end
+INSERT dbo.cvo_hs_cir_tbl
+        ( report_id ,
+          customer ,
+          ship_to ,
+          mastersku ,
+          part_no ,
+          st_units ,
+          rx_units ,
+          ret_units ,
+          first_st ,
+          last_st ,
+          CL ,
+          RYG ,
+          size ,
+          color ,
+          last_update ,
+          date_added
+        )
+SELECT #cir.report_id ,
+       #cir.customer ,
+       #cir.ship_to ,
+       #cir.mastersku ,
+       #cir.part_no ,
+       #cir.st_units ,
+       #cir.rx_units ,
+       #cir.ret_units ,
+       #cir.first_st ,
+       #cir.last_st ,
+       #cir.CL ,
+       #cir.RYG ,
+       #cir.size ,
+       #cir.color,
+	   GETDATE() AS last_update,
+	   GETDATE() AS date_added
+FROM #cir
+WHERE NOT EXISTS (SELECT 1 FROM dbo.cvo_hs_cir_tbl AS chct 
+				  WHERE #cir.part_no = chct.part_no 
+				  AND #cir.customer = chct.customer
+				  AND #cir.ship_to = chct.ship_to)
+
+-- UPDATE existing ones
+
+UPDATE chct 
+SET 
+ chct.cl = #cir.CL
+,chct.first_st = #cir.first_st
+,chct.last_st = #cir.last_st
+,chct.ret_units = #cir.ret_units
+,chct.rx_units = #cir.rx_units
+,chct.RYG = #cir.RYG
+,chct.st_units = #cir.st_units
+,last_update = GETDATE()
+-- select  * 
+FROM dbo.cvo_hs_cir_tbl AS chct
+INNER JOIN #cir ON #cir.customer = chct.customer 
+				AND #cir.part_no = chct.part_no
+				AND #cir.ship_to = chct.ship_to
+WHERE 
+(
+chct.cl <> #cir.CL
+OR chct.first_st <> #cir.first_st
+OR chct.last_st <> #cir.last_st
+OR chct.ret_units <> #cir.ret_units
+OR chct.rx_units <> #cir.rx_units
+OR chct.RYG <> #cir.RYG
+OR chct.st_units <> #cir.st_units
+)
+
+-- deletes
+
+UPDATE chct 
+SET 
+last_update = '1/1/1900'
+-- select  * 
+FROM dbo.cvo_hs_cir_tbl AS chct
+WHERE NOT EXISTS  (SELECT 1 FROM #cir WHERE
+				 #cir.customer = chct.customer 
+				AND #cir.part_no = chct.part_no
+				AND #cir.ship_to = chct.ship_to)
+
+END
+
 
 GO
+
 
 
 

@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -21,10 +22,11 @@ DROP TABLE CVO_HS_INVENTORY_QTYUPD_OLD
 SELECT * INTO CVO_HS_INVENTORY_QTYUPD_OLD FROM CVO_HS_INVENTORY_QTYUPD
 -- select * from CVO_HS_INVENTORY_QTYUPD_OLD
 -- Update Handshake Inventory Qty's
+
 IF(OBJECT_ID('tempdb.dbo.#Data') is not null)   drop table #Data
 select DISTINCT SKU, 'variant' as ItemType, 
 -- don't allow negative stock qty's - 030615
-case when qty_Avl < 0 then 0 else qty_avl end as ShelfQty, 
+case when qty_Avl < 0 OR t1.coll = 'ch' THEN 0 ELSE qty_avl end as ShelfQty, 
 case when [category:1] in ('EOS','EOR','QOP','RED') THEN 0 
 -- 8/26/2015
 	 -- 10/23/15 - remove per hk -- WHEN [CATEGORY:1] = 'CH SELL-DOWN' THEN 10

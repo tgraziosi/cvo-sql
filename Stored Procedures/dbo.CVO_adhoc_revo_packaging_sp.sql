@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -17,16 +18,14 @@ SET NOCOUNT ON
 -- =CONCATENATE("insert into #temp_part_list values('",A2,"','",left(a2,3),"','",b2,"','",D2,"')")
 
 
-DECLARE @BIN VARCHAR(10)
-DECLARE @LOC VARCHAR(10)
+DECLARE @BIN VARCHAR(10), @LOC VARCHAR(10)
 DECLARE @QTY_TO_ISSUE INT, @last_upd datetime
 
 SET @BIN = 'F11-BOX'
--- SET @LOC = '001'
 SET @LOC = '001'
 
 
-IF NOT EXISTS (SELECT 1 FROM config WHERE flag = 'CVO_RE_PKG_UPD')
+IF NOT EXISTS (SELECT * FROM config WHERE flag = 'CVO_RE_PKG_UPD')
 	INSERT dbo.config
 	        ( flag ,
 	          description ,
@@ -35,21 +34,25 @@ IF NOT EXISTS (SELECT 1 FROM config WHERE flag = 'CVO_RE_PKG_UPD')
 	        )
 	VALUES  ( 'CVO_RE_PKG_UPD' , -- flag - varchar(20)
 	          'Last update of Revo Pkging qty' , -- description - varchar(40)
-	          '1/1/1900' , -- value_str - varchar(40)
+	          '3/1/2016' , -- value_str - varchar(40)
 	          'misc'  -- flag_class - varchar(10)
 	        )
+
 
 SELECT @last_upd = ISNULL(CAST(value_str AS DATETIME),'1/1/1900') FROM config WHERE flag = 'CVO_RE_PKG_UPD'
 
 SELECT @QTY_TO_ISSUE = SUM(ISNULL(shipped,0)) FROM shippers WHERE part_no = 'REZCASES' AND date_shipped > @last_upd
 
-UPDATE config SET value_str = GETDATE() WHERE flag = 'CVO_RE_PKG_UPD'
+/*
+SELECT SUM(ISNULL(shipped,0)) FROM shippers WHERE part_no = 'REZCASES' 
+	AND date_shipped > (select value_str from config where flag = 'cvo_re_pkg_upd')
+SELECT * FROM lot_bin_stock WHERE part_no IN ( 'rezbox','rezaudcard','rezcases')
+SELECT * FROM config WHERE flag = 'CVO_RE_PKG_UPD'
+UPDATE config SET value_str = '3/1/2016' WHERE flag = 'CVO_RE_PKG_UPD'
+*/
 
-IF @QTY_TO_ISSUE <= 0 RETURN  -- there's nothing to do
+UPDATE config SET value_str = CONVERT(VARCHAR(20), GETDATE(), 101) WHERE flag = 'CVO_RE_PKG_UPD'
 
-
--- BIN = '1' AND LOCATION = '001'
--- BIN = 'RR CASES' AND LOCATION = '001'
 
 -- 8700T212D40242c
 
@@ -70,26 +73,37 @@ bin_no varchar(12),
 
 -- issue the same number of consumer boxes and authenticity cards as cases
 
-insert into #temp_part_list
-select location, bin_no, part_no, CASE WHEN @QTY_TO_ISSUE > QTY THEN QTY ELSE @QTY_TO_ISSUE END , -1
-	from lot_bin_stock 
--- where location = @LOC and bin_no = @BIN
-where location = @LOC and bin_no = @BIN
-AND part_no IN ( 'rezbox','rezaudcard' )
-and qty > 0
+IF ISNULL(@QTY_TO_ISSUE,0) > 0
+begin
+	insert into #temp_part_list
+	select lb.location, lb.bin_no, lb.part_no, CASE WHEN @QTY_TO_ISSUE > lb.QTY THEN lb.QTY ELSE @QTY_TO_ISSUE END , -1
+		from lot_bin_stock lb (nolock)
+	where lb.location = @LOC and lb.bin_no = (SELECT TOP 1 bin_no FROM lot_bin_stock l (NOLOCK) WHERE l.part_no = lb.part_no 
+		 AND l.location = lb.location ORDER BY qty DESC)
+	AND lb.part_no IN ( 'rezbox','rezaudcard' )
+	and lb.qty > 0 
+
+end
 
 -- keep the rx lenses at an inventory level of 1000
 
 insert into #temp_part_list
-select location, bin_no, part_no, 1000 - qty , 1
-	from lot_bin_stock 
+select @loc, ISNULL(lb.bin_no, @bin), i.part_no, 1000 - ISNULL(qty,0) , 1
+	FROM
+	inv_master i (NOLOCK)
+	LEFT OUTER JOIN
+	lot_bin_stock lb (NOLOCK) ON i.part_no = lb.part_no AND lb.location = @loc 
+	AND lb.bin_no = (SELECT TOP 1 bin_no FROM lot_bin_stock l (NOLOCK) WHERE l.part_no = lb.part_no 
+		 AND l.location = lb.location ORDER BY qty DESC)
 -- where location = @LOC and bin_no = @BIN
-where location = @LOC and bin_no = @BIN
-AND part_no IN ( 'rezrxlens','rerimless' )
-and qty < 1000
+where i.type_code = 'lens' AND i.category = 'revo'
+AND ISNULL(lb.qty,0) < 1000 
+AND ISNULL(i.void,'N') = 'N'
+AND ISNULL(i.lb_tracking,'N') = 'Y'
 
 
 -- select * from #temp_part_list
+-- select * From tdc_config
 
 IF (SELECT OBJECT_ID('tempdb..#t1')) IS NOT NULL 
 BEGIN  
@@ -105,8 +119,7 @@ truncate table #temp_part_list
 insert into #temp_part_list
 	select * from #t1
 
---select * From #temp_part_list
-
+--re
 IF (SELECT OBJECT_ID('tempdb..#adm_inv_adj')) IS NOT NULL 
 BEGIN  
 DROP TABLE #adm_inv_adj  
@@ -170,7 +183,8 @@ Insert #temp_who select 'tdcsql','tdcsql'
 
 ---  do the processing
 
-DECLARE @LOCATION VARCHAR(12), @BIN_NO VARCHAR(12), @PART_NO VARCHAR(30), @ERR INT, @ID INT, @direction int
+DECLARE @LOCATION VARCHAR(12), @BIN_NO VARCHAR(12), @PART_NO VARCHAR(30), @ERR INT, @ID INT, @direction int, @adhoc_tolerance VARCHAR(10)
+SELECT @adhoc_tolerance = value_str FROM tdc_config WHERE [FUNCTION] = 'ADHOC_ADJUST_TOLERANCE'
 
 --	LOOP HERE UNTIL TEMP_PART_LIST IS EMPTY
 select @id = min(id) from #temp_part_list
@@ -186,17 +200,36 @@ while @id is not null
     -- SELECT @ID
     
 	truncate table #adm_INV_ADJ
-	INSERT INTO #adm_inv_adj 
-	(loc, part_no, bin_no, lot_ser, date_exp, qty, direction, who_entered, reason_code, code) 									
-	--VALUES('001', 
-	--'OPZCASEL', 'RR CASES', '1', '05/24/2013',13.00000000, -1,'CVOPTICAL\epitest2', 'ADJ-ADHOC', 'CYC')
-	SELECT top 1 LB.LOCATION, lb.PART_NO, LB.BIN_NO, lb.LOT_SER, DATE_EXPIRES, 
-	case when @QTY_TO_ISSUE > lb.qty then lb.qty else @QTY_TO_ISSUE end, @direction, 'tdcsql', 'ADJ-ADHOC', 'ADHOC'
-	FROM LOT_BIN_STOCK lb
-	WHERE LB.BIN_NO = @bin_no and LB.LOCATION = @location and lb.part_no = @part_no
-	--and lb.lot_ser = '-1'
 
-	exec  @err = tdc_adm_inv_adj
+	IF @direction = -1
+	BEGIN
+    	INSERT INTO #adm_inv_adj 
+		(loc, part_no, bin_no, lot_ser, date_exp, qty, direction, who_entered, reason_code, code) 									
+		SELECT top 1 LB.LOCATION, lb.PART_NO, LB.BIN_NO, lb.LOT_SER, DATE_EXPIRES, 
+		case when @QTY_TO_ISSUE > lb.qty THEN lb.qty else @QTY_TO_ISSUE end, 
+				  @direction, 'tdcsql', 'ADJ-ADHOC', 'ADHOC'
+		FROM LOT_BIN_STOCK lb
+		WHERE LB.BIN_NO = @bin_no and LB.LOCATION = @location and lb.part_no = @part_no
+	END
+    IF @direction = 1
+	BEGIN
+		INSERT INTO #adm_inv_adj 
+		(loc, part_no, bin_no, lot_ser, date_exp, qty, direction, who_entered, reason_code, code) 									
+			SELECT @location, @PART_NO, @BIN_NO, '1', convert(varchar(12),dateadd(yy,1,getdate()),109), 
+			@QTY_TO_ISSUE, @direction, 'tdcsql','ADJ-ADHOC','ADHOC'
+	END
+			
+	IF @QTY_TO_ISSUE > @adhoc_tolerance
+		begin
+		UPDATE tdc_config SET value_str = @QTY_TO_ISSUE+1 WHERE [function] = 'ADHOC_ADJUST_TOLERANCE'
+		exec  @err = tdc_adm_inv_adj
+		UPDATE tdc_config SET value_str = @adhoc_tolerance WHERE [function] = 'ADHOC_ADJUST_TOLERANCE'
+		END
+    ELSE
+		exec  @err = tdc_adm_inv_adj
+
+	-- SELECT @err
+    
 	if (@err < 0)
 	begin if (@@trancount >0 ) rollback tran end
 	insert into #adm_INV_ADJ_log
@@ -207,7 +240,24 @@ while @id is not null
 	where id > @id
 end
 
--- SELECT * FROM #adm_INV_ADJ_log
+SELECT adj_no ,
+       loc ,
+       part_no ,
+       bin_no ,
+       lot_ser ,
+       date_exp ,
+       qty ,
+       direction ,
+       who_entered ,
+       reason_code ,
+       code ,
+       cost_flag ,
+       avg_cost ,
+       direct_dolrs ,
+       ovhd_dolrs ,
+       util_dolrs ,
+       err_msg ,
+       row_id FROM #adm_INV_ADJ_log
 
 END
 

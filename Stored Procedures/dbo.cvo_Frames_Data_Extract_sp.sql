@@ -7,7 +7,7 @@ GO
 -- Create Data for Frames Data SmartSubmit Template ver. 8/11/2009
 -- Author: Tine Graziosi for ClearVision 
 -- 2/4/2013
--- exec cvo_frames_data_extract_sp '04/26/2016'
+-- exec cvo_frames_data_extract_sp '9/15/2015', 'revo'
 -- 4/2015 - update for CMI
 -- 10/15 - update to pull from epicor if not in cmi - (revo support)
 -- =============================================
@@ -27,7 +27,7 @@ BEGIN
 	SET ANSI_WARNINGS OFF;
 
 	--DECLARE @RELEASEDATE DATETIME, @BRAND VARCHAR(1000)
-	--SELECT @RELEASEDATE = '4/26/2016', @BRAND = NULL
+	--SELECT @RELEASEDATE = '1/1/1900', @BRAND = 'revo'
 
 	IF(OBJECT_ID('tempdb.dbo.#brand') IS NOT NULL) DROP TABLE #brand
 
@@ -48,7 +48,7 @@ BEGIN
 	--A
 	CAST(ISNULL(i.upc_code,'') AS VARCHAR(13)) as UPC,
 	--B
-	i.part_no as Frame_SKU,
+	CAST(i.part_no AS VARCHAR(30)) as Frame_SKU,
 	--C
 	ia.field_2 as Frame_Name,
 	--D
@@ -260,6 +260,7 @@ BEGIN
 	case when i.type_code = 'sun' then
 	case when ISNULL(ia.field_24,'') like '%polycarb%' then 'Polycarbonate'
 		when ISNULL(ia.field_24,'') like '%CR39%' then 'CR-39'
+		WHEN i.category = 'revo' THEN ISNULL(ia.field_24,'') -- 03/28/2016
 		else '????' end
 	else '' end,
 	--AH
@@ -386,14 +387,16 @@ BEGIN
 	inner join inv_master i (nolock) on b.brand = i.category
 	inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
 	inner join cvo_inv_master_r2_vw ci (nolock) on ci.part_no = i.part_no
-	left outer join cvo_cmi_catalog_view cmi (nolock) on cmi.collection = ci.collection
-		and cmi.model = ci.model and cmi.colorname = ci.colorname and cmi.eye_size = ci.eye_size
+	--left outer join cvo_cmi_catalog_view cmi (nolock) on cmi.collection = ci.collection
+	--	and cmi.model = ci.model and cmi.colorname = ci.colorname and cmi.eye_size = ci.eye_size
+		left outer join cvo_cmi_catalog_view cmi (nolock) on cmi.upc_code = i.upc_code
 	inner join part_price p (nolock) on p.part_no = i.part_no
 
 	where i.void = 'N'
 	AND I.TYPE_code in ('frame','sun')
 	-- AND i.entered_who = 'CMI'
 	and ( @ReleaseDate = ia.field_26 OR @releasedate = '1/1/1900')
+	AND ISNULL(ia.field_28,GETDATE()) > '1/1/2010'
 	order by i.part_no
 
 	SELECT * FROM #framesdatalist
@@ -405,7 +408,9 @@ END
 
 
 
+SELECT * FROM dbo.cvo_cmi_catalog_view AS cccv WHERE cccv.upc_code LIKE '886453%' AND cccv.Collection = 'revo'
 GO
+
 
 
 

@@ -12,6 +12,7 @@ AS
 
 -- Change History
 -- 03/4/2016 - add error checks for existing order/cons to check in and check out
+-- 3/10/16 - IGNORE VOIDS WHEN UPDATING ORDERS
 
 
 -- exec cvo_pick_cart_process_sp 1, 2350742, 0, 0
@@ -106,26 +107,13 @@ IF @proc_option = 0
 	   ON cmcd.order_no = SA.order_no AND cmcd.order_ext = SA.order_ext
 	    WHERE cmcd.consolidation_no = @order_no AND sa.USER_HOLD <> 'Y')	
 		UPDATE sa WITH (ROWLOCK) SET  user_hold = 'Y' 
-	   FROM dbo.tdc_soft_alloc_tbl SA WITH (ROWLOCK) JOIN dbo.cvo_masterpack_consolidation_det AS cmcd
+	   FROM dbo.tdc_soft_alloc_tbl SA WITH (ROWLOCK) 
+	   JOIN dbo.cvo_masterpack_consolidation_det AS cmcd
 	   ON cmcd.order_no = SA.order_no AND cmcd.order_ext = SA.order_ext
 	   WHERE cmcd.consolidation_no = @order_no AND sa.USER_HOLD <> 'Y'
 	end
 
-	-- put the order in Open/Pick status
-	SELECT @status = 'P'   
 
-	IF @iscons = 0
-  	UPDATE orders   WITH (ROWLOCK)
-		SET status = @status, printed = @status, who_picked = @who, date_shipped = NULL, freight = tot_ord_freight  
-		WHERE order_no = @order_no AND ext = @order_ext AND status <> @status  
-
-	IF @iscons = 1
-	UPDATE o WITH (rowlock) SET o.status = @status, printed = @status, who_picked = @who,
-								date_shipped = NULL, freight = tot_ord_freight  
-	   FROM orders o WITH (ROWLOCK) JOIN dbo.cvo_masterpack_consolidation_det AS cmcd
-	   ON cmcd.order_no = o.order_no AND cmcd.order_ext = o.ext
-	   WHERE cmcd.consolidation_no = @order_no AND o.status <> @status
-	
 	-- write to cart pick table ?
 	IF NOT EXISTS (SELECT 1 FROM dbo.cvo_cart_scan_orders WHERE order_no = @cart_order_no)
 	 AND NOT EXISTS (SELECT 1 FROM dbo.cvo_cart_order_parts WHERE order_no = @cart_order_no)
@@ -141,6 +129,22 @@ IF @proc_option = 0
 			WHERE (@iscons = 0 AND p.trans_type_no = @order_no AND p.trans_type_ext = @order_ext)
 				   OR (@iscons = 1 AND p.mp_consolidation_no = @order_no)	
 	 END
+
+	 	-- put the order in Open/Pick status
+	SELECT @status = 'P'   
+
+	IF @iscons = 0
+  	UPDATE orders   WITH (ROWLOCK)
+		SET status = @status, printed = @status, who_picked = @who, date_shipped = NULL, freight = tot_ord_freight  
+		WHERE order_no = @order_no AND ext = @order_ext AND status <> @status  
+
+	IF @iscons = 1
+	UPDATE o WITH (rowlock) SET o.status = @status, printed = @status, who_picked = @who,
+								date_shipped = NULL, freight = tot_ord_freight  
+	   FROM orders o WITH (ROWLOCK) JOIN dbo.cvo_masterpack_consolidation_det AS cmcd
+	   ON cmcd.order_no = o.order_no AND cmcd.order_ext = o.ext
+	   WHERE cmcd.consolidation_no = @order_no AND o.status <> @status AND o.status < 'T' -- 3/10/16 - IGNORE VOIDS AND COMPLETED ORDERS
+	
 	end
 
 IF @proc_option = 1 
@@ -168,7 +172,8 @@ begin
 	   ON cmcd.order_no = SA.order_no AND cmcd.order_ext = SA.order_ext
 	   WHERE cmcd.consolidation_no = @order_no AND sa.USER_HOLD <> 'N')
 	UPDATE sa WITH (ROWLOCK) SET  user_hold = 'N' 
-	   FROM dbo.tdc_soft_alloc_tbl SA WITH (ROWLOCK) JOIN dbo.cvo_masterpack_consolidation_det AS cmcd
+	   FROM dbo.tdc_soft_alloc_tbl SA WITH (ROWLOCK) 
+	   JOIN dbo.cvo_masterpack_consolidation_det AS cmcd
 	   ON cmcd.order_no = SA.order_no AND cmcd.order_ext = SA.order_ext
 	   WHERE cmcd.consolidation_no = @order_no AND sa.USER_HOLD <> 'N'
 
@@ -243,6 +248,10 @@ begin
 	   ON cmcd.order_no = SA.order_no AND cmcd.order_ext = SA.order_ext
 	   WHERE cmcd.consolidation_no = @order_no AND sa.USER_HOLD <> 'N'
 
+	DELETE FROM dbo.cvo_cart_order_parts WHERE order_no = @cart_order_no
+	DELETE FROM dbo.cvo_cart_scan_orders WHERE order_no = @cart_order_no
+
+	
 		-- put the order back in Open/Print status
 	SELECT @status = 'Q'   
 
@@ -256,14 +265,12 @@ begin
 								date_shipped = NULL, freight = tot_ord_freight  
 	   FROM orders o WITH (ROWLOCK) JOIN dbo.cvo_masterpack_consolidation_det AS cmcd
 	   ON cmcd.order_no = o.order_no AND cmcd.order_ext = o.ext
-	   WHERE cmcd.consolidation_no = @order_no AND o.status <> @status
-
-	DELETE FROM dbo.cvo_cart_order_parts WHERE order_no = @cart_order_no
-	DELETE FROM dbo.cvo_cart_scan_orders WHERE order_no = @cart_order_no
+	   WHERE cmcd.consolidation_no = @order_no AND o.status <> @status AND O.STATUS < 'T'
 
 END -- proc_option = 99
 
  
+
 
 
 

@@ -1,3 +1,4 @@
+
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -48,6 +49,7 @@ BEGIN
 	  FROM arsalesp (NOLOCK) 
 	  WHERE ISNULL(employee_code,'') > ''
 	  AND status_type = 1
+	  AND territory_code IN ('20206','40456', '50503', '40440') -- phil, bob s, dave s, kerry c
 	  AND NOT EXISTS(SELECT 1 FROM #allterr WHERE #allterr.customer_code = ISNULL(employee_code,'') )
 	  
 
@@ -397,5 +399,62 @@ INSERT dbo.cvo_eyerep_promocodes_tbl
         ( promo_id, promo_description )
 SELECT promo_id+','+promo_level, promo_name
 FROM cvo_promotions WHERE GETDATE() BETWEEN ISNULL(promo_start_date,GETDATE()) AND ISNULL(promo_end_date,GETDATE())
+
+IF(OBJECT_ID('dbo.cvo_eyerep_acthis_tbl') is null)
+	begin
+CREATE TABLE [dbo].[cvo_eyerep_acthis_tbl](
+	[account_id] [varchar](20) NOT NULL,
+	ship_id [varchar](20) NULL,
+	ORDER_no VARCHAR(20) NOT NULL,
+	tax_amt DECIMAL(9,2) NOT NULL,
+	ship_amt DECIMAL(9,2) NOT NULL,
+	WebOrderNumber VARCHAR(13) NULL,
+	Invoice_no VARCHAR(30) NULL,
+	upc VARCHAR(50) NULL,
+	quantity DECIMAL(9,2) NOT NULL,
+	price DECIMAL(9,2) NOT NULL, -- extended price
+	ship_date VARCHAR(8) NULL,
+	ORDER_status VARCHAR(30) NULL,
+	order_date VARCHAR(8)  NULL,
+	tracking_no VARCHAR(50) NULL,
+	tracking_type VARCHAR(50) NULL,
+	order_type VARCHAR(20) NULL,
+	line_no VARCHAR(30) NULL
+	) ON [PRIMARY]
+END
+
+
+TRUNCATE TABLE cvo_eyerep_acthis_tbl
+
+DECLARE @date INTEGER
+SELECT @date = dbo.adm_get_pltdate_f(DATEADD(year,-1,GETDATE()))
+-- SELECT @date
+
+INSERT INTO cvo_eyerep_acthis_tbl
+SELECT -- DISTINCT TOP (1000) *
+ar.customer_code, CASE WHEN ar.ship_to_code <> '' THEN ar.customer_code+'-'+ar.ship_to_code ELSE '' end, X.order_ctrl_num, X.amt_tax, X.amt_net, '' AS WebOrderNumber,
+x.doc_ctrl_num, i.upc_code, xd.qty_shipped-xd.qty_returned, xd.extended_price, CONVERT(VARCHAR(8), dbo.adm_format_pltdate_f(xd.date_applied), 112), -- yyyymmdd
+'Shipped/Transferred' AS order_status, CONVERT(VARCHAR(8), o.date_entered, 112),
+ctn.tracking, ctn.tracking_type, o.user_category, xd.sequence_id
+
+FROM #allterr 
+INNER JOIN armaster ar (nolock) on ar.customer_code = #allterr.customer_code
+JOIN artrx x (NOLOCK) ON x.customer_code = ar.customer_code AND x.ship_to_code = ar.ship_to_code
+JOIN artrxcdt xd (nolock) ON xd.trx_ctrl_num = x.trx_ctrl_num
+JOIN inv_master i (NOLOCK) ON i.part_no = xd.item_code
+LEFT OUTER JOIN dbo.orders_invoice AS oi ON oi.doc_ctrl_num = x.doc_ctrl_num
+LEFT OUTER JOIN orders o ON o.order_no = oi.order_no AND o.ext = oi.order_ext
+LEFT OUTER JOIN
+( SELECT order_no, order_ext, MIN(ISNULL(c.cs_tracking_no,c.carton_no)) tracking, MIN(c.carrier_code) tracking_type
+FROM tdc_carton_tx c  
+GROUP BY c.order_no, c.order_ext 
+) ctn ON ctn.order_ext = o.ext AND ctn.order_no = o.order_no
+
+WHERE 1=1
+AND EXISTS ( SELECT 1 FROM cvo_eyerep_acts_tbl a WHERE a.acct_id = ar.customer_code )
+AND i.type_code IN ('frame','sun')
+AND o.user_category NOT LIKE ('%-RB')
+AND X.trx_type IN (2031)
+AND x.date_applied > @date
 
 GO
