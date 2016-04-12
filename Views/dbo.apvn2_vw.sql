@@ -10,6 +10,7 @@ GO
           Under the U.S. Copyright Act of 1976            
  Copyright (c) 2002 Epicor Software Corporation, 2002    
                   All Rights Reserved                    
+	4/7/2016 - added country code and description
 */                                                
 
 
@@ -85,6 +86,8 @@ SELECT
  	one_cur_vendor,
 	cash_acct_code,
 	proc_vend_flag, 
+	dbo.apmaster.country_code, -- 04/7/2016
+	gc.description country_name, -- 4/7/2016
 
 	x_credit_limit=credit_limit,
 	x_aging_limit=aging_limit,
@@ -93,9 +96,11 @@ SELECT
 	x_lead_time=lead_time
 
 FROM apmaster
+LEFT OUTER JOIN dbo.gl_country AS gc ON gc.country_code = apmaster.country_code
 WHERE address_type = 0
 
                                              
+
 GO
 GRANT REFERENCES ON  [dbo].[apvn2_vw] TO [public]
 GO

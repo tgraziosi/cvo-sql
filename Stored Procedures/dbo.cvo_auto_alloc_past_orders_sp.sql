@@ -4,6 +4,7 @@ SET ANSI_NULLS ON
 GO
 
 -- v1.0 CT 24/03/2014 - Issue #1459 - Automate the allocation of past orders
+-- v1.1 CB 14/08/2015 - Add missing mp_consolidation_no column
 -- EXEC dbo.cvo_auto_alloc_past_orders_sp 'ZZ'
 
 CREATE PROC [dbo].[cvo_auto_alloc_past_orders_sp] @order_type	VARCHAR(2) = 'ZZ'
@@ -93,7 +94,8 @@ BEGIN
 		consolidate_shipment     int                 NULL,      
 		allocation_date          datetime            NULL,      
 		promo_id                 varchar(20)         NULL,      
-		cf                       char(1)             NULL)    
+		cf                       char(1)             NULL,
+		mp_consolidation_no		 int				 NULL) -- v1.1   
 
 	CREATE INDEX #so_alloc_management_idx1 ON #so_alloc_management 
 		(order_no, order_ext, location, sel_flg)
@@ -177,7 +179,8 @@ BEGIN
 		consolidate_shipment     int                 NULL,      
 		allocation_date          datetime            NULL,      
 		promo_id                 varchar(20)         NULL,      
-		cf                       char(1)             NULL)    
+		cf                       char(1)             NULL,
+		mp_consolidation_no		 int				 NULL) -- v1.1      
 
 	CREATE TABLE #so_allocation_detail_view_Detail     (                                             
 		order_no        INT             NOT NULL,   
@@ -329,6 +332,7 @@ BEGIN
 				END
 				
 			END
+
 			-- Clear working tables
 			DELETE FROM #so_allocation_detail_view
 			DELETE FROM #so_alloc_management

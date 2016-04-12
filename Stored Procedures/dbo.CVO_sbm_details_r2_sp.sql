@@ -24,24 +24,28 @@ select sum(asales), sum(areturns), sum(qsales), sum(qreturns) from cvo_csbm_ship
 -- 11/8/2013 - add identity column for Data Warehouse. move Drop/Create table right before insert
 -- 5/2014 - add isCL and isBO indicators
 -- 10/2014 - add salesperson on order/invoice for Sales Details in Cube
--- 2/2016 - fix rounding on discount calculations
 
-CREATE PROCEDURE [dbo].[CVO_sbm_details_r2_sp] 
+CREATE PROCEDURE [dbo].[CVO_sbm_details_r2_sp]
 AS
 BEGIN
 	-- SET NOCOUNT ON added to prevent extra result sets from
 	-- interfering with SELECT statements.
 	SET NOCOUNT ON;
 
--- exec cvo_sbm_details_r2_sp
+-- exec cvo_sbm_details_sp
 -- exec cvo_csbm_shipto_sp
 declare @first datetime
 declare @last datetime
 declare @jfirst int
 declare @jlast int
 
-select @first = '1/1/2009'	-- add 09 and 10 once validated and fixed
+--select @first = '1/1/2009'	-- add 09 and 10 once validated and fixed
+--select @last = getdate()
+
+
+select @first = '1/1/2015'	-- add 09 and 10 once validated and fixed
 select @last = getdate()
+
 
 select @jfirst = datediff(day,'1/1/1950',convert(datetime,convert(varchar(8), 
 	(year(@first)*10000)+(month(@first)*100) + day(@first))))+711858
@@ -109,22 +113,21 @@ datepart(month,convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101)
 datename(month,convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101))month,
 datepart(year,convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101))year,
 
+--case o.type when 'i' then 
+--	case isnull(cl.is_amt_disc,'n')
+--		when 'y' then round (ol.shipped * ol.curr_price,2) - round(ol.shipped*isnull(cl.amt_disc,0),2)
+--		else round(ol.shipped*ol.curr_price,2) - round(ol.shipped*(ol.curr_price*(ol.discount/100.00)),2) 
+--	end
+--else 0
+--end as asales,
+
 case o.type when 'i' then 
 	case isnull(cl.is_amt_disc,'n')
-		when 'y' then ol.shipped * ROUND ( ol.curr_price - isnull(cl.amt_disc,0) ,2,1 )
-		ELSE ol.shipped * ROUND ( ol.curr_price - (ol.curr_price*(ol.discount/100.00)) ,2,1 ) 
+		when 'y' then round (ol.shipped * (ol.curr_price - ROUND(ISNULL(cl.amt_disc,0),2)),2,1)
+		else round(ol.shipped*ol.curr_price,2) - round(ol.shipped*(ol.curr_price*(ol.discount/100.00)),2) 
 	end
 else 0
 end as asales,
-
---(CASE o.type WHEN 'I' THEN ROUND((ol.curr_price - ROUND(cl.amt_disc,2)),2,1)  -- v10.7
---   ELSE CASE ol.discount WHEN 0 THEN ol.curr_price  
---   -- START v11.6
---   ELSE CASE WHEN cl.list_price = ol.curr_price THEN ROUND(cl.list_price - (cl.list_price * ol.discount/100),2)
---      ELSE ROUND((ol.curr_price - ROUND(ol.curr_price * ol.discount/100,2 * ol.discount/100,2)),2,1) END
-
---END END ) * ol.shipped 
---AS asales,
 
 case o.type when 'c' then 
 	round(ol.cr_shipped * ol.curr_price,2) - round(ol.cr_shipped * (ol.curr_price * (ol.discount/100.00)),2)
@@ -139,7 +142,7 @@ round((ol.shipped-ol.cr_shipped) * cl.list_price,2) as lsales,
 convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101) DateShipped,
 dateadd(dd, datediff(dd,0,oo.date_entered), 0) DateOrdered
 , 0 -- isCL
-, case when o.who_entered <> 'BACKORDR' THEN 0 ELSE 1 END  -- isBO
+, case when o.who_entered = 'BACKORDR' THEN 1 ELSE 0 END  -- isBO
 ,  o.salesperson slp -- salesperson on this order -- 100314
 
 from orders o (nolock)
@@ -154,7 +157,7 @@ left outer join
 (select order_no, min(ooo.date_entered) from orders ooo(nolock) where ooo.status <> 'v' group by ooo.order_no)
 as oo (order_no, date_entered) on oo.order_no = o.order_no
 -- tag 013114
-left outer join inv_master i (NOLOCK) on i.part_no = ol.part_no
+left outer join inv_master i on i.part_no = ol.part_no
 
 where 1=1
 and xx.date_applied between @jfirst and @jlast
@@ -183,24 +186,13 @@ datepart(year,convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101))
 datepart(month,convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101))x_month,
 datename(month,convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101))month,
 datepart(year,convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101))year,
-
 case o.type when 'i' then 
 	case isnull(cl.is_amt_disc,'n')
-		when 'y' then round (ol.shipped * ol.curr_price,2) - ROUND (ol.shipped*isnull(cl.amt_disc,0),2,1)
-		else round(ol.shipped*ol.curr_price,2) - round(ol.shipped*(ol.curr_price*(ol.discount/100.00)),2,1) 
+		when 'y' then round (ol.shipped * ol.curr_price,2) - round(ol.shipped*isnull(cl.amt_disc,0),2)
+		else round(ol.shipped*ol.curr_price,2) - round(ol.shipped*(ol.curr_price*(ol.discount/100.00)),2) 
 	end
 else 0
 end as asales,
-
---(CASE o.type WHEN 'I' THEN ROUND((ol.curr_price - ROUND(cl.amt_disc,2)),2,1)  -- v10.7
---   ELSE CASE ol.discount WHEN 0 THEN ol.curr_price  
---   -- START v11.6
---   ELSE CASE WHEN cl.list_price = ol.curr_price THEN ROUND(cl.list_price - (cl.list_price * ol.discount/100),2)
---      ELSE ROUND((ol.curr_price - ROUND(ol.curr_price * ol.discount/100,2 * ol.discount/100,2)),2,1) END
-
---END END ) * shipped 
---AS asales,
-
 case o.type when 'c' then 
 	round(ol.cr_shipped * ol.curr_price,2) - round(ol.cr_shipped * (ol.curr_price * (ol.discount/100.00)),2)
 else 0
@@ -216,7 +208,7 @@ convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101) DateShipped,
 isnull(dateadd(dd, datediff(dd,0,oo.date_entered), 0) , 
        convert(varchar,dateadd(d,xx.date_applied-711858,'1/1/1950'),101)) as dateOrdered
 , 0
-, case when o.who_entered <> 'BACKORDR' THEN 0 ELSE 1 END
+, case when o.who_entered = 'BACKORDR' THEN 1 ELSE 0 END
 , o.salesperson slp
 
 from orders o (nolock)
@@ -230,7 +222,7 @@ left outer join
 (select order_no, min(ooo.date_entered) from orders ooo(nolock) where ooo.status <> 'v' group by ooo.order_no)
 as oo (order_no, date_entered) on oo.order_no = o.order_no
 -- 013114
-left outer join inv_master i (NOLOCK) ON i.part_no = ol.part_no
+left outer join inv_master i on i.part_no = ol.part_no
 
 where 1=1
 and xx.date_applied between @jfirst and @jlast
@@ -432,9 +424,7 @@ and oa.date_shipped between @first and @last
 update #cvo_sbm_det set isCL = 1
 where lsales <> 0  and (1 - (asales-areturns)/lsales) between .8 and .99 
 
--- SELECT * FROM #cvo_sbm_det WHERE customer = '013748' AND c_month = 2 AND c_year = 2016 AND part_no = 'iz2004bla5417'
-
-IF (object_id('cvo.dbo.cvo_sbm_details_r2') is not null)
+if (object_id('cvo.dbo.cvo_sbm_details_r2') is not null)
 	drop table cvo.dbo.cvo_sbm_details_r2
 
 
@@ -476,7 +466,7 @@ if (object_id('cvo.dbo.cvo_sbm_details_r2') is null)
 
  ) ON [PRIMARY]
  GRANT SELECT ON [dbo].[cvo_sbm_details_r2] TO [public]
- CREATE NONCLUSTERED INDEX [idx_cvo_sbm_cust_r2] ON [dbo].[cvo_sbm_details_r2] 
+ CREATE NONCLUSTERED INDEX [idx_cvo_sbm_cust] ON [dbo].[cvo_sbm_details_r2] 
  (
 	[Customer] ASC,
 	[ship_to] asc,
@@ -485,7 +475,7 @@ if (object_id('cvo.dbo.cvo_sbm_details_r2') is null)
  ) WITH (SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, IGNORE_DUP_KEY = OFF, ONLINE = OFF) ON [PRIMARY]
 end
 
-create index idx_cvo_sbm_prod_r2 on cvo_sbm_details_r2
+create index idx_cvo_sbm_prod on cvo_sbm_details_r2
 ( 
 part_no asc,
 yyyymmdd asc
@@ -494,13 +484,13 @@ yyyymmdd asc
 create index idx_cvo_sbm_prod on #cvo_sbm_det
 ( part_no asc )
 
-create index idx_cvo_sbm_cust_part_r2 on cvo_sbm_details_r2
+create index idx_cvo_sbm_cust_part on cvo_sbm_details_r2
 ( 
 customer asc,
 part_no asc
 )
 
-CREATE NONCLUSTERED INDEX [idx_sbm_det_for_drp_r2] ON [dbo].[cvo_sbm_details_r2] 
+CREATE NONCLUSTERED INDEX [idx_sbm_det_for_drp] ON [dbo].[cvo_sbm_details_r2] 
 (
 	[part_no] ASC,
 	[location] ASC,
@@ -560,6 +550,7 @@ insert cvo_sbm_details_r2
 
  from #cvo_sbm_det
  left outer join armaster (nolock) ar  on ar.customer_code = customer and ar.ship_to_code=ship_to
+ WHERE (asales <> 0 OR qsales <> 0 OR areturns <> 0 and qreturns <> 0)
  group by customer, ship_to,  ar.address_Name, part_no,
  promo_id,
  promo_level,
@@ -567,8 +558,6 @@ insert cvo_sbm_details_r2
  user_category, location, year, c_year, c_month, X_MONTH, [month], dateshipped
  , dateordered, isCL, isBO, slp
 
-delete from cvo_sbm_details_r2
-where asales = 0 and qsales = 0 and areturns = 0 and qreturns = 0
 
 END
 

@@ -131,7 +131,8 @@ BEGIN
 			NULL _replen_qty,
 			CVO_ord_list.free_frame,
 			cvo_ord_list.due_date,
-			ord_list.who_unpicked_id -- v1.1
+			ord_list.who_unpicked_id, -- v1.1
+			CVO_ord_list.upsell_flag
 	FROM	ord_list
     left outer join cust_xref (nolock) on ( ord_list.part_no = cust_xref.part_no) and ( dbo.cust_xref.customer_key = @custkey )
     left outer join inv_master (nolock) on ( ord_list.part_no = inv_master.part_no)

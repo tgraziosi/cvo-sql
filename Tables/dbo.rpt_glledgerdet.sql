@@ -5,7 +5,7 @@ CREATE TABLE [dbo].[rpt_glledgerdet]
 [date_applied] [datetime] NULL,
 [journal_type] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [source_company_code] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
-[description] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+[description] [varchar] (80) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [currency_code] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [nat_balance] [float] NOT NULL,
 [balance] [float] NOT NULL,

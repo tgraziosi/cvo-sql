@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -101,7 +100,8 @@ begin
 		 @SCH_SHIP_DATE, @NOTE, @SPECIAL_INSTR
 	end
 		 
-	update #log set id = @last_id, ret = case when ret = 0 then 1 end where id is null
+	update #log set id = @last_id, ret = case when ret = 0 then 1 ELSE ret END 
+	WHERE id is null
 
 	select @last_id = min(id) from cvo_interim_order_updates 
 	where id > @last_id and isnull(proc_flag,0) = 0

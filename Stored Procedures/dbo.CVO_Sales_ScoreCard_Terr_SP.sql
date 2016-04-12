@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -8,7 +7,7 @@ GO
 -- Author:		tine graziosi
 -- Create date: 122014
 -- Description:	Sales Territory/Salesperson ScoreCard (also for NSM  AWARDS)
--- EXEC CVO_Sales_ScoreCard_terr_SP '1/1/2015', '12/31/2015'
+-- EXEC CVO_Sales_ScoreCard_terr_SP '1/1/2016', '04/01/2016'
 -- 7/29/2015 - new counts for retention pcts
 -- =============================================
 CREATE PROCEDURE [dbo].[CVO_Sales_ScoreCard_Terr_SP]
@@ -20,6 +19,7 @@ CREATE PROCEDURE [dbo].[CVO_Sales_ScoreCard_Terr_SP]
 AS
 BEGIN
 	SET NOCOUNT ON;
+	SET ANSI_WARNINGS OFF;
 
 
 
@@ -29,7 +29,7 @@ declare @DateFrom datetime,
 
 -- uncomment for testing
 --DECLARE @DF datetime, @DT datetime
---select @df = '01/01/2015', @dt = '7/31/2015'
+--select @df = '01/01/2015', @dt = '3/31/2015'
 
 SELECT @datefrom = @df, @dateto = @dt, @territory = null
 
@@ -232,8 +232,10 @@ and not exists (select 1 from orders r (nolock)
 -- select * from #ProgramData
 
 select territory
-,AnnualProg = sum(case when promo_id in ('AAP','APR','BEP','RCP','ROT64','FOD','SS') then 1 else 0 end)
-,SeasonalProg = sum(case when promo_id in ('ASPIRE','BOGO','DOR','ME','PURITI','IZOD','KIDS','SUN','sunps','ar','CH','CVO','BCBG', 'ET','SUN SPRING','IZOD CLEAR') then 1 else 0 end)
+,AnnualProg = sum(case when promo_id in ('AAP','APR','BEP','RCP','ROT64','FOD','SS','award') then 1 else 0 end)
+,SeasonalProg = sum(case when promo_id IN
+ ('ASPIRE','BOGO','DOR','ME','PURITI','IZOD','KIDS','SUN','sunps','ar','CH','CVO','BCBG', 'ET','SUN SPRING','IZOD CLEAR'
+ ,'BLUE','JMC','REVO') then 1 else 0 end)
 ,rxeprog = sum(case when promo_id in ('rxe') then 1 else 0 end)
 ,aspireprog = SUM(CASE WHEN promo_id IN ('aspire') THEN 1 ELSE 0 END)
 into #progsummary
@@ -353,6 +355,7 @@ having sum(qty) >= 5
 
 -- REACTIVATED -- -- PULL Last & 2nd Last ST Order
 IF(OBJECT_ID('tempdb.dbo.#DATA') is not null)  drop table #DATA
+
 Select  t1.territory_code as Territory
 , t1.Customer_code, ship_to_code, 
 T2.DOOR, added_by_date,
@@ -382,7 +385,15 @@ group by t1.territory_code, t1.customer_code, ship_to_code, t2.door, added_by_da
 -- select * from #INVOICES WHERE CUST_CODE = '047859' ORDER BY DATE_SHIPPED DESC
 
 IF(OBJECT_ID('tempdb.dbo.#DATA2') is not null)  drop table #DATA2
-SELECT T1.*, 
+
+SELECT T1.Territory ,
+       T1.customer_code ,
+       T1.ship_to_code ,
+       T1.door ,
+       T1.added_by_date ,
+       T1.YTDNET ,
+       T1.LastST ,
+       T1.[2ndLastST], 
 CASE WHEN DATEDIFF(D,isnull([2ndLastST],lastst),LastST) > 365 AND LastST > @DateFrom 
 	AND added_by_date < @DateFrom    
 	THEN 'REA' ELSE '' 
@@ -397,7 +408,10 @@ INTO #DATA2 FROM #DATA T1
 
 -- FINAL FOR ST COUNT & REA COUNT
 IF(OBJECT_ID('tempdb.dbo.#STREAD') is not null)  drop table #STREAD
-SELECT * INTO #STREAD 
+SELECT tmp.Territory ,
+       tmp.NumStOrds ,
+       tmp.ord_value ,
+       tmp.NumRea INTO #STREAD 
 FROM (
  select Territory_code as Territory
  , COUNT(STOrds)NumStOrds
@@ -457,6 +471,7 @@ from #slpinfo
 -- SELECT * FROM #T1 where Terr in ('40449','30315')
 
 IF(OBJECT_ID('tempdb.dbo.#TerrSales') is not null)  drop table #TerrSales
+
 select T.Terr, 
 ISNULL(sum(netty),0) NetSTY, 
 ISNULL(g_sales.netsly,0) netsly,
@@ -489,8 +504,14 @@ group by T.Terr, T1.Terr, g_sales.netsly, g_sales.netsty_goal
 -- FINAL SELECT
 IF(OBJECT_ID('tempdb.dbo.#FINAL') is not null)  drop table #FINAL
 
-SELECT T1.*, 
-
+SELECT T1.Region ,
+       T1.Terr ,
+       T1.Salesperson ,
+       T1.date_of_hire ,
+       T1.ClassOf ,
+       T1.Status ,
+       T1.PC ,
+       T1.top9	, 
   Active = ISNULL((SELECT Count(Customer) FROM #active t3 WHERE T1.TERR=T3.TERR AND t3.net_sales > 2400 ) ,0) ,
   ReActive = ISNULL((SELECT sum(NumRea) FROM #STREA T5 WHERE T1.TERR=T5.Territory),0) ,
   New =   ISNULL((SELECT Count(Customer_code) 
@@ -570,7 +591,43 @@ LEFT OUTER JOIN #terrsales t ON t.terr = t1.terr
 left outer join #progsummary ps on ps.territory = t1.terr
 -- select * from #final
 
-select #final.* 
+select 
+       #FINAL.Region ,
+	   #FINAL.Terr ,
+
+	   #FINAL.Salesperson ,
+       #FINAL.date_of_hire ,
+       #FINAL.ClassOf ,
+	   #FINAL.Status ,
+       #FINAL.PC ,
+	   #FINAL.top9 ,
+       #FINAL.Active ,
+       #FINAL.ReActive ,
+       #FINAL.New ,
+       #FINAL.STOrds ,
+       #FINAL.ord_value ,
+       #FINAL.AnnualProg ,
+       #FINAL.SeasonalProg ,
+       #FINAL.RXEProg ,
+       #FINAL.AspireProg ,
+       #FINAL.[4Brands] ,
+       #FINAL.IncreaseDol ,
+       #FINAL.IncreasePct ,
+       #FINAL.RXPct ,
+       #FINAL.GrossSTY ,
+       #FINAL.RetSRATY ,
+       #FINAL.RetPct ,
+       #FINAL.Door500 ,
+       #FINAL.NetSTY ,
+       #FINAL.netsty_goal ,
+       #FINAL.RXs ,
+       #FINAL.NetSLY ,
+       #FINAL.TerrGoal ,
+       #FINAL.TerrGoalPCT ,
+       #FINAL.activeretaincnt ,
+       #FINAL.door500retaincnt ,
+       #FINAL.activeretainvalue ,
+       #FINAL.door500retainvalue 
 , veteran_status =  case when [status] = 'Veteran' THEN
 					 case when pc = 1 then 'PC'
 						when top9 = 1 then 'Top 9'
@@ -596,6 +653,4 @@ END
 -- GROUP BY X_MONTH, YEAR, ship_to
  
 -- SELECT * FROM dbo.armaster WHERE customer_code = '032056'
-
-
 GO

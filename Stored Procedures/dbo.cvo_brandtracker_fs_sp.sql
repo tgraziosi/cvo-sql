@@ -5,7 +5,7 @@ GO
 
 -- 8/18/2015 - when calculating FirstOrder units, don't qualify on promo/level, only on promo
 
--- exec cvo_brandtracker_fs_sp '1/1/2015', null, 'as', null, 50505, 'aspire', '1.1', 0
+-- exec cvo_brandtracker_fs_sp '1/1/2015', null, 'bt', null, 50505, 'aspire', '1.1', 0
 
 CREATE procedure [dbo].[cvo_brandtracker_fs_sp]
 @df datetime = null -- fromdate
@@ -116,7 +116,7 @@ and dateordered between @datefrom and @dateto
 group BY b.brand, i.type_code, CASE WHEN @attrib is NULL THEN '' ELSE ISNULL(ia.field_32,'') END , customer
 ) as bb on bb.customer = ar.customer_code 
 
-IF @debug = 1 SELECT * FROM #t WHERE customer_code = '026595'
+IF @debug = 1 SELECT * FROM #t WHERE customer_code = '045455'
 
 SELECT 
  #t.customer_code

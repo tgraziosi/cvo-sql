@@ -18,7 +18,8 @@ CREATE TABLE [dbo].[CVO_ord_list]
 [list_price] [decimal] (20, 8) NULL CONSTRAINT [DF__CVO_ord_l__list___67A36835] DEFAULT ((0)),
 [orig_list_price] [decimal] (20, 8) NULL,
 [free_frame] [smallint] NULL,
-[due_date] [datetime] NULL
+[due_date] [datetime] NULL,
+[upsell_flag] [int] NULL
 ) ON [PRIMARY]
 GO
 SET QUOTED_IDENTIFIER ON
@@ -86,7 +87,6 @@ CREATE NONCLUSTERED INDEX [cvo_ord_list_ind0] ON [dbo].[CVO_ord_list] ([order_no
 GO
 CREATE UNIQUE CLUSTERED INDEX [idx_CVO_ord_list] ON [dbo].[CVO_ord_list] ([order_no], [order_ext], [line_no]) ON [PRIMARY]
 GO
-
 GRANT REFERENCES ON  [dbo].[CVO_ord_list] TO [public]
 GO
 GRANT SELECT ON  [dbo].[CVO_ord_list] TO [public]

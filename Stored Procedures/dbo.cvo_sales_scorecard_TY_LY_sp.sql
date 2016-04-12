@@ -9,7 +9,7 @@ GO
 -- Author:		Tine Graziosi
 -- Create date: 12/23/2014
 -- Description:	Sales Territory/Salesperson ScoreCard (also for NSM  AWARDS)
--- EXEC CVO_Sales_ScoreCard_ty_LY_SP '1/1/2015', '7/31/2015'
+-- EXEC CVO_Sales_ScoreCard_ty_LY_SP '1/1/2016', '4/1/2016'
 -- 051315 - add  qual st ord_value
 -- =============================================
 CREATE PROCEDURE [dbo].[cvo_sales_scorecard_TY_LY_sp] 
@@ -110,10 +110,14 @@ create table #report_LY
 ,Veteran_status varchar(10)
 )
 
+TRUNCATE TABLE #report_ty
 insert #report_ty
+--exec CVO_Sales_ScoreCard_terr_SP '1/1/2016', '3/31/2016' --, @Territory
+--SELECT * FROM #report_ty AS rt
+
 exec CVO_Sales_ScoreCard_terr_SP @datefrom, @dateto --, @Territory
 
-
+TRUNCATE TABLE #report_ly
 insert #report_ly 
 exec CVO_Sales_ScoreCard_terr_SP @Datefromly, @Datetoly -- , @Territory
 
@@ -216,7 +220,8 @@ select
 ,ActiveLY = 0
 ,Door500TY = 0
 ,Door500LY = 0
-,'LY' as tyly From #report_LY
+,'LY' as tyly 
+FROM #report_LY
 
 end
 
