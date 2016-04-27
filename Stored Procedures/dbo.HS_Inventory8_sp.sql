@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -22,6 +21,7 @@ GO
 -- add sun lens color for REVO
 -- 100715 -- change revo mastersku from 8 characters to 6
 -- 122315 - add support  for Red Raven - as of 12/29
+-- 041416 - VEE support
 --
 -- =============================================
 
@@ -181,13 +181,19 @@ left outer join dpr_report drp (nolock) on drp.part_no = i.part_no and drp.locat
 
 WHERE i.VOID <> 'V' AND category not in ('CORP','FP','BT')
   AND (ISNULL(FIELD_32,'') NOT IN ('HVC','RETAIL','COSTCO')
-      OR (category IN ('RR') AND ia.field_2 NOT IN ('Rutgers','Vanderbilt','Wildcat Peak') AND GETDATE() >='12/29/2015')
+  -- 4/26/2016 don't need anymore
+--      OR (category IN ('RR') AND ia.field_2 NOT IN ('Rutgers','Vanderbilt','Wildcat Peak') AND GETDATE() >='12/29/2015')
+--	  ) 
+--  4/26/2016 oh yes we do need this
+      OR (category IN ('RR') AND GETDATE() >='12/29/2015')
 	  ) 
+  
   AND (i.TYPE_CODE IN ('SUN','FRAME') OR isnull(field_36,'') = 'HSPOP')
   -- 6/29/2015 - set to 1 day.  was 11.  have no idea why
-  AND (field_26 <= DATEADD(D,1,@today) OR  #apr.sku is not null )
+  AND (field_26 <= DATEADD(D,1,@today) OR  #apr.sku is not null OR (field_26 = '4/26/2016' AND category <> 'AS')) -- vee 2016
   
 -- select * From #data1 where sku = 'bcviabla5515'
+
 
 create index idx_data1 on #data1 ( sku )
 
@@ -238,8 +244,8 @@ UPDATE  #Data1 SET longDesc = REPLACE (longDesc,'"','')
 
   UNION ALL
   select mastersku, 5 as Num, SunPs from #Data1 where SunPS <> ''
-  UNION ALL
-  SELECT mastersku, 6 AS num, '1.1' FROM #data1 WHERE ReleaseDate = '11/2/2015' AND COLL = 'AS'
+  --UNION ALL
+  --SELECT mastersku, 6 AS num, '1.1' FROM #data1 WHERE ReleaseDate = '11/2/2015' AND COLL = 'AS'
   --UNION ALL
   --select mastersku, 6 as Num, '*D*' from #Data1 where POM <> ''
   )tmp
@@ -329,8 +335,9 @@ update #final set Hide =
 
 update #final set Hide = case when COLL = 'revo' AND isnull(pomdate,@today) = '01/01/2010' then 1
 							  WHEN coll = 'revo' AND model IN ('Straightshot','Bearing','Heading') THEN 1 -- 2/10/2016
-							  WHEN mastersku IN ('iz2014','iz2015','iz2016','iz2017') THEN 1
+							  -- unhide for 4/26 release WHEN mastersku IN ('iz2014','iz2015','iz2016','iz2017') THEN 1
 							  WHEN MASTERSKU IN ('IZ6001','IZ6002','IZ6003','IZ6004') THEN 1
+							  WHEN mastersku IN ('iz2026','iz2027') THEN 1 -- new iz t&C kit
 							   else 0 end
 
 -- SELECT * FROM dbo.cvo_hs_inventory_8 AS chi WHERE chi.mastersku LIKE 'iz600%'
@@ -538,6 +545,9 @@ END
 
 
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
+
+
+
 
 
 

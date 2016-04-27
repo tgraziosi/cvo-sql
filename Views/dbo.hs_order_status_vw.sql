@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -47,7 +46,7 @@ AND ISNULL(c.void,0) = 0
 UNION ALL
 -- 3/6/16
 -- add support for voided orders not replaced
-SELECT
+SELECT DISTINCT
 o.user_def_fld4 HS_order_no, 
 o.order_no, 
 CASE WHEN o.status ='V' THEN 'Void'
@@ -57,7 +56,7 @@ CASE WHEN o.status ='V' THEN 'Void'
 END AS HS_status,
 o.status,
 o.date_entered,
-o.user_def_fld3 AS date_modified,
+CAST(o.void_date AS VARCHAR(20)) AS date_modified,
 ISNULL(co.promo_id,'') promo_id,
 ISNULL(co.promo_level,'') promo_level,
 -- 10/28/2015 - add support for Magento orders
@@ -72,6 +71,8 @@ AND o.user_def_fld4 <> ''
 AND o.date_entered > '01/01/2013'
 AND NOT EXISTS(SELECT 1 FROM orders oo (NOLOCK) WHERE oo.order_no = o.order_no AND oo.ext > o.ext 
 AND oo.status <> 'V')
+
+
 
 
 

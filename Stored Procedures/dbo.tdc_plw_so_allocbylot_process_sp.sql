@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -933,7 +932,7 @@ BEGIN
 	AND		order_ext= @order_ext
 	AND		line_no = @line_no
 	AND		part_no = @part_no
-	AND		status IN (0,-1,-3)
+	AND		status IN (0,-1,-3,1) -- v3.1
 	
 	UPDATE	cvo_soft_alloc_det
 	SET		status = -2
@@ -941,15 +940,15 @@ BEGIN
 	AND		order_ext= @order_ext
 	AND		line_no = @line_no
 	AND		kit_part = 1
-	AND		status IN (0,-1,-3)
+	AND		status IN (0,-1,-3,1) -- v3.1
 
-	IF NOT EXISTS (SELECT 1 FROM cvo_soft_alloc_det (NOLOCK) WHERE order_no = @order_no AND order_ext= @order_ext AND status IN (0,-1,-3))
+	IF NOT EXISTS (SELECT 1 FROM cvo_soft_alloc_det (NOLOCK) WHERE order_no = @order_no AND order_ext= @order_ext AND status IN (0,-1,-3,1)) -- v3.1
 	BEGIN
 		UPDATE	cvo_soft_alloc_hdr
 		SET		status = -2
 		WHERE	order_no = @order_no
 		AND		order_ext= @order_ext
-		AND		status IN (0,-1,-3)
+		AND		status IN (0,-1,-3,1) -- v3.1
 	END
 
 	-- v2.5 Start

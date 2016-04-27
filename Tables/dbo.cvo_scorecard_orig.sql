@@ -1,0 +1,30 @@
+CREATE TABLE [dbo].[cvo_scorecard_orig]
+(
+[SCDate] [datetime] NULL CONSTRAINT [DF__cvo_score__SCDat__06AF673C] DEFAULT (NULL),
+[Terr] [int] NULL CONSTRAINT [DF__cvo_scorec__Terr__07A38B75] DEFAULT (NULL),
+[Salesperson] [varchar] (32) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_score__Sales__0897AFAE] DEFAULT (NULL),
+[Stat] [int] NULL CONSTRAINT [DF__cvo_scorec__Stat__098BD3E7] DEFAULT (NULL),
+[ActiveDoors_2400] [varchar] (5) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_score__Activ__0A7FF820] DEFAULT (NULL),
+[Active_Retn_Pct] [varchar] (4) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_score__Activ__0B741C59] DEFAULT (NULL),
+[Active_Retn_Amt] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_score__Activ__0C684092] DEFAULT (NULL),
+[ReAct_Doors] [int] NULL CONSTRAINT [DF__cvo_score__ReAct__0D5C64CB] DEFAULT (NULL),
+[New_Doors] [int] NULL CONSTRAINT [DF__cvo_score__New_D__0E508904] DEFAULT (NULL),
+[Valid_ST_Orders] [varchar] (5) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_score__Valid__0F44AD3D] DEFAULT (NULL),
+[Valid_ST_Orders_Amt] [varchar] (9) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_score__Valid__1038D176] DEFAULT (NULL),
+[Qual_Annual_Progs] [int] NULL CONSTRAINT [DF__cvo_score__Qual___112CF5AF] DEFAULT (NULL),
+[Qual_Seasonal_Progs] [varchar] (5) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_score__Qual___122119E8] DEFAULT (NULL),
+[Qual_RXE_Progs] [varchar] (5) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_score__Qual___13153E21] DEFAULT (NULL),
+[Doors_4Brands] [int] NULL CONSTRAINT [DF__cvo_score__Doors__1409625A] DEFAULT (NULL),
+[Net_Sales_TY] [varchar] (9) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_score__Net_S__14FD8693] DEFAULT (NULL),
+[LY_TY_Sales_Increase_Amt] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_score__LY_TY__15F1AACC] DEFAULT (NULL),
+[LY_TY_Sales_Incr_Pct] [varchar] (6) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_score__LY_TY__16E5CF05] DEFAULT (NULL),
+[Pct_to_Goal] [varchar] (4) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_score__Pct_t__17D9F33E] DEFAULT (NULL),
+[TY_RX_Pct] [varchar] (5) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_score__TY_RX__18CE1777] DEFAULT (NULL),
+[TY_Ret_Pct] [varchar] (3) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_score__TY_Re__19C23BB0] DEFAULT (NULL),
+[Doors_500] [varchar] (5) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_score__Doors__1AB65FE9] DEFAULT (NULL),
+[D500_Retn_Pct] [varchar] (4) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_score__D500___1BAA8422] DEFAULT (NULL),
+[Core_Goal] [int] NULL CONSTRAINT [DF__cvo_score__Core___1C9EA85B] DEFAULT (NULL),
+[Revo_Goal] [int] NULL CONSTRAINT [DF__cvo_score__Revo___1D92CC94] DEFAULT (NULL),
+[Blutech_Goal] [int] NULL CONSTRAINT [DF__cvo_score__Blute__1E86F0CD] DEFAULT (NULL)
+) ON [PRIMARY]
+GO

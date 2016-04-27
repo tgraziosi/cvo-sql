@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -79,7 +78,7 @@ SET @first=(SELECT CONVERT(VARCHAR(25),getdate(),101)) -- today
 set @pom_asof = @first
 
 -- UNCOMMENT FOR THE PRINTED CIR RUN
--- set @pom_asof = '03/29/2016'
+-- set @pom_asof = '4/26/2016'
           
 -- set @first = '08/28/2013'
                   
@@ -782,6 +781,7 @@ select count(*) from #cvo_Cir_det
 select count(*) from cvo_CarBi
 
 -- 
+
 
 
 

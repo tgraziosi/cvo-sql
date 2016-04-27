@@ -1,8 +1,8 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- v1.0 CB 01/04/2011 - 14.Planners Workbench - Additional criteria
 -- v1.1 CB 13/04/2011 - Future Allocations
 -- v10.1 CB 12/07/2012 - CVO-CF-1 - Custom Frame Processing
@@ -859,6 +859,7 @@ EXEC dbo.CVO_Consolidate_Pick_queue_sp -- moved from tdc_plw_so_alloc_management
 --------------------------------------------------------------------------------------------------------------
 INSERT INTO tdc_alloc_history_tbl(order_no, order_ext, location, fill_pct, alloc_date, alloc_by, order_type)
 SELECT order_no, order_ext, location, curr_alloc_pct, getdate(), @user_id, 'S'  FROM #so_alloc_management WHERE sel_flg != 0
+
 
 
 GO

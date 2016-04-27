@@ -15,6 +15,7 @@ CREATE TABLE [dbo].[cvo_commission_bldr_work_tbl]
 [Level] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [type] [varchar] (3) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [Net_Sales] [float] NULL,
+[Brand] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [Amount] [float] NULL,
 [Comm_pct] [decimal] (5, 2) NULL,
 [Comm_amt] [float] NULL,
@@ -30,8 +31,5 @@ CREATE TABLE [dbo].[cvo_commission_bldr_work_tbl]
 [id] [bigint] NOT NULL
 ) ON [PRIMARY]
 GO
-
-
-ALTER TABLE [dbo].[cvo_commission_bldr_work_tbl] ADD 
-CONSTRAINT [PK__cvo_commission_b__64F0176C] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
+ALTER TABLE [dbo].[cvo_commission_bldr_work_tbl] ADD CONSTRAINT [PK__cvo_commission_b__58E01199] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
 GO

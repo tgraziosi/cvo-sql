@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -104,11 +103,15 @@ BEGIN
 	FROM	inv_master_add a (NOLOCK)
 	JOIN	ord_list b (NOLOCK)
 	ON		a.part_no = b.part_no
+	JOIN	orders_all c (NOLOCK) -- v1.5
+	ON		b.order_no = c.order_no -- v1.5
+	AND		b.order_ext = c.ext -- v1.5
 	WHERE	b.order_no = @order_no
 	AND		b.order_ext = @order_ext
 	AND		a.field_26 IS NOT NULL	
 	AND		a.field_26 > GETDATE()
-	AND		b.status = 'N' -- v1.2
+	AND		b.status IN ('N','C','A') -- v1.2 v1.4 v1.5
+	AND		ISNULL(c.hold_reason,'') <> 'RD' -- v1.5
 	UNION
 	SELECT	DISTINCT a.field_26, b.line_no, 1, 0
 	FROM	inv_master_add a (NOLOCK)
@@ -119,12 +122,16 @@ BEGIN
 	AND		b.order_ext = c.order_ext
 	AND		b.line_no = c.line_no
 	AND		b.part_no = c.part_no
+	JOIN	orders_all d (NOLOCK) -- v1.5
+	ON		b.order_no = d.order_no -- v1.5
+	AND		b.order_ext = d.ext -- v1.5
 	WHERE	b.order_no = @order_no
 	AND		b.order_ext = @order_ext
 	AND		c.replaced = 'S'
 	AND		a.field_26 IS NOT NULL	
 	AND		a.field_26 > GETDATE()
-	AND		b.status = 'N' -- v1.2
+	AND		b.status IN ('N','C','A') -- v1.2 v1.4 v1.5
+	AND		ISNULL(d.hold_reason,'') <> 'RD' -- v1.5
 	ORDER BY a.field_26 ASC
 	
 	IF (@@ROWCOUNT = 0)

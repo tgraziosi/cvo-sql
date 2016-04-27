@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -33,7 +32,7 @@ IF(OBJECT_ID('tempdb.dbo.#territory') is not null)  drop table #territory
 CREATE TABLE #territory ([territory] VARCHAR(10),
 						 [region] VARCHAR(3))
 
-SELECT @terr = '20206,40456,50503,20220,30302,70765,40440,30310,70720'
+-- SELECT @terr = '20206,40456,50503,20220,30302,70765,40440,30310,70720'
 
 if @terr is NULL 
 begin
@@ -236,6 +235,7 @@ WHERE NOT EXISTS  (SELECT 1 FROM #cir WHERE
 				AND #cir.ship_to = chct.ship_to)
 
 END
+
 
 
 GO

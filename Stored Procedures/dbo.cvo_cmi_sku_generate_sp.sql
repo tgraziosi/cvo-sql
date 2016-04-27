@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -1292,6 +1291,7 @@ INSERT  #i
                                         + CAST(ROUND(ISNULL(c.dbl_size,0), 0) AS VARCHAR(2))
                                         + '/'
                                         + CAST(RTRIM(Ia.field_8) AS VARCHAR(3))
+										+ CASE WHEN c.res_type = 'SUN' THEN ' ' + c.res_type ELSE '' END -- 4/26/2016 for JB
 			
 									WHEN c.part_type = 'frame only'
                                     THEN ISNULL(c.Collection,'') + ' ' + ISNULL(c.model,'') + ' '
@@ -1378,7 +1378,8 @@ INSERT  #i
 					   OR c.specialty_fit = 'pediatric'
                        or CHARINDEX('child',c.primarydemographic,0)>0
 					   OR CHARINDEX('kid',c.primarydemographic,0)>0 )
-					   THEN CASE WHEN c.collection = 'bt' THEN 'Kids' ELSE 'Kid' end
+					   THEN CASE WHEN c.collection = 'bt' THEN 'Kids' ELSE 'Kid' END
+                       WHEN LEFT(c.primarydemographic,3) = 'wom' AND c.collection IN ('PT','RR','IZOD') THEN 'Women'
                        ELSE LEFT(c.PrimaryDemographic, 3)
                   END ,
                 country_code = ISNULL ((SELECT TOP 1 country_code 
@@ -1869,7 +1870,9 @@ BEGIN
 				0.00000000, 0.00000000, 0.00000000, 0.00000000, @account, 
 				0.00000000, @std_ovhd_dolrs, @std_util_dolrs, 0.00000000, 0.00000000, 
 				0.00000000, getdate(), 'P', 0.00000000, 0, 0.00000000, 'N', 'EA', 'EA' 
-				FROM (SELECT location FROM locations WHERE ISNUMERIC(LEFT(location,1)) = 1 AND void <> 'v') L
+				-- add to ALL locations 4/22/2016
+				-- FROM (SELECT location FROM locations WHERE ISNUMERIC(LEFT(location,1)) = 1 AND void <> 'v') L
+				FROM (SELECT location FROM locations WHERE ISNULL(void,'N') = 'N') L
 				where not exists (select 1 from inv_list il (nolock) where il.part_no = @last_part and il.location = l.location)
 			end
 			
@@ -2027,6 +2030,9 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
+
+
 
 
 

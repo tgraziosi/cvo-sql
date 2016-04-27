@@ -127,7 +127,7 @@ BEGIN
 		END
 		ELSE IF (@status = 'A')
 		BEGIN
-			IF ((@hold_reason = 'H') OR (LEFT(@hold_reason,5) = 'PROMO'))
+			IF ((@hold_reason = 'H') OR (LEFT(@hold_reason,5) = 'PROMO') OR @hold_reason = 'FL') -- v1.2
 			BEGIN
 				IF NOT (LEFT(@prior_hold,5) = 'PROMO') 
 				BEGIN

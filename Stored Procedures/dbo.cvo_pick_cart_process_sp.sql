@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -81,7 +80,7 @@ IF @proc_option = 0
 			END
             
 		IF @iscons = 0 AND NOT EXISTS (SELECT 1 FROM dbo.orders AS o
-			WHERE ((order_no = @order_no AND o.ext = @order_ext) AND status IN ('p','q')))
+			WHERE ((order_no = @order_no AND o.ext = @order_ext) AND status IN ('n','p','q')))
 			BEGIN
 				SELECT 'Invalid order status', @order_no, @order_ext
 				RETURN -1
@@ -270,6 +269,7 @@ begin
 END -- proc_option = 99
 
  
+
 
 
 

@@ -38,6 +38,8 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- v1.1 CB 20/04/2015 - Performance Changes
 CREATE TRIGGER [dbo].[tdc_ins_softalloc_tg] ON [dbo].[tdc_soft_alloc_tbl]  
 FOR INSERT 
@@ -257,6 +259,8 @@ BEGIN
 			-- Check if there is a record for this order/location/part/line  
 			IF ( @target_bin IS NOT NULL AND @bin_no = @target_bin )  
 			BEGIN     
+
+
 				-- Generate next seq_no   
 				EXEC @seq_no = tdc_queue_get_next_seq_num  'tdc_pick_queue', @priority   
   
@@ -376,6 +380,7 @@ BEGIN
   
 	RETURN    
 END  
+
 GO
 SET QUOTED_IDENTIFIER ON
 GO

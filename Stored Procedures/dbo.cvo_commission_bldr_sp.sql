@@ -1,12 +1,12 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
 
 -- TAG - write to work table for commission statement Automation
--- exec   cvo_commission_bldr_sp '12/1/2015', '12/31/2015'
+-- exec   cvo_commission_bldr_sp '02/01/2016', '02/29/2016'
 -- select * From cvo_commission_bldr_work_tbl
+-- UPDATE dbo.cvo_commission_bldr_work_tbl SET fiscal_period = '01/2016' WHERE fiscal_period = '1/2016'
 
 CREATE PROCEDURE [dbo].[cvo_commission_bldr_sp]
   @df DATETIME 
@@ -18,9 +18,11 @@ CREATE PROCEDURE [dbo].[cvo_commission_bldr_sp]
 
 SET NOCOUNT ON
    
-DECLARE @jdatefrom INT, @jdateto INT
+DECLARE @jdatefrom INT, @jdateto INT, @fp VARCHAR(10)
 SELECT @jdatefrom = dbo.adm_get_pltdate_f(@df)
 SELECT @jdateto = dbo.adm_get_pltdate_f(@dt)
+SELECT @fp = right('00' + CAST(MONTH(@df) AS varchar(2)),2)
+	+ '/' + CAST(YEAR(@df) AS varchar(4))
 
 CREATE TABLE #territory ([territory] VARCHAR(10))
 
@@ -57,6 +59,7 @@ BEGIN
 	[Level] [varchar] (30)  NOT NULL,
 	[type] [varchar] (3) NOT NULL,
 	[Net_Sales] [FLOAT] NULL,
+	[Brand] VARCHAR(10) NOT NULL,
 	[Amount] [float] NULL,
 	[Comm_pct] [decimal] (5, 2) NULL,
 	[Comm_amt] [float] NULL,
@@ -73,7 +76,8 @@ BEGIN
 	) ON [PRIMARY]
 END
 
-TRUNCATE TABLE dbo.cvo_commission_bldr_work_tbl
+IF EXISTS (SELECT 1 FROM dbo.cvo_commission_bldr_work_tbl WHERE invoicedate_dt BETWEEN @df AND @dt)
+	DELETE FROM dbo.cvo_commission_bldr_work_tbl WHERE invoicedate_dt BETWEEN @df AND @dt
 
 DECLARE @tbl_rows int
 SELECT @tbl_rows = ISNULL(MAX(id),0) FROM cvo_commission_bldr_work_tbl
@@ -94,6 +98,7 @@ Salesperson ,
        Level ,
        type ,
 	   Net_Sales,
+	   brand,
        Amount ,
        comm_pct,
        comm_amt,
@@ -122,6 +127,7 @@ SELECT Salesperson ,
        Level ,
        type ,
 	   c.Net_Sales,
+	   c.brand,
        Amount ,
        [Comm%] comm_pct,
        [Comm$] comm_amt,
@@ -131,13 +137,12 @@ SELECT Salesperson ,
        draw_amount
 , InvoiceDate_dt = dbo.adm_format_pltdate_f(invoicedate)
 , DateShipped_dt = dbo.adm_format_pltdate_f(dateshipped)
-, fiscal_period = CAST(MONTH(dbo.adm_format_pltdate_F(invoicedate)) AS varchar(2))+'/'+
-				  CAST(YEAR(dbo.adm_format_pltdate_f(invoicedate)) AS varchar(4))
+, fiscal_period = @fp
 , added_date = GETDATE()
 , added_by = SYSTEM_USER
 , id = ROW_NUMBER() OVER (ORDER BY Invoice_no) + @tbl_rows
 FROM #territory t
-INNER JOIN cvo_commission_bldr_vw c ON c.Territory = t.territory
+INNER JOIN cvo_commission_bldr_r2_vw c ON c.Territory = t.territory
 WHERE invoicedate BETWEEN @jdatefrom AND @jdateto
 
 END

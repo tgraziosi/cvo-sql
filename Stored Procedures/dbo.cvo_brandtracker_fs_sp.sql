@@ -82,7 +82,9 @@ end
 
 select 
 ar.territory_code, ar.customer_code,  ar.customer_name
+, ar.contact_name, ar.contact_phone, ar.contact_email
 , bb.promo_id
+, bb.promo_level
 , bb.brand
 , BB.type_code
 , bb.attrib
@@ -100,6 +102,7 @@ inner join
 (select b.brand, i.type_code, CASE WHEN @attrib is NULL THEN '' ELSE ISNULL(ia.field_32,'') END AS attrib
 , customer
 , MIN(ISNULL(sbm.promo_id,'')) promo_id
+, MIN(ISNULL(sbm.promo_level,'')) promo_level
 , min(sbm.dateordered) first_order_date
 , MIN(sbm.yyyymmdd) first_order_ship
 
@@ -244,7 +247,11 @@ end
 select DISTINCT #t.territory_code ,
                 #t.customer_code ,
                 #t.customer_name ,
+				#t.contact_name,
+				#t.contact_phone,
+				#t.contact_email,
                 #t.promo_id ,
+				#t.promo_level,
                 #t.brand ,
                 #t.type_code ,
                 #t.attrib ,
@@ -262,5 +269,6 @@ select DISTINCT #t.territory_code ,
   LEFT OUTER JOIN #v ON #v.customer_code = #t.customer_code AND #v.type_code = #t.type_code
  WHERE 1=1
 order by customer_code
+
 
 GO

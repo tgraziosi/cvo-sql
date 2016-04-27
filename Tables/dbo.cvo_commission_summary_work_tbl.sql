@@ -12,12 +12,11 @@ CREATE TABLE [dbo].[cvo_commission_summary_work_tbl]
 [incentive] [numeric] (18, 2) NULL,
 [other_additions] [numeric] (18, 2) NULL,
 [reduction] [numeric] (18, 2) NULL,
-[addition_rsn] [varchar] (250) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[reduction_rsn] [varchar] (250) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[addition_rsn] [varchar] (5000) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[reduction_rsn] [varchar] (5000) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [rep_type] [tinyint] NULL,
 [status_type] [tinyint] NULL,
 [territory] [char] (5) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[incentive_rsn] [varchar] (5000) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [total_earnings] [numeric] (12, 2) NULL,
 [total_draw] [numeric] (12, 2) NULL,
 [prior_month_bal] [numeric] (12, 2) NULL,
@@ -25,6 +24,10 @@ CREATE TABLE [dbo].[cvo_commission_summary_work_tbl]
 [report_month] [varchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [current_flag] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [promo_detail] [varchar] (5000) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[promo_sum] [numeric] (12, 2) NULL
+[promo_sum] [numeric] (12, 2) NULL,
+[draw_weeks] [int] NULL,
+[region] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
+GO
+CREATE CLUSTERED INDEX [pk_commis_summary_tbl] ON [dbo].[cvo_commission_summary_work_tbl] ([salesperson], [territory], [report_month]) ON [PRIMARY]
 GO

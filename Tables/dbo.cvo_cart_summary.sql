@@ -7,6 +7,7 @@ CREATE TABLE [dbo].[cvo_cart_summary]
 [last_pick] [datetime] NULL,
 [orders] [int] NULL,
 [picks] [int] NULL,
-[idle] [int] NULL
+[idle] [int] NULL,
+[last_synced] [datetime] NULL
 ) ON [PRIMARY]
 GO
