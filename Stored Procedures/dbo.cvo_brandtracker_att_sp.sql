@@ -16,6 +16,8 @@ CREATE procedure [dbo].[cvo_brandtracker_att_sp]
 , @debug int = 0
 as 
 
+SET NOCOUNT ON 
+
 declare @datefrom datetime 
 , @dateto datetime 
 , @brand varchar(1024) 
@@ -79,8 +81,9 @@ if @debug = 1 select * from #attrib
 select 
 id = Row_Number() over( order by ar.customer_code, ar.ship_to_code ) 
 , ar.territory_code, ar.customer_code, ar.ship_to_code, ar.address_name
+, ar.contact_name, ar.contact_phone, ar.contact_email
 , promo_id = space(10)
--- , promo_level = space(20)
+, promo_level = space(20)
 , bb.brand
 , bb.attrib
 , bb.first_order_date
@@ -173,7 +176,7 @@ begin
 
 	-- get promo id and units of first order
 	select @promo = isnull(s.promo_id,'')
-	--	, @level = isnull(s.promo_level,'')
+		, @level = isnull(s.promo_level,'')
 		, @units = sum(isnull(qsales,0))
 	from cvo_sbm_details s (nolock) 
 	 inner join inv_master i (nolock) 
@@ -188,12 +191,12 @@ begin
 	 and s.user_category like 'ST%' and right(s.user_category,2) <> 'rb'
 	 and isnull(s.promo_id,'') not in ('ff','pc','style out')
 	 and i.type_code in ('frame','sun')
-	 group by isnull(s.promo_id,'') --, isnull(s.promo_level,'')
+	 group by isnull(s.promo_id,'') , isnull(s.promo_level,'')
 	 -- 052615 - per HK show all orders -- having sum(qsales) > 4
 	order by isnull(s.promo_id,'') asc
 
 	update #t set promo_id = isnull(@promo,'')
-	--, promo_level = isnull(@level,'')
+	, promo_level = isnull(@level,'')
 	, fo_units = isnull(@units,0)
 	where #t.id = @last_id
 
@@ -242,4 +245,5 @@ select #t.*
 
  --select * From #t where customer_code = '038305'
  --select * From #newrea where customer_code = '038305'
+
 GO
