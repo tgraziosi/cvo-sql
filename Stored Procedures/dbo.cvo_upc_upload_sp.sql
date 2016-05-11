@@ -15,7 +15,7 @@ BEGIN
 
 /*
 
-EXEC CVO_UPC_UPLOAD_SP '001','RR REFURB', -1, 'ADHOC', 1
+EXEC CVO_UPC_UPLOAD_SP '999','999', -1, 'ADHOC', 0
 TRUNCATE TABLE CVO_UPC_UPLOAD
 SELECT * fROM CVO_UPC_UPLOAD
 
@@ -232,7 +232,7 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 
 			-- SELECT * FROM #adm_inv_adj
 
-			EXEC dbo.tdc_adm_inv_adj 
+			IF @debug = 0 EXEC dbo.tdc_adm_inv_adj 
 
 			INSERT INTO #adm_inv_adj_log
 			SELECT * FROM #adm_inv_adj
@@ -263,7 +263,7 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 		DROP TABLE #adm_inv_adj_log
 	END	
 
-	IF (SELECT COUNT(*) FROM cvo_upc_upload) > 0 TRUNCATE TABLE CVO_UPC_UPLOAD
+	IF (SELECT COUNT(*) FROM cvo_upc_upload) > 0 AND @debug = 0 TRUNCATE TABLE CVO_UPC_UPLOAD
 
 END
 

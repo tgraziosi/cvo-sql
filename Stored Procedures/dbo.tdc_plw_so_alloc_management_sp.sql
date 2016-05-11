@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -34,6 +33,7 @@ GO
 -- v11.9 CB 20/11/2013 - Issye #1422 - Issue with available stock for custom frames
 -- v12.0 CB 20/05/2014 - Issue #1481 - Include -3 status on soft alloc
 -- v12.1 CB 11/11/2015 - #1576 - POP should not allocate on there own when frames are on the order and do not allocate
+-- v12.2 CB 14/04/2016 - #1596 - Add promo level
 
     
  CREATE PROCEDURE [dbo].[tdc_plw_so_alloc_management_sp]      
@@ -218,7 +218,7 @@ SELECT @insert_clause = ' INSERT INTO #so_alloc_management
     cust_flg, cust_code, territory_code, carrier_code,      
     dest_zone_code, ship_to, so_priority_code,      
     ordered_dollars, shippable_dollars,shippable_margin_dollars,       
-    alloc_type, user_code, user_category, load_no, cust_po, postal_code, allocation_date, promo_id, consolidate_shipment, cf) '  -- v10.1    
+    alloc_type, user_code, user_category, load_no, cust_po, postal_code, allocation_date, promo_id, promo_level, consolidate_shipment, cf ) '  -- v10.1 v12.2   
       
 -- v1.4 Add new columns    
 SELECT @select_clause = ' SELECT DISTINCT 0 AS sel_flg, 0 AS sel_flg2,       
@@ -241,7 +241,7 @@ SELECT @select_clause = ' SELECT DISTINCT 0 AS sel_flg, 0 AS sel_flg2,
             orders.ship_to_region, orders.routing, orders.dest_zone_code,      
             orders.ship_to_name, orders.so_priority_code, NULL, NULL, NULL, NULL, orders.user_code, orders.user_category,      
      load_no = (SELECT DISTINCT load_no FROM load_list(NOLOCK) WHERE order_no = orders.order_no AND order_ext = orders.ext),      
-     orders.cust_po, LEFT(orders.ship_to_zip,10), ISNULL(cvo.allocation_date,GETDATE()-1), cvo.promo_id ' -- v10.1    
+     orders.cust_po, LEFT(orders.ship_to_zip,10), ISNULL(cvo.allocation_date,GETDATE()-1), cvo.promo_id, cvo.promo_level ' -- v10.1 v12.2   
     
 -- v1.4 Add new columns    
 SELECT @from_clause   = '   FROM orders_all orders (NOLOCK),       

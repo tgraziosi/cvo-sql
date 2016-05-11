@@ -9,6 +9,7 @@ GO
 
 -- v1.0 CT 02/04/2014 - Issue #572 - Masterpack print pick ticket for consolided order
 -- v1.1 CB 17/08/2015 - Not picking up consolidated orders correctly
+-- v1.2 CB 15/04/2016 - #1596 - Add promo level
 
   
 CREATE PROC [dbo].[cvo_print_consolidated_pick_ticket_sp]	@consolidation_no int,  
@@ -111,7 +112,8 @@ BEGIN
 			highest_bin_no   varchar(12) NULL,  
 			cust_code    varchar(10) NULL,  
 			consolidate_shipment int NOT NULL,  
-			promo_id    varchar(20) NULL)     
+			promo_id    varchar(20) NULL,
+			promo_level    varchar(20) NULL) -- v1.2
 	END  
 
 	  
@@ -151,7 +153,7 @@ BEGIN
 
 	-- v1.1 Start
 	INSERT	INTO #so_pick_ticket_details 
-            (order_no, order_ext, con_no, status, location, sch_ship_date, cust_name, curr_alloc_pct, sel_flg, alloc_type, cust_code, consolidate_shipment, promo_id)
+            (order_no, order_ext, con_no, status, location, sch_ship_date, cust_name, curr_alloc_pct, sel_flg, alloc_type, cust_code, consolidate_shipment, promo_id, promo_level) -- v1.2
 	SELECT	DISTINCT a.trans_type_no, 
 			a.trans_type_ext, 
 			b.consolidation_no, 
@@ -164,7 +166,8 @@ BEGIN
 							AND order_ext = a.trans_type_ext   
 							AND location  = a.location), 
 			c.cust_code, 0, 
-			ISNULL(d.promo_id, '')  
+			ISNULL(d.promo_id, ''),
+			ISNULL(d.promo_level, '') -- v1.2
 	FROM	tdc_pick_queue a (NOLOCK)
 	JOIN	tdc_cons_ords b (NOLOCK)
 	ON		a.trans_type_no = b.order_no  

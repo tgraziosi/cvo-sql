@@ -3,7 +3,7 @@ GO
 SET ANSI_NULLS ON
 GO
 
-CREATE PROC [dbo].[cvo_print_pick_ticket_sp] @order_no	int,
+CREATE PROC [dbo].[cvo_print_pick_ticket_test_sp] @order_no	int,
 										 @order_ext	int, 
 										 @isbackorder SMALLINT = 0 -- v1.2
 AS
@@ -121,7 +121,7 @@ BEGIN
 	-- Build the where clause
 	SET @in_where_clause = ' AND orders.order_no = ' + CAST(@order_no AS varchar(12)) + ' AND orders.ext = ' + CAST(@order_ext AS varchar(12)) + ' '
 	-- Call Data Selection Routine	
-	EXEC tdc_plw_so_print_selection_sp 0,' AND orders.cust_code = CVO_armaster_all.customer_code and CVO_armaster_all.address_type NOT IN (9,1) AND orders.status IN(''N'',''P'',''Q'') ', @in_where_clause, '', ''
+	EXEC tdc_plw_so_print_selection_test__sp 0,' AND orders.cust_code = CVO_armaster_all.customer_code and CVO_armaster_all.address_type NOT IN (9,1) AND orders.status IN(''N'',''P'',''Q'') ', @in_where_clause, '', ''
 
 	-- Test that we have some data to process
 	IF NOT EXISTS(SELECT 1 FROM #so_pick_ticket_details) 
@@ -130,8 +130,17 @@ BEGIN
 	-- Update the temp table to mark the record to print
 	UPDATE #so_pick_ticket_details SET sel_flg = 1
 
+	select 'printing'
+	select * from #so_pick_ticket_details WHERE order_no = 2798568 
+
+
+
 	-- Call standard routine to populate the print data
-	EXEC tdc_plw_so_print_assign_sp 'AUTO_ALLOC'
+	EXEC tdc_plw_so_print_assign_test_sp 'AUTO_ALLOC'
+
+	select 'print2'
+select * from #so_pick_ticket WHERE order_no = 2798568
+
 
 	-- Reorganized sort order
 	EXEC CVO_pick_list_print_by_lowest_bin_no_sp
@@ -197,13 +206,18 @@ BEGIN
 	-- START v1.2
 	IF ISNULL(@isbackorder,0) = 0 
 	BEGIN
-		EXEC tdc_print_plw_so_pick_ticket_sp 'AUTO_ALLOC', 'CUSTOM', @order_no, @order_ext, @location
+		EXEC [tdc_print_plw_so_pick_ticket_test_sp] 'AUTO_ALLOC', 'CUSTOM', @order_no, @order_ext, @location
 	END
 	ELSE
 	BEGIN
-		EXEC tdc_print_plw_so_pick_ticket_sp 'AUTO_ALLOC', 'BACKORDER', @order_no, @order_ext, @location
+		EXEC [tdc_print_plw_so_pick_ticket_test_sp] 'AUTO_ALLOC', 'BACKORDER', @order_no, @order_ext, @location
 	END
 	-- END v1.2
+
+	if(@order_no = 2798568)
+	select * from #tdc_print_ticket
+
+	return
 
 	-- Move the print data into a permanent table so it can be access by the xp_cmdshell
 	DELETE FROM CVO_tdc_print_ticket WHERE process_id = @@SPID
@@ -239,6 +253,5 @@ BEGIN
 
 END
 GO
-
-GRANT EXECUTE ON  [dbo].[cvo_print_pick_ticket_sp] TO [public]
+GRANT EXECUTE ON  [dbo].[cvo_print_pick_ticket_test_sp] TO [public]
 GO

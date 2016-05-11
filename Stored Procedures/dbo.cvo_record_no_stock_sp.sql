@@ -17,7 +17,8 @@ BEGIN
 		line_no			int,
 		part_no			varchar(30),
 		qty_required	decimal(20,8),
-		qty_allocated	decimal(20,8))
+		qty_allocated	decimal(20,8),
+		part_type		varchar(10)) -- v1.2
 
 	CREATE TABLE #check_allocated_qty (
 		line_no			int,
@@ -26,8 +27,8 @@ BEGIN
 
 
 	-- Insert into the working tables the line to check
-	INSERT	#check_allocation (line_no, part_no, qty_required, qty_allocated)
-	SELECT	a.line_no, a.part_no, a.ordered, 0
+	INSERT	#check_allocation (line_no, part_no, qty_required, qty_allocated, part_type) -- v1.2
+	SELECT	a.line_no, a.part_no, a.ordered, 0, b.type_code -- v1.2
 	FROM	ord_list a (NOLOCK)
 	JOIN	inv_master b (NOLOCK) -- v1.1
 	ON		a.part_no = b.part_no -- v1.1
@@ -55,6 +56,18 @@ BEGIN
 	SELECT	@order_no, @order_ext, line_no, 1
 	FROM	#check_allocation
 	WHERE	qty_allocated < qty_required
+	AND		part_type IN ('FRAME', 'SUN') -- v1.2
+
+	-- v1.2 Start
+	IF (@@ROWCOUNT = 0)
+	BEGIN
+		INSERT	#no_stock_orders (order_no, order_ext, line_no, no_stock)
+		SELECT	@order_no, @order_ext, line_no, 1
+		FROM	#check_allocation
+		WHERE	qty_allocated < qty_required
+		AND		part_type NOT IN ('FRAME', 'SUN')
+	END
+	-- v1.2 End
 
 	-- Clean up
 	DROP TABLE #check_allocation

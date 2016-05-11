@@ -79,31 +79,6 @@ BEGIN
 
 END
 GO
-SET QUOTED_IDENTIFIER ON
-GO
-SET ANSI_NULLS ON
-GO
-
-CREATE TRIGGER [dbo].[epicr_debug_cvo_soft_alloc_hdr_trg]
-ON [dbo].[cvo_soft_alloc_hdr]
-FOR UPDATE
-AS
-BEGIN
-
-	INSERT	dbo.epicor_debug_cvo_soft_alloc_hdr
-	SELECT	a.soft_alloc_no,
-			a.order_no,
-			a.order_ext,
-			GETDATE(),
-			a.status,
-			b.status
-	FROM	inserted a
-	JOIN	deleted b
-	ON		a.soft_alloc_no = b.soft_alloc_no
-	WHERE	a.status <> b.status
-
-END
-GO
 CREATE NONCLUSTERED INDEX [cvo_soft_alloc_hdr_ind1] ON [dbo].[cvo_soft_alloc_hdr] ([order_no], [order_ext]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [cvo_soft_alloc_hdr_ind3] ON [dbo].[cvo_soft_alloc_hdr] ([order_no], [order_ext], [status], [bo_hold]) ON [PRIMARY]

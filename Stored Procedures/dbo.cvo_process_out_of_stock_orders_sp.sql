@@ -16,6 +16,7 @@ History
 v1.0	19/07/12	CT	Original version
 v1.1	01/05/13	CT	Take into account stock soft allocated
 v1.2	08/05/13	CT	Added logic to check Custom Frames
+v1.3	03/05/2016	CB	Record transaction in tdc_log
 */
 
 CREATE PROC [dbo].[cvo_process_out_of_stock_orders_sp]
@@ -170,6 +171,12 @@ BEGIN
 			END
 			ELSE
 			BEGIN
+				-- v1.3 Start
+				INSERT INTO dbo.tdc_log (tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data) 
+				SELECT	GETDATE() , 'OUTOFSTOCK' , 'VB' , 'PLW' , 'OUTOFSTOCK' , @order_no , @ext , '' , '' , '' , '' , '' ,'VOID ORDER' 
+				INSERT INTO dbo.tdc_log (tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data) 
+				SELECT	GETDATE() , 'OUTOFSTOCK' , 'VB' , 'PLW' , 'OUTOFSTOCK' , @order_no , @new_ext , '' , '' , '' , '' , '' ,'OUT OF STOCK EXT CREATED' 
+				-- v1.3 End
 				COMMIT TRAN
 			END
 		END

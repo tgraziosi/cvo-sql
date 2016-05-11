@@ -12,6 +12,7 @@ GO
 -- v1.5 CB 09/07/2015 - If any part of a ST consolidated order is not allocated then remove from printing
 -- v1.6 CB 27/07/2015 - Print file failing - check for PRINTLABEL in file data and ignore if not there
 -- v1.7 CB 29/07/2015 - Need to expand v1.5 for consolidation orders
+-- v1.8 CB 14/04/2016 - #1596 - Add promo level
 
 -- EXEC dbo.cvo_auto_print_pick_tickets_sp 'ST'
 CREATE PROC [dbo].[cvo_auto_print_pick_tickets_sp] (@order_type	VARCHAR(2))
@@ -75,7 +76,8 @@ BEGIN
 		highest_bin_no			VARCHAR(12) NULL,         
 		cust_code				VARCHAR(10) NULL,         
 		consolidate_shipment	INT NOT NULL,       
-		promo_id                VARCHAR(20) NULL)   
+		promo_id                VARCHAR(20) NULL,
+		promo_level				VARCHAR(20) NULL) -- v1.8   
 
 	CREATE TABLE #temp_who (
 		who						VARCHAR(50),
@@ -712,7 +714,6 @@ BEGIN
 
 
 END
-
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_auto_print_pick_tickets_sp] TO [public]

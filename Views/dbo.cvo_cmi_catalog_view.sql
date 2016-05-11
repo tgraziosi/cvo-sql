@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -35,7 +34,8 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	bm.frame_only, -- 2/10/2016 - for BT And REvo
 	bm.lens_cost,
 	bm.lens_vendor,
-	'1' AS prim_img,
+	v.isDefaultImage prim_img,
+	-- '1' AS prim_img,
 	v.color_family AS ColorGroupCode, 
 	v.color AS ColorName,
 	d.fit AS specialty_fit,
@@ -122,6 +122,7 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 		--AND d.eye_size =  i.eye_size AND v.color = i.colorname
 	
 	WHERE v.isActive = 1
+
 
 
 

@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -13,6 +12,7 @@ SET ANSI_WARNINGS OFF
 -- exec cvo_cust_benefit_scorecard_sp '011111'
 
 -- DECLARE @cust VARCHAR(10), @date VARCHAR(100)
+
 DECLARE @enddate DATETIME, @startdate datetime
 -- SELECT @cust = NULL -- '011111' -- everyone
 IF @date IS NULL SELECT @date = 'Rolling 12 TY'
@@ -43,8 +43,8 @@ CREATE TABLE #narrative
 SELECT ar.customer_code cust_code
 , CASE WHEN ar.status_type = 1 THEN ar.ship_to_code ELSE '' END AS ship_to
 , ar.address_name
-, CAST(o.promo_id AS VARCHAR(50)) promo_id
-, o.promo_level
+, CAST(i.category AS VARCHAR(50)) Coll
+-- , o.promo_level
 , SUM(CASE WHEN o.free_frame = 1 THEN o.shipped ELSE 0 END) free_frames
 , SUM(CASE WHEN o.free_frame = 0 THEN o.shipped ELSE 0 END) full_price_frames
 , SUM(CASE WHEN o.free_frame = 1 THEN o.shipped * o.Orig_List_price ELSE 0 end) extprice
@@ -61,7 +61,7 @@ AND o.date_entered BETWEEN  @startdate AND @enddate
 AND ISNULL(o.promo_id,'') <> ''
 AND ar.customer_code = ISNULL(@cust,ar.customer_code)
  
-GROUP BY ar.customer_code, CASE WHEN ar.status_type = 1 THEN ar.ship_to_code ELSE '' END, ar.address_name, o.promo_id, o.promo_level
+GROUP BY ar.customer_code, CASE WHEN ar.status_type = 1 THEN ar.ship_to_code ELSE '' END, ar.address_name, CAST(i.category AS VARCHAR(50)) 
 
 
 INSERT INTO #narrative (cust_code, ship_to, ben_type, ben_title )
@@ -71,7 +71,8 @@ insert into #narrative (cust_code, ship_to, ben_type, ben_title, val_1_lbl, val_
 SELECT  cust_code
 , ship_to
 , ben_type = 'Promotional Frame Benefit'
-, ben_title = p.promo_name
+-- , ben_title = p.promo_name
+, ben_title = p.description
 , val_1_lbl = 'Free Frames'
 , val_1_int = free_frames
 , val_2_lbl = 'Full Price Frames'
@@ -83,7 +84,20 @@ SELECT  cust_code
 --	+ ' Full Price Frames: ' + CAST(CAST(full_price_frames AS INTEGER) AS varchar(20))
 --	+ ' Total Net Price: ' + cast(CAST(ExtPrice AS DECIMAL(10,2)) AS VARCHAR(20))
 from #t
-LEFT OUTER JOIN cvo_promotions p ON p.promo_id = #t.promo_id AND p.promo_level = #t.promo_level
+-- LEFT OUTER JOIN cvo_promotions p ON p.promo_id = #t.promo_id AND p.promo_level = #t.promo_level
+LEFT OUTER JOIN dbo.category AS p ON p.kys = #t.coll
+WHERE #t.free_frames <> 0
+
+UPDATE n SET n.val_1_lbl = null, n.val_2_lbl = null, n.val_3_lbl = null, n.val_4_lbl = null
+-- SELECT * 
+FROM #narrative AS n
+JOIN 
+(SELECT cust_code, ship_to, MIN(seq) seq
+FROM #narrative AS n2 
+WHERE ben_type = 'Promotional Frame Benefit' AND val_1_lbl = 'Free Frames'
+GROUP BY n2.cust_code, n2.ship_to
+) AS min_seq ON min_seq.cust_code = n.cust_code AND min_seq.ship_to = n.ship_to
+WHERE min_seq.seq <> n.seq
 
 
 insert into #narrative (cust_code, ship_to, ben_type, ben_title, val_1_lbl, val_1_int, val_3_lbl, val_3_dec)
@@ -118,8 +132,7 @@ WHERE i.type_code IN ('frame','sun')
 	AND o.date_entered BETWEEN  @startdate AND @enddate
 	AND ISNULL(o.promo_id,'') <> ''
 	AND ar.customer_code = ISNULL(@cust,ar.customer_code)
-GROUP BY ar.customer_code, CASE WHEN ar.status_type = 1 THEN ar.ship_to_code ELSE '' END, o.promo_id
-
+GROUP BY ar.customer_code, CASE WHEN ar.status_type = 1 THEN ar.ship_to_code ELSE '' END
 -- free freight
 INSERT #narrative (cust_code, ship_to, ben_type, ben_title, val_3_dec)
 SELECT ar.customer_code cust_code, CASE WHEN ar.status_Type = 1 THEN ar.ship_to_code ELSE '' END AS ship_to
@@ -329,6 +342,7 @@ SELECT cust_code =
  IS NOT NULL
  
  ORDER BY cust_code, ship_to, seq
+
 
 
 GO

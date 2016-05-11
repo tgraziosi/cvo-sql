@@ -216,6 +216,23 @@ begin
 	 and s.user_category like 'ST%' and right(s.user_category,2) <> 'rb'
 	 and isnull(s.promo_id,'') not in ('ff','pc','style out')
 	 and i.type_code in ('frame','sun')
+
+	 ---- get RA units
+	 ----select @units = @units - SUM(isnull(qreturns,0))
+	 ----FROM cvo_sbm_details s (nolock) 
+	 ----inner join inv_master i (nolock) 
+	 ----   on i.part_no = s.part_no
+	 ----inner join inv_master_add ia (nolock)
+		----on ia.part_no = s.part_no 
+	 ----where s.customer = @cust 
+	 ----and s.ship_to = @ship_to
+	 ----and i.category = @br 
+	 ----and isnull(ia.field_32,'') = case when @attrib is null then ISNULL(ia.field_32,'') else ISNULL(@att,'') end
+	 ----and s.dateordered > @fo
+	 ----and yyyymmdd between @datefrom and @dateto
+	 ----and s.return_code = ''  -- RA returns only
+	 ----and i.type_code in ('frame','sun')
+
 	 
 	update #t set st_units = isnull(@units,0)
 	where #t.id = @last_id
@@ -245,5 +262,6 @@ select #t.*
 
  --select * From #t where customer_code = '038305'
  --select * From #newrea where customer_code = '038305'
+
 
 GO

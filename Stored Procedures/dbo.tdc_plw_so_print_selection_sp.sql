@@ -9,6 +9,7 @@ GO
 -- v1.4 CT 20/06/2012 - Print pick tickets for orders on credit hold
 -- v1.5 CT 08/05/2013 - Issue #1259 - Allow print of pick ticket if order only contains custom frames 
 -- v1.6 CT 19/02/2015 - When checking for orders with kits/promos where frames are not available, don't include fully picked order lines
+-- v1.7 CB 14/04/2016 - #1596 - Add promo level
 
 CREATE PROCEDURE [dbo].[tdc_plw_so_print_selection_sp]    
  @con_no     int,  
@@ -56,11 +57,11 @@ TRUNCATE TABLE #so_pick_ticket_details
 -- v1.1 Add new columns to insert statement  
 -- v1.2  Add new column to insert statement  
 SELECT @insert_into_clause    = 'INSERT INTO #so_pick_ticket_details   
-            (order_no, order_ext, con_no, status, location, sch_ship_date, cust_name, curr_alloc_pct, sel_flg, alloc_type, cust_code, consolidate_shipment, promo_id)'   
+            (order_no, order_ext, con_no, status, location, sch_ship_date, cust_name, curr_alloc_pct, sel_flg, alloc_type, cust_code, consolidate_shipment, promo_id, promo_level)'  -- v1.7
 
 -- v1.1 Add new columns to select statement    
 -- v1.2  Add new column to insert statement      
-SELECT @select_clause_B2B     = 'SELECT DISTINCT NULL, NULL, trans_type_no, '''', '''', NULL, NULL, 0, 0, NULL, NULL, 0, '''' '                
+SELECT @select_clause_B2B     = 'SELECT DISTINCT NULL, NULL, trans_type_no, '''', '''', NULL, NULL, 0, 0, NULL, NULL, 0, '''', '''' ' -- v1.7              
                
 SELECT @from_clause_B2B       = '  FROM tdc_pick_queue (NOLOCK)  
                                   WHERE trans_type_no = ' + CAST (@con_no AS varchar(10)) +   
@@ -78,7 +79,7 @@ SELECT @select_clause_stdpick = 'SELECT DISTINCT
         FROM tdc_cons_ords   
               WHERE order_no  = tdc_pick_queue.trans_type_no  
          AND order_ext = tdc_pick_queue.trans_type_ext   
-         AND location  = tdc_pick_queue.location), orders.cust_code, 0, isnull(cvo.promo_id, '''') '  
+         AND location  = tdc_pick_queue.location), orders.cust_code, 0, isnull(cvo.promo_id, ''''), isnull(cvo.promo_level, '''') '  -- v1.7
  
 -- v1.2  Add new column to from clause
 -- v1.4  Added logic to deal with tx_lock status for orders on credit hold
