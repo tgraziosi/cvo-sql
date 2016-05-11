@@ -5,10 +5,11 @@ GO
 
 /*
 select * from cvo_product_defectives_vw where brand = 'bcbg'
-exec cvo_product_defectives_sp @brand=N'BCBG,CVO', @vendor=N'eri001,counto',
-@datefrom=N'01/01/2012 00:00', @dateto=N'12/31/2012 23:59'
+exec cvo_product_defectives_sp @brand=N'BCBG,CVO', @vendor=N'nic002',
+@datefrom=N'01/01/2016 00:00', @dateto=N'12/31/2016 23:59'
 
-exec cvo_product_defectives_sp '10/1/2012','1/9/2013'
+exec cvo_product_defectives_sp '1/1/2016', '03/31/2016'
+
 */
 
 
@@ -181,13 +182,14 @@ where i.type_code in ('frame','sun','parts')
 and (a.recv_date between @datefrom and @dateto)
 
 ;with cte as (select distinct part_no from #temp where qty_def <> 0)
-select vendor, address_name, #temp.PART_NO, Brand, MOdel, POMDate, TYPE_CODE, 
+select vendor, address_name, cte.PART_NO, Brand, MOdel, POMDate, TYPE_CODE, 
 isnull(RETURN_CODE,'') return_code, reason, sum(QTY_RET) qty_ret, sum(qty_def) QTY_DEF, COST, sum(EXT_COST_RET) ext_cost_Ret, 
 sum(ext_cost_def) EXT_COST_DEF, sum(rct_qty_hist) rct_qty_hist, sum(sales_rx_qty_hist) Sales_rx_qty_hist,
 sum(sales_st_qty_hist) Sales_st_qty_hist 
-from #temp, cte where #temp.part_no = cte.part_no
-group by VENDOR, ADDRESS_NAME, #temp.PART_NO, BRAND, MODEL, POMDATE, TYPE_CODE, 
+from cte JOIN #temp on cte.part_no = #temp.part_no
+group by VENDOR, ADDRESS_NAME, cte.PART_NO, BRAND, MODEL, POMDATE, TYPE_CODE, 
 RETURN_CODE, REASON, cost
+
 
 
 GO
