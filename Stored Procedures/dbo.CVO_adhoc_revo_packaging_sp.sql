@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -80,7 +79,7 @@ begin
 		from lot_bin_stock lb (nolock)
 	where lb.location = @LOC and lb.bin_no = (SELECT TOP 1 bin_no FROM lot_bin_stock l (NOLOCK) WHERE l.part_no = lb.part_no 
 		 AND l.location = lb.location ORDER BY qty DESC)
-	AND lb.part_no IN ( 'rezbox','rezaudcard' )
+	AND lb.part_no IN ( 'rezbox','REZWELCOME' )
 	and lb.qty > 0 
 
 end
@@ -260,5 +259,6 @@ SELECT adj_no ,
        row_id FROM #adm_INV_ADJ_log
 
 END
+
 
 GO

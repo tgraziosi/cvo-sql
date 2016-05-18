@@ -19,7 +19,7 @@ BEGIN
 -- generate sku's from cmi into epicor
 --  
 -- 
--- exec [cvo_cmi_sku_generate_sp] 'BT', 'high profile', null, null, '06/28/2016','N', 1
+-- exec [cvo_cmi_sku_generate_sp] 'et', 'paris', null, null, '06/28/2016','N', 1
 
 SET XACT_ABORT, NOCOUNT ON;
 
@@ -165,6 +165,8 @@ SET     short_model = CASE WHEN ISNULL(smn.short_model, '') = ''
                            ELSE smn.short_model
                       END
 FROM    #short_model_name smn;
+
+IF @debug = 1 SELECT * FROM #short_model_name AS smn
 
 IF ( OBJECT_ID('tempdb.dbo.#cvo_cmi_sku_xref') IS NOT NULL )
     DROP TABLE #cvo_cmi_sku_xref;
@@ -2030,6 +2032,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

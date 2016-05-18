@@ -180,7 +180,7 @@ left outer join cvo_apr_tbl #apr on #apr.sku = i.part_no
 left outer join dpr_report drp (nolock) on drp.part_no = i.part_no and drp.location = @location
 
 WHERE i.VOID <> 'V' AND category not in ('CORP','FP','BT')
-  AND (ISNULL(FIELD_32,'') NOT IN ('HVC','RETAIL','COSTCO')
+  AND (ISNULL(FIELD_32,'') NOT IN ('HVC','RETAIL','COSTCO','SpecialOrd') -- 5/12/16 -- added special order for revo custom
   -- 4/26/2016 don't need anymore
 --      OR (category IN ('RR') AND ia.field_2 NOT IN ('Rutgers','Vanderbilt','Wildcat Peak') AND GETDATE() >='12/29/2015')
 --	  ) 
@@ -336,7 +336,7 @@ update #final set Hide =
 update #final set Hide = case when COLL = 'revo' AND isnull(pomdate,@today) = '01/01/2010' then 1
 							  WHEN coll = 'revo' AND model IN ('Straightshot','Bearing','Heading') THEN 1 -- 2/10/2016
 							  -- unhide for 4/26 release WHEN mastersku IN ('iz2014','iz2015','iz2016','iz2017') THEN 1
-							  WHEN MASTERSKU IN ('IZ6001','IZ6002','IZ6003','IZ6004') THEN 1
+							  WHEN MASTERSKU IN ('IZ6001','IZ6002','IZ6003','IZ6004') AND @today < '5/16/2016' THEN 1
 							  WHEN mastersku IN ('iz2026','iz2027') THEN 1 -- new iz t&C kit
 							   else 0 end
 
@@ -545,6 +545,8 @@ END
 
 
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
+
+
 
 
 

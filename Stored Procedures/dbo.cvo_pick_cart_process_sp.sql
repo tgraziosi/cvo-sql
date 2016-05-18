@@ -120,8 +120,8 @@ IF @proc_option = 0
 		INSERT cvo_cart_scan_orders (order_no, scan_date, scan_user, order_status)
 			VALUES (@cart_order_no, GETDATE(), @cart_no, 'I')
 		INSERT cvo_cart_order_parts 
-		 (tran_id, order_no, part_no, user_login, bin_no, upc_code, qty_to_process, scanned, isskipped, bin_group_code)
-		 SELECT DISTINCT p.tran_id, @cart_order_no, p.part_no, @cart_no, p.bin_no, i.upc_code, p.qty_to_process, 0, 0, bin.group_code
+		 (tran_id, order_no, part_no, user_login, bin_no, upc_code, qty_to_process, scanned, isskipped, bin_group_code, TYPE_CODE)
+		 SELECT DISTINCT p.tran_id, @cart_order_no, p.part_no, @cart_no, p.bin_no, i.upc_code, p.qty_to_process, 0, 0, bin.group_code, I.type_code
 			FROM dbo.tdc_pick_queue p (NOLOCK)
 			JOIN dbo.inv_master i (NOLOCK) ON i.part_no = p.part_no 
 			JOIN tdc_bin_master bin (NOLOCK) ON bin.bin_no = p.bin_no AND bin.location = p.location
@@ -269,6 +269,7 @@ begin
 END -- proc_option = 99
 
  
+
 
 
 

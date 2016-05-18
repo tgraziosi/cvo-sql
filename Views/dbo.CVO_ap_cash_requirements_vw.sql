@@ -5,14 +5,16 @@ GO
 
 
 
+-- SELECT * FROM dbo.CVO_ap_cash_requirements_vw AS cacrv
 
-CREATE view [dbo].[CVO_ap_cash_requirements_vw] 
-as
+CREATE VIEW [dbo].[CVO_ap_cash_requirements_vw] 
+AS
 
-select 
+SELECT 
 v.vendor_code,
 m.address_name,
 m.vend_class_code vend_type,
+v.payment_code,
 v.doc_ctrl_num,
 'I' IOrC,
 v.currency_code,
@@ -44,31 +46,32 @@ case
 	else 0
 end beyond
 */
-case 
-	when v.date_due - (datediff(dd, '1/1/1753', convert(datetime, getdate())) + 639906)  <= 6 then v.amt_net  - v.amt_paid_to_date 
-	else 0
-end cur_week,
-case 
-	when (v.date_due - (datediff(dd, '1/1/1753', convert(datetime, getdate())) + 639906)  > 6) 
-	and (v.date_due - (datediff(dd, '1/1/1753', convert(datetime, getdate())) + 639906)  <= 13) 
-	then v.amt_net - v.amt_paid_to_date 
-	else 0
-end two_weeks,
-case 
-	when (v.date_due - (datediff(dd, '1/1/1753', convert(datetime, getdate())) + 639906)  > 13) 
-	and (v.date_due - (datediff(dd, '1/1/1753', convert(datetime, getdate())) + 639906)  <= 20) 
-	then v.amt_net  - v.amt_paid_to_date 
-	else 0
-end three_weeks,
-case 
-	when (v.date_due - (datediff(dd, '1/1/1753', convert(datetime, getdate())) + 639906)  > 20) 
-	then v.amt_net  - v.amt_paid_to_date 
-	else 0
-end beyond
+CASE 
+	WHEN v.date_due - (DATEDIFF(dd, '1/1/1753', CONVERT(DATETIME, GETDATE())) + 639906)  <= 6 THEN v.amt_net  - v.amt_paid_to_date 
+	ELSE 0
+END cur_week,
+CASE 
+	WHEN (v.date_due - (DATEDIFF(dd, '1/1/1753', CONVERT(DATETIME, GETDATE())) + 639906)  > 6) 
+	AND (v.date_due - (DATEDIFF(dd, '1/1/1753', CONVERT(DATETIME, GETDATE())) + 639906)  <= 13) 
+	THEN v.amt_net - v.amt_paid_to_date 
+	ELSE 0
+END two_weeks,
+CASE 
+	WHEN (v.date_due - (DATEDIFF(dd, '1/1/1753', CONVERT(DATETIME, GETDATE())) + 639906)  > 13) 
+	AND (v.date_due - (DATEDIFF(dd, '1/1/1753', CONVERT(DATETIME, GETDATE())) + 639906)  <= 20) 
+	THEN v.amt_net  - v.amt_paid_to_date 
+	ELSE 0
+END three_weeks,
+CASE 
+	WHEN (v.date_due - (DATEDIFF(dd, '1/1/1753', CONVERT(DATETIME, GETDATE())) + 639906)  > 20) 
+	THEN v.amt_net  - v.amt_paid_to_date 
+	ELSE 0
+END beyond
 
-from apvohdr_all v (nolock) 
-join apmaster_all m on v.vendor_code =  m.vendor_code and v.pay_to_code = m.pay_to_code 
-where v.paid_flag = 0
+FROM apvohdr_all v (NOLOCK) 
+JOIN apmaster_all m ON v.vendor_code =  m.vendor_code AND v.pay_to_code = m.pay_to_code 
+WHERE v.paid_flag = 0
+
 
 
 

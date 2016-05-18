@@ -2,13 +2,13 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[cvo_openordersonhold_sp] @ToDate DATETIME
+CREATE PROCEDURE [dbo].[cvo_openordersonhold_sp] @ToDate DATETIME, @FutShip INT = 0
 
 AS
 BEGIN
  --declare @ToDate datetime
  --select  @ToDate = getdate()
- -- exec cvo_openordersonhold_sp '03/10/2016'
+ -- exec cvo_openordersonhold_sp '05/11/2016', 0
 
 select oo.order_no ,
        oo.ext ,
@@ -85,7 +85,7 @@ left outer join
 
 WHERE ((oo.date_sch_ship < dateadd(d,1,@ToDate)
 and oo.status in ('A','B','C') )
-OR ( oo.date_sch_ship > @ToDate AND oo.status < 'R') )
+OR ( @FutShip = 1 AND oo.date_sch_ship > @ToDate AND oo.hold_reason = '' ) )
 and who_entered <> 'BACKORDR'
 
 END

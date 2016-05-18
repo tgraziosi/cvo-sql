@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -27,7 +26,7 @@ BEGIN
 			from
             ( SELECT DISTINCT territory_code FROM arterr (NOLOCK) 
 			   WHERE dbo.calculate_region_fn(territory_code) < '800'
-			   AND territory_code IN ('20206','40456', '50503', '40440') -- phil, bob s, dave s, kerry c
+			   AND territory_code IN ('20206','70778', '50503', '40440') -- phil, Elyse, dave s, kerry c
 			) Terr
 			   -- for testing 03/2016
 
@@ -49,7 +48,7 @@ BEGIN
 	  FROM arsalesp (NOLOCK) 
 	  WHERE ISNULL(employee_code,'') > ''
 	  AND status_type = 1
-	  AND territory_code IN ('20206','40456', '50503', '40440') -- phil, bob s, dave s, kerry c
+	  AND territory_code IN ('20206','70778', '50503', '40440') -- phil, bob s, dave s, kerry c
 	  AND NOT EXISTS(SELECT 1 FROM #allterr WHERE #allterr.customer_code = ISNULL(employee_code,'') )
 	  
 
