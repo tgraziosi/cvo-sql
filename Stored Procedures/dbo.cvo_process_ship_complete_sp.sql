@@ -23,7 +23,8 @@ BEGIN
 			@sa_qty			decimal(20,8),
 			@status			varchar(8),
 			@hold_reason	varchar(30),
-			@hardalloc_qty	DECIMAL(20,8) -- v1.2
+			@hardalloc_qty	DECIMAL(20,8), -- v1.2
+			@max_soft_alloc	int -- v1.5
 
 	-- Working Tables
 	CREATE TABLE #ship_complete (
@@ -126,15 +127,27 @@ BEGIN
 				SET @alloc_qty = 0    
 			  
 			IF (@quar_qty IS NULL)    
-				SET @quar_qty = 0    
+				SET @quar_qty = 0  
 
+			-- v1.5 Start
+			SET @max_soft_alloc = 0
+
+			SELECT	@max_soft_alloc = soft_alloc_no
+			FROM	cvo_soft_alloc_hdr (NOLOCK)
+			WHERE	order_no = @order_no
+			AND		order_ext = @order_ext
+
+			IF (@max_soft_alloc = 0)
+				SET @max_soft_alloc = 99999999
+			-- v1.5 End
 
 			SELECT	@sa_qty = ISNULL(SUM(CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0)    
 			FROM	dbo.cvo_soft_alloc_det a (NOLOCK)    
 			WHERE	a.status NOT IN (-2, -3) -- v1.4 IN (0, 1, -1)    
 			AND		(CAST(a.order_no AS varchar(10)) + CAST(a.order_ext AS varchar(5))) <> (CAST(@order_no AS varchar(10)) + CAST(@order_ext AS varchar(5)))      
 			AND		a.location = @location    
-			AND		a.part_no = @part_no    
+			AND		a.part_no = @part_no   
+			AND		a.soft_alloc_no <  @max_soft_alloc -- v1.5
 
 			IF (@sa_qty IS NULL)    
 				SET @sa_qty = 0    

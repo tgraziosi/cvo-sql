@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -11,6 +10,7 @@ GO
 -- v1.4 CB 05/05/2015 - Issue #1538 - Not displaying free frames correctly for BGs
 -- v1.5 CB 15/07/2015 - Fix for v1.4
 -- v1.6 CB 03/12/2015 - Fix for BG customer set to regular invoice
+-- v1.7 CB 11/05/2016 - Fix issue with promo discount
 -- requires temp table
 /*
 CREATE TABLE #detail(
@@ -205,7 +205,7 @@ BEGIN
 						@gross_price	= CAST(ROUND(@pack_qty * (l.curr_price - ROUND(c.amt_disc,2)),2,1) AS DECIMAL(20,2)),
 						@net_price		= CAST(ROUND((l.curr_price - ROUND(c.amt_disc,2)),2,1) AS DECIMAL(20,2)),							
 						@ext_net_price	= CAST((@pack_qty * ROUND((l.curr_price - ROUND(c.amt_disc,2)),2,1)) AS DECIMAL(20,2)),							
-						@discount_amount	=CAST(((c.list_price - l.curr_price) + ROUND(c.amt_disc,2)) AS DECIMAL(20,2)), 
+						@discount_amount = CAST(((c.list_price - l.curr_price) + ROUND(c.amt_disc,2)) AS DECIMAL(20,2)), 
 						@discount_pct	= CASE l.price WHEN 0 THEN 0				
 										  ELSE CASE c.list_price WHEN 0 THEN 0
 										  ELSE CAST(ROUND((((c.list_price - (l.curr_price - ROUND(c.amt_disc,2))) / c.list_price) * 100),2,1) AS DECIMAL(20,2)) END END, 
@@ -308,8 +308,6 @@ BEGIN
 
 	END
 
-select * from #parts
-
 	-- v1.4 Start
 	IF @bg_order = 1
 	BEGIN
@@ -364,6 +362,12 @@ select * from #parts
 	-- Insert any promo credits into details
 	EXEC cvo_pack_list_debit_promo_details_sp @order_no, @order_ext
 	-- END v1.2
+
+	-- v1.7 Start
+	UPDATE	#detail
+	SET		is_free = 0
+	WHERE	is_free IS NULL
+	-- v1.7 End
 END
 GO
 

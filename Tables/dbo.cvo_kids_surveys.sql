@@ -13,7 +13,8 @@ CREATE TABLE [dbo].[cvo_kids_surveys]
 [order_date] [datetime] NULL,
 [territory] [varchar] (6) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [region] [varchar] (4) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[survey_id] [int] NULL
+[survey_id] [int] NULL,
+[note] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_kids_surveys] ADD CONSTRAINT [PK__cvo_kids_surveys__218E4601] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

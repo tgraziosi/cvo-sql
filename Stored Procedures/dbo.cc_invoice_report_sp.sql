@@ -20,6 +20,7 @@ GO
 -- v3.5 CB 13/05/2015 - Issue #1446 - Add invoice notes from customer
 -- v3.6 CB 15/07/2015 - Fix issue for free frames on BG invoices
 -- v3.7 CB 08/09/2015 - As per Tine - They want to see the gross price (list price) as whatever it is (non-zero), and the net price to show as $0.
+-- v3.8 CB 11/05/2016 - Fix for promo discount
 
 
 CREATE PROCEDURE [dbo].[cc_invoice_report_sp] @my_id	varchar(255),
@@ -359,12 +360,15 @@ CREATE TABLE	#ccarhdr_work
 	so_promo_name = p.promo_name,
 	-- START v3.3
 	--list_amt = cv1.list_price, 
-	list_amt = CASE WHEN l.curr_price > cv1.list_price THEN l.curr_price ELSE cv1.list_price END, 
-	discount_amt =	CASE WHEN l.curr_price > cv1.list_price THEN 0 
+	-- v3.8 Start
+	list_amt = CASE WHEN l.curr_price < 0 THEN l.curr_price ELSE
+				CASE WHEN l.curr_price > cv1.list_price THEN l.curr_price ELSE cv1.list_price END END, 
+	discount_amt =	CASE WHEN l.curr_price < 0 THEN 0 ELSE CASE WHEN l.curr_price > cv1.list_price THEN 0 
 					ELSE CASE orders.type WHEN 'I' THEN (cv1.list_price - l.curr_price) + cv1.amt_disc  
 					ELSE CASE l.discount WHEN 0 THEN (cv1.list_price - l.curr_price)   
 					ELSE (cv1.list_price - l.curr_price) + cv1.amt_disc  
-	END END END,
+	END END END END,
+	-- v3.8 End
 	/*
 	discount_amt = CASE orders.type WHEN 'I' THEN (cv1.list_price - l.curr_price) + cv1.amt_disc  
 	   ELSE CASE l.discount WHEN 0 THEN (cv1.list_price - l.curr_price)   
@@ -450,11 +454,13 @@ CREATE TABLE	#ccarhdr_work
 	update a
 	set
 	-- START v3.4 
-	list_amt = CASE WHEN l.curr_price > cv1.list_price THEN l.curr_price ELSE cv1.orig_list_price END,
+	-- v3.8 Start
+	list_amt = CASE WHEN l.curr_price < 0 THEN l.curr_price ELSE CASE WHEN l.curr_price > cv1.list_price THEN l.curr_price ELSE cv1.orig_list_price END END,
 	--list_amt = cv1.orig_list_price, -- v3.2 CASE WHEN l.curr_price = l.temp_price THEN cv1.list_price ELSE l.temp_price END,
-	discount_amt = CASE WHEN l.curr_price > cv1.list_price THEN 0 ELSE (cv1.orig_list_price - l.curr_price) END
+	discount_amt = CASE WHEN l.curr_price < 0 THEN 0 ELSE CASE WHEN l.curr_price > cv1.list_price THEN 0 ELSE (cv1.orig_list_price - l.curr_price) END END 
 	--discount_amt = (cv1.orig_list_price - l.curr_price) -- v3.2 CASE WHEN l.curr_price = l.temp_price THEN (cv1.orig_list_price - l.curr_price) 
 								-- v3.2 ELSE (cv1.orig_list_price - l.curr_price) END
+	-- v3.8 End
 	-- END v3.4
 	from #ccarhdr_work a 
 	INNER JOIN orders (nolock) ON orders.order_no = left(a.order_ctrl_num, charindex('-',a.order_ctrl_num)-1)

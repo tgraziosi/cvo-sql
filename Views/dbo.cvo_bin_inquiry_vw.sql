@@ -14,7 +14,9 @@ as
 				b.part_no, i.upc_code, i.[description], i.type_code, b.lot_ser, b.qty, 
 				b.date_tran, b.date_expires, il.std_cost, il.std_ovhd_dolrs,
 				il.std_util_dolrs, 
-				round(((il.std_cost + il.std_ovhd_dolrs + il.std_util_dolrs) * b.qty),2) as						ext_cost, isnull(pb.[primary],'N') primary_bin
+				round(((il.std_cost + il.std_ovhd_dolrs + il.std_util_dolrs) * b.qty),2) as	ext_cost,
+				 isnull(pb.[primary],'N') primary_bin,
+				 bm.last_modified_date, bm.modified_by
 		    FROM tdc_bin_master bm (nolock)
 		    inner join lot_bin_stock b (nolock)  
 				on bm.bin_no = b.bin_no and bm.location = b.location
@@ -37,6 +39,7 @@ as
 				il.std_util_dolrs, 
 				0 as ext_cost
 				, s.[primary]
+				, m.last_modified_date, m.modified_by
 		
         FROM	tdc_bin_part_qty s (NOLOCK) 
         INNER JOIN	tdc_bin_master m (NOLOCK)
@@ -50,6 +53,7 @@ as
         ON		s.location = l.location AND		s.part_no = l.part_no AND		s.bin_no = l.bin_no
         WHERE	l.location IS NULL AND		l.part_no IS NULL AND		l.bin_no IS NULL
     
+
 
 
 

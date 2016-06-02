@@ -41,7 +41,8 @@ CREATE TABLE [dbo].[CVO_promotions]
 [hold_reason] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [annual_program] [smallint] NULL,
 [season_program] [smallint] NULL,
-[backorder_flag] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[backorder_flag] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[order_discount_amount] [decimal] (20, 8) NULL
 ) ON [PRIMARY]
 GO
 CREATE UNIQUE CLUSTERED INDEX [idx_CVO_promotions] ON [dbo].[CVO_promotions] ([promo_id], [promo_level]) ON [PRIMARY]

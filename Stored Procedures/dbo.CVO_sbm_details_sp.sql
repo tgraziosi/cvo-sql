@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -472,6 +471,13 @@ if (object_id('cvo.dbo.cvo_sbm_details') is null)
 
  ) ON [PRIMARY]
  GRANT SELECT ON [dbo].[cvo_sbm_details] TO [public]
+
+ CREATE CLUSTERED INDEX [pk_sbm_details] ON [dbo].[cvo_sbm_details]
+ (
+	[id] ASC
+ )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+
+
  CREATE NONCLUSTERED INDEX [idx_cvo_sbm_cust] ON [dbo].[cvo_sbm_details] 
  (
 	[Customer] ASC,

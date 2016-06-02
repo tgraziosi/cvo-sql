@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -34,6 +33,7 @@ GO
 -- v11.4 CB 01/07/2015 - Fix issue when free frames are given on a bg with bg inv option set
 -- v11.5 CB 08/09/2015 - As per Tine - They want to see the gross price (list price) as whatever it is (non-zero), and the net price to show as $0.
 -- v11.6 CB 03/12/2015 - Fix for BG customer set to regular invoice
+-- v11.7 CB 24/05/2016 - Fix code for pulling back promo name
 
 */
 
@@ -837,7 +837,8 @@ BEGIN
 		dbo.CVO_promotions d (NOLOCK)
 	ON 
 		c.promo_id = d.promo_id 
-		AND c.promo_level = c.promo_level
+		AND c.promo_level = d.promo_level -- v11.7
+-- v11.7AND c.promo_level = c.promo_level
 	LEFT JOIN 
 		dbo.so_usrcateg e (NOLOCK) 
 	ON 

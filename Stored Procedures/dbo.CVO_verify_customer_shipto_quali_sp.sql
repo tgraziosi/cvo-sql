@@ -26,6 +26,7 @@ GO
 -- v3.5 CT 12/02/14 - Issue #1426 - Check frequency type
 -- v3.6 CT 14/10/14 - Issue #1499 - Promo level buy in
 -- v3.7 CB 23/10/15 - #1541 - Promo rolling periods
+-- v3.8 CB 19/04/2016 - #1584 - Add min, max and number of pieces for stock order. Add min and for RX reorders.
 
 -- EXEC [CVO_verify_customer_shipto_quali_sp] 'CB','1','045911', '0001', 1418426, 0
 
@@ -88,7 +89,13 @@ BEGIN
 				@date_entered		DATETIME,
 				-- END v3.5
 				@pp_not_purchased	SMALLINT, -- v3.6
-				@rolling_period		smallint -- v3.7
+				@rolling_period		smallint, -- v3.7
+				@min_stock_orders	smallint, -- v3.8
+				@max_stock_orders	smallint, -- v3.8
+				@stock_orders_pieces smallint, -- v3.8
+				@min_rx_orders		smallint, -- v3.8
+				@max_rx_orders		smallint, -- v3.8
+				@order_cnt			int -- v3.8
 
 		SET @fail_reason = '' -- v1.1
 		SET @frequency_fail = 0
@@ -121,7 +128,14 @@ BEGIN
 			gender_check		SMALLINT,		-- v3.1
 			max_no_of_pieces	DECIMAL(20,8),	-- v3.2
 			pp_not_purchased	SMALLINT,		-- v3.6
-			rolling_period		smallint -- v3.7
+			-- rolling_period		smallint -- v3.7
+
+			rolling_period		smallint, -- v3.9
+			min_stock_orders	smallint, -- v4.0
+			max_stock_orders	smallint, -- v4.0
+			stock_orders_pieces smallint, -- v4.0
+			min_rx_orders		smallint, -- v4.0
+			max_rx_orders		smallint -- v4.0
 		)
 
 		-- START v2.9
@@ -161,6 +175,14 @@ BEGIN
 			brand		VARCHAR(30),
 			category	VARCHAR(30)
 		)
+
+		-- v3.8 Start
+		CREATE TABLE #count_orders (
+			order_no	int,
+			order_ext	int,
+			rec_count	int)
+		-- v3.8 End
+
 
 		-- START v2.8
 		SELECT 
@@ -267,7 +289,8 @@ BEGIN
 				gender_check,		-- v3.1
 				max_no_of_pieces,	-- v3.2
 				pp_not_purchased,	-- v3.6
-				rolling_period -- v3.7
+				rolling_period, -- v3.7
+				min_stock_orders, max_stock_orders, stock_orders_pieces, min_rx_orders, max_rx_orders -- v3.8
 		)
 		SELECT	line_no,		brand,				brand_exclude,
 				category,		category_exclude,	min_sales,
@@ -282,7 +305,8 @@ BEGIN
 				gender_check,		-- v3.1
 				max_no_of_pieces,	-- v3.2
 				pp_not_purchased,	-- v3.6
-				rolling_period -- v3.7
+				rolling_period, -- v3.7
+				min_stock_orders, max_stock_orders, stock_orders_pieces, min_rx_orders, max_rx_orders -- v3.8
 		FROM	CVO_customer_qualifications (NOLOCK)
 		WHERE	promo_id = @promo_id AND
 				promo_level = @promo_level
@@ -329,7 +353,9 @@ BEGIN
 					-- END v2.9
 					@max_no_of_pieces = max_no_of_pieces, -- v3.2
 					@pp_not_purchased = pp_not_purchased,  -- v3.6
-					@rolling_period = rolling_period -- v3.7
+					@rolling_period = rolling_period, -- v3.7
+					@min_stock_orders = min_stock_orders, @max_stock_orders = max_stock_orders, -- v3.8
+					@stock_orders_pieces = stock_orders_pieces, @min_rx_orders = min_rx_orders, @max_rx_orders = max_rx_orders -- v3.8
 			FROM 	#cvo_customer_qualifications
 			WHERE	id = @id
 
@@ -975,6 +1001,392 @@ BEGIN
 				END
 			END
 			
+			-- v3.8 Start
+			-- Stock Orders
+			IF (@achived = 1)
+			BEGIN
+				IF ISNULL(@brand,'') <> '' AND ISNULL(@category,'') = ''
+				BEGIN
+
+					IF (ISNULL(@stock_orders_pieces,0) > 0) AND (ISNULL(@min_stock_orders,0) > 0 OR ISNULL(@max_stock_orders,0) > 0)
+					BEGIN
+						IF (@min_stock_orders IS NULL)
+							SET @min_stock_orders = 0
+						IF (@max_stock_orders IS NULL)
+							SET @max_stock_orders = 32000
+
+						TRUNCATE TABLE #count_orders
+
+						INSERT	#count_orders (order_no, order_ext, rec_count)
+						SELECT	o.order_no, o.ext, COUNT(1)
+						FROM	#orders o (NOLOCK)
+						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						LEFT JOIN #cvo_customer_qualifications_attribute a
+						ON		v.attribute = a.attribute
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+						AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+						AND		LEFT(o.user_category,2) = 'ST'
+						AND		RIGHT(o.user_category,2) <> 'RB'
+						GROUP BY o.order_no, o.ext
+						HAVING SUM(piece_qty) >= @stock_orders_pieces
+		
+						SET @order_cnt = 0
+						SELECT	@order_cnt =COUNT(1)
+						FROM	#count_orders
+
+						IF (@order_cnt < @min_stock_orders OR @order_cnt > @max_stock_orders)
+						BEGIN 
+							SELECT @achived = 0
+							SET @fail_reason = 'Customer/Ship To does not qualify for promotion - Stock Orders do not fall within the minimum/maximum number for the pieces specified.' 					
+						END
+					END
+				END
+			END
+
+			IF (@achived = 1)
+			BEGIN
+				IF ISNULL(@brand,'') = '' AND ISNULL(@category,'') <> ''
+				BEGIN
+
+					IF (ISNULL(@stock_orders_pieces,0) > 0) AND (ISNULL(@min_stock_orders,0) > 0 OR ISNULL(@max_stock_orders,0) > 0)
+					BEGIN
+						IF (@min_stock_orders IS NULL)
+							SET @min_stock_orders = 0
+						IF (@max_stock_orders IS NULL)
+							SET @max_stock_orders = 32000
+
+						TRUNCATE TABLE #count_orders
+
+						INSERT	#count_orders (order_no, order_ext, rec_count)
+						SELECT	o.order_no, o.ext, COUNT(1)
+						FROM	#orders o (NOLOCK)
+						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						LEFT JOIN #cvo_customer_qualifications_attribute a
+						ON		v.attribute = a.attribute
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+						AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+						AND		LEFT(o.user_category,2) = 'ST'
+						AND		RIGHT(o.user_category,2) <> 'RB'
+						GROUP BY o.order_no, o.ext
+						HAVING SUM(piece_qty) >= @stock_orders_pieces
+		
+						SET @order_cnt = 0
+						SELECT	@order_cnt =COUNT(1)
+						FROM	#count_orders
+
+						IF (@order_cnt < @min_stock_orders OR @order_cnt > @max_stock_orders)
+						BEGIN 
+							SELECT @achived = 0
+							SET @fail_reason = 'Customer/Ship To does not qualify for promotion - Stock Orders do not fall within the minimum/maximum number for the pieces specified.' 					
+						END
+					END
+				END
+			END
+
+			IF (@achived = 1)
+			BEGIN
+				IF ISNULL(@brand,'') <> '' AND ISNULL(@category,'') <> ''
+				BEGIN
+
+					IF (ISNULL(@stock_orders_pieces,0) > 0) AND (ISNULL(@min_stock_orders,0) > 0 OR ISNULL(@max_stock_orders,0) > 0)
+					BEGIN
+						IF (@min_stock_orders IS NULL)
+							SET @min_stock_orders = 0
+						IF (@max_stock_orders IS NULL)
+							SET @max_stock_orders = 32000
+
+						TRUNCATE TABLE #count_orders
+
+						INSERT	#count_orders (order_no, order_ext, rec_count)
+						SELECT	o.order_no, o.ext, COUNT(1)
+						FROM	#orders o (NOLOCK)
+						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						LEFT JOIN #cvo_customer_qualifications_attribute a
+						ON		v.attribute = a.attribute
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+						AND		((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+						AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+						AND		LEFT(o.user_category,2) = 'ST'
+						AND		RIGHT(o.user_category,2) <> 'RB'
+						GROUP BY o.order_no, o.ext
+						HAVING SUM(piece_qty) >= @stock_orders_pieces
+		
+						SET @order_cnt = 0
+						SELECT	@order_cnt =COUNT(1)
+						FROM	#count_orders
+
+						IF (@order_cnt < @min_stock_orders OR @order_cnt > @max_stock_orders)
+						BEGIN 
+							SELECT @achived = 0
+							SET @fail_reason = 'Customer/Ship To does not qualify for promotion - Stock Orders do not fall within the minimum/maximum number for the pieces specified.' 					
+						END
+					END
+				END
+			END
+
+			IF (@achived = 1)
+			BEGIN
+				IF ISNULL(@brand,'') = '' AND ISNULL(@category,'') = ''
+				BEGIN
+
+					IF (ISNULL(@stock_orders_pieces,0) > 0) AND (ISNULL(@min_stock_orders,0) > 0 OR ISNULL(@max_stock_orders,0) > 0)
+					BEGIN
+						IF (@min_stock_orders IS NULL)
+							SET @min_stock_orders = 0
+						IF (@max_stock_orders IS NULL)
+							SET @max_stock_orders = 32000
+
+						TRUNCATE TABLE #count_orders
+
+						INSERT	#count_orders (order_no, order_ext, rec_count)
+						SELECT	o.order_no, o.ext, COUNT(1)
+						FROM	#orders o (NOLOCK)
+						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						LEFT JOIN #cvo_customer_qualifications_attribute a
+						ON		v.attribute = a.attribute
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+						AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+						AND		LEFT(o.user_category,2) = 'ST'
+						AND		RIGHT(o.user_category,2) <> 'RB'
+						GROUP BY o.order_no, o.ext
+						HAVING SUM(piece_qty) >= @stock_orders_pieces
+		
+						SET @order_cnt = 0
+						SELECT	@order_cnt =COUNT(1)
+						FROM	#count_orders
+
+						IF (@order_cnt < @min_stock_orders OR @order_cnt > @max_stock_orders)
+						BEGIN 
+							SELECT @achived = 0
+							SET @fail_reason = 'Customer/Ship To does not qualify for promotion - Stock Orders do not fall within the minimum/maximum number for the pieces specified.' 					
+						END
+					END
+				END
+			END
+
+			-- RX Orders
+			IF (@achived = 1)
+			BEGIN
+				IF ISNULL(@brand,'') <> '' AND ISNULL(@category,'') = ''
+				BEGIN
+
+					IF (ISNULL(@min_rx_orders,0) > 0 OR ISNULL(@max_rx_orders,0) > 0)
+					BEGIN
+						IF (@min_rx_orders IS NULL)
+							SET @min_rx_orders = 0
+						IF (@max_rx_orders IS NULL)
+							SET @max_rx_orders = 32000
+
+						TRUNCATE TABLE #count_orders
+
+						INSERT	#count_orders (order_no, order_ext, rec_count)
+						SELECT	o.order_no, o.ext, COUNT(1)
+						FROM	#orders o (NOLOCK)
+						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						LEFT JOIN #cvo_customer_qualifications_attribute a
+						ON		v.attribute = a.attribute
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+						AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+						AND		LEFT(o.user_category,2) = 'RX'
+						AND		RIGHT(o.user_category,2) <> 'RB'
+						GROUP BY o.order_no, o.ext
+		
+						SET @order_cnt = 0
+						SELECT	@order_cnt =COUNT(1)
+						FROM	#count_orders
+
+						IF (@order_cnt < @min_rx_orders OR @order_cnt > @max_rx_orders)
+						BEGIN 
+							SELECT @achived = 0
+							SET @fail_reason = 'Customer/Ship To does not qualify for promotion - RX Re-Orders do not fall within the minimum/maximum number specified.' 					
+						END
+					END
+				END
+			END
+
+			IF (@achived = 1)
+			BEGIN
+				IF ISNULL(@brand,'') = '' AND ISNULL(@category,'') <> ''
+				BEGIN
+
+					IF (ISNULL(@min_rx_orders,0) > 0 OR ISNULL(@max_rx_orders,0) > 0)
+					BEGIN
+						IF (@min_rx_orders IS NULL)
+							SET @min_rx_orders = 0
+						IF (@max_rx_orders IS NULL)
+							SET @max_rx_orders = 32000
+
+						TRUNCATE TABLE #count_orders
+
+						INSERT	#count_orders (order_no, order_ext, rec_count)
+						SELECT	o.order_no, o.ext, COUNT(1)
+						FROM	#orders o (NOLOCK)
+						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						LEFT JOIN #cvo_customer_qualifications_attribute a
+						ON		v.attribute = a.attribute
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+						AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+						AND		LEFT(o.user_category,2) = 'RX'
+						AND		RIGHT(o.user_category,2) <> 'RB'
+						GROUP BY o.order_no, o.ext
+		
+						SET @order_cnt = 0
+						SELECT	@order_cnt =COUNT(1)
+						FROM	#count_orders
+
+						IF (@order_cnt < @min_rx_orders OR @order_cnt > @max_rx_orders)
+						BEGIN 
+							SELECT @achived = 0
+							SET @fail_reason = 'Customer/Ship To does not qualify for promotion - RX Re-Orders do not fall within the minimum/maximum number specified.' 									
+						END
+					END
+				END
+			END
+
+			IF (@achived = 1)
+			BEGIN
+				IF ISNULL(@brand,'') <> '' AND ISNULL(@category,'') <> ''
+				BEGIN
+
+					IF (ISNULL(@min_rx_orders,0) > 0 OR ISNULL(@max_rx_orders,0) > 0)
+					BEGIN
+						IF (@min_rx_orders IS NULL)
+							SET @min_rx_orders = 0
+						IF (@max_rx_orders IS NULL)
+							SET @max_rx_orders = 32000
+
+						TRUNCATE TABLE #count_orders
+
+						INSERT	#count_orders (order_no, order_ext, rec_count)
+						SELECT	o.order_no, o.ext, COUNT(1)
+						FROM	#orders o (NOLOCK)
+						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						LEFT JOIN #cvo_customer_qualifications_attribute a
+						ON		v.attribute = a.attribute
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+						AND		((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+						AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+						AND		LEFT(o.user_category,2) = 'RX'
+						AND		RIGHT(o.user_category,2) <> 'RB'
+						GROUP BY o.order_no, o.ext
+		
+						SET @order_cnt = 0
+						SELECT	@order_cnt =COUNT(1)
+						FROM	#count_orders
+
+						IF (@order_cnt < @min_rx_orders OR @order_cnt > @max_rx_orders)
+						BEGIN 
+							SELECT @achived = 0
+							SET @fail_reason = 'Customer/Ship To does not qualify for promotion - RX Re-Orders do not fall within the minimum/maximum number specified.' 		
+						END
+					END
+				END
+			END
+
+			IF (@achived = 1)
+			BEGIN
+				IF ISNULL(@brand,'') = '' AND ISNULL(@category,'') = ''
+				BEGIN
+
+					IF (ISNULL(@min_rx_orders,0) > 0 OR ISNULL(@max_rx_orders,0) > 0)
+					BEGIN
+						IF (@min_rx_orders IS NULL)
+							SET @min_rx_orders = 0
+						IF (@max_rx_orders IS NULL)
+							SET @max_rx_orders = 32000
+
+						TRUNCATE TABLE #count_orders
+
+						INSERT	#count_orders (order_no, order_ext, rec_count)
+						SELECT	o.order_no, o.ext, COUNT(1)
+						FROM	#orders o (NOLOCK)
+						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						LEFT JOIN #cvo_customer_qualifications_attribute a
+						ON		v.attribute = a.attribute
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+						AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+						AND		LEFT(o.user_category,2) = 'RX'
+						AND		RIGHT(o.user_category,2) <> 'RB'
+						GROUP BY o.order_no, o.ext
+		
+						SET @order_cnt = 0
+						SELECT	@order_cnt =COUNT(1)
+						FROM	#count_orders
+
+						IF (@order_cnt < @min_rx_orders OR @order_cnt > @max_rx_orders)
+						BEGIN 
+							SELECT @achived = 0
+							SET @fail_reason = 'Customer/Ship To does not qualify for promotion - RX Re-Orders do not fall within the minimum/maximum number specified.' 				
+						END
+					END
+				END
+			END
+			-- v3.8 End
+
+
+
 			-- Verify if conditions were achived	
 			IF @achived > 0 
 			BEGIN

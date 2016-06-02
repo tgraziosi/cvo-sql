@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -9,8 +8,9 @@ CREATE procedure [dbo].[adm_rpt_poform] @order int = 0, @po_no varchar(16) = '',
 begin
 set nocount on
 
---v2.0	TM	04/18/2012 - Place Product Type into Project_3
---v2.1  CB	24/11/2015 - Outsourcing - replace make process with final frame part number and description
+-- v2.0	 TM	04/18/2012 - Place Product Type into Project_3
+-- v2.1  CB	24/11/2015 - Outsourcing - replace make process with final frame part number and description
+-- v2.2  CB 10/03/2016 - Issue #1574 - Outsourcing  
 create table #po (po_key int, po_ext int NULL, printed char(1))
 
 select @range = replace(@range,'"','''')
@@ -329,8 +329,8 @@ where r.l_part_no = i.part_no											--v2.0
 
 -- v2.1 Start
 UPDATE	a
-SET		l_part_no = c.asm_no,
-		l_description = d.description
+SET		l_part_no = LEFT(c.asm_no,CHARINDEX('-',c.asm_no)-1), -- v2.2 c.asm_no,
+		l_description = LEFT(d.description,CHARINDEX('-',d.description)-1) -- v2.2 d.description
 FROM	#rpt_poform a
 JOIN	inv_master b (NOLOCK)
 ON		a.l_part_no = b.part_no 

@@ -26,6 +26,7 @@ GO
 -- v1.21	CT	03/07/13 - Fix to stop duplicate free frame lines from being written for subscription promos
 -- v1.22	CT	07/08/13 - Issue #864 - If promo is a drawdown, then store which line qualifications passed
 -- v1.23	CT	07/01/14 - Issue #1435 - For 2 colour check, only evaluate order lines which are FRAME/SUN if there is no category specified in the query
+-- v1.3		CB	12/05/2016 - Fix issue with attribute check
 
 CREATE PROCEDURE [dbo].[CVO_verify_order_quali_sp]	@order_no INT = 0, 
 													@ext INT = 0,  
@@ -1132,8 +1133,12 @@ where a.order_no = @order_no and a.order_ext = @ext
 			-- Check if any frames/suns on order have attributes not defined for qualification line
 			IF (ISNULL(@attribute,0) <> 0) AND (@achived = 1)
 			BEGIN
-				IF EXISTS (SELECT 1 FROM #ord_list WHERE category IN ('FRAME','SUN') AND attribute NOT IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
+				-- v1.3 Start
+				--IF EXISTS (SELECT 1 FROM #ord_list WHERE category IN ('FRAME','SUN') AND attribute NOT IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
+				--															  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O'))
+				IF NOT EXISTS (SELECT 1 FROM #ord_list WHERE category IN ('FRAME','SUN') AND attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
 																			  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O'))
+				-- v1.3 End
 				BEGIN
 					SELECT @achived = 0
 					IF @and = 'Y'

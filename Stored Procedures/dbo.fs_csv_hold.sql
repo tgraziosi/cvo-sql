@@ -9,6 +9,7 @@ GO
 -- v1.4 CB 12/01/2015 - #572 - Stock Consolidation
 -- v1.5 CB 11/09/2015 - #1514 - Add user
 -- v1.6 CB 29/09/2015 - #1570 - Add promo to release user hold
+-- v1.7 CB 23/05/2016 - Fixed hold reason desc not showing
 
 -- EXEC fs_csv_hold '035192','C','%'
 -- EXEC fs_csv_hold '038318','C','**CHILD**'
@@ -171,7 +172,7 @@ UPDATE	#thold
 SET		user_hold_desc = b.hold_reason
 FROM	#thold a
 JOIN	adm_oehold b (NOLOCK)
-on		a.user_hold = b.hold_code
+on		a.reason = b.hold_code -- v1.7
 
 -- v1.4 Start
 DELETE	#thold

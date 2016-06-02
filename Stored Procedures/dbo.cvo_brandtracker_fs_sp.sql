@@ -5,7 +5,7 @@ GO
 
 -- 8/18/2015 - when calculating FirstOrder units, don't qualify on promo/level, only on promo
 
--- exec cvo_brandtracker_fs_sp '1/1/2015', null, 'bt', null, 50505, 'aspire', '1.1', 0
+-- exec cvo_brandtracker_fs_sp '1/1/2015', null, 'as', null, 50505, 'aspire', '1.1,1,2,3,launch', null, null, 0
 
 CREATE procedure [dbo].[cvo_brandtracker_fs_sp]
 @df datetime = null -- fromdate
@@ -13,8 +13,10 @@ CREATE procedure [dbo].[cvo_brandtracker_fs_sp]
 , @b varchar(1024) = null -- brand
 , @a varchar(1024) = null -- attribute
 , @t varchar(1024) = null -- territory
-, @p VARCHAR(20) = NULL -- highlight promo
-, @l VARCHAR(20) = NULL -- highlight level
+, @bp VARCHAR(1024) = NULL -- buyin promo list
+, @bl VARCHAR(1024) = NULL -- buyin levels
+, @p VARCHAR(1024) = NULL -- highlight promo
+, @l VARCHAR(1024) = NULL -- highlight level
 , @debug int = 0
 as 
 
@@ -25,10 +27,13 @@ declare @datefrom datetime
 , @brand varchar(1024) 
 , @attrib varchar(1024)
 , @terr varchar(1024) 
-, @promo_id VARCHAR(20)
-, @promo_level VARCHAR(20)
+, @fpromo_id VARCHAR(1024)
+, @fpromo_level VARCHAR(1024)
+, @bpromo_id VARCHAR(1024)
+, @bpromo_level VARCHAR(1024)
 
-select @datefrom = @df, @dateto = @dto, @brand = @b, @terr = @t, @attrib = @a, @promo_id = @p, @promo_level = @l
+
+select @datefrom = @df, @dateto = @dto, @brand = @b, @terr = @t, @attrib = @a, @fpromo_id = @p, @fpromo_level = @l, @bpromo_id = @bp, @bpromo_level = @bl
 -- select @attrib = null
 
 IF(OBJECT_ID('tempdb.dbo.#brand') is not null)  drop table #brand
@@ -39,6 +44,18 @@ create table #terr ( terr varchar(10))
 
 IF(OBJECT_ID('tempdb.dbo.#attrib') is not null)  drop table #attrib
 create table #attrib ( attrib varchar(20))
+
+IF(OBJECT_ID('tempdb.dbo.#bp') is not null)  drop table #bp
+create table #bp ( bp varchar(10))
+
+IF(OBJECT_ID('tempdb.dbo.#bl') is not null)  drop table #bl
+create table #bl ( bl VARCHAR(10))
+
+IF(OBJECT_ID('tempdb.dbo.#fp') is not null)  drop table #fp
+create table #fp ( fp varchar(10))
+
+IF(OBJECT_ID('tempdb.dbo.#fl') is not null)  drop table #fl
+create table #fl ( fl varchar(10))
 
 IF(OBJECT_ID('tempdb.dbo.#t') is not null)  drop table #t
 
@@ -80,6 +97,60 @@ begin
 	select  distinct listitem from dbo.f_comma_list_to_table(@terr)
 end
 
+if isnull(@bpromo_id,'') = ''
+begin
+	insert #BP (BP) 
+	select distinct PROMO_id from cvo_promotions (nolock) where isnull(promo_id,'') > '' AND void <> 'v'
+end
+else
+begin
+	insert #bp (bp)
+	select  distinct listitem from dbo.f_comma_list_to_table(@bpromo_id)
+end
+
+IF isnull(@bpromo_level,'') = ''
+begin
+	insert #Bl (Bl) 
+	select distinct PROMO_id from cvo_promotions (nolock) 
+	JOIN #bp ON promo_id = #bp.bp
+	WHERE isnull(promo_level,'') > '' 
+end
+else
+begin
+	insert #bl (bl)
+	select  distinct listitem 
+	FROM dbo.f_comma_list_to_table(@bpromo_level)
+END
+
+
+if isnull(@fpromo_id,'') = ''
+begin
+	insert #fP (fP) 
+	select distinct PROMO_id from cvo_promotions (nolock) where isnull(promo_id,'') > '' AND void <> 'v'
+end
+else
+begin
+	insert #fp (fp)
+	select  distinct listitem from dbo.f_comma_list_to_table(@fpromo_id)
+end
+
+IF isnull(@fpromo_level,'') = ''
+begin
+	insert #fl (fl) 
+	select distinct PROMO_id from cvo_promotions (nolock) 
+	JOIN #fp ON promo_id = #fp.fp
+	WHERE isnull(promo_level,'') > '' 
+end
+else
+begin
+	insert #fl (fl)
+	select  distinct listitem 
+	FROM dbo.f_comma_list_to_table(@fpromo_level)
+END
+
+
+-- get first order information based on buy-in promo list
+
 select 
 ar.territory_code, ar.customer_code,  ar.customer_name
 , ar.contact_name, ar.contact_phone, ar.contact_email
@@ -111,11 +182,15 @@ inner join inv_master i on b.brand = i.category
 inner join inv_master_add ia on ia.part_no = i.part_no
 inner join #attrib a on a.attrib = ISNULL(ia.field_32,'')
 inner join cvo_sbm_details sbm on sbm.part_no = i.part_no
+INNER JOIN #bp ON #bp.bp = sbm.promo_id
+INNER JOIN #bl ON #bl.bl = sbm.promo_level
 where 1=1
 and i.type_code in ('frame','sun')
-and sbm.user_category like 'ST%' and right(sbm.user_category,2) <> 'rb'
+-- and sbm.user_category like 'ST%' 
+AND right(sbm.user_category,2) <> 'rb'
 and ISNULL(sbm.promo_id,'') NOT IN ('pc','ff','style out') 
-and dateordered between @datefrom and @dateto
+-- and dateordered between @datefrom and @dateto
+and sbm.yyyymmdd between @datefrom and @dateto
 group BY b.brand, i.type_code, CASE WHEN @attrib is NULL THEN '' ELSE ISNULL(ia.field_32,'') END , customer
 ) as bb on bb.customer = ar.customer_code 
 
@@ -125,7 +200,7 @@ SELECT
  #t.customer_code
  ,#t.type_code
 , sum(ISNULL(qnet,0)) units
-, 'FO' sale_type
+, 'BI' sale_type
 INTO #v
 FROM
  #t
@@ -133,6 +208,8 @@ inner join inv_master i on i.category=#t.brand AND i.type_code = #t.type_code
 inner join inv_master_add ia on ia.part_no = i.part_no
 inner join #attrib a on a.attrib = ISNULL(ia.field_32,'')
 INNER JOIN cvo_sbm_details sbm ON sbm.customer = #t.customer_code AND sbm.part_no = i.part_no
+INNER JOIN #bp ON #bp.bp = sbm.promo_id
+INNER JOIN #bl ON #bl.bl = sbm.promo_level
 where 1=1
 and ISNULL(sbm.promo_id,'') NOT IN ('pc','ff','style out') 
 AND RIGHT(sbm.user_category,2) <> 'rb' 
@@ -156,7 +233,7 @@ INNER JOIN cvo_sbm_details sbm ON sbm.customer = #t.customer_code AND sbm.part_n
 where 1=1
 and ISNULL(sbm.promo_id,'') NOT IN ('pc','ff','style out') 
 AND LEFT(sbm.user_category,2) in ('rx') AND RIGHT(sbm.user_category,2) <> 'rb'
-and sbm.DateOrdered between DATEADD(dd,1,#t.first_order_date) and @dateto
+and sbm.yyyymmdd between DATEADD(dd,1,#t.first_order_ship) and @dateto
 GROUP BY 
 #t.customer_code, #t.type_code
 
@@ -177,7 +254,7 @@ and ISNULL(sbm.promo_id,'')  IN ('pc','ff','style out')
 AND RIGHT(sbm.user_category,2) <> 'rb'
 -- AND sbm.return_code <> 'exc'
 -- and sbm.DateOrdered between DATEADD(dd,1,#t.first_order_date) and @dateto
-and sbm.DateOrdered between @datefrom and @dateto
+and sbm.yyyymmdd between @datefrom and @dateto
 GROUP BY 
 #t.customer_code, #t.type_code
 
@@ -197,7 +274,7 @@ where 1=1
 and ISNULL(sbm.promo_id,'') NOT IN ('pc','ff','style out') 
 AND LEFT(sbm.user_category,2) IN ('ST','') AND RIGHT(sbm.user_category,2) <> 'rb'
 -- AND sbm.return_code <> 'exc'
-and sbm.DateOrdered between DATEADD(dd,1,#t.first_order_date) and @dateto
+and sbm.yyyymmdd between DATEADD(dd,1,#t.first_order_ship) and @dateto
 GROUP BY 
 #t.customer_code, #t.type_code
 
@@ -228,16 +305,20 @@ begin
 end
 
 
-IF @promo_id IS NOT NULL AND @promo_level IS NOT NULL
+IF EXISTS (SELECT 1 fp FROM #fp) -- @promo_id IS NOT NULL AND @promo_level IS NOT NULL
 begin
 	UPDATE #t SET highlight_ship_date = s.h_date
 	FROM 
 	#t 
 	INNER JOIN
-	(SELECT customer, MIN(dateordered) h_date
+	(SELECT customer, MIN(yyyymmdd) h_date
 	FROM  dbo.cvo_sbm_details  sbm
-	where promo_id = @promo_id AND promo_level = @promo_level
-		 and yyyymmdd between @datefrom and @dateto
+	INNER JOIN #fp ON #fp.fp = sbm.promo_id
+	INNER JOIN #fl ON #fl.fl = sbm.promo_level
+
+	WHERE 1=1 
+	-- promo_id = @promo_id AND promo_level = @promo_level
+		 and sbm.yyyymmdd between @datefrom and @dateto
 		 and user_category like 'ST%' and right(user_category,2) <> 'rb'
 		 -- AND sbm.return_code <> 'exc'
 	GROUP BY customer 
@@ -269,6 +350,7 @@ select DISTINCT #t.territory_code ,
   LEFT OUTER JOIN #v ON #v.customer_code = #t.customer_code AND #v.type_code = #t.type_code
  WHERE 1=1
 order by customer_code
+
 
 
 GO

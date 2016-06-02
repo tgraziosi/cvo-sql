@@ -8,12 +8,14 @@ CREATE PROCEDURE [dbo].[cvo_territory_sales_goal_tracker_r2016_sp]
     @territory VARCHAR(1000) = NULL -- multi-valued parameter
 AS
     SET NOCOUNT ON;
+	SET ANSI_WARNINGS OFF;
+
     BEGIN
 
--- exec cvo_territory_sales_goal_tracker_r2016_sp 2016, '20201,20202'
+-- exec cvo_territory_sales_goal_tracker_r2016_sp 2016
 
 --DECLARE @compareyear INT, @territory VARCHAR(1000)
---SELECT @compareyear = 2015, @territory = '20201'
+--SELECT @compareyear = 2016, @territory = null
 
 
         DECLARE @cy INT ,
@@ -55,6 +57,8 @@ AS
                                        ( DATEADD(YEAR, ( @cy ) - 1900 + 1,
                                                  '01-01-1900') ))
                      END;
+
+	   -- SELECT @sdate, @edate
 
         IF ( OBJECT_ID('tempdb.dbo.#temp') IS NOT NULL )
             DROP TABLE #temp;
@@ -108,26 +112,36 @@ AS
 
 -- SELECT * FROM #territory AS t
 
--- get workdays info
-        DECLARE @workday INT ,
-            @totalworkdays INT ,
-            @pct_month FLOAT;
-        SELECT  @workday = dbo.cvo_f_get_work_days(CONVERT(VARCHAR(25), DATEADD(dd,
-                                                              -( DAY(@today)
-                                                              - 1 ), @today), 101),
-                                                   DATEADD(d, -1, @today)); 
+-- code in report to figure out pct_year
+/*
+SELECT pct_year = 
+		(SELECT SUM(pct_sales) FROM cvo_dmd_mult
+		WHERE asofdate <= dd.today AND obs_date IS NULL
+		AND mm < MONTH(dd.today))
+		+
+		(SELECT (pct_sales * (CAST(dd.workday AS FLOAT)/CAST(dd.totalworkdays AS FLOAT)))
+			FROM dbo.cvo_dmd_mult AS cdm
+			WHERE ASofdate <= dd.today AND obs_date IS NULL		
+			AND mm = MONTH(dd.today))
+		, dd.Today
+		, dd.WorkDay
+		, dd.TotalWorkDays
 
-        SELECT  @totalworkdays = dbo.cvo_f_get_work_days(CONVERT(VARCHAR(25), DATEADD(dd,
-                                                              -( DAY(@today)
-                                                              - 1 ), @today), 101),
-                                                         CONVERT(VARCHAR(25), DATEADD(dd,
-                                                              -( DAY(DATEADD(mm,
-                                                              1, @today)) ),
-                                                              DATEADD(mm, 1,
-                                                              @today)), 101));
-
-        SELECT  @pct_month = CAST(@workday AS FLOAT)
-                / CAST(@totalworkdays AS FLOAT);
+FROM 
+( SELECT  Today = ( SELECT    EndDate
+                  FROM      dbo.cvo_date_range_vw AS cdrv
+                  WHERE     Period = 'month to date'
+                ) ,
+        WorkDay = ( SELECT  dbo.cvo_f_get_work_days(BeginDate, EndDate)
+                    FROM    dbo.cvo_date_range_vw AS cdrv
+                    WHERE   Period = 'MONTH TO DATE'
+                ) ,
+        TotalWorkDays = ( SELECT    dbo.cvo_f_get_work_days(BeginDate, EndDate)
+                          FROM      dbo.cvo_date_range_vw AS cdrv
+                          WHERE     Period = 'THIS MONTH'
+                 )
+) DD
+*/
 
 -- get TY net sales for core, revo and blutech
         SELECT  a.territory_code ,
@@ -136,7 +150,8 @@ AS
                 SUM(ISNULL(CASE WHEN i.type_code IN ( 'frame', 'sun' )
                                 THEN c.qnet
                            END, 0)) qnet ,
-                tot = CASE WHEN ISNULL(i.category, 'Core') IN ( 'revo', 'bt' )
+				CAST(0 AS INT)  numprog,
+                tot = CASE WHEN ISNULL(i.category, 'Core') IN ( 'revo', 'BT' )
                            THEN i.category
                            ELSE 'Core'
                       END
@@ -151,10 +166,11 @@ AS
                 AND ( yyyymmdd BETWEEN @sdate AND @edate )
         GROUP BY a.territory_code ,
                 c.year ,
-                CASE WHEN ISNULL(i.category, 'Core') IN ( 'revo', 'bt' )
+                CASE WHEN ISNULL(i.category, 'Core') IN ( 'revo', 'BT' )
                      THEN i.category
                      ELSE 'Core'
                 END;
+
 
 -- fill in the blanks so that all buckets are covered
 -- select * from #temp
@@ -165,6 +181,7 @@ AS
                         @cy AS Year ,
                         0 anet ,
                         0 qnet ,
+						0 numprog,
                         'Core'
                 FROM    #territory AS t
                 WHERE   NOT EXISTS ( SELECT 1
@@ -178,12 +195,13 @@ AS
                         @cy AS Year ,
                         0 anet ,
                         0 qnet ,
+						0 numprog,
                         'BT'
                 FROM    #territory AS t
                 WHERE   NOT EXISTS ( SELECT 1
                                      FROM   #temp
                                      WHERE  #temp.territory_code = t.territory
-                                            AND tot = 'bt' );
+                                            AND tot = 'BT' );
 	
         INSERT  INTO #temp
                 SELECT   DISTINCT
@@ -191,18 +209,121 @@ AS
                         @cy AS Year ,
                         0 anet ,
                         0 qnet ,
+						0 numprog,
                         'REVO'
                 FROM    #territory AS t
                 WHERE   NOT EXISTS ( SELECT 1
                                      FROM   #temp
                                      WHERE  #temp.territory_code = t.territory
-                                            AND tot = 'revo' );
+                                            AND tot = 'REVO' );
+
+
+-- get TY num programs for revo and blutech
+IF ( OBJECT_ID('tempdb.dbo.#promotrkr') IS NOT NULL )
+            DROP TABLE #promotrkr;
+IF ( OBJECT_ID('tempdb.dbo.#r') IS NOT NULL )
+            DROP TABLE #r;
+IF ( OBJECT_ID('tempdb.dbo.#ty') IS NOT NULL )
+            DROP TABLE #ty;
+IF ( OBJECT_ID('tempdb.dbo.#s1') IS NOT NULL )
+            DROP TABLE #s1;
+
+
+
+SELECT 
+o.order_no, o.ext, o.total_amt_order, o.total_invoice, o.orig_no, o.orig_ext, 
+t.territory, o.cust_code, o.ship_to,
+o.promo_id, o.promo_level, o.order_type, 
+o.FramesOrdered, o.FramesShipped, o.back_ord_flag, o.Cust_type, 
+cast('1/1/1900' as datetime) as return_date,
+space(40) as reason,
+cast(0.00 as decimal(20,8)) as return_amt,
+0 as return_qty,
+o.source
+, qual_order = 0
+, uc = 0
+
+into #promotrkr
+
+FROM  #territory t 
+INNER join cvo_adord_vw AS o WITH (nolock) on t.territory = o.territory
+where 1=1
+AND o.promo_id IN ('revo','Blue') and o.promo_level in ('launch 1','launch 2','launch 3','1','kids','suns')
+AND o.date_entered BETWEEN @sdate AND @edate
+AND o.who_entered <> 'backordr' -- 1/18/2016
+and o.status <> 'V' -- 110714 - exclude void orders
+
+-- SELECT * FROM #promotrkr AS p
+
+-- Collect the returns
+
+select o.orig_no order_no, o.orig_ext ext,
+	return_date = o.date_entered, 
+	reason = min(rc.return_desc)
+into #r
+from #promotrkr t inner join  orders o (nolock) on t.order_no = o.orig_no and t.ext = o.orig_ext
+ inner join ord_list ol (nolock) on   ol.order_no = o.order_no and ol.order_ext = o.ext
+ INNER JOIN inv_master i(nolock) ON ol.part_no = i.part_no 
+ INNER JOIN po_retcode rc(nolock) ON ol.return_code = rc.return_code
+ WHERE 1=1
+ -- and LEFT(ol.return_code, 2) <> '05' -- AND i.type_code = 'sun'
+  AND o.status = 't' and o.type = 'c' 
+  and (o.total_invoice = t.total_invoice or o.total_amt_order = t.total_amt_order)
+group by o.orig_no, o.orig_ext, o.date_entered, o.total_amt_order -- o.total_invoice
+
+
+update t set 
+t.return_date = #r.return_date,
+t.reason = #r.reason
+from #r , #promotrkr t where #r.order_no = t.order_no and #r.ext = t.ext
+
+--select * from #r
+--select * From #promotrkr
+
+update t set uc = 1
+	from 
+	(select cust_code, promo_id, min(order_no) min_order from #promotrkr 
+		inner join cvo_armaster_all car (nolock) on car.customer_code = #promotrkr.cust_code
+			and car.ship_to = #promotrkr.ship_to
+		where source <> 'T' and (isnull(reason,'') = '' 
+		and not exists (select 1 from cvo_promo_override_audit poa 
+			where poa.order_no = #promotrkr.order_no and poa.order_ext = #promotrkr.ext))
+		and car.door = 1
+		group by cust_code, promo_id
+	) as m 	inner join #promotrkr t 
+	on t.cust_code = m.cust_code and t.promo_id = m.promo_id and t.order_no = m.min_order
+ 
+UPDATE t SET qual_order =  case when source = 'T' then 0 
+when isnull(reason,'') = '' and not exists (select 1 from cvo_promo_override_audit poa where poa.order_no = t.order_no and poa.order_ext = t.ext) then 1 
+else 0 END
+FROM #promotrkr t
+
+
+INSERT INTO #temp
+SELECT 
+Territory,
+YEAR(@today) AS year,
+0 AS anet,
+0 AS qnet,
+SUM(qual_order) numprog,
+tot = CASE WHEN promo_id = 'blue' THEN 'BT'
+	 WHEN promo_id = 'revo' THEN 'REVO'
+	ELSE 'xxx' end 
+from #promotrkr 
+GROUP BY CASE WHEN promo_id = 'blue' THEN 'BT'
+         WHEN promo_id = 'revo' THEN 'REVO'
+         ELSE 'xxx'
+         END ,
+         Territory
+
+
 -- get this year figures
 
         SELECT  a.territory_code ,
                 a.Year ,
                 SUM(a.anet) anet ,
                 SUM(a.qnet) qnet ,
+				SUM(a.numprog) numprog,
                 a.tot
         INTO    #ty
         FROM    #temp a
@@ -210,6 +331,7 @@ AS
         GROUP BY a.territory_code ,
                 a.Year ,
                 a.tot;
+
 
 -- fixup sales person names
 
@@ -238,8 +360,12 @@ AS
                 Year ,
                 ROUND(anet, 2) anet ,
                 qnet ,
+				CAST(numprog AS INT) numprog,
                 tot ,
-                #s1.region ,
+				Actual = CASE WHEN tot = 'Core' THEN ROUND(anet, 2)
+						 WHEN tot IN ('BT','Revo') THEN numprog end ,
+				Goal = 0,
+                #s1.region  Region,
                 #s1.r_id ,
                 #s1.t_id
         FROM    #ty -- ty
@@ -250,7 +376,10 @@ AS
                 @cy AS yyear ,
                 ISNULL(g.Core_Goal_Amt, 0) AS anet ,
                 0 AS qnet ,
+				CAST(0 AS INT) numprog,
                 'Core' tot ,
+				Actual = 0 ,
+				Goal = ISNULL(g.Core_Goal_Amt, 0),
                 terr.region ,
                 #s1.r_id ,
                 #s1.t_id
@@ -263,9 +392,12 @@ AS
         SELECT  g.Territory_Code ,
                 'Goal' AS salesperson_code ,
                 @cy AS yyear ,
-                ISNULL(g.Revo_Goal_Amt, 0) AS anet ,
+                0 AS anet ,
                 0 AS qnet ,
+				CAST(ISNULL(g.Revo_Goal_Amt,0) AS INT) AS numprog,
                 'Revo' tot ,
+				Actual = 0,
+				Goal = CAST(ISNULL(g.Revo_Goal_Amt,0) AS INT),
                 terr.region ,
                 #s1.r_id ,
                 #s1.t_id
@@ -278,9 +410,12 @@ AS
         SELECT  g.Territory_Code ,
                 'Goal' AS salesperson_code ,
                 @cy AS yyear ,
-                ISNULL(g.Blutech_Goal_Amt, 0) AS anet ,
+                0 AS anet,
                 0 AS qnet ,
+				CAST(ISNULL(g.Blutech_Goal_Amt, 0) AS INT) AS numprog,
                 'BT' tot ,
+				Actual = 0,
+				Goal = CAST(ISNULL(g.Blutech_Goal_Amt,0) AS INT),
                 terr.region ,
                 #s1.r_id ,
                 #s1.t_id
@@ -291,8 +426,5 @@ AS
                 AND ( g.Stat_Year = CAST(@cy AS VARCHAR(5)) );
 	
     END;
-
-
-
 
 GO

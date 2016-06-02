@@ -376,7 +376,7 @@ BEGIN
 	-- v1.8 Start
 	IF (OBJECT_ID('tempdb..#exclusions') IS NOT NULL)
 	BEGIN
-		INSERT	#exclusions
+		INSERT	#exclusions (order_no, order_ext, has_line_exc) -- v1.9
 		SELECT	order_no, order_ext, 0
 		FROM	#cf_allocs
 		WHERE	no_stock = 1

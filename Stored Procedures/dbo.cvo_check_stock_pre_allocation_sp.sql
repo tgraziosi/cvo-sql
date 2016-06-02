@@ -24,14 +24,16 @@ BEGIN
 			@in_stock_ex	decimal(20,8),
 			@alloc_qty		decimal(20,8),
 			@quar_qty		decimal(20,8),
-			@sa_qty			decimal(20,8)
+			@sa_qty			decimal(20,8),
+			@soft_alloc_no	int -- v1.2
 
 	-- Create working tables 
 	CREATE TABLE #order_hdr (
 		row_id			int IDENTITY(1,1),
 		order_no		int,
 		order_ext		int,
-		no_stock		int)
+		no_stock		int,
+		soft_alloc_no	int) -- v1.2
 
 	CREATE TABLE #order_det (
 		line_row_id		int IDENTITY(1,1),
@@ -48,8 +50,8 @@ BEGIN
 		   apptype   varchar(20))  
 
 	-- Populate working table with orders that will be processed by the soft allocation routine
-	INSERT	#order_hdr (order_no, order_ext, no_stock)
-	SELECT	DISTINCT a.order_no, a.order_ext, 0
+	INSERT	#order_hdr (order_no, order_ext, no_stock, soft_alloc_no) -- v1.2
+	SELECT	DISTINCT a.order_no, a.order_ext, 0, a.soft_alloc_no -- v1.2
 	FROM	dbo.cvo_soft_alloc_hdr a (NOLOCK)
 	JOIN	dbo.cvo_soft_alloc_det b (NOLOCK)
 	ON		a.soft_alloc_no = b.soft_alloc_no
@@ -71,7 +73,8 @@ BEGIN
 
 	SELECT	TOP 1 @row_id = row_id,
 			@order_no = order_no,
-			@order_ext = order_ext
+			@order_ext = order_ext,
+			@soft_alloc_no = soft_alloc_no -- v1.2
 	FROM	#order_hdr
 	WHERE	row_id > @last_row_id
 	ORDER BY row_id ASC
@@ -165,6 +168,7 @@ BEGIN
 			AND  (CAST(a.order_no AS varchar(10)) + CAST(a.order_ext AS varchar(5))) <> (CAST(@order_no AS varchar(10)) + CAST(@order_ext AS varchar(5)))    
 			AND  a.location = @location  
 			AND  a.part_no = @part_no  
+			AND	a.soft_alloc_no < @soft_alloc_no -- v1.2
   
 			IF (@sa_qty IS NULL)  
 			 SET @sa_qty = 0  
@@ -201,7 +205,8 @@ BEGIN
 
 		SELECT	TOP 1 @row_id = row_id,
 				@order_no = order_no,
-				@order_ext = order_ext
+				@order_ext = order_ext,
+				@soft_alloc_no = soft_alloc_no -- v1.2
 		FROM	#order_hdr
 		WHERE	row_id > @last_row_id
 		ORDER BY row_id ASC

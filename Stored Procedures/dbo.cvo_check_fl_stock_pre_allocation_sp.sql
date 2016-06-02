@@ -25,14 +25,19 @@ BEGIN
 			@in_stock_ex	decimal(20,8),
 			@alloc_qty		decimal(20,8),
 			@quar_qty		decimal(20,8),
-			@sa_qty			decimal(20,8)
+			@sa_qty			decimal(20,8),
+			@soft_alloc_no	int, -- v1.1
+			@total_ordered	decimal(20,8), -- v1.2
+			@total_available decimal(20,8), -- v1.2
+			@perc			decimal(20,8) -- v1.2
 
 	-- Create working tables 
 	CREATE TABLE #order_hdr (
 		row_id			int IDENTITY(1,1),
 		order_no		int,
 		order_ext		int,
-		no_stock		int)
+		no_stock		int,
+		perc_available	decimal(20,8)) -- v1.2
 
 	CREATE TABLE #order_det (
 		line_row_id		int IDENTITY(1,1),
@@ -49,8 +54,8 @@ BEGIN
 		   apptype   varchar(20))  
 
 	-- Populate working table with orders that will be processed by the soft allocation routine
-	INSERT	#order_hdr (order_no, order_ext, no_stock)
-	SELECT	@order_no_in, @order_ext_in, 0
+	INSERT	#order_hdr (order_no, order_ext, no_stock, perc_available) -- v1.2
+	SELECT	@order_no_in, @order_ext_in, 0, 0 -- v1.2
 
 	IF (@@ROWCOUNT = 0) -- No records to process
 		RETURN
@@ -75,7 +80,7 @@ BEGIN
 		SELECT	location,
 				line_no,
 				part_no,
-				ordered,
+				ordered - shipped, -- v1.2
 				0
 		FROM	ord_list (NOLOCK)
 		WHERE	order_no = @order_no
@@ -148,13 +153,23 @@ BEGIN
 			IF (@quar_qty IS NULL)  
 			 SET @quar_qty = 0  
 
-  
+			-- v1.1 Start
+			 SELECT @soft_alloc_no = soft_alloc_no
+			 FROM	cvo_soft_alloc_hdr (NOLOCK)
+			 WHERE	order_no = @order_no
+			 AND	order_ext = @order_ext
+
+			 IF (@soft_alloc_no IS NULL)
+				SET @soft_alloc_no = 9999999999
+			-- v1.1 End  
+
 			SELECT @sa_qty = ISNULL(SUM(CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0)  
-			FROM dbo.cvo_soft_alloc_det a (NOLOCK)  
-			WHERE a.status IN (0, 1, -1)  
-			AND  (CAST(a.order_no AS varchar(10)) + CAST(a.order_ext AS varchar(5))) <> (CAST(@order_no AS varchar(10)) + CAST(@order_ext AS varchar(5)))    
-			AND  a.location = @location  
-			AND  a.part_no = @part_no  
+			FROM	dbo.cvo_soft_alloc_det a (NOLOCK)  
+			WHERE	a.status IN (0, 1, -1)  
+			AND		(CAST(a.order_no AS varchar(10)) + CAST(a.order_ext AS varchar(5))) <> (CAST(@order_no AS varchar(10)) + CAST(@order_ext AS varchar(5)))    
+			AND		a.location = @location  
+			AND		a.part_no = @part_no
+			AND		a.soft_alloc_no < @soft_alloc_no -- v1.1
   
 			IF (@sa_qty IS NULL)  
 			 SET @sa_qty = 0  
@@ -185,7 +200,34 @@ BEGIN
 			UPDATE	#order_hdr
 			SET		no_stock = 1
 			WHERE	row_id = @row_id
+
+			-- v1.2 Start
+			SELECT	@total_ordered = SUM(qty)
+			FROM	#order_det
+			
+			SELECT	@total_available = SUM(qty)
+			FROM	#order_det
+			WHERE	no_stock = 0
+
+			IF (@total_available > 0)
+			BEGIN
+				SELECT	@perc = (@total_available / @total_ordered) * 100.00
+			END
+			ELSE
+			BEGIN
+				SELECT	@perc = 0
+			END
+			UPDATE	#order_hdr
+			SET		perc_available = @perc
+			WHERE	row_id = @row_id
 		END
+		ELSE
+		BEGIN
+			UPDATE	#order_hdr
+			SET		perc_available = 100
+			WHERE	row_id = @row_id		
+		END
+		-- v1.2 End
 
 		SET	@last_row_id = @row_id
 
@@ -198,10 +240,9 @@ BEGIN
 	END
 
 	-- Insert in to the exclusions any order where no stock is available
-	INSERT #exclusions (order_no, order_ext)  
-	SELECT order_no, order_ext FROM #order_hdr WHERE no_stock = 1  
+	INSERT #exclusions (order_no, order_ext, perc_available) -- v1.2
+	SELECT order_no, order_ext, perc_available FROM #order_hdr WHERE no_stock = 1 -- v1.2
   
-
 -- Clean up
 DROP TABLE #order_hdr
 DROP TABLE #order_det

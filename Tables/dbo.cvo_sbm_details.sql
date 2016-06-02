@@ -37,13 +37,15 @@ CREATE NONCLUSTERED INDEX [idx_cvo_sbm_cust_part] ON [dbo].[cvo_sbm_details] ([c
 GO
 CREATE NONCLUSTERED INDEX [idx_cvo_sbm_cust] ON [dbo].[cvo_sbm_details] ([customer], [ship_to], [yyyymmdd], [DateOrdered]) ON [PRIMARY]
 GO
+CREATE CLUSTERED INDEX [pk_sbm_details] ON [dbo].[cvo_sbm_details] ([id]) ON [PRIMARY]
+GO
 CREATE NONCLUSTERED INDEX [idx_sbm_det_for_drp] ON [dbo].[cvo_sbm_details] ([part_no], [location], [qsales], [qreturns]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [idx_cvo_sbm_prod] ON [dbo].[cvo_sbm_details] ([part_no], [yyyymmdd]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [idx_cvo_sbm_yyyymmdd] ON [dbo].[cvo_sbm_details] ([yyyymmdd]) INCLUDE ([anet], [ship_to], [customer], [user_category], [part_no], [c_month], [c_year]) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [idx_cvo_sbm_yyyymmdd] ON [dbo].[cvo_sbm_details] ([yyyymmdd]) INCLUDE ([anet], [c_month], [c_year], [customer], [part_no], [ship_to], [user_category]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [idx_cvo_sbm_yyyymmdd_cir] ON [dbo].[cvo_sbm_details] ([yyyymmdd]) INCLUDE ([return_code], [DateOrdered], [ship_to], [part_no], [customer], [isCL], [qreturns], [qsales], [user_category]) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [idx_cvo_sbm_yyyymmdd_cir] ON [dbo].[cvo_sbm_details] ([yyyymmdd]) INCLUDE ([customer], [DateOrdered], [isCL], [part_no], [qreturns], [qsales], [return_code], [ship_to], [user_category]) ON [PRIMARY]
 GO
 GRANT SELECT ON  [dbo].[cvo_sbm_details] TO [public]
 GO

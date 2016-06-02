@@ -30,6 +30,23 @@ BEGIN
 	SET @message = ''
 	SET @st_cons_no = -1
 
+	-- v1.4 Start
+	IF EXISTS (SELECT 1 FROM orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @order_ext AND status <= 'N')
+	BEGIN
+		IF NOT EXISTS (SELECT 1 FROM cvo_soft_alloc_det (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext)
+		BEGIN
+
+			DELETE	cvo_soft_alloc_hdr WHERE order_no = @order_no AND order_ext = @order_ext
+			DELETE	cvo_soft_alloc_det WHERE order_no = @order_no AND order_ext = @order_ext
+
+			EXEC dbo.cvo_recreate_sa_sp	@cur_order_no, @cur_order_ext
+
+			SELECT	@ret, ''
+			RETURN	
+		END
+	END
+	-- v1.4 End
+
 	-- v1.3 Start
 	IF NOT EXISTS (SELECT 1 FROM orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @order_ext AND status = 'N')
 	BEGIN

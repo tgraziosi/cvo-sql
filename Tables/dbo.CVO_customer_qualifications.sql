@@ -27,7 +27,12 @@ CREATE TABLE [dbo].[CVO_customer_qualifications]
 [gender_check] [smallint] NULL,
 [max_no_of_pieces] [decimal] (20, 8) NULL,
 [pp_not_purchased] [smallint] NULL,
-[rolling_period] [smallint] NULL
+[rolling_period] [smallint] NULL,
+[min_stock_orders] [smallint] NULL,
+[max_stock_orders] [smallint] NULL,
+[stock_orders_pieces] [smallint] NULL,
+[min_rx_orders] [smallint] NULL,
+[max_rx_orders] [smallint] NULL
 ) ON [PRIMARY]
 GO
 SET QUOTED_IDENTIFIER ON

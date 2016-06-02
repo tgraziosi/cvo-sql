@@ -36,20 +36,36 @@ SET ANSI_WARNINGS OFF;
 DECLARE @qty DECIMAL(20,8), @qty_to_process DECIMAL(20,8)
 , @line_no INT, @station_id INT, @user_id VARCHAR(50), @tran_id INT
 , @cart_order_no varchar(20)
-, @asofdate DATETIME, @status VARCHAR(1), @who VARCHAR(50)
+, @asofdate DATETIME, @status VARCHAR(1), @who VARCHAR(50), @order_type VARCHAR(10)
 
 SELECT @station_id = 777, @user_id = @cart_no, @asofdate = GETDATE()
 
 DECLARE @iscons INT
 
-SELECT @ISCONS = CASE WHEN EXISTS (SELECT 1 FROM tdc_pick_queue WHERE mp_consolidation_no = @order_no) THEN 1 ELSE 0 END
+SELECT @ISCONS = CASE WHEN EXISTS (SELECT 1 FROM dbo.cvo_masterpack_consolidation_hdr WHERE consolidation_no = @order_no) THEN 1 ELSE 0 END
 
 -- validate order number passed in
 IF not EXISTS ( SELECT 1 FROM dbo.tdc_pick_queue 
 			WHERE ((@iscons = 0 AND trans_type_no = @order_no AND trans_type_ext = @order_ext)
 				OR (@iscons = 1 AND mp_consolidation_no = @order_no)) )
 			BEGIN
-				SELECT 'Invalid order number or consolidation number', @order_no, @order_ext
+				SELECT CASE WHEN o.status = 'V' THEN 'Order is Void'
+							WHEN o.status >'Q' THEN 'Order is Complete'
+							WHEN o.status <'N' THEN 'Order is On Hold'
+							ELSE 'Invalid order number or no open picks' END
+							, @order_no, @order_ext
+				from orders o (nolock)
+				WHERE order_no = @order_no AND ext = @order_ext
+				AND @iscons = 0
+
+				SELECT CASE WHEN h.shipped = 1 THEN 'Cons is Shipped'
+							WHEN h.closed = 1 THEN 'Cons is Closed'
+							ELSE 'Invalid Consolidation or no open picks' END
+							, @order_no
+				from dbo.cvo_masterpack_consolidation_hdr AS h 
+				WHERE h.consolidation_no = @order_no
+				AND @iscons = 1
+
 				RETURN -1
 			end
 
@@ -117,10 +133,13 @@ IF @proc_option = 0
 	IF NOT EXISTS (SELECT 1 FROM dbo.cvo_cart_scan_orders WHERE order_no = @cart_order_no)
 	 AND NOT EXISTS (SELECT 1 FROM dbo.cvo_cart_order_parts WHERE order_no = @cart_order_no)
 	BEGIN
-		INSERT cvo_cart_scan_orders (order_no, scan_date, scan_user, order_status)
-			VALUES (@cart_order_no, GETDATE(), @cart_no, 'I')
+		SELECT @order_type = user_category FROM orders WHERE ORDER_no = @order_no AND ext = @order_ext
+		--INSERT cvo_cart_scan_orders (order_no, scan_date, scan_user, order_status, user_category)
+		INSERT cvo_cart_scan_orders (order_no, scan_date, cart_no, order_status, user_category)
+			VALUES (@cart_order_no, GETDATE(), @cart_no, 'I', ISNULL(@order_type,'ST'))
 		INSERT cvo_cart_order_parts 
-		 (tran_id, order_no, part_no, user_login, bin_no, upc_code, qty_to_process, scanned, isskipped, bin_group_code, TYPE_CODE)
+		 -- (tran_id, order_no, part_no, user_login, bin_no, upc_code, qty_to_process, scanned, isskipped, bin_group_code, TYPE_CODE)
+		 (tran_id, order_no, part_no, cart_no, bin_no, upc_code, qty_to_process, scanned, isskipped, bin_group_code, TYPE_CODE)
 		 SELECT DISTINCT p.tran_id, @cart_order_no, p.part_no, @cart_no, p.bin_no, i.upc_code, p.qty_to_process, 0, 0, bin.group_code, I.type_code
 			FROM dbo.tdc_pick_queue p (NOLOCK)
 			JOIN dbo.inv_master i (NOLOCK) ON i.part_no = p.part_no 
@@ -207,7 +226,7 @@ begin
 				@tran_id,
 				@QTY,
 				0,
-				''
+				'' -- user_id
 			UPDATE pp SET ISPICKED = 'Y', PP.pick_complete_dt = @asofdate
 			    FROM CVO_CART_PARTS_PROCESSED PP
 				WHERE TRAN_ID = @tran_id and ispicked <> 'y'
@@ -269,6 +288,9 @@ begin
 END -- proc_option = 99
 
  
+
+
+
 
 
 

@@ -4,7 +4,7 @@ CREATE TABLE [dbo].[cvo_cart_parts_processed]
 [order_no] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [part_no] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [updated] [datetime] NULL,
-[user_login] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[user_login] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [bin_no] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [qty_to_process] [int] NULL,
 [scanned] [int] NULL,
@@ -12,6 +12,7 @@ CREATE TABLE [dbo].[cvo_cart_parts_processed]
 [upc_code] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [bin_group_code] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [pick_complete_dt] [datetime] NULL,
-[type_code] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[type_code] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[cart_no] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO

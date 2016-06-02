@@ -12,7 +12,8 @@ SELECT o.order_no, o.ext, o.status, o.sch_ship_date,
 FROM ord_list ol
 JOIN orders o ON o.order_no = ol.order_no AND o.ext = ol.order_ext
 JOIN inv_master i ON i.part_no = ol.part_no
-WHERE o.user_category LIKE 'rx%'
+WHERE 1=1
+AND o.user_category LIKE 'rx%'
 AND EXISTS (SELECT 1 FROM dbo.tdc_pick_queue AS tpq 
 	WHERE tpq.part_no = ol.part_no AND tpq.trans_type_no = ol.order_no AND tpq.trans_type_ext = ol.order_ext 
 	AND tx_lock = 'R' AND trans = 'stdpick' AND tpq.priority <> 3)
@@ -24,6 +25,7 @@ GROUP BY o.order_no ,
 		 o.status,
 		 o.sch_ship_date
 -- ORDER BY MIN(CASE when i.type_code NOT IN ('case') THEN i.part_no ELSE NULL end)
+
 
 GO
 GRANT REFERENCES ON  [dbo].[cvo_cart_order_select_vw] TO [public]

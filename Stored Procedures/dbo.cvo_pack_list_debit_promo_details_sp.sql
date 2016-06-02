@@ -4,6 +4,7 @@ SET ANSI_NULLS ON
 GO
 
 -- v1.0 CT 05/11/2013 - Updates order's promo credit based on shipped amounts
+-- v1.1 CB 20/04/2016 - #1584 - Add discount amount
 -- Called from cvo_get_pack_list_details_sp - call this SP to test code
 -- EXEC cvo_pack_list_debit_promo_details_sp 1419125, 0
 
@@ -103,6 +104,27 @@ BEGIN
 				AND a.is_credit = 0
 		END
 	END
+
+	-- v1.1 Start
+	INSERT INTO #detail(
+		part_no,
+		pack_qty,
+		ordered,
+		qty_short,
+		list_price,
+		gross_price,
+		net_price,
+		ext_net_price,
+		discount_amount,
+		discount_pct,
+		note,
+		is_credit)	
+	SELECT	part_no, 1, 1, 0, price, price, price, price, 0, 0, '', 0
+	FROM	ord_list (NOLOCK)
+	WHERE	order_no = @order_no
+	AND		order_ext = @ext
+	AND		part_no = 'PROMOTION DISCOUNT'
+	-- v1.1 End
 END
 GO
 GRANT EXECUTE ON  [dbo].[cvo_pack_list_debit_promo_details_sp] TO [public]

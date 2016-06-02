@@ -37,6 +37,7 @@ set nocount on
 -- v11.9 CB 23/06/2015 - Pick up tax & freight from the shipped fields
 -- v12.0 CB 15/07/2015 - For BG then display zero prices for free frames
 -- v12.1 CB 22/09/2015 - As per Tine - They want to see the gross price (list price) as whatever it is (non-zero), and the net price to show as $0.
+-- v12.2 CB 11/05/2016 - Fix issue with promo discount
 
 --DECLARE	@custom_count int -- v10.1 v10.3
   
@@ -658,13 +659,20 @@ l.oper_price,
 l.display_line,
 -- START v11.5  
 --cv1.list_price as std_direct_dolrs,                   --v3.0 List Price  
-CASE WHEN l.curr_price > cv1.list_price THEN l.curr_price ELSE cv1.list_price END as std_direct_dolrs,                   --v3.0 List Price 
+-- v12.2 Start
+CASE WHEN l.curr_price < 0 THEN l.curr_price ELSE
+CASE WHEN l.curr_price > cv1.list_price THEN l.curr_price ELSE cv1.list_price END 
+END
+-- v12.2 End
+as std_direct_dolrs,                   --v3.0 List Price 
 /*
 CASE o.type WHEN 'I' THEN (cv1.list_price - l.curr_price) + ROUND(cv1.amt_disc,2) -- v10.7 
    ELSE CASE l.discount WHEN 0 THEN (cv1.list_price - l.curr_price)   
    ELSE (cv1.list_price - l.curr_price) + ROUND(cv1.amt_disc,2) -- v10.7  
 END END as std_ovhd_dolrs,      --v3.0 Total Discount  
 */
+-- v12.2 Start
+CASE WHEN l.curr_price < 0 THEN 0 ELSE
 CASE WHEN l.curr_price > cv1.list_price THEN 0 ELSE
 	CASE o.type WHEN 'I' THEN (cv1.list_price - l.curr_price) + ROUND(cv1.amt_disc,2) -- v10.7 
 	ELSE CASE l.discount WHEN 0 THEN (cv1.list_price - l.curr_price) 
@@ -674,7 +682,10 @@ CASE WHEN l.curr_price > cv1.list_price THEN 0 ELSE
 	--ELSE (cv1.list_price - l.curr_price) + ROUND(cv1.amt_disc,2) END -- v10.7  
 	-- END v11.6 
 	END 
-END as std_ovhd_dolrs,      --v3.0 Total Discount 
+END
+END
+-- v12.2 End
+as std_ovhd_dolrs,      --v3.0 Total Discount 
 /*
 CASE l.price WHEN 0 THEN 100                    --v3.0 Discount Pct  
     ELSE CASE cv1.list_price WHEN 0 THEN 0  
@@ -1018,6 +1029,13 @@ AND		a.o_ext = c.ext
 WHERE	(b.free_frame = 1 OR a.l_discount = 100) 
 AND		ISNULL(c.buying_group,'') > ''
 -- v12.0 End
+
+-- v12.2 Start
+UPDATE	#rpt_soinvform
+SET		l_std_direct_dolrs = l_price,
+		l_std_ovhd_dolrs = 0
+WHERE	l_price < 0
+-- v12.2 End
 
 -- v11.8 Start
 UPDATE	#rpt_soinvform

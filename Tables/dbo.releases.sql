@@ -220,175 +220,174 @@ DEALLOCATE reldel
 END
 
 GO
-SET QUOTED_IDENTIFIER OFF
+SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-
-
-CREATE TRIGGER [dbo].[t600insrel] ON [dbo].[releases]   FOR INSERT  AS 
-BEGIN
-if exists (select * from config where flag='TRIG_INS_REL' and value_str='DISABLE') return
-
-declare
-@i_po_no varchar (16)  ,
-@i_part_no varchar (30)  ,
-@i_location varchar (10)  ,
-@i_part_type varchar (10)  ,
-@i_release_date datetime  ,
-@i_quantity decimal(20, 8)  ,
-@i_received decimal(20, 8)  ,
-@i_status char (1)  ,
-@i_confirm_date datetime  ,
-@i_confirmed char (1)  ,
-@i_lb_tracking char (1)  ,
-@i_conv_factor decimal(20, 8)  ,
-@i_prev_qty decimal(20, 8)  ,
-@i_po_key int  ,
-@i_row_id int ,
-@i_due_date datetime  ,
-@i_ord_line int  ,
-@i_po_line int
-
-declare @retval int
-declare @last_po varchar(16), @last_part varchar(30), @last_line int
-declare @rqty decimal(20,8), @who varchar(20), @pl_type char(1), @po_status char(1), @po_blanket char(1),
-  @po_approval_status char(1)
-
-
-DECLARE relins CURSOR LOCAL FOR
-SELECT po_no, part_no, location, part_type, release_date, quantity, received, status,
-confirm_date, confirmed, lb_tracking, conv_factor, prev_qty, po_key, row_id, due_date, 
-ord_line, po_line 
-FROM inserted
-order by po_no, part_no, po_line
-
-select @last_po = '', @last_part = '', @last_line = -1
-
-OPEN relins
-FETCH NEXT FROM relins INTO
-@i_po_no, @i_part_no, @i_location, @i_part_type, @i_release_date, @i_quantity, 
-@i_received, @i_status, @i_confirm_date, @i_confirmed, @i_lb_tracking, @i_conv_factor, 
-@i_prev_qty, @i_po_key, @i_row_id, @i_due_date, @i_ord_line, @i_po_line 
-
-While @@FETCH_STATUS = 0
-begin
-
-  if @i_status='C'
-  begin
-    rollback tran
-    exec adm_raiserror 81231, 'You Can Not Inserted A Closed Item!'
-    return
-  end
-
-  if not (@last_po = @i_po_no and @last_part = @i_part_no and @last_line = @i_po_line)
-  begin
-    select @who = who_entered, @pl_type = type
-    from pur_list (nolock)
-    WHERE  po_no=@i_po_no and part_no= @i_part_no and 
-      line = case when isnull(@i_po_line,0)=0 then line else @i_po_line end
-
-    IF @@ROWCOUNT = 0
-    BEGIN
-      rollback tran	
-      exec adm_raiserror 81201 ,'Purchase List Item Missing. The transaction is being rolled back.'
-      RETURN
-    END
-
-    if @last_po != @i_po_no
-    begin
-      select @po_status = status, @po_blanket = blanket,
-        @po_approval_status = isnull(approval_status,'')			-- mls 7/17/03 SCR 31491
-      from purchase_all (nolock) where po_no = @i_po_no
-
-      IF @po_status not in ('O','H')
-      BEGIN
-        rollback tran	
-        exec adm_raiserror 81235, 'Purchase Order Closed....Cannot Add Items!'
-        RETURN
-      END
-
-      if @po_approval_status = 'P' 							-- mls 7/17/03 SCR 31491
-      begin	
-        rollback tran
-        exec adm_raiserror 81139, 'This purchase order is being processed by eProcurement.  It cannot be changed.'
-        return
-      end
-    end
-
-    update pur_list set 
-      qty_ordered = isnull((select sum(r.quantity) from releases r
-        where r.po_no = @i_po_no and r.part_no = @i_part_no and
-          r.po_line = @i_po_line),0),
-      qty_received = isnull((select sum(r.received) from releases r
-        where r.po_no = @i_po_no and r.part_no = @i_part_no and
-          r.po_line = @i_po_line),0),
-      status= case when @po_blanket != 'Y' and @po_status != 'H' then
-        isnull((select min(status) from releases r
-        where r.po_no = @i_po_no and r.po_line = @i_po_line and r.part_no = @i_part_no 
-          and r.status='O'),'C') 
-        else status end
-    where (po_no = @i_po_no) and (part_no = @i_part_no) 
-      and (line = case when isnull(@i_po_line,0)=0 then line else @i_po_line end) 
-
-    select @last_po = @i_po_no, @last_part = @i_part_no, @last_line = @i_po_line
-  end
- 
-
-  if @i_location like 'DROP%'
-  begin
-    if not exists (select 1 from orders_auto_po oap (nolock) 
-      where oap.po_no=@i_po_no and oap.part_no=@i_part_no and oap.status='O')
-    begin
-      rollback tran
-      exec adm_raiserror 81233, 'You Can Not Add Items To A DROP Shipment - See Customer Service!'
-      return
-    end			
-  end
-
-  if (@i_quantity - @i_received) > 0 and @i_part_type != 'M' and				-- mls 2/26/01 SCR 25824
-    @i_status='O' 
-  begin
-    update inv_recv 
-    set po_on_order=po_on_order + ((@i_quantity - @i_received) * @i_conv_factor)
-    where part_no=@i_part_no and location = @i_location 
-  end
-
+-- v1.0 CB 10/03/2016 - Issue #1574 - Outsourcing   
+CREATE TRIGGER [dbo].[t600insrel] ON [dbo].[releases]   
+FOR INSERT  AS   
+BEGIN  
+	if exists (select * from config where flag='TRIG_INS_REL' and value_str='DISABLE') return  
+  
+	declare @i_po_no varchar (16)  ,  
+			@i_part_no varchar (30)  ,  
+			@i_location varchar (10)  ,  
+			@i_part_type varchar (10)  ,  
+			@i_release_date datetime  ,  
+			@i_quantity decimal(20, 8)  ,  
+			@i_received decimal(20, 8)  ,  
+			@i_status char (1)  ,  
+			@i_confirm_date datetime  ,  
+			@i_confirmed char (1)  ,  
+			@i_lb_tracking char (1)  ,  
+			@i_conv_factor decimal(20, 8)  ,  
+			@i_prev_qty decimal(20, 8)  ,  
+			@i_po_key int  ,  
+			@i_row_id int ,  
+			@i_due_date datetime  ,  
+			@i_ord_line int  ,  
+			@i_po_line int  
+  
+	declare @retval int  
+	declare @last_po varchar(16), @last_part varchar(30), @last_line int  
+	declare @rqty decimal(20,8), @who varchar(20), @pl_type char(1), @po_status char(1), @po_blanket char(1),  
+			@po_approval_status char(1)  
+  
+  
+	DECLARE relins CURSOR LOCAL FOR  
+	SELECT	po_no, part_no, location, part_type, release_date, quantity, received, status,  
+			confirm_date, confirmed, lb_tracking, conv_factor, prev_qty, po_key, row_id, due_date,   
+			ord_line, po_line   
+	FROM inserted  
+	order by po_no, part_no, po_line  
+  
+	select @last_po = '', @last_part = '', @last_line = -1  
+  
+	OPEN relins  
+	FETCH NEXT FROM relins INTO  
+		@i_po_no, @i_part_no, @i_location, @i_part_type, @i_release_date, @i_quantity,   
+		@i_received, @i_status, @i_confirm_date, @i_confirmed, @i_lb_tracking, @i_conv_factor,   
+		@i_prev_qty, @i_po_key, @i_row_id, @i_due_date, @i_ord_line, @i_po_line   
+  
+	While @@FETCH_STATUS = 0  
+	begin  
+  
+		if @i_status='C'  
+		begin  
+			rollback tran  
+			exec adm_raiserror 81231, 'You Can Not Inserted A Closed Item!'  
+			return  
+		end  
+  
+		if not (@last_po = @i_po_no and @last_part = @i_part_no and @last_line = @i_po_line)  
+		begin  
+			select	@who = who_entered, @pl_type = type  
+			from	pur_list (nolock)  
+			WHERE	po_no=@i_po_no and part_no= @i_part_no and   
+					line = case when isnull(@i_po_line,0)=0 then line else @i_po_line end  
+  
+			IF @@ROWCOUNT = 0  
+			BEGIN  
+				rollback tran   
+				exec adm_raiserror 81201 ,'Purchase List Item Missing. The transaction is being rolled back.'  
+				RETURN  
+			END  
+  
+			if @last_po != @i_po_no  
+			begin  
+				select	@po_status = status, @po_blanket = blanket,  
+						@po_approval_status = isnull(approval_status,'')   -- mls 7/17/03 SCR 31491  
+				from	purchase_all (nolock) where po_no = @i_po_no  
+  
+				IF @po_status not in ('O','H')  
+				BEGIN  
+					rollback tran   
+					exec adm_raiserror 81235, 'Purchase Order Closed....Cannot Add Items!'  
+					RETURN  
+				END  
+  
+				if @po_approval_status = 'P'        -- mls 7/17/03 SCR 31491  
+				begin   
+					rollback tran  
+					exec adm_raiserror 81139, 'This purchase order is being processed by eProcurement.  It cannot be changed.'  
+					return  
+				end  
+			end  
+  
+			update	pur_list 
+			set		qty_ordered = isnull((select sum(r.quantity) from releases r  
+			where r.po_no = @i_po_no and r.part_no = @i_part_no and  
+				r.po_line = @i_po_line),0),  
+				qty_received = isnull((select sum(r.received) from releases r  
+					where r.po_no = @i_po_no and r.part_no = @i_part_no and  
+					r.po_line = @i_po_line),0),  
+					status= case when @po_blanket != 'Y' and @po_status != 'H' then  
+					isnull((select min(status) from releases r  
+					where r.po_no = @i_po_no and r.po_line = @i_po_line and r.part_no = @i_part_no   
+					and r.status='O'),'C')   
+					else status end  
+				where (po_no = @i_po_no) and (part_no = @i_part_no)   
+				and (line = case when isnull(@i_po_line,0)=0 then line else @i_po_line end)   
+  
+			select @last_po = @i_po_no, @last_part = @i_part_no, @last_line = @i_po_line  
+		end  
    
+		if @i_location like 'DROP%'  
+		begin  
+			if not exists (select 1 from orders_auto_po oap (nolock)   
+				where oap.po_no=@i_po_no and oap.part_no=@i_part_no and oap.status='O')  
+			begin  
+				rollback tran  
+				exec adm_raiserror 81233, 'You Can Not Add Items To A DROP Shipment - See Customer Service!'  
+				return  
+			end     
+		end  
+  
+		if (@i_quantity - @i_received) > 0 and @i_part_type != 'M' and    -- mls 2/26/01 SCR 25824  
+				@i_status='O'   
+		begin  
+			update inv_recv   
+			set po_on_order=po_on_order + ((@i_quantity - @i_received) * @i_conv_factor)  
+			where part_no=@i_part_no and location = @i_location   
+		end  
 
-  if @po_status = 'O' and @pl_type = 'P' 
-  begin
-    if exists ( select 1 from agents (nolock) WHERE part_no = @i_part_no and agent_type = 'B' )
-    begin
-      SELECT @rqty = @i_quantity * @i_conv_factor
-      exec @retval=fs_agent @i_part_no, 'B', @i_po_key, @i_release_date, @who, @rqty
-      if @retval= -3 
-      begin
-        rollback tran
-        exec adm_raiserror 81234 ,'Agent Error... Outsource item not found on this Prod No!'
-        return
-      end
-      if @retval<=0 
-      begin
-        rollback tran
-        exec adm_raiserror 81235 ,'Agent Error... Try Re-Saving!'
-        return
-      end
-    end
-  end
-   
-
-  FETCH NEXT FROM relins into
-  @i_po_no, @i_part_no, @i_location, @i_part_type, @i_release_date, @i_quantity, 
-  @i_received, @i_status, @i_confirm_date, @i_confirmed, @i_lb_tracking, @i_conv_factor, 
-  @i_prev_qty, @i_po_key, @i_row_id, @i_due_date, @i_ord_line, @i_po_line 
-end 
-
-
-CLOSE relins
-DEALLOCATE relins
-END
-
+		-- v1.0 Start
+		-- This is now called on receipt of the item
+		/*
+		if @po_status = 'O' and @pl_type = 'P'   
+		begin  
+			if exists ( select 1 from agents (nolock) WHERE part_no = @i_part_no and agent_type = 'B' )  
+			begin  
+				SELECT @rqty = @i_quantity * @i_conv_factor  
+				exec @retval=fs_agent @i_part_no, 'B', @i_po_key, @i_release_date, @who, @rqty  
+				if @retval= -3   
+				begin  
+					rollback tran  
+					exec adm_raiserror 81234 ,'Agent Error... Outsource item not found on this Prod No!'  
+					return  
+				end  
+				if @retval<=0   
+				begin  
+					rollback tran  
+					exec adm_raiserror 81235 ,'Agent Error... Try Re-Saving!'  
+					return  
+				end  
+			end  
+		end  
+		*/
+		-- v1.0 End
+  
+		FETCH NEXT FROM relins into  
+			@i_po_no, @i_part_no, @i_location, @i_part_type, @i_release_date, @i_quantity,   
+			@i_received, @i_status, @i_confirm_date, @i_confirmed, @i_lb_tracking, @i_conv_factor,   
+			@i_prev_qty, @i_po_key, @i_row_id, @i_due_date, @i_ord_line, @i_po_line   
+	end   
+  
+  
+	CLOSE relins  
+	DEALLOCATE relins  
+END  
 GO
 SET QUOTED_IDENTIFIER OFF
 GO

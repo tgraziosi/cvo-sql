@@ -20,6 +20,8 @@ BEGIN
 			@soft_alloc		decimal(20,8),
 			@max_soft_alloc	int
 
+	DECLARE	@qty_sa_alloc	decimal(20,8) -- v11.0 
+
 	-- Retrieve the available stock
 	EXEC dbo.CVO_AvailabilityInStock_sp @part_no, @location, @available OUTPUT
 
@@ -59,8 +61,26 @@ BEGIN
 
 -- v1.1 End
 
+	-- v1.3 Start
+	SELECT @qty_sa_alloc = ISNULL((SELECT SUM(b.qty)  
+					FROM	cvo_soft_alloc_det a (NOLOCK)   
+					JOIN	tdc_soft_alloc_tbl b (NOLOCK)
+					ON		a.order_no = b.order_no
+					AND		a.order_ext = b.order_ext
+					AND		a.line_no = b.line_no
+					AND		a.part_no = b.part_no
+					WHERE	a.part_no  = @part_no  
+					AND		a.location = @location
+					AND		a.soft_alloc_no < @max_soft_alloc
+					AND		a.status IN (0,1,-1) -- v11.1  
+					GROUP BY a.location) , 0) 
+
+
 	IF (@soft_alloc IS NULL)
 		SET @soft_alloc = 0
+
+	SELECT @soft_alloc = @soft_alloc - ISNULL(@qty_sa_alloc,0)
+	-- v1.3 End
 
 	-- Can we still allocate the quantity
 	IF (@available - @soft_alloc) >= @alloc_qty

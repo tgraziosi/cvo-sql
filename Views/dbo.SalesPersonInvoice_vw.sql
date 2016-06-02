@@ -34,7 +34,8 @@ salesperson_name,
 hiredate, 
 draw_amount
 
-FROM CVO_commission_bldr_vw cb (nolock)
+-- FROM CVO_commission_bldr_vw cb (nolock)
+FROM CVO_commission_bldr_r2_vw cb (nolock)
 
 group by
 salesperson,
@@ -55,6 +56,7 @@ loc,
 salesperson_name, 
 hiredate, 
 draw_amount
+
 
 
 GO

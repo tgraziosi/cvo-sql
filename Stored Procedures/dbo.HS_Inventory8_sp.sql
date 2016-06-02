@@ -22,6 +22,7 @@ GO
 -- 100715 -- change revo mastersku from 8 characters to 6
 -- 122315 - add support  for Red Raven - as of 12/29
 -- 041416 - VEE support
+-- 052616 - show CH inventory again
 --
 -- =============================================
 
@@ -120,7 +121,7 @@ variantdescription = case when i.type_code in ('other','pop') then i.description
 	 WHEN i.TYPE_CODE IN ('OTHER','POP') THEN 'POP'
 	 -- 1/11/2016
 	 -- WHEN i.category = 'CH' AND ia.FIELD_32 = 'LastChance' THEN 'CHLastChance'
-	 WHEN i.category = 'CH' AND @TODAY >= @CH THEN 'CH RETURNS'
+	 WHEN i.category = 'CH' AND @TODAY >= @CH THEN 'COLE HAAN' -- 05/26 - CHANGE FROM CH RETURNS TO COLE HAAN FOR LAST, LAST, CHANCE BUYS
 	 WHEN ISNULL(FIELD_28,@TODAY) >= @today THEN I.TYPE_CODE
 	 WHEN EXISTS (SELECT 1 FROM #EOS WHERE #EOS.PART_NO = I.PART_NO) THEN 'SUN SPECIALS'
 	 -- 12/12/14 - sunps takes precedence
@@ -313,7 +314,7 @@ COLL, Model, POMDate, ReleaseDate, Status, GENDER, SpecialtyFit, APR, New, SUNPS
 , ShelfQty = 
 -- 2/4/16 - add izod interchangeable fudge qty for 2/23 release
 	CASE WHEN t1.coll = 'izod' AND t1.Model IN ('6001','6002','6003','6004') THEN t1.qty_avl + ISNULL(t1.NextPOOnOrder, 0)
-		 WHEN T1.coll = 'CH' then 0
+		 -- 5/26/16 - SHOW ch QTYS FOR LAST, LAST CHANCE BUYS -- WHEN T1.coll = 'CH' then 0
 		 WHEN SKU = 'IZODINTER' THEN 2000 -- ISNULL(T1.QTY_AVL,0) + ISNULL(t1.NextPOOnOrder,0)
 		 WHEN t1.apr = 'y' or t1.sunps = 'sunps' OR t1.[CATEGORY:2] = 'revo' THEN 2000 -- APR and sunps and revo
 		 when t1.[category:1] in ('spv','qop','eor') then isnull(t1.qty_avl,0)
@@ -478,7 +479,7 @@ create table #cats
 crank int,
 category varchar(15)
 )
-INSERT INTO #CATS VALUES(1,'CH RETURNS')
+INSERT INTO #CATS VALUES(1,'COLE HAAN')
 insert into #cats values(2,'FRAME')
 insert into #cats values(3,'SUN')
 insert into #cats values(4,'SUN SPECIALS')
@@ -537,6 +538,11 @@ UPDATE  dbo.cvo_hs_inventory_8 SET NAME='OCEAN PACIFIC SUNS KIT'
 	    WHERE sku = 'OPZSUNSKIT'
 -- select * from #Data1
 
+
+UPDATE dbo.cvo_hs_inventory_8  SET [category:1] = 'LAST CHANCE' 
+	WHERE [category:1] = 'COLE HAAN' AND ShelfQty > 0
+
+
 END
 
 --SELECT distinct manufacturer, [category:1] FROM #data1 ORDER BY manufacturer, [category:1]
@@ -545,6 +551,8 @@ END
 
 
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
+
+-- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
 
 
 

@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -533,6 +532,9 @@ BEGIN
 	AND		from_line_no > 0
 	-- v3.5 End
 
+	-- v3.6 Start
+	EXEC dbo.cvo_add_promo_discount_line_sp	@order_no, @order_ext
+	-- v3.6 End
 
 END
 GO

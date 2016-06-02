@@ -3,7 +3,6 @@ CREATE TABLE [dbo].[cvo_central_leads]
 [id] [smallint] NOT NULL IDENTITY(1, 1),
 [lead_source] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [lead_date] [datetime] NULL,
-[category] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [fname] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [lname] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [company] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
@@ -31,7 +30,10 @@ CREATE TABLE [dbo].[cvo_central_leads]
 [isLeadValid] [tinyint] NULL CONSTRAINT [DF__cvo_centr__isLea__49EBADB5] DEFAULT ((1)),
 [other] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [region] [smallint] NULL,
-[ship_to] [varchar] (6) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[ship_to] [varchar] (6) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[lead_added_by] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[category] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_centr__categ__0DE8D6B5] DEFAULT ('SALES'),
+[lead_flag] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_centr__lead___584BE013] DEFAULT ('S')
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_central_leads] ADD CONSTRAINT [PK__cvo_central_lead__600FF8FE] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

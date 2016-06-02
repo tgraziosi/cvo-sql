@@ -99,7 +99,8 @@ select a.Salesperson ,
 	   , ISNULL( r.draw_amount,0 ) draw_amount
 	   , @drawweeks
 	   , total_draw = ISNULL(r.draw_amount,0) * @drawweeks
-	   , prior_month_bal = ISNULL( pfp.net_pay, 0 )
+	   , prior_month_bal = CASE WHEN ISNULL ( pfphist.net_pay, 0) <> 0 THEN pfphist.net_pay
+							ELSE ISNULL( pfp.net_pay, 0 ) end
 	   , commission = case WHEN ISNULL(r.commission,0) IN (0,12) THEN 12 ELSE r.commission end, 
 	incentivePC = case when ISNULL(r.commission,0) IN (0, 12) 
 					then case when amount >= 60000 then 2
@@ -140,6 +141,14 @@ from
 		WHERE ccswt.report_month = @pfp
 		AND ccswt.net_pay < 0
 	) pfp ON pfp.salesperson = a.salesperson
+	LEFT OUTER JOIN -- prior month balance to roll forward, if any
+    (SELECT salesperson,
+		ccswt.report_month,
+		ccswt.net_pay
+		FROM dbo.cvo_commission_history_tbl AS ccswt
+		WHERE ccswt.report_month = @pfp
+		AND ccswt.net_pay < 0
+	) pfphist ON pfphist.salesperson = a.salesperson
 	LEFT OUTER JOIN -- promo/incentive information
     (SELECT ccpv.rep_code , 
 		STUFF(( SELECT DISTINCT '; ' + ccpv2.comments 
@@ -187,6 +196,8 @@ UPDATE d SET
 		WHERE d.report_month = @fp
 
 -- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt
+
+
 
 
 GO

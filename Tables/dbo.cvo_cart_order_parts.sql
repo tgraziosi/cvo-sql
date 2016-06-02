@@ -13,7 +13,8 @@ CREATE TABLE [dbo].[cvo_cart_order_parts]
 [scanned] [int] NULL,
 [isSkipped] [tinyint] NULL CONSTRAINT [DF__cvo_cart___isSki__7683EC6B] DEFAULT ((0)),
 [bin_group_code] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[type_code] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[type_code] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[cart_no] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_cart_order_parts] ADD CONSTRAINT [PK__cvo_cart_order_p__13002F88] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

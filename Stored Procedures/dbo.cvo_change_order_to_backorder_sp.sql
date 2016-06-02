@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -31,6 +30,7 @@ tag		4/28/2015 - add rowlock to update statements
 v1.13 CB 21/08/2015 - Issue #1563 - Upsell flag
 v1.14 CB 25/01/2016 - Add missing column
 v1.15 CB 26/01/2016 - #1581 2nd Polarized Option
+v1.16 CB 23/05/2016 - Ensure contract is not null
 
 
 
@@ -133,7 +133,7 @@ BEGIN
 		sales_comm, temp_price, temp_type, cr_ordered, cr_shipped, discount, uom, conv_factor, void, void_who, void_date,   
 		std_cost, cubic_feet, printed, lb_tracking, labor, direct_dolrs, ovhd_dolrs, util_dolrs, taxable, weight_ea, qc_flag, reason_code,   
 		qc_no, rejected, part_type, orig_part_no, back_ord_flag, gl_rev_acct, total_tax, tax_code, curr_price, oper_price, display_line,   
-		std_direct_dolrs, std_ovhd_dolrs, std_util_dolrs, reference_code, contract, agreement_id, ship_to, service_agreement_flag,  
+		std_direct_dolrs, std_ovhd_dolrs, std_util_dolrs, reference_code, ISNULL(contract,''), agreement_id, ship_to, service_agreement_flag,  -- v1.16
 		inv_available_flag, create_po_flag, load_group_no, return_code, user_count, cust_po, organization_id, picked_dt, who_picked_id,   
 		printed_dt, who_unpicked_id, unpicked_dt  
 	FROM ord_list  (NOLOCK)  

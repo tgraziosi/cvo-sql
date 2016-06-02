@@ -18,6 +18,7 @@ Copyright:   Epicor Software 2010.  All rights reserved. */
 -- v1.1 Add in processing for all orders not just RX 
 -- v1.2 CT 04/04/2014 - Issue #572 - Combine consolidated orders into the same carton 
 -- v1.3 CB 23/04/2015 - Performance Changes
+-- v1.4 CB 20/04/2016 - #1584 - Add discount amount
   
   
 CREATE PROCEDURE [dbo].[CVO_auto_pack_out_sp]	@order_no INT,    
@@ -318,6 +319,22 @@ BEGIN
   
 	-- v1.3 CLOSE parts_cursor  
 	-- v1.3 DEALLOCATE parts_cursor  
+
+	-- v1.4 Start
+	UPDATE	ord_list   
+	SET		shipped = ordered   
+	WHERE	order_no = @order_no  
+	AND		order_ext = @order_ext  
+	AND		shipped = 0 
+	AND		part_no = 'PROMOTION DISCOUNT'
+   
+	UPDATE	tdc_dist_item_list   
+	SET		shipped = quantity   
+	WHERE	order_no = @order_no  
+	AND		order_ext = @order_ext  
+	AND		[function] = 'S'  
+	AND		part_no = 'PROMOTION DISCOUNT'
+	-- v1.4 End
 END  
 -- Permissions  
 GO
