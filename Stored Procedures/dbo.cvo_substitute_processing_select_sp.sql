@@ -240,7 +240,8 @@ BEGIN
 		AND b.order_ext = i.order_ext
 		AND b.line_no = i.line_no
 	WHERE
-		a.[status] = 'N'
+-- v1.2	a.[status] = 'N'
+		a.status IN ('A','B','C','N') -- v1.2
 		--AND a.ext > 0 -- backorders only
 		AND c.address_type = 0
 		AND ((ISNULL(@allow_substitutes,0) = 0) OR (ISNULL(@allow_substitutes,0) = 1 AND ISNULL(d.allow_substitutes,0) = 1))

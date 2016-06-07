@@ -182,7 +182,10 @@ BEGIN
 													ELSE CONVERT(varchar(10),b.field_28,101) + ' To ' + CONVERT(varchar(10),a.pom_date,101) END
 												END,
 		-- if setting or changing a pom date, watch has to be set to No
-				watch = CASE WHEN a.pom_date_str NOT IN ('','NONE') THEN 'N' ELSE ISNULL(b.category_2,'N') END
+-- 060716 tag - watch is category_1, not category_2
+--				watch = CASE WHEN a.pom_date_str NOT IN ('','NONE') THEN 'N' ELSE ISNULL(b.category_2,'N') END
+				watch = CASE WHEN a.pom_date_str NOT IN ('','NONE') THEN 'N' ELSE ISNULL(b.category_1,'N') END
+	
 		FROM	cvo_inv_upd_util a
 		JOIN	inv_master_add b (NOLOCK)
 		ON		a.part_no = b.part_no
@@ -282,6 +285,7 @@ BEGIN
 	END
 
 END
+
 
 
 GO

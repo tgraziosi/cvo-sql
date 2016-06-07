@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -41,6 +40,8 @@ EXEC cc_summary_aging_sp '000567',4,1,'CVO','CVO',0
 -- v3.0 CB 10/06/2014 - ReWrite of BG data
 -- v3.1 CB 12/03/2015 - Issue #1469 - Deal with finance and late charges and chargebacks
 -- v3.2 CB 06/05/2015 - Fix issue with duplicate transactions
+-- v3.3 CB 07/06/2016 - Fix bug with void records and duplicate doc numbers
+
 CREATE PROCEDURE [dbo].[CVO_ARAGING_SP] (@WHERECLAUSE VARCHAR(1024))  
 AS      
 DECLARE @CUSTOMER_CODE  VARCHAR(8),       
@@ -637,7 +638,29 @@ DELETE #invoices where ABS(balance) < 0.001 -- v2.0
    FROM #invoices i, artrx h (NOLOCK)      
    WHERE i.doc_ctrl_num = h.doc_ctrl_num      
    AND  i.customer_code = h.customer_code      
-        
+
+	-- v3.3 Start
+    
+	DELETE  a 
+	FROM	#invoices a
+	JOIN	#artrxage_tmp b
+	ON		a.doc_ctrl_num = b.doc_ctrl_num     
+	AND		a.customer_code = b.customer_code 
+	WHERE	b.apply_trx_type = 2031       
+	AND		b.trx_type = 2112 
+	AND		a.on_acct_flag = 1      
+	AND		a.trx_type NOT IN ( 2161, 2111)
+	
+	DELETE  a
+	FROM	#invoices  a
+	JOIN	artrx b (NOLOCK)
+	ON		a.doc_ctrl_num = b.doc_ctrl_num
+	AND		a.customer_code = b.customer_code
+	WHERE	b.void_flag = 1          
+	AND		a.trx_type in (2111,2161)              
+
+
+/*
    DELETE  #invoices      
    WHERE  doc_ctrl_num in (SELECT a.doc_ctrl_num       
    FROM  #artrxage_tmp a, #invoices i       
@@ -652,7 +675,9 @@ DELETE #invoices where ABS(balance) < 0.001 -- v2.0
    FROM artrx a (NOLOCK), #invoices i       
    WHERE a.void_flag = 1          
    AND a.customer_code = i.customer_code )      
-   AND trx_type in (2111,2161)       
+   AND trx_type in (2111,2161)   
+*/
+	-- v3.3 End    
         
    UPDATE  #invoices      
    SET  #invoices.trx_type_code = artrxtyp.trx_type_code      
@@ -1028,13 +1053,13 @@ DELETE #invoices where ABS(balance) < 0.001 -- v2.0
        
  UPDATE #FINAL     
  SET     
- YTDCREDS = isnull((select sum(areturns) from dbo.cvo_sbm_details  where    
+ YTDCREDS = isnull((select sum(areturns) from cvo_csbm_shipto where    
     customer = f.customer_code and yyyymmdd >=@curryrstart), 0),    
- YTDSALES = isnull((select sum(anet) from dbo.cvo_sbm_details where    
+ YTDSALES = isnull((select sum(anet) from cvo_csbm_shipto where    
     customer = f.customer_code and yyyymmdd >=@curryrstart), 0),    
- LYRSALES = isnull((select sum(anet) from dbo.cvo_sbm_details where    
+ LYRSALES = isnull((select sum(anet) from cvo_csbm_shipto where    
     customer = f.customer_code and yyyymmdd  BETWEEN @LASTYRSTART AND @LASTYREND), 0),    
- r12Sales = isnull((select sum(anet) from dbo.cvo_sbm_details where    
+ r12Sales = isnull((select sum(anet) from cvo_sbm_details where    
      customer = f.customer_code and yyyymmdd >=@r12Start), 0)    
  from #final F     
       
@@ -1338,7 +1363,6 @@ DELETE #invoices where ABS(balance) < 0.001 -- v2.0
     
  SET NOCOUNT off       
 end -- CVO_ARAGING_SP DATA       
-
 GO
 
 GRANT EXECUTE ON  [dbo].[CVO_ARAGING_SP] TO [public]

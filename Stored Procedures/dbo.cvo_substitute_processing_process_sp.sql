@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -10,6 +9,7 @@ v1.2 - CT 09/10/13 - Change case log message to be based on config setting
 v1.3 - CB 14/09/2015 - #1550 - Add location
 v1.4 - CB 10/11/2015 - Fix for list price
 v1.5 - CB 04/02/2016 - #1588 Add flat dollar discount to promos
+v1.6 - CB 31/05/2016 - Include orders on hold
 Returns:	0 = Sucess
 			-1 = Nothing marked to process
 			1 = Not all orders processed
@@ -82,7 +82,8 @@ BEGIN
 			@oper_price				DECIMAL(20,8),
 			@orders_processed		SMALLINT,
 			@replacement_pattern	VARCHAR(30),
-			@promo_price_disc		decimal(20,8) -- v1.5
+			@promo_price_disc		decimal(20,8), -- v1.5
+			@status					char(1) -- v1.6
 
 
 
@@ -304,7 +305,8 @@ BEGIN
 				@nat_cur_code = curr_key,
 				@back_ord_flag = back_ord_flag,
 				@ship_to_region = LEFT(ship_to_region,2),
-				@tax_code= tax_id
+				@tax_code= tax_id,
+				@status = status -- v1.6
 			FROM
 				dbo.orders_all (NOLOCK)
 			WHERE 
@@ -584,7 +586,7 @@ BEGIN
 				b.[status],
 				@qty,
 				0,
-				'N',
+				@status, -- v1.6 'N',
 				b.lb_tracking,
 				0,
 				0,
@@ -944,7 +946,8 @@ BEGIN
 											0.0, -- price
 											'Y', -- price_type
 											'', -- note  
-											'N', c.std_cost, SUSER_SNAME(), 
+											@status, -- v1.6'N', 
+											c.std_cost, SUSER_SNAME(), 
 											0.0, -- sales _comm
 											0.0, -- temp_price
 											1, -- temp_type
