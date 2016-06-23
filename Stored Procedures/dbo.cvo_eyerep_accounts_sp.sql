@@ -26,7 +26,7 @@ BEGIN
 			from
             ( SELECT DISTINCT territory_code FROM arterr (NOLOCK) 
 			   WHERE dbo.calculate_region_fn(territory_code) < '800'
-			   AND territory_code IN ('20206','70778', '50503', '40440','40456') -- phil, Elyse, dave s, kerry c
+			   AND territory_code IN ('20206','70778', '50503', '40440','40456') -- phil, Elyse, dave s, kerry c, bob s
 			) Terr
 			   -- for testing 03/2016
 
