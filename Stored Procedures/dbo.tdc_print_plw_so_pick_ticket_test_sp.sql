@@ -30,8 +30,8 @@ GO
 -- v6.7 CB 09/06/2016 - Deal with manual case quantities
 -- v6.8 CB 15/06/2016 - Fix issue with multiple case lines
 
-CREATE PROCEDURE [dbo].[tdc_print_plw_so_pick_ticket_sp]  
- @user_id     varchar(50),  
+CREATE PROCEDURE [dbo].[tdc_print_plw_so_pick_ticket_test_sp]  
+@user_id     varchar(50),  
  @station_id  varchar(20),  
  @order_no    int,  
  @order_ext   int,  
@@ -1399,13 +1399,4 @@ EXEC dbo.cvo_update_bo_processing_sp 'P', @order_no, @order_ext
 
   
 RETURN 
-
-
-
-
-
-GO
-
-
-GRANT EXECUTE ON  [dbo].[tdc_print_plw_so_pick_ticket_sp] TO [public]
 GO

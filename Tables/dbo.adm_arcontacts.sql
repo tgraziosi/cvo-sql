@@ -8,7 +8,7 @@ CREATE TABLE [dbo].[adm_arcontacts]
 [contact_name] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [contact_phone] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [contact_fax] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[contact_email] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[contact_email] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
 CREATE UNIQUE CLUSTERED INDEX [admarcon1] ON [dbo].[adm_arcontacts] ([customer_code], [ship_to_code], [contact_no]) ON [PRIMARY]

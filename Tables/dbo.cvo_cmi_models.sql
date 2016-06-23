@@ -67,7 +67,10 @@ CREATE TABLE [dbo].[cvo_cmi_models]
 [lens_cost] [float] NULL,
 [lens_vendor] [varchar] (120) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [frame_price] [float] NULL,
-[frame_only_cost] [float] NULL
+[frame_only_cost] [float] NULL,
+[component_4] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[component_5] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[component_6] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_cmi_models] ADD CONSTRAINT [PK__cvo_cmi_models__6D0B664D] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

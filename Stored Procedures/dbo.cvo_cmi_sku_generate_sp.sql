@@ -19,7 +19,10 @@ BEGIN
 -- generate sku's from cmi into epicor
 --  
 -- 
--- exec [cvo_cmi_sku_generate_sp] 'et', 'paris', null, null, '06/28/2016','N', 1
+-- exec [cvo_cmi_sku_generate_sp] 'bcbg_r', 'b969', null, null, '07/18/2016','N', 0
+
+-- updates:
+-- 6/8/2016 - fixup hang tag and upc parts for retail sku's.  
 
 SET XACT_ABORT, NOCOUNT ON;
 
@@ -36,7 +39,8 @@ DECLARE
 
 -- check with accounting/product for periodic changes
 
-SELECT @ovhd_pct = .0721, @util_cost = 0.21, @demolen_cost = .25, @pattern_cost = 0.28, @pattern_vendor = 'MOTIF0', @hangtag_cost = .12, @upc_cost = .02
+SELECT @ovhd_pct = .0721, @util_cost = 0.21, @demolen_cost = .25, @pattern_cost = 0.28, 
+	   @pattern_vendor = 'MOTIF0', @hangtag_cost = .12, @upc_cost = .02
 
 
 IF ( OBJECT_ID('tempdb.dbo.#cmi') IS NOT NULL ) DROP TABLE #cmi;
@@ -709,6 +713,8 @@ INSERT  INTO #err_list
 -- select * From #parts_list
 --END
 
+IF @debug = 1 SELECT * FROM #parts_list AS pl
+
 
 IF ( OBJECT_ID('tempdb.dbo.#parts_to_add') IS NOT NULL )
     DROP TABLE #parts_to_add;
@@ -717,7 +723,9 @@ SELECT DISTINCT
         collection = CAST(c.Collection AS VARCHAR(30)) ,
         c.model ,
         smn.short_model ,
-        part_type = CASE WHEN PART_TYpe IN ('hangtag','upc') THEN '' ELSE CAST(pl.part_type AS VARCHAR(15)) end,
+        part_type = -- CASE WHEN PART_TYpe IN ('hangtag','upc') THEN '' ELSE 
+				CAST(pl.part_type AS VARCHAR(15)) 
+				,-- End,
         part_no = UPPER(CAST(pl.part_no AS VARCHAR(30))) ,
         PrimaryDemographic =  CAST(c.PrimaryDemographic AS VARCHAR(15)) ,
         target_age = CAST(c.target_age AS varchar(15)),
@@ -793,7 +801,7 @@ WHERE   1 = 1
         --                 WHERE  part_no = pl.part_no );
 
 
---IF @debug = 1  SELECT * FROM #parts_to_add
+IF @debug = 1  SELECT * FROM #parts_to_add
 
 -- More Validations
 
@@ -1091,7 +1099,7 @@ INSERT  #ia
                                FROM     dbo.CVO_Gender
                                WHERE    description = c.PrimaryDemographic AND ISNULL(void,'N') = 'N'
                              ),'') ,  -- gender
-                category_3 = CASE WHEN c.part_type IN ('HNGTAG','UPC') THEN ''
+                category_3 = CASE WHEN c.part_type IN ('HANGTAG','UPC') THEN ''
 								  WHEN c.part_type NOT IN ( 'FRAME', 'frame only', 'BRUIT',
                                                             'PATTERN' )
                                   THEN c.part_type
@@ -1353,23 +1361,25 @@ INSERT  #i
 									  WHERE    address_name = c.supplier
 									) END
 						 , '')  ,
-                category = LEFT(c.Collection, 10) ,
+                category = UPPER(LEFT(c.Collection, 10)) ,
                 type_code = CASE WHEN c.part_type IN ( 'bruit', 'frame', 'frame only', 'pattern' ) THEN LEFT(c.res_type, 10)
 								 WHEN c.part_type IN ('hangtag','upc') THEN 'OTHER'
                                  ELSE 'PARTS'
                             END ,
                 weight_ea = CASE WHEN c.part_type IN ( 'bruit', 'frame', 'frame only' )
-                                 THEN CAST (0.05 AS DECIMAL(20, 8))
+									THEN CAST (0.05 AS DECIMAL(20, 8))
                                  WHEN c.part_type = 'front'
-                                 THEN CAST (0.025 AS DECIMAL(20, 8))
+									THEN CAST (0.025 AS DECIMAL(20, 8))
                                  WHEN c.part_type IN ( 'temple-l', 'temple-r',
                                                        'cable-r', 'cable-l' )
-                                 THEN CAST (0.0125 AS DECIMAL(20, 8))
-                                 WHEN c.part_type IN ( 'pattern', 'demolen',
-                                                       'temple-tip' ,'hangtag', 'upc')
-                                 THEN CAST (0.001 AS DECIMAL(20, 8))
-                                 ELSE CAST(0.00 AS DECIMAL(20, 8))
+									THEN CAST (0.0125 AS DECIMAL(20, 8))
+								 WHEN C.PART_TYPE = 'pattern' 
+									THEN CAST(0.008 AS DECIMAL(20,8))
+                                 WHEN c.part_type IN ( 'demolen', 'temple-tip' ,'hangtag', 'upc')
+									THEN CAST (0.001 AS DECIMAL(20, 8))
+                                 ELSE CAST(0.0001 AS DECIMAL(20, 8)) -- must be non-zero value
                             END ,
+
 ---- validate against in_account
 
                 account = ( CASE WHEN c.Collection = 'IZX' THEN 'IZX'
@@ -1698,13 +1708,15 @@ INSERT  #pp
                 AND c.part_type IN ( 'demolen','pattern' ,'hangtag','upc');
 
 IF @debug = 1
---begin
+begin
 --	 SELECT  'cmi', * FROM    #ia;
 --	 -- elect 'epc', * From dbo.inv_master_add where field_2 = @model
 --	 SELECT  'cmi', * FROM    #i;
 --	 -- select 'epc', * From dbo.inv_master where part_no like 'asadv%'
 SELECT  * FROM    #pp;
---end
+SELECT * FROM #I;
+SELECT * FROM #IA;
+end
 
 IF @upd = 'Y'
 BEGIN
@@ -2032,6 +2044,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

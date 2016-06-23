@@ -12,6 +12,8 @@ CREATE PROCEDURE [dbo].[cvo_ST_Activity_log_sp]
 as
  
 -- add RMA figures - 6/19/2014
+-- 06/07/2016 - tag - per HK remove these qualifications for regular dstribution to Mark McCann
+
 -- exec cvo_ST_Activity_log_sp '01/02/2015','02/28/2015', null, 1
 
 /*
@@ -82,8 +84,9 @@ inner join #territory t on t.territory = o.territory
 where 1=1
 and o.status <> 'V'
 AND (o.date_entered BETWEEN @StartDate AND dateadd(ms, -3, dateadd(dd, datediff(dd,0,@EndDate)+1, 0)))
-and o.date_sch_ship between @startdate and @enddate 
-and isnull(o.date_shipped,@enddate) <= @enddate
+-- 06/07/2016 - tag - per HK remove these qualifications for regular dstribution to Mark McCann
+-- and o.date_sch_ship between @startdate and @enddate 
+-- and isnull(o.date_shipped,@enddate) <= @enddate
 AND ((o.who_entered <> 'backordr' and o.ext = 0) or o.who_entered = 'outofstock') 
 and o.order_type like 'ST%'
 and right(o.order_type,2) not in ('RB','TB')
@@ -291,6 +294,7 @@ EXEC('	select
 else
 EXEC('	select * 
 	From #temp where ' + @where )
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_ST_Activity_log_sp] TO [public]
 GO

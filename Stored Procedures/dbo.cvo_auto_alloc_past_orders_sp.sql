@@ -6,6 +6,7 @@ GO
 -- v1.0 CT 24/03/2014 - Issue #1459 - Automate the allocation of past orders
 -- v1.1 CB 14/08/2015 - Add missing mp_consolidation_no column
 -- v1.2 CB 14/04/2016 - #1596 - Add promo level
+-- v1.3 CB 13/06/2016 - Add in routine to consolidate orders
 -- EXEC dbo.cvo_auto_alloc_past_orders_sp 'ZZ'
 
 CREATE PROC [dbo].[cvo_auto_alloc_past_orders_sp] @order_type	VARCHAR(2) = 'ZZ'
@@ -30,7 +31,9 @@ BEGIN
 			@rec_id				INT,
 			@order_no			INT,
 			@ext				INT,
-			@msg				VARCHAR(1000)
+			@msg				VARCHAR(1000),
+			@stcons_no			int, -- v1.3
+			@last_stcons_no		int -- v1.3
 
 
 	EXEC dbo.cvo_auto_alloc_past_orders_log_sp @order_type, NULL, NULL, NULL, 'Starting auto allocation routine'
@@ -216,6 +219,13 @@ BEGIN
 		order_no				INT,
 		ext						INT,
 		template				VARCHAR(255))
+
+	-- v1.3 Start
+	CREATE TABLE #orders_to_consolidate(  
+		consolidation_no	int,  
+		order_no			int,  
+		ext					int) 
+	-- v1.3 End
 
 	-- Get oldest order date
 	SELECT 
@@ -447,6 +457,24 @@ BEGIN
 
 					-- Recalc freight
 					EXEC [dbo].[CVO_GetFreight_recalculate_wrap_sp] @order_no, @ext
+
+					-- v1.3 Start
+					INSERT	#orders_to_consolidate (consolidation_no, order_no, ext)
+					SELECT	a.consolidation_no,
+							b.order_no,
+							b.order_ext
+					FROM	cvo_masterpack_consolidation_hdr a (NOLOCK)
+					JOIN	cvo_masterpack_consolidation_det b (NOLOCK)
+					ON		a.consolidation_no = b.consolidation_no
+					JOIN	cvo_st_consolidate_release c (NOLOCK)
+					ON		a.consolidation_no = c.consolidation_no
+					WHERE	b.order_no = @order_no
+					AND		b.order_ext = @ext
+					AND		a.type = 'OE'
+					AND		a.closed = 0
+					AND		a.shipped = 0
+					AND		c.released = 1
+					-- v1.3 End
 			
 				END
 
@@ -464,6 +492,51 @@ BEGIN
 		END
 
 	END
+
+	-- v1.3 Start
+	IF OBJECT_ID('tempdb..#consolidate_picks') IS NOT NULL  
+		DROP TABLE #consolidate_picks  
+
+	CREATE TABLE #consolidate_picks(  
+		consolidation_no	int,  
+		order_no			int,  
+		ext					int)  	
+
+	IF EXISTS (SELECT 1 FROM #orders_to_consolidate)
+	BEGIN
+		SET @last_stcons_no = 0
+
+		SELECT	TOP 1 @stcons_no = consolidation_no
+		FROM	#orders_to_consolidate
+		WHERE	consolidation_no > @last_stcons_no
+		ORDER BY consolidation_no ASC
+
+		WHILE (@@ROWCOUNT <> 0)
+		BEGIN
+
+			DELETE	#consolidate_picks
+
+			INSERT	#consolidate_picks
+			SELECT	consolidation_no, order_no, ext
+			FROM	#orders_to_consolidate
+			WHERE	consolidation_no = @stcons_no
+
+			EXEC dbo.cvo_masterpack_consolidate_pick_records_sp @stcons_no
+
+			SET @last_stcons_no = @stcons_no
+
+			SELECT	TOP 1 @stcons_no = consolidation_no
+			FROM	#orders_to_consolidate
+			WHERE	consolidation_no > @last_stcons_no
+			ORDER BY consolidation_no ASC
+
+		END
+		
+	END
+
+	DROP TABLE #orders_to_consolidate
+	DROP TABLE #consolidate_picks
+	-- v1.3 End
 
 	EXEC dbo.cvo_auto_alloc_past_orders_log_sp @order_type, NULL, NULL, NULL, 'Stopping auto allocation routine'
 

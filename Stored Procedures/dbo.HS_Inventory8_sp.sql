@@ -8,7 +8,7 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT * FROM dbo.cvo_hs_inventory_8 where MASTERSKU like 'IZ600%'
+-- SELECT * FROM dbo.cvo_hs_inventory_8 where shelfqty = 2000  where MASTERSKU like 'IZ600%'
 -- DROP TABLE dbo.cvo_hs_inventory_8
 -- 		
 -- 072814 - tag - 1) add special values, 2) performance updates
@@ -23,6 +23,7 @@ GO
 -- 122315 - add support  for Red Raven - as of 12/29
 -- 041416 - VEE support
 -- 052616 - show CH inventory again
+-- 6/9/2016 for kit items to fake inventory # later. show real inventory for REVO
 --
 -- =============================================
 
@@ -157,6 +158,8 @@ CASE WHEN i.category = 'ch' THEN ''
 case WHEN FIELD_36='SUNPS' THEN 'SUNPS' ELSE '' END as SUNPS,
 case when #cc.part_no is null then '' else 'CC' end as CostCo,
 case when isnull(field_28,@today) < @today then 'POM' else '' end as POM,
+-- 6/9/2016 for kit items to fake inventory # later
+CASE WHEN ISNULL(field_30,'') ='Y' THEN 'Kit' ELSE '' END AS Kit,
 shelfqty = 0,
 ISNULL(invupd.shelfqty,'999') ShelfQty2,
 cia.nextpoduedate
@@ -316,7 +319,8 @@ COLL, Model, POMDate, ReleaseDate, Status, GENDER, SpecialtyFit, APR, New, SUNPS
 	CASE WHEN t1.coll = 'izod' AND t1.Model IN ('6001','6002','6003','6004') THEN t1.qty_avl + ISNULL(t1.NextPOOnOrder, 0)
 		 -- 5/26/16 - SHOW ch QTYS FOR LAST, LAST CHANCE BUYS -- WHEN T1.coll = 'CH' then 0
 		 WHEN SKU = 'IZODINTER' THEN 2000 -- ISNULL(T1.QTY_AVL,0) + ISNULL(t1.NextPOOnOrder,0)
-		 WHEN t1.apr = 'y' or t1.sunps = 'sunps' OR t1.[CATEGORY:2] = 'revo' THEN 2000 -- APR and sunps and revo
+		 WHEN Kit = 'Kit' THEN 2000 -- 6/9/2016 - dummy up inventory for all promo kits
+		 WHEN t1.apr = 'y' or t1.sunps = 'sunps' /*OR t1.[CATEGORY:2] = 'revo'*/ THEN 2000 -- APR and sunps and revo
 		 when t1.[category:1] in ('spv','qop','eor') then isnull(t1.qty_avl,0)
 		 
 	ELSE case when t1.qty_avl < t1.drp_usg then 0 else isnull(t1.qty_avl,0) end
@@ -553,6 +557,9 @@ END
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
+
+
 
 
 

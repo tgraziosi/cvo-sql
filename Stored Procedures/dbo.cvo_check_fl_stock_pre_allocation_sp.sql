@@ -77,15 +77,18 @@ BEGIN
 		DELETE #order_det
 
 		INSERT	#order_det (location, line_no, part_no, qty, no_stock)
-		SELECT	location,
-				line_no,
-				part_no,
-				ordered - shipped, -- v1.2
+		SELECT	a.location,
+				a.line_no,
+				a.part_no,
+				a.ordered - a.shipped, -- v1.2
 				0
-		FROM	ord_list (NOLOCK)
-		WHERE	order_no = @order_no
-		AND		order_ext = @order_ext
-		ORDER BY line_no
+		FROM	ord_list a (NOLOCK)
+		JOIN	inv_master b (NOLOCK) -- v1.3
+		ON		a.part_no = b.part_no -- v1.3
+		WHERE	a.order_no = @order_no
+		AND		a.order_ext = @order_ext
+		AND		b.type_code IN ('FRAME','SUN') -- v1.3
+		ORDER BY a.line_no
 
 		SET @last_line_row_id = 0
 	
@@ -194,6 +197,8 @@ BEGIN
 			ORDER BY line_row_id ASC
 		END
 
+select * from #order_det
+
 		-- Check if any of the details can be allocated
 		IF EXISTS (SELECT 1 FROM #order_det WHERE no_stock = 1)
 		BEGIN
@@ -208,6 +213,9 @@ BEGIN
 			SELECT	@total_available = SUM(qty)
 			FROM	#order_det
 			WHERE	no_stock = 0
+
+select '@total_ordered',@total_ordered
+select '@total_available',@total_available
 
 			IF (@total_available > 0)
 			BEGIN

@@ -24,8 +24,14 @@ BEGIN
 			@line_no		int,
 			@orig_qty		DECIMAL(20,8),
 			@data			varchar(7500),
-			@cons_no		int -- v1.1 
+			@cons_no		int, -- v1.1 
+			@consolidation_no int -- v1.2
 			
+	-- v1.2 Start
+	SELECT	@consolidation_no = consolidation_no
+	FROM	dbo.cvo_masterpack_consolidation_picks (NOLOCK)
+	WHERE	parent_tran_id = @tran_id
+	-- v1.2 End
 
 	SET @orig_qty = @qty
 
@@ -164,8 +170,25 @@ BEGIN
 				DELETE FROM dbo.cvo_masterpack_consolidation_picks WHERE row_id = @row_id
 			END
 
+			-- v1.2 Start
+			IF OBJECT_ID('tempdb..#tmp_autopickcase') IS NOT NULL   
+			BEGIN     
+				DROP TABLE #tmp_autopickcase    
+			END  
+
+			CREATE TABLE #tmp_autopickcase (temp int)
+			-- v1.2 End
+
 			-- Process case records
 			EXEC cvo_autopick_cases_sp @order_no, @ext, @line_no, @qty_to_pick, @station_id, @user_id 
+
+			-- v1.2 Start
+			IF OBJECT_ID('tempdb..#tmp_autopickcase') IS NOT NULL   
+			BEGIN     
+				DROP TABLE #tmp_autopickcase    
+			END  
+			-- v1.2 End
+
 			
 			-- Rehide the transaction
 			UPDATE
@@ -173,9 +196,7 @@ BEGIN
 			SET
 				assign_user_id = 'HIDDEN'  
 			WHERE
-				tran_id = @child_tran_id
-
-			
+				tran_id = @child_tran_id			
 
 		END
 		ELSE
@@ -206,6 +227,31 @@ BEGIN
 
 	-- Delete it if there's nothing left to process
 	DELETE FROM dbo.tdc_pick_queue WHERE tran_id = @tran_id  AND qty_to_process <= 0
+
+	-- v1.2 Start
+	UPDATE	a
+	SET		assign_user_id = 'HIDDEN'
+	FROM	tdc_pick_queue a
+	JOIN	cvo_masterpack_consolidation_det b (NOLOCK)
+	ON		a.trans_type_no = b.order_no
+	AND		a.trans_type_ext = b.order_ext
+	WHERE	b.consolidation_no = @consolidation_no
+	AND		a.trans = 'STDPICK'
+
+	DELETE	a
+	FROM	cvo_masterpack_consolidation_picks a
+	LEFT JOIN tdc_pick_queue b (NOLOCK)
+	ON		a.child_tran_id = b.tran_id
+	WHERE	a.consolidation_no = @consolidation_no
+	AND		b.tran_id IS NULL
+
+	DELETE	a
+	FROM	cvo_masterpack_consolidation_picks a
+	LEFT JOIN tdc_pick_queue b (NOLOCK)
+	ON		a.parent_tran_id = b.tran_id
+	WHERE	a.consolidation_no = @consolidation_no
+	AND		b.tran_id IS NULL
+	-- v1.2 End
 	
 END
 GO

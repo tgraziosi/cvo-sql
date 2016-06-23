@@ -12,18 +12,18 @@ set nocount on
 
 -- UPDATE DOORS ON NEW ENTERED BILL TO CUSTOMERS
 UPDATE T2
-SET DOOR='1'
+SET DOOR = 1
 from armaster_all t1 (nolock)
 join cvo_armaster_all t2 (rowlock) on t1.customer_code=t2.customer_code and t1.ship_to_code=t2.ship_to
 where door is null
-and ship_to=''
+and (ship_to='' OR t1.address_type = 0)
 
 UPDATE T2
-SET DOOR='0'
+SET DOOR = 0
 from armaster_all t1 (nolock)
 join cvo_armaster_all t2 (rowlock) on t1.customer_code=t2.customer_code and t1.ship_to_code=t2.ship_to
 where door is null
-and ship_to<>''
+and (ship_to<>'' OR t1.address_type = 1)
 
 
 

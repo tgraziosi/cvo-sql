@@ -5,7 +5,7 @@ GO
 CREATE PROCEDURE [dbo].[cvo_promo_incentive_tracker_0616_sp] @terr VARCHAR(1024) = NULL, @debug INT = 0
 AS
 
--- exec cvo_promo_incentive_tracker_0616_sp NULL, 0
+-- exec cvo_promo_incentive_tracker_0616_sp NULL, 1
 
 BEGIN
 
@@ -210,6 +210,9 @@ INSERT #p VALUES ('aspire','vew','1/1/2015','Aspire')
 INSERT #p VALUES ('revo','launch 1','11/1/2015','REVO')
 INSERT #p VALUES ('revo','launch 2','11/1/2015','REVO')
 INSERT #p VALUES ('revo','launch 3','11/1/2015','REVO')
+INSERT #p VALUES ('revo','1','11/1/2015','REVO')
+INSERT #p VALUES ('revo','2','11/1/2015','REVO')
+INSERT #p VALUES ('revo','3','11/1/2015','REVO')
 INSERT #p VALUES ('sunps','op','11/1/2015','OP Polarized')
 INSERT #p VALUES ('jmc','fs','2/15/2016','JMC Banner')
 INSERT #p VALUES ('izod','interchangeable','3/1/2016','IZOD Interchgble')
@@ -376,7 +379,7 @@ INSERT INTO #f (region, territory, salesperson_code, program, source, r12net, qu
    t.mtdlynet
  FROM #doorsales d
  JOIN #territory AS t ON t.territory = d.territory
- WHERE NOT EXISTS (SELECT 1 FROM #f WHERE #f.cust_code = d.customer_code AND #f.ship_to = d.ship_to_code)
+ -- WHERE NOT EXISTS (SELECT 1 FROM #f WHERE #f.cust_code = d.customer_code AND #f.ship_to = d.ship_to_code)
  GROUP BY d.region ,
           d.territory ,
           d.salesperson_code ,
@@ -415,6 +418,8 @@ SELECT DISTINCT #f.order_no ,
 
 
 END
+
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_promo_incentive_tracker_0616_sp] TO [public]

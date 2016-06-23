@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -23,6 +22,7 @@ Copyright:   Epicor Software 2010.  All rights reserved.
 -- v1.2 CB 10/10/2012 - When unallocating then use the allocated quantity
 -- v1.3 CB 07/06/2013 - Issue #1289 - Frame/case relationship at order entry
 -- v1.4 CB 26/01/2016 - #1581 2nd Polarized Option
+-- v1.5 CB 19/05/2016 - If unallocating then check the qty
 
 CREATE PROCEDURE [dbo].[CVO_Include_alloc_unalloc_byline_sp] AS
 
@@ -40,7 +40,8 @@ BEGIN
 			@case_part			varchar(30), -- v1.1
 			@pattern_part		varchar(30), -- v1.1
 			@qty_override		decimal(20,8), -- v1.1
-			@qty_alloc			decimal(20,8) -- v1.2
+			@qty_alloc			decimal(20,8), -- v1.2	
+			@qty_unAlloc		decimal(20,8) -- v1.5
 
 
 	-- v1.1
@@ -110,7 +111,7 @@ BEGIN
 
 	IF OBJECT_ID('tempdb..#so_soft_alloc_byline_tbl_TMP') IS NOT NULL 
 		DROP TABLE #so_soft_alloc_byline_tbl_TMP
-
+	
 	--create tmp table
 	SELECT DISTINCT * INTO #so_soft_alloc_byline_tbl_TMP FROM #so_soft_alloc_byline_tbl WHERE order_no < 0
 
@@ -157,7 +158,7 @@ BEGIN
 				FROM	#splits
 				WHERE	order_no = @order_no
 				AND		order_ext = @order_ext
-				AND		part_no = @case_part
+				AND		part_no = @part_no -- v1.5 @case_part
 				AND		case_part IS NOT NULL
 
 				SELECT	@qty_alloc = SUM(qty)
@@ -166,6 +167,18 @@ BEGIN
 				AND		order_ext = @order_ext
 				AND		line_no = @from_line_no
 				AND		order_type = 'S'		
+
+				-- v1.5 Start
+				SELECT	@qty_unAlloc = qty_override
+				FROM	#so_soft_alloc_byline_tbl
+				WHERE	order_no = @order_no
+				AND		order_ext = @order_ext
+				AND		line_no = @from_line_no
+
+				
+				IF (@qty_unAlloc < @qty_alloc)
+					SET @qty_override = @qty_unAlloc
+				-- v1.5 End
 
 				IF @qty_alloc < @qty_override
 					SET @qty_override = @qty_alloc

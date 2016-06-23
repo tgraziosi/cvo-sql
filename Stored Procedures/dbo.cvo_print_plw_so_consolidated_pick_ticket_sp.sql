@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -9,6 +8,7 @@ GO
 -- v10.2 CB 03/01/2015 - Fix records returned
 -- v10.3 CB 09/02/2015 - Fix issue with freight calc for consolidated orders
 -- v10.4 CB 13/01/2016 - #1586 - When orders are allocated or a picking list printed then update backorder processing
+-- v10.5 CB 08/06/2016 - Split out manual case qty
 
 
 CREATE PROCEDURE [dbo].[cvo_print_plw_so_consolidated_pick_ticket_sp]  
@@ -1058,7 +1058,9 @@ BEGIN
 						ON a.child_tran_id = b.tran_id 
 						INNER JOIN dbo.cvo_ord_list c (NOLOCK)
 						ON b.trans_type_no = c.order_no AND b.trans_type_ext = c.order_ext AND b.line_no = c.line_no
-						WHERE a.parent_tran_id = @tran_id AND c.is_case = 1)		
+						JOIN dbo.tdc_pick_queue d (NOLOCK) -- v10.5
+						ON a.parent_tran_id = d.tran_id -- v10.5
+						WHERE a.parent_tran_id = @tran_id AND c.is_case = 1 AND d.company_no IS NULL) -- v10.5
 			BEGIN
 				SET @tran_id = ''
 			END

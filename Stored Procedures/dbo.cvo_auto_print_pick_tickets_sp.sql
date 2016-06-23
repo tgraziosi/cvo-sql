@@ -13,8 +13,9 @@ GO
 -- v1.6 CB 27/07/2015 - Print file failing - check for PRINTLABEL in file data and ignore if not there
 -- v1.7 CB 29/07/2015 - Need to expand v1.5 for consolidation orders
 -- v1.8 CB 14/04/2016 - #1596 - Add promo level
-
+-- v1.9 CB 09/06/2016 - Fix issue with consolidated pick ticket partially printing
 -- EXEC dbo.cvo_auto_print_pick_tickets_sp 'ST'
+
 CREATE PROC [dbo].[cvo_auto_print_pick_tickets_sp] (@order_type	VARCHAR(2))
 
 AS
@@ -250,47 +251,9 @@ BEGIN
 			AND		b.order_ext IS NULL
 			-- v1.3
 
-			-- v1.4 Start
-			CREATE TABLE #created (
-				order_no		int,
-				order_ext		int,
-				date_created	datetime,
-				remove_recs		int)
-
-			INSERT	#created (order_no, order_ext, date_created, remove_recs)
-			SELECT	a.trans_type_no,
-					a.trans_type_ext,
-					MAX(date_time),
-					0
-			FROM	tdc_pick_queue a (NOLOCK)
-			JOIN	#so_pick_ticket_details b
-			ON		a.trans_type_no = b.order_no
-			AND		a.trans_type_ext = b.order_ext
-			GROUP BY a.trans_type_no,
-					a.trans_type_ext
-
-			UPDATE	#created
-			SET		remove_recs = 1
-			WHERE	DATEDIFF(n,date_created,GETDATE()) < 2
-
-			DELETE	a
-			FROM	#so_pick_ticket_details a
-			JOIN	#created b
-			ON		a.order_no = b.order_no
-			AND		a.order_ext = b.order_ext
-			WHERE	b.remove_recs = 1
-
-			-- v1.7 Start
-			DELETE	a
-			FROM	#print_order a
-			JOIN	#created b
-			ON		a.order_no = b.order_no
-			AND		a.ext = b.order_ext
-			WHERE	b.remove_recs = 1
-			-- v1.7 End
-			
-			DROP TABLE #created
-
+			-- v1.9 Start
+			-- Moved from after v1.4 section below. Needs to do consolidated orders first otherwise an order in the set can be removed because the queue trans were
+			-- created in the last 2 ninutes. Then when the same test is done for cons orders it does not pick up all the orders correctly
 			-- v1.7 Start
 			CREATE TABLE #createdcons (
 				con_no			int,
@@ -333,6 +296,49 @@ BEGIN
 			-- v1.7 End
 			
 			DROP TABLE #createdcons
+			-- v1.9 End
+
+			-- v1.4 Start
+			CREATE TABLE #created (
+				order_no		int,
+				order_ext		int,
+				date_created	datetime,
+				remove_recs		int)
+
+			INSERT	#created (order_no, order_ext, date_created, remove_recs)
+			SELECT	a.trans_type_no,
+					a.trans_type_ext,
+					MAX(date_time),
+					0
+			FROM	tdc_pick_queue a (NOLOCK)
+			JOIN	#so_pick_ticket_details b
+			ON		a.trans_type_no = b.order_no
+			AND		a.trans_type_ext = b.order_ext
+			GROUP BY a.trans_type_no,
+					a.trans_type_ext
+
+			UPDATE	#created
+			SET		remove_recs = 1
+			WHERE	DATEDIFF(n,date_created,GETDATE()) < 2
+
+			DELETE	a
+			FROM	#so_pick_ticket_details a
+			JOIN	#created b
+			ON		a.order_no = b.order_no
+			AND		a.order_ext = b.order_ext
+			WHERE	b.remove_recs = 1
+
+			-- v1.7 Start
+			DELETE	a
+			FROM	#print_order a
+			JOIN	#created b
+			ON		a.order_no = b.order_no
+			AND		a.ext = b.order_ext
+			WHERE	b.remove_recs = 1
+			-- v1.7 End
+			
+			DROP TABLE #created
+
 
 
 

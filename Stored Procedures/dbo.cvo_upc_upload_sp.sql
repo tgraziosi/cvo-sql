@@ -15,9 +15,12 @@ BEGIN
 
 /*
 
-EXEC CVO_UPC_UPLOAD_SP '999','999', -1, 'ADHOC', 0
+EXEC CVO_UPC_UPLOAD_SP '008','008', -1, 'ADHOC', 1
+EXEC CVO_UPC_UPLOAD_SP '001','RR REFURB', 1, 'ADHOC', 1
+
 TRUNCATE TABLE CVO_UPC_UPLOAD
 SELECT * fROM CVO_UPC_UPLOAD
+
 
 SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 
@@ -152,8 +155,18 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 	IF EXISTS (SELECT 1 FROM #cvo_inv_adj WHERE part_no = '')
 	BEGIN
 		SELECT 'List contains invalid part numbers or upc codes!'
-		SELECT * FROM #cvo_inv_adj WHERE part_no = ''
-		RETURN
+		SELECT row_id ,
+               location ,
+               upc_code ,
+               part_no ,
+               bin_no ,
+               qty FROM #cvo_inv_adj WHERE part_no = ''
+
+		DELETE FROM cvo_upc_upload 
+		WHERE upc_code in
+			(SELECT DISTINCT upc_code FROM #cvo_inv_adj WHERE part_no = '')
+		DELETE FROM #cvo_inv_adj WHERE part_no = ''
+		-- RETURN
 	END
 
 	-- Start processing transactions
@@ -263,9 +276,10 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 		DROP TABLE #adm_inv_adj_log
 	END	
 
-	IF (SELECT COUNT(*) FROM cvo_upc_upload) > 0 AND @debug = 0 TRUNCATE TABLE CVO_UPC_UPLOAD
+	-- IF (SELECT COUNT(*) FROM cvo_upc_upload) > 0 AND @debug = 0 TRUNCATE TABLE CVO_UPC_UPLOAD
 
 END
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_upc_upload_sp] TO [public]

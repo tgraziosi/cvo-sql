@@ -24,7 +24,9 @@ BEGIN
 			@upc_num		varchar(12),
 			@description	varchar(255),
 			@new_description varchar(255),
-			@identity		int
+			@identity		int,
+			@raw_curr		varchar(8), -- v1.3
+			@make_curr		varchar(8) -- v1.3
 
 	-- PROCESSING
 	
@@ -205,6 +207,16 @@ BEGIN
 			SELECT	@result, @ret_message
 			RETURN
 		END
+
+		-- v1.3 Start
+		SELECT	@raw_curr = nat_cur_code
+		FROM	adm_vend (NOLOCK)
+		WHERE	vendor_code = @raw_vendor
+
+		SELECT	@make_curr = nat_cur_code
+		FROM	adm_vend (NOLOCK)
+		WHERE	vendor_code = @make_vendor
+		-- v1.3 End
 
 		-- Validate that a primary bin exists for the finished goods
 --		IF NOT EXISTS (SELECT 1 FROM tdc_bin_part_qty (NOLOCK) WHERE location = '001' AND part_no = @part_no AND [primary] = 'Y')
@@ -563,7 +575,7 @@ BEGIN
 
 		END
 
-		EXEC cvo_CreateVendorQuote_sp @item_no = @test_part_no, @currency = 'USD', @cost = @raw_cost, @suppress = 1
+		EXEC cvo_CreateVendorQuote_sp @item_no = @test_part_no, @currency = @raw_curr, @cost = @raw_cost, @suppress = 1 -- v1.3
 
 		-- Check for MAKE part
 		SET @test_part_no = @part_no + '-MAKE'
@@ -675,7 +687,7 @@ BEGIN
 				RETURN
 			END
 
-			EXEC cvo_CreateVendorQuote_sp @item_no = @test_part_no, @currency = 'USD', @cost = @make_cost, @suppress = 1
+			EXEC cvo_CreateVendorQuote_sp @item_no = @test_part_no, @currency = @make_curr, @cost = @make_cost, @suppress = 1 -- v1.3
 
 		END
 
@@ -851,7 +863,7 @@ BEGIN
 				RETURN
 			END
 
-			EXEC cvo_CreateVendorQuote_sp @item_no = @test_part_no2, @currency = 'USD', @cost = 0, @suppress = 1
+			EXEC cvo_CreateVendorQuote_sp @item_no = @test_part_no2, @currency = @make_curr, @cost = 0, @suppress = 1 -- v1.3
 
 		END
 

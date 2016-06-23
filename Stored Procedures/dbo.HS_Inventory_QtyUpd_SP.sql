@@ -52,7 +52,8 @@ join inv_master_add t3 on t1.sku=t3.part_no
 where (APR in('Y','yy') -- removed 031315 -- or t1.sku like 'AS%' -- fudge aspire inventory 2/16/2015
 OR T1.SKU = 'ETREADER'
 and t1.shelfqty <> 2000)
-OR t1.[category:2]='revo')
+-- OR t1.[category:2]='revo' -- 061016 - show real inventory
+OR ISNULL(t3.field_30,'') = 'Y') -- kits 061016
 
 DROP TABLE cvo_hs_inventory_qtyupd
 select t1.*, 
@@ -103,6 +104,7 @@ SELECT * FROM CVO_HS_INVENTORY_QTYUPD where IsAvailable = 1 and shelfQty < 5 ord
 
 -- EXEC HS_Inventory_QtyUpd_SP
 END
+
 
 
 

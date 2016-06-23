@@ -41,7 +41,8 @@ BEGIN
 			@ns_line_no		int,		-- v4.6
 			@rec_id			SMALLINT,	-- v5.4
 			@stcons_no		int, -- v5.9
-			@last_stcons_no int -- v5.9
+			@last_stcons_no int, -- v5.9
+			@prior_hold		varchar(10) -- v7.3
 
 	-- v6.3 Start
 	DECLARE	@cur_con_no		int,
@@ -1624,6 +1625,85 @@ BEGIN
 	END
 	DROP TABLE #global_ship_print
 	-- v6.0 End
+
+	-- v7.3 Start
+	IF EXISTS (SELECT 1 FROM #orders_to_consolidate)
+	BEGIN
+		SET @last_stcons_no = 0
+
+		SELECT	TOP 1 @stcons_no = consolidation_no
+		FROM	#orders_to_consolidate
+		WHERE	consolidation_no > @last_stcons_no
+		ORDER BY consolidation_no ASC	
+
+		WHILE (@@ROWCOUNT <> 0)
+		BEGIN
+
+			IF EXISTS (SELECT 1 FROM orders_all a (NOLOCK) JOIN cvo_masterpack_consolidation_det b (NOLOCK) ON a.order_no = b.order_no AND a.ext = b.order_ext
+						WHERE b.consolidation_no = @stcons_no AND a.status = 'A')
+			BEGIN
+
+				SET @order_no = 0
+
+				WHILE (1 = 1)
+				BEGIN
+					SELECT	TOP 1 @order_no = order_no,
+							@order_ext = order_ext
+					FROM	cvo_masterpack_consolidation_det (NOLOCK)
+					WHERE	consolidation_no = @stcons_no
+					AND		order_no > @order_no
+					ORDER BY order_no ASC
+
+					IF (@@ROWCOUNT = 0)
+						BREAK
+
+					EXEC dbo.cvo_UnAllocate_sp @order_no, @order_ext, 0, 'AUTO_ALLOC', 1
+
+					SELECT	@hold_reason = hold_reason
+					FROM	orders_all (NOLOCK)
+					WHERE	order_no = @order_no
+					AND		ext = @order_ext
+
+					IF (ISNULL(@hold_reason,'') <> '')
+					BEGIN
+						UPDATE	cvo_orders_all
+						SET		prior_hold = 'STC'
+						WHERE	order_no = @order_no
+						AND		ext = @order_ext
+					END
+					ELSE
+					BEGIN
+						UPDATE	orders_all
+						SET		status = 'A',
+								hold_reason = 'STC'
+						WHERE	order_no = @order_no
+						AND		ext = @order_ext					
+					END					
+				END
+			
+				UPDATE	cvo_masterpack_consolidation_hdr
+				SET		closed = 0
+				WHERE	consolidation_no = @stcons_no
+
+				UPDATE	cvo_st_consolidate_release
+				SET		released = 0,
+						release_date = NULL,
+						release_user = NULL
+				WHERE	consolidation_no = @stcons_no
+
+			END
+
+			SET @last_stcons_no = @stcons_no
+
+			SELECT	TOP 1 @stcons_no = consolidation_no
+			FROM	#orders_to_consolidate
+			WHERE	consolidation_no > @last_stcons_no
+			ORDER BY consolidation_no ASC
+
+		END
+		
+	END
+	-- v7.3 End
 
 	-- v7.2 Start
 	IF OBJECT_ID('tempdb..#consolidate_picks') IS NOT NULL  

@@ -163,6 +163,13 @@ BEGIN
 		IF @qty_remaining <= 0
 			BREAK
 
+		-- v1.3 Start
+		-- Rehide the transaction
+		UPDATE	tdc_pick_queue
+		SET		assign_user_id = 'HIDDEN'  
+		WHERE	tran_id = @tran_id
+		-- v1.3 End
+
 		SET @last_tran_id = @tran_id
 
 		SELECT	TOP 1 @tran_id = tran_id,

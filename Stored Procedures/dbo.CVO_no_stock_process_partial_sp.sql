@@ -68,7 +68,8 @@ BEGIN
 			@case_orig_qty	decimal(20,8), -- v1.1
 			@new_soft_alloc_no int, -- v1.2
 			@notifications	SMALLINT, -- v1.4
-			@retval			INT -- v1.4
+			@retval			INT, -- v1.4
+			@consolidation_no int -- v2.3
 
 	-- START v1.4
 	/*
@@ -620,6 +621,37 @@ BEGIN
 		END
 	END
 	-- END v1.8
+
+	-- v2.3 Start
+	SET @consolidation_no = NULL
+	SELECT	@consolidation_no = consolidation_no 
+	FROM	cvo_masterpack_consolidation_det (NOLOCK) 
+	WHERE	order_no = @order_no
+	AND		order_ext = @order_ext
+
+	IF (@consolidation_no IS NOT NULL)
+	BEGIN
+		DELETE	cvo_masterpack_consolidation_det
+		WHERE	order_no = @order_no
+		AND		order_ext = @order_ext
+
+		UPDATE	cvo_orders_all 
+		SET		st_consolidate = 0
+		WHERE	order_no = @order_no
+		AND		ext = @order_ext
+
+		IF NOT EXISTS (SELECT 1 FROM cvo_masterpack_consolidation_det (NOLOCK) WHERE consolidation_no = @consolidation_no)
+		BEGIN
+			DELETE	cvo_masterpack_consolidation_hdr
+			WHERE	consolidation_no = @consolidation_no
+
+			DELETE  cvo_st_consolidate_release
+			WHERE	consolidation_no = @consolidation_no
+			
+		END
+	END
+	-- v2.3 End 
+
 
 	SELECT @retval
 	RETURN 

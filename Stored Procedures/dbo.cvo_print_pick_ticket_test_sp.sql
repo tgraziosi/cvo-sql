@@ -131,7 +131,7 @@ BEGIN
 	UPDATE #so_pick_ticket_details SET sel_flg = 1
 
 	select 'printing'
-	select * from #so_pick_ticket_details WHERE order_no = 2798568 
+	select * from #so_pick_ticket_details WHERE order_no = 2718256 
 
 
 
@@ -139,7 +139,7 @@ BEGIN
 	EXEC tdc_plw_so_print_assign_test_sp 'AUTO_ALLOC'
 
 	select 'print2'
-select * from #so_pick_ticket WHERE order_no = 2798568
+select * from #so_pick_ticket WHERE order_no = 2718256
 
 
 	-- Reorganized sort order
@@ -214,7 +214,7 @@ select * from #so_pick_ticket WHERE order_no = 2798568
 	END
 	-- END v1.2
 
-	if(@order_no = 2798568)
+	if(@order_no = 2718256)
 	select * from #tdc_print_ticket
 
 	return
@@ -230,25 +230,25 @@ select * from #so_pick_ticket WHERE order_no = 2798568
 	--Create the file
 	SET @xp_cmdshell = 'SQLCMD -S ' + @@servername + ' -E -Q "SET NOCOUNT ON SELECT print_value FROM ' + db_name() + '.dbo.CVO_tdc_print_ticket (NOLOCK) WHERE process_id = ' + CAST(@@SPID AS varchar(10)) + ' order by row_id" -s"," -h -1 -W -b -o  "' + @lwlPath  + '\PTK-' + CAST(newid()AS VARCHAR(60)) + '.pas"'   
 				
-	EXEC master..xp_cmdshell  @xp_cmdshell, no_output
+	--EXEC master..xp_cmdshell  @xp_cmdshell, no_output
 
-	IF @@Error <> 0
-		RETURN
+	--IF @@Error <> 0
+	--	RETURN
 
-	UPDATE	orders_all
-	SET		status = 'Q',
-			printed = 'Q',
-			date_printed = GETDATE() -- v1.5
-	WHERE	order_no = @order_no
-	AND		ext = @order_ext
+	--UPDATE	orders_all
+	--SET		status = 'Q',
+	--		printed = 'Q',
+	--		date_printed = GETDATE() -- v1.5
+	--WHERE	order_no = @order_no
+	--AND		ext = @order_ext
 
-	-- v1.5 Start
-	INSERT tdc_log (tran_date, userid, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
-	SELECT GETDATE(),'BACKORDER','BO','ADM','PICK TICKET', CAST(@order_no as varchar(20)), CAST(@order_ext as varchar(10)), '', '', '', @location, '', 'STATUS:Q; HOLDREASON:'
-	-- v1.5 End
+	---- v1.5 Start
+	--INSERT tdc_log (tran_date, userid, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+	--SELECT GETDATE(),'BACKORDER','BO','ADM','PICK TICKET', CAST(@order_no as varchar(20)), CAST(@order_ext as varchar(10)), '', '', '', @location, '', 'STATUS:Q; HOLDREASON:'
+	---- v1.5 End
 
 	-- v1.6 Start
-	EXEC dbo.cvo_update_bo_processing_sp 'P', @order_no, @order_ext
+--	EXEC dbo.cvo_update_bo_processing_sp 'P', @order_no, @order_ext
 	-- v1.6 End
 
 END

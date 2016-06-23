@@ -26,7 +26,7 @@ BEGIN
 			from
             ( SELECT DISTINCT territory_code FROM arterr (NOLOCK) 
 			   WHERE dbo.calculate_region_fn(territory_code) < '800'
-			   AND territory_code IN ('20206','70778', '50503', '40440') -- phil, Elyse, dave s, kerry c
+			   AND territory_code IN ('20206','70778', '50503', '40440','40456') -- phil, Elyse, dave s, kerry c
 			) Terr
 			   -- for testing 03/2016
 
@@ -48,7 +48,7 @@ BEGIN
 	  FROM arsalesp (NOLOCK) 
 	  WHERE ISNULL(employee_code,'') > ''
 	  AND status_type = 1
-	  AND territory_code IN ('20206','70778', '50503', '40440') -- phil, bob s, dave s, kerry c
+	  AND territory_code IN ('20206','70778', '50503', '40440','40456') -- phil, Elyse, dave s, kerry c
 	  AND NOT EXISTS(SELECT 1 FROM #allterr WHERE #allterr.customer_code = ISNULL(employee_code,'') )
 	  
 
@@ -315,7 +315,7 @@ LEFT(SUBSTRING(salesperson_name, CHARINDEX(' ',salesperson_name) + 1, LEN(salesp
 LEFT(a.slp_email,100)
 FROM dbo.cvo_sc_addr_vw AS a 
 -- testing
-WHERE a.territory_code IN  ('20206','40456', '50503', '40440')
+WHERE a.territory_code IN  ('20206','70778', '50503', '40440','40456')
 
 END
 
@@ -455,5 +455,7 @@ AND i.type_code IN ('frame','sun')
 AND o.user_category NOT LIKE ('%-RB')
 AND X.trx_type IN (2031)
 AND x.date_applied > @date
+
+
 
 GO

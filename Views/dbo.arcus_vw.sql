@@ -55,6 +55,7 @@ SELECT
   cv.cvo_print_cm as Print_CM,            -- CVO  
   cv.cvo_chargebacks as Charge_Backs,           -- CVO  
   t1.fin_chg_code, -- CVO - tag - 030713
+  CASE WHEN ISNULL(cv.rx_consolidate,0) <> 0 THEN 'Yes' ELSE 'No' end RX_Consolidate,
    x_open_balance = isnull (t2.amt_balance, 0.0),  
    x_amt_on_acct = isnull(t2.amt_on_acct, 0.0),    
    x_net_balance = isnull(t2.amt_balance , 0.0) - isnull (t2.amt_on_acct, 0.0),  
@@ -77,6 +78,7 @@ SELECT
  LEFT OUTER JOIN arnarel na ON t1.customer_code = na.child               -- CVO  
  LEFT OUTER JOIN arcust bg ON na.parent = bg.customer_code               -- CVO  
  WHERE  t1.address_type = 0
+
 
 
 

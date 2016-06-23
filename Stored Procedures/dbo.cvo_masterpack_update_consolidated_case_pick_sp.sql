@@ -12,12 +12,26 @@ BEGIN
 
 	IF EXISTS (SELECT 1 FROM cvo_masterpack_consolidation_picks WHERE child_tran_id = @tran_id)
 	BEGIN
-		SELECT 
-			@parent_tran_id = parent_tran_id
-		FROM 
-			dbo.cvo_masterpack_consolidation_picks (NOLOCK)
-		WHERE 
-			child_tran_id = @tran_id
+		-- v1.1 Start
+		IF OBJECT_ID('tempdb..#tmp_autopickcase') IS NULL   
+		BEGIN   
+			SELECT 
+				@parent_tran_id = parent_tran_id
+			FROM 
+				dbo.cvo_masterpack_consolidation_picks (NOLOCK)
+			WHERE 
+				child_tran_id = @tran_id
+		END 
+		ELSE
+		BEGIN
+			SELECT	@parent_tran_id = a.parent_tran_id
+			FROM	dbo.cvo_masterpack_consolidation_picks a (NOLOCK)
+			JOIN	tdc_pick_queue b (NOLOCK)
+			ON		a.parent_tran_id = b.tran_id
+			WHERE 	a.child_tran_id = @tran_id
+			AND		b.company_no IS NULL
+		END
+		-- v1.1 End
 
 		UPDATE 
 			tdc_pick_queue 
