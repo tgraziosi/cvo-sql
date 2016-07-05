@@ -4,6 +4,7 @@ SET ANSI_NULLS ON
 GO
 
 -- v1.0 CB 11/11/2015 - #1576 - POP should not allocate on there own when frames are on the order and do not allocate
+-- v1.1 CB 21/06/2016 - If there are no frames on the order then allow the POP to allocate
 
 CREATE PROC [dbo].[CVO_validate_pop_gifts_sp]	@order_no  int = 0,  
 											@order_ext int = 0 
@@ -29,16 +30,22 @@ BEGIN
 					WHERE a.order_no = @order_no AND a.order_ext = @order_ext AND b.type_code IN (SELECT * FROM fs_cParsing (@frame))
 					AND a.qty_to_alloc > 0) 	
 				BEGIN
-					UPDATE	a
-					SET		qty_to_alloc = 0
-					FROM	#so_allocation_detail_view_Detail a
-					JOIN	cvo_ord_list b (NOLOCK)
-					ON		a.order_no = b.order_no
-					AND		a.order_ext = b.order_ext
-					AND		a.line_no = b.line_no
-					WHERE	a.order_no = @order_no
-					AND		a.order_ext = @order_ext
-					AND		b.is_pop_gif = 1
+					-- v1.1 Start
+					IF EXISTS (SELECT 1 FROM ord_list a (NOLOCK) JOIN inv_master b (NOLOCK) ON a.part_no = b.part_no
+						WHERE a.order_no = @order_no AND a.order_ext = @order_ext AND b.type_code IN (SELECT * FROM fs_cParsing (@frame)))
+					BEGIN
+						UPDATE	a
+						SET		qty_to_alloc = 0
+						FROM	#so_allocation_detail_view_Detail a
+						JOIN	cvo_ord_list b (NOLOCK)
+						ON		a.order_no = b.order_no
+						AND		a.order_ext = b.order_ext
+						AND		a.line_no = b.line_no
+						WHERE	a.order_no = @order_no
+						AND		a.order_ext = @order_ext
+						AND		b.is_pop_gif = 1
+					END
+					-- v1.1 End
 				END
 			END
 		END
@@ -78,27 +85,33 @@ BEGIN
 						WHERE a.order_no = @order_no AND a.order_ext = @order_ext AND b.type_code IN (SELECT * FROM fs_cParsing (@frame))
 						AND a.qty_to_alloc > 0) 	
 					BEGIN
-						UPDATE	a
-						SET		qty_to_alloc = 0
-						FROM	#so_allocation_detail_view a
-						JOIN	cvo_ord_list b (NOLOCK)
-						ON		a.order_no = b.order_no
-						AND		a.order_ext = b.order_ext
-						AND		a.line_no = b.line_no
-						WHERE	a.order_no = @order_no
-						AND		a.order_ext = @order_ext
-						AND		b.is_pop_gif = 1
+						-- v1.1 Start
+						IF EXISTS (SELECT 1 FROM ord_list a (NOLOCK) JOIN inv_master b (NOLOCK) ON a.part_no = b.part_no
+							WHERE a.order_no = @order_no AND a.order_ext = @order_ext AND b.type_code IN (SELECT * FROM fs_cParsing (@frame)))
+						BEGIN
+							UPDATE	a
+							SET		qty_to_alloc = 0
+							FROM	#so_allocation_detail_view a
+							JOIN	cvo_ord_list b (NOLOCK)
+							ON		a.order_no = b.order_no
+							AND		a.order_ext = b.order_ext
+							AND		a.line_no = b.line_no
+							WHERE	a.order_no = @order_no
+							AND		a.order_ext = @order_ext
+							AND		b.is_pop_gif = 1
 
-						UPDATE	a
-						SET		qty_to_alloc = 0
-						FROM	CVO_qty_to_alloc_tbl a
-						JOIN	cvo_ord_list b (NOLOCK)
-						ON		a.order_no = b.order_no
-						AND		a.order_ext = b.order_ext
-						AND		a.line_no = b.line_no
-						WHERE	a.order_no = @order_no
-						AND		a.order_ext = @order_ext
-						AND		b.is_pop_gif = 1
+							UPDATE	a
+							SET		qty_to_alloc = 0
+							FROM	CVO_qty_to_alloc_tbl a
+							JOIN	cvo_ord_list b (NOLOCK)
+							ON		a.order_no = b.order_no
+							AND		a.order_ext = b.order_ext
+							AND		a.line_no = b.line_no
+							WHERE	a.order_no = @order_no
+							AND		a.order_ext = @order_ext
+							AND		b.is_pop_gif = 1
+						END
+						-- v1.1 End
 					END
 				END
 			END

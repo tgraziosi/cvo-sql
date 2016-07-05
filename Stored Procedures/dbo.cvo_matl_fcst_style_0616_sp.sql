@@ -6,7 +6,7 @@ CREATE procedure [dbo].[cvo_matl_fcst_style_0616_sp]
 @startrank datetime, 
 @asofdate datetime, 
 @location VARCHAR(10),
--- @endrel DATETIME = null, -- ending release date
+@endrel DATETIME = null, -- ending release date
 @UseDrp int = 1, 
 @current int = 1,
 @collection varchar(1000) = null,
@@ -21,15 +21,16 @@ CREATE procedure [dbo].[cvo_matl_fcst_style_0616_sp]
 /*
  exec cvo_matl_fcst_style_0616_sp
  @startrank = '12/23/2013',
- @asofdate = '6/1/2016', 
- @endrel = '12/31/2016', 
+ @asofdate = '7/1/2016', 
+ @endrel = '08/01/2016', 
  @usedrp = 1, 
  @current = 1, 
  @collection = 'as', 
  @style = null, 
  @specfit = '*all*',
  @usg_option = 'o',
- @debug = 1 -- debug
+ @debug = 1, -- debug
+ @location = '001'
 
  
 */
@@ -70,7 +71,7 @@ set @pomdate = @asofdate
 set @startdate = '01/01/1949'  -- starting release date
 -- set @enddate = '12/31/2020' -- ending release date
 -- set @enddate = @asofdate
--- set @enddate = ISNULL(@endrel, @asofdate)
+set @enddate = ISNULL(@endrel, @asofdate)
 
 declare @coll_list varchar(1000), @style_list varchar(8000), @sf VARCHAR(1000), @s_start INT, @s_end INT, @s_mult DECIMAL(20,8)
 
@@ -143,7 +144,7 @@ sort_seq int
 
 insert into #dmd_mult
 select mm, pct_sales, 0 , 0, 0 from cvo_dmd_mult
-where obs_date is null
+where obs_date is NULL AND asofdate = (SELECT MAX(asofdate) FROM cvo_dmd_mult WHERE asofdate <= GETDATE())
 
 -- select sum(pct_sales) from #dmd_mult -- 1.0001 for 2015
 -- 0.99980000 for 2/2015
@@ -563,12 +564,39 @@ IF ISNULL(@debug,0) = 1
 BEGIN
  SELECT * FROM #dmd_mult
  SELECT * FROM #t
+
+ SELECT brand, style, COUNT(DISTINCT rel_date) rel_date_cnt
+FROM #t 
+GROUP BY brand, style
+HAVING COUNT(DISTINCT rel_date) = 1
+AND MAX(rel_date) > @endrel
+-- ) future_releases
+
 END 
 
 if @current = 1  -- if reporting current styles/skus only remove any pom skus 
 begin
 	delete from #t where exists (select 1 from inv_master_add where part_no = #t.part_no and field_28 is not null and field_28 < @asofdate )
 END
+
+-- remove any skus after the ending release date (full styles only)
+IF @endrel <> @asofdate
+BEGIN
+
+DELETE FROM #t 
+	WHERE EXISTS (SELECT 1 FROM 
+	(SELECT brand, style, COUNT(DISTINCT rel_date) rel_date_cnt
+	FROM #t 
+	GROUP BY brand, style
+	HAVING COUNT(DISTINCT rel_date) = 1
+	AND MAX(rel_date) > @endrel
+	) future_releases
+	WHERE #t.brand = future_releases.brand AND #t.style = future_releases.style
+	)
+
+END 
+
+IF @debug = 1  SELECT 'after future_releases removed', * FROM #t AS t
 
 -- figure out pct of first purchase
 ;with x as 
@@ -817,6 +845,8 @@ select @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty,0) - (isnull(cia.so
 	 , @atp = ISNULL(qty_avl,0)
 from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku and cia.location = @loc
 
+
+
 select @sort_seq = 0
 SELECT @INV_AVL = @LAST_INV
 select @fct = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'fct' and sort_seq = @sort_seq + 1
@@ -829,7 +859,15 @@ select @ord = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type =
 
 
 while @sku is not null 
-begin
+BEGIN
+
+	IF @debug = 1 
+		BEGIN
+		 SELECT @sku, @last_inv, @atp
+		 SELECT * FROM dbo.cvo_item_avail_vw AS iav WHERE iav.part_no = @sku AND iav.location = @loc
+		END
+        
+
 	update #SKU set qoh = isnull(@last_inv,0)
 					, atp = ISNULL(@atp,0)  where sku = @sku
 	WHILE @SORT_SEQ < 12
@@ -984,6 +1022,9 @@ on specs.brand = #style.brand and specs.style = #style.style
 
 
 end
+
+
+
 
 
 

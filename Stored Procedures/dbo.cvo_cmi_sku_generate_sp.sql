@@ -38,8 +38,9 @@ DECLARE
 -- SELECT  @coll = 'bt' , @model = 'eye-density', @colorname = null, @eye_size = null, @upd = 'n', @release_date = '04/26/2016'
 
 -- check with accounting/product for periodic changes
+-- 6/30/2016 - change pattern cost from .28 to .36 
 
-SELECT @ovhd_pct = .0721, @util_cost = 0.21, @demolen_cost = .25, @pattern_cost = 0.28, 
+SELECT @ovhd_pct = .0721, @util_cost = 0.21, @demolen_cost = .25, @pattern_cost = 0.36, 
 	   @pattern_vendor = 'MOTIF0', @hangtag_cost = .12, @upc_cost = .02
 
 
@@ -1375,7 +1376,9 @@ INSERT  #i
 									THEN CAST (0.0125 AS DECIMAL(20, 8))
 								 WHEN C.PART_TYPE = 'pattern' 
 									THEN CAST(0.008 AS DECIMAL(20,8))
-                                 WHEN c.part_type IN ( 'demolen', 'temple-tip' ,'hangtag', 'upc')
+								 WHEN c.part_type IN ( 'demolen') -- 7/5/2016 - from .001 as per IC
+									THEN CAST (0.005 AS DECIMAL(20, 8))
+                                 WHEN c.part_type IN ( 'temple-tip' ,'hangtag', 'upc')
 									THEN CAST (0.001 AS DECIMAL(20, 8))
                                  ELSE CAST(0.0001 AS DECIMAL(20, 8)) -- must be non-zero value
                             END ,
@@ -2044,6 +2047,8 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
+
 
 
 

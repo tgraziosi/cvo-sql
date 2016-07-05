@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -62,6 +61,7 @@ ISNULL(rs.description,'') AS rimless_style,
 ROUND(pp.front_price,2) front_price,
 ROUND(pp.temple_price,2) temple_price,
 ROUND(pp.frame_price,2) Wholesale_price,
+pp.Last_price_upd_date,
 cia.sugg_retail_price,
 ia.field_26 AS release_date,
 i.upc_code,
@@ -132,6 +132,7 @@ WHERE i.void='n' AND i.type_code IN ('frame','sun')
 
 
 -- select * From cvo_part_price_cost_vw where part_no = 'cvellblu5114'
+
 
 
 

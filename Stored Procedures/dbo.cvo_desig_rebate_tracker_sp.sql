@@ -70,7 +70,8 @@ SELECT cdr.progyear, cdr.interval ,cdr.code, facts.description, cdr.goal1, cdr.r
 	NeedForGoal1 = cdr.goal1 - facts.desig_netsales,
 	NeedForGoal1RA = (CASE WHEN cdr.rrless = 0 THEN 0 ELSE facts.rareturns/cdr.rrless END) - cdr.goal1,
 	NeedForGoal2 = cdr.goal2 - facts.desig_netsales,
-	RebatePotential = facts.desig_netsales * cdr.rebatepct1 + facts.desig_netsales * cdr.rebatepct2
+	NeedForGoal2RA = (CASE WHEN cdr.rrless = 0 THEN 0 ELSE facts.rareturns/cdr.rrless END) - cdr.goal2,
+	RebatePotential = facts.desig_netsales * ISNULL(cdr.rebatepct1,0) + facts.desig_netsales * ISNULL(cdr.rebatepct2,0)
 
 FROM 
 dbo.cvo_designation_rebates AS cdr
@@ -124,6 +125,7 @@ AND t.region IS NOT NULL
 -- SELECT * FROM dbo.cvo_designation_codes AS ccdc
 
 END
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_desig_rebate_tracker_sp] TO [public]

@@ -24,6 +24,7 @@ GO
 -- 041416 - VEE support
 -- 052616 - show CH inventory again
 -- 6/9/2016 for kit items to fake inventory # later. show real inventory for REVO
+-- 6/28/2016 - support for July programs - BTS and TWEEN and new OP kit
 --
 -- =============================================
 
@@ -146,10 +147,17 @@ I.CATEGORY AS COLL, IA.field_2 as Model,
 field_28 as POMDate,
 field_26 as ReleaseDate,
 dbo.f_cvo_get_part_tl_status (I.part_no,@today)  as Status,
+/*
 -- 6/26/2015 tweak for BTS 2015
 CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN ('843','844')*/  THEN 'KIDS' 
 	 /*WHEN category_2 NOT LIKE '%child%' AND i.category IN('jc','op') THEN 'Tween'*/
 	 ELSE '' END GENDER, 
+*/
+-- 6/28/2016 tweak for BTS 2016
+CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN ('843','844')*/  THEN 'BTS' 
+	 WHEN category_2 NOT LIKE '%child%' AND i.category IN('jc','op') THEN 'Tween'
+	 ELSE '' END GENDER, 
+
 case when field_32 = 'none' /*OR ia.field_2 IN ('gelato','popsicle','sherbet')*/ then '' else isnull(FIELD_32,'') end as SpecialtyFit,
 case when (#apr.sku is not null) then 'Y' else ''  end as APR,
 CASE WHEN i.category = 'ch' THEN ''
@@ -210,11 +218,10 @@ UPDATE  #Data1 SET NAME='IZOD CLEAR DISPLAY FRAME KIT'
 		, [CATEGORY:1]= 'FRAME', MANUFACTURER= 'CLEARVISION' 
 	    WHERE sku = 'IZCLDISKITA'
 
-
 -- 06/26/2015
 UPDATE  #Data1 SET [CATEGORY:1]= 'FRAME', MANUFACTURER= 'CLEARVISION' 
 		, longdesc = variantdescription, name = variantdescription, size = ''--, model = 'READER'
-	    WHERE sku in ('ETREADER','izztr90kit','bczdisplaykit','izodinter')
+	    WHERE sku in ('ETREADER','izztr90kit','bczdisplaykit','izodinter','opsherbetm')
 
 UPDATE  #Data1 SET longDesc = REPLACE (longDesc,'PERFORMX ','IZOD PERFORMX ') 
 			, name = REPLACE (name,'PERFORMX ','IZOD PERFORMX ') 
@@ -557,6 +564,8 @@ END
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
+
 
 
 

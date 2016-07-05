@@ -13,7 +13,8 @@ max(ISNULL(temple_price,0)) temple_price,
 max(ISNULL(frame_cost,0)) frame_cost,
 max(ISNULL(front_cost,0)) front_cost,
 max(ISNULL(temple_cost,0)) temple_cost,
-max(ISNULL(cable_cost,0)) cable_cost
+max(ISNULL(cable_cost,0)) cable_cost,
+MAX(bp.Last_price_upd_date) last_price_upd_date
 
 from
 (
@@ -35,6 +36,7 @@ case when i.type_code in ('frame','sun','chassis') then ISNULL(ila.std_cost,0) e
 ,cast(round(case when iia.category_3 = 'front' 
 		then ISNULL(iil.std_cost,0) else 0 end,2) as decimal(8,2))
 		 as front_cost
+, p.last_system_upd_date Last_price_upd_date
 from 
 	-- assembly data
 	inv_master i (nolock) 
@@ -61,6 +63,7 @@ from
  -- where bp.part_no like 're%'
 group by bp.part_no
 -- order by bp.part_no
+
 
 
 GO

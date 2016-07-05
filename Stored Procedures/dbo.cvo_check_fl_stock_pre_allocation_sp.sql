@@ -168,7 +168,8 @@ BEGIN
 
 			SELECT @sa_qty = ISNULL(SUM(CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0)  
 			FROM	dbo.cvo_soft_alloc_det a (NOLOCK)  
-			WHERE	a.status IN (0, 1, -1)  
+-- v1.4		WHERE	a.status IN (0, 1, -1)  
+			WHERE	a.status NOT IN (-2,-3) --  v1.4
 			AND		(CAST(a.order_no AS varchar(10)) + CAST(a.order_ext AS varchar(5))) <> (CAST(@order_no AS varchar(10)) + CAST(@order_ext AS varchar(5)))    
 			AND		a.location = @location  
 			AND		a.part_no = @part_no
@@ -197,8 +198,6 @@ BEGIN
 			ORDER BY line_row_id ASC
 		END
 
-select * from #order_det
-
 		-- Check if any of the details can be allocated
 		IF EXISTS (SELECT 1 FROM #order_det WHERE no_stock = 1)
 		BEGIN
@@ -214,8 +213,6 @@ select * from #order_det
 			FROM	#order_det
 			WHERE	no_stock = 0
 
-select '@total_ordered',@total_ordered
-select '@total_available',@total_available
 
 			IF (@total_available > 0)
 			BEGIN

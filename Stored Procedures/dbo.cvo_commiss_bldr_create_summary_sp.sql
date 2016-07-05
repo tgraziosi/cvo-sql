@@ -158,7 +158,7 @@ from
 				), 1, 1, '') promo_details
 				, SUM(ccpv.incentive_amount) promo_sum
         FROM dbo.cvo_commission_promo_values AS ccpv
-		WHERE ccpv.recorded_month = @fp AND ISNULL(ccpv.line_type,'') <> ''
+		WHERE ccpv.recorded_month = @fp AND ISNULL(ccpv.line_type,'') NOT LIKE  '%adj 3%'
 		GROUP BY ccpv.rep_code
 	) promo_details ON (promo_details.rep_code = a.salesperson OR promo_details.rep_code = a.salesperson_name)
 		LEFT OUTER JOIN -- other additions nformation
@@ -170,7 +170,7 @@ from
 				), 1, 1, '') addition_details
 				, SUM(ccpv.incentive_amount) addition_sum
         FROM dbo.cvo_commission_promo_values AS ccpv
-		WHERE ccpv.recorded_month = @fp AND ccpv.incentive_amount > 0 AND ISNULL(ccpv.line_type,'') = ''
+		WHERE ccpv.recorded_month = @fp AND ccpv.incentive_amount > 0 AND ISNULL(ccpv.line_type,'') LIKE '%adj 3%'
 		GROUP BY ccpv.rep_code
 	) addition_details ON addition_details.rep_code = a.salesperson OR addition_details.rep_code = a.salesperson_name
 		LEFT OUTER JOIN -- other deductions nformation
@@ -182,7 +182,7 @@ from
 				), 1, 1, '') deduction_details
 				, SUM(ccpv.incentive_amount) deduction_sum
         FROM dbo.cvo_commission_promo_values AS ccpv
-		WHERE ccpv.recorded_month = @fp AND ccpv.incentive_amount < 0 AND ISNULL(line_type,'') = ''
+		WHERE ccpv.recorded_month = @fp AND ccpv.incentive_amount < 0 AND ISNULL(line_type,'') like '%adj 3%'
 		GROUP BY ccpv.rep_code
 	) deduction_details ON deduction_details.rep_code = a.salesperson OR deduction_details.rep_code = a.salesperson_name
 
@@ -196,6 +196,7 @@ UPDATE d SET
 		WHERE d.report_month = @fp
 
 -- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt
+
 
 
 

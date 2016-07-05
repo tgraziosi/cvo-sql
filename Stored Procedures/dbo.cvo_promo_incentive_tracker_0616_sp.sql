@@ -12,7 +12,7 @@ BEGIN
 SET NOCOUNT ON
 
 DECLARE @edate DATETIME, @cutoffdate DATETIME -- , @terr VARCHAR(1024)
-SELECT @cutoffdate = '05/31/2016 23:59', @edate = '7/1/2016' --,  @terr = NULL
+SELECT @cutoffdate = '05/31/2016 23:59', @edate = '7/1/2016 23:59' --,  @terr = NULL
 
 DECLARE @r12start DATETIME, @r12end DATETIME
 SELECT @r12start = begindate, @r12end = enddate
@@ -23,6 +23,9 @@ DECLARE @ytdstartty DATETIME, @ytdendty DATETIME
 SELECT @ytdstartty = begindate, @ytdendty = enddate
 -- SELECT *
 FROM dbo.cvo_date_range_vw AS cdrv WHERE period = 'year to date'
+
+--
+SELECT @ytdendty = @edate
 
 DECLARE @ytdstartly DATETIME, @ytdendly DATETIME
 SELECT @ytdstartly = DATEADD(YEAR, -1, @ytdstartty),
@@ -35,6 +38,8 @@ SELECT @mtdstartty = begindate, @mtdendty = enddate,
 	   @mtdendly = DATEADD(YEAR, -1, enddate)
 -- SELECT *
 FROM dbo.cvo_date_range_vw AS cdrv WHERE period = 'month to date'
+
+SELECT @mtdendty = @edate
 
 -- SELECT @ytdendly, @ytdendty, @ytdstartly, @ytdstartty, @mtdendly, @mtdendty, @mtdstartty, @mtdstartly
 
@@ -418,6 +423,7 @@ SELECT DISTINCT #f.order_no ,
 
 
 END
+
 
 
 

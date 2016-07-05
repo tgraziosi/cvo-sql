@@ -12,6 +12,7 @@ GO
 -- 
 -- tag - 071213 - create a regular table instead of temp table
 -- tag - 8/21/2015 - add sales rep customer accounts
+-- tag - 6/30/2016 - add ordtyp.txt table for promotions
 -- =============================================
 
 CREATE PROCEDURE [dbo].[cvo_eyerep_accounts_sp] 
@@ -279,6 +280,26 @@ SELECT DISTINCT kys, description
 FROM dbo.category AS c 
 WHERE ISNULL(c.void,'N') = 'N'
 
+-- Order types
+
+IF(OBJECT_ID('dbo.cvo_eyerep_ordtyp_tbl') is null)
+	begin
+CREATE TABLE [dbo].[cvo_eyerep_ordtyp_tbl](
+	[ordtyp_id] [varchar](20) NOT NULL,
+	[ordtyp_description] [varchar](30) NULL
+) ON [PRIMARY]
+END
+
+TRUNCATE TABLE dbo.cvo_eyerep_ordtyp_tbl
+
+INSERT dbo.cvo_eyerep_ordtyp_tbl
+        ( ordtyp_id, ordtyp_description )
+SELECT DISTINCT promo_id+','+promo_level, c.promo_name  
+FROM cvo_promotions AS c 
+WHERE ISNULL(c.void,'N') = 'N'
+AND c.promo_start_date <= GETDATE() AND c.promo_end_date >= GETDATE()
+
+
 -- Sales Reps
 
 
@@ -455,6 +476,7 @@ AND i.type_code IN ('frame','sun')
 AND o.user_category NOT LIKE ('%-RB')
 AND X.trx_type IN (2031)
 AND x.date_applied > @date
+
 
 
 

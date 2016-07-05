@@ -151,7 +151,7 @@ FROM
                                 THEN c.qnet
                            END, 0)) qnet ,
 				CAST(0 AS INT)  numprog,
-                tot = CASE WHEN ISNULL(i.category, 'Core') IN ( 'revo', 'BT' )
+                tot = CASE WHEN ISNULL(i.category, 'Core') IN ('revo', 'BT','AS','OP' )
                            THEN i.category
                            ELSE 'Core'
                       END
@@ -166,7 +166,7 @@ FROM
                 AND ( yyyymmdd BETWEEN @sdate AND @edate )
         GROUP BY a.territory_code ,
                 c.year ,
-                CASE WHEN ISNULL(i.category, 'Core') IN ( 'revo', 'BT' )
+                CASE WHEN ISNULL(i.category, 'Core') IN ( 'revo', 'BT','AS','OP' )
                      THEN i.category
                      ELSE 'Core'
                 END;
@@ -216,6 +216,32 @@ FROM
                                      FROM   #temp
                                      WHERE  #temp.territory_code = t.territory
                                             AND tot = 'REVO' );
+		INSERT  INTO #temp
+                SELECT   DISTINCT
+                        territory ,
+                        @cy AS Year ,
+                        0 anet ,
+                        0 qnet ,
+						0 numprog,
+                        'AS'
+                FROM    #territory AS t
+                WHERE   NOT EXISTS ( SELECT 1
+                                     FROM   #temp
+                                     WHERE  #temp.territory_code = t.territory
+                                            AND tot = 'AS' );
+		 INSERT  INTO #temp
+                SELECT   DISTINCT
+                        territory ,
+                        @cy AS Year ,
+                        0 anet ,
+                        0 qnet ,
+						0 numprog,
+                        'OP'
+                FROM    #territory AS t
+                WHERE   NOT EXISTS ( SELECT 1
+                                     FROM   #temp
+                                     WHERE  #temp.territory_code = t.territory
+                                            AND tot = 'OP' );
 
 
 -- get TY num programs for revo and blutech
@@ -248,7 +274,11 @@ into #promotrkr
 FROM  #territory t 
 INNER join cvo_adord_vw AS o WITH (nolock) on t.territory = o.territory
 where 1=1
-AND o.promo_id IN ('revo','Blue') and o.promo_level in ('launch 1','launch 2','launch 3','1','kids','suns')
+AND ( (o.promo_id IN ('revo') and o.promo_level in ('launch 1','launch 2','launch 3','1','2','3'))
+	OR (o.promo_id IN ('Blue') AND o.promo_level IN ('1','kids','suns'))
+	OR (o.promo_id IN ('sunps') AND o.promo_level IN ('OP'))
+	OR (promo_id IN ('aspire') AND promo_level IN ('1','3','vew','launch','new'))
+)
 AND o.date_entered BETWEEN @sdate AND @edate
 AND o.who_entered <> 'backordr' -- 1/18/2016
 and o.status <> 'V' -- 110714 - exclude void orders
@@ -308,10 +338,14 @@ YEAR(@today) AS year,
 SUM(qual_order) numprog,
 tot = CASE WHEN promo_id = 'blue' THEN 'BT'
 	 WHEN promo_id = 'revo' THEN 'REVO'
+	 WHEN promo_id = 'aspire' THEN 'AS'
+	 WHEN promo_id = 'sunps' THEN 'OP'
 	ELSE 'xxx' end 
 from #promotrkr 
 GROUP BY CASE WHEN promo_id = 'blue' THEN 'BT'
          WHEN promo_id = 'revo' THEN 'REVO'
+		 WHEN promo_id = 'aspire' THEN 'AS'
+		 WHEN promo_id = 'sunps' THEN 'OP'
          ELSE 'xxx'
          END ,
          Territory
@@ -362,8 +396,7 @@ GROUP BY CASE WHEN promo_id = 'blue' THEN 'BT'
                 qnet ,
 				CAST(numprog AS INT) numprog,
                 tot ,
-				Actual = CASE WHEN tot = 'Core' THEN ROUND(anet, 2)
-						 WHEN tot IN ('BT','Revo') THEN numprog end ,
+				Actual = CASE WHEN tot = 'Core' THEN ROUND(anet, 2) ELSE numprog end ,
 				Goal = 0,
                 #s1.region  Region,
                 #s1.r_id ,

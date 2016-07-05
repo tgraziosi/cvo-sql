@@ -1077,6 +1077,7 @@ EXEC dbo.CVO_build_autopack_carton_sp @order_no, @order_ext
 EXEC dbo.cvo_update_bo_processing_sp 'A', @order_no, @order_ext
 -- v3.0 End
 
+
 -- v2.9 Start
 IF OBJECT_ID('tempdb..#consolidate_picks') IS NOT NULL
 	DROP TABLE #consolidate_picks
@@ -1119,14 +1120,49 @@ BEGIN
 	DELETE	tdc_pick_queue
 	WHERE	mp_consolidation_no = @consolidation_no
 
+	-- v3.3 Start
+	UPDATE	a
+	SET		assign_user_id = NULL
+	FROM	tdc_pick_queue a
+	JOIN	cvo_masterpack_consolidation_picks b (NOLOCK)
+	ON		a.tran_id = b.child_tran_id
+	WHERE	b.consolidation_no = @consolidation_no
+	-- v3.3 End
+
 	DELETE	cvo_masterpack_consolidation_picks
 	WHERE	consolidation_no = @consolidation_no	
 
+	-- v3.3 Start
+	DELETE	cvo_masterpack_consolidation_det
+	WHERE	order_no = @order_no
+	AND		order_ext = @order_ext
+
+	UPDATE	cvo_orders_all 
+	SET		st_consolidate = 0
+	WHERE	order_no = @order_no
+	AND		ext = @order_ext
+
+	DELETE	#consolidate_picks
+	WHERE	order_no = @order_no
+	AND		ext = @order_ext
+
+	IF NOT EXISTS (SELECT 1 FROM cvo_masterpack_consolidation_det (NOLOCK) WHERE consolidation_no = @consolidation_no)
+	BEGIN
+		DELETE	cvo_masterpack_consolidation_hdr
+		WHERE	consolidation_no = @consolidation_no
+
+		DELETE  cvo_st_consolidate_release
+		WHERE	consolidation_no = @consolidation_no
+		
+	END
+	-- v3.3 End
+
 	EXEC dbo.cvo_masterpack_consolidate_pick_records_sp @consolidation_no	
 END
-
 -- v2.9 End
 
+-- v3.3 Start
+/*
 -- v3.2 Start
 SET @consolidation_no = NULL
 SELECT	@consolidation_no = consolidation_no 
@@ -1157,6 +1193,8 @@ BEGIN
 	END
 END
 -- v3.2 End
+*/
+-- v3.3 End
 
 COMMIT TRAN  
 

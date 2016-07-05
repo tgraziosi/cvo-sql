@@ -16,6 +16,7 @@ CREATE TABLE [dbo].[cvo_hs_prospects]
 [status] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [lead_date] [datetime] NULL,
 [lead_updated] [datetime] NULL,
-[sc_notes] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[sc_notes] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[region] [varchar] (6) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
