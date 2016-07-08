@@ -52,12 +52,25 @@ ELSE
 --GROUP BY xx.merge_cust
 --HAVING COUNT(xx.customer_code) > 1   
 
+IF ( OBJECT_ID('tempdb.dbo.#email') IS NOT NULL ) DROP TABLE #email; 
+SELECT DISTINCT email.mergecust, CAST(email.contact_email AS VARCHAR(255)) contact_email
+INTO #email
+FROM 
+(
+ SELECT distinct RIGHT(customer_code,5) mergecust, contact_email
+ FROM armaster WHERE contact_email IS NOT NULL AND CHARINDEX('@',contact_email) > 0
+ UNION 
+ SELECT DISTINCT RIGHT(customer_code,5) mergecust, contact_email
+ FROM adm_arcontacts WHERE contact_email IS NOT NULL AND CHARINDEX('@',contact_email) > 0
+ AND contact_code = 'Dr.'
+ ) email
+
 SELECT cdr.progyear, cdr.interval ,cdr.code, facts.description, cdr.goal1, cdr.rebatepct1, cdr.goal2, cdr.rebatepct2 , cdr.RRLess, 
 	ar.past_due, cust.mergecust ,
                  t.region ,
                  t.terr territory_code ,
         		 cust.address_name,
-				 cust.contact_email,
+				 contact_email = emails.contact_emails,
                  facts.grosssales ,
                  facts.netsales ,
                  facts.rareturns ,
@@ -119,12 +132,21 @@ FROM dbo.SSRS_ARAging_Temp
 GROUP BY RIGHT(cust_code, 5)
 ) AS ar ON ar.mergecust = cust.mergecust
 
+LEFT OUTER join
+(SELECT DISTINCT e.mergecust, 
+		STUFF (( SELECT DISTINCT '; ' + ee.contact_email 
+				FROM #email AS ee
+				WHERE ee.mergecust = e.mergecust
+				FOR XML PATH ('')), 1, 1, '') contact_emails
+ FROM #email e) emails ON emails.mergecust = cust.mergecust
+
 WHERE cdr.progyear = @progyear
 AND t.region IS NOT NULL
 
 -- SELECT * FROM dbo.cvo_designation_codes AS ccdc
 
 END
+
 
 
 GO

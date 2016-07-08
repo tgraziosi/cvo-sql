@@ -108,8 +108,6 @@ SELECT distinct 'slp commission'
 	i.salesperson_code = d.salesperson_code
 	where isnull(d.commission,0)<>isnull(i.commission,0)
 GO
-CREATE NONCLUSTERED INDEX [arsalesp_csg_01] ON [dbo].[arsalesp] ([addr_sort1]) ON [PRIMARY]
-GO
 CREATE NONCLUSTERED INDEX [arsalesp_ind_3] ON [dbo].[arsalesp] ([addr_sort1]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [arsalesp_ind_4] ON [dbo].[arsalesp] ([addr_sort2]) ON [PRIMARY]

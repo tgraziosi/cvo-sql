@@ -14,5 +14,3 @@ ALTER TABLE [dbo].[cvo_cart_scan_orders] ADD CONSTRAINT [PK__cvo_cart_scan_or__0
 GO
 CREATE NONCLUSTERED INDEX [cartorders] ON [dbo].[cvo_cart_scan_orders] ([order_no], [scan_user]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [CT_ORD] ON [dbo].[cvo_cart_scan_orders] ([order_no], [scan_user]) ON [PRIMARY]
-GO

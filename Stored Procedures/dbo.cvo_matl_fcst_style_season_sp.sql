@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -941,12 +940,14 @@ MAX(ISNULL(ia.field_32,'')) sf
 from inv_master i inner join inv_master_add ia on ia.part_no = i.part_no 
 where 1=1
 and i.type_code in ('frame','sun','bruit') and i.void = 'n'
+AND ISNULL(ia.field_32,'') <> 'SpecialOrd' -- revo special order skus
 group by i.category, ia.field_2, i.vendor
 ) as specs
 on specs.brand = #style.brand and specs.style = #style.style
 
 
 end
+
 
 
 

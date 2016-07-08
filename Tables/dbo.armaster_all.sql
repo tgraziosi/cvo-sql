@@ -270,6 +270,15 @@ where d.valid_soldto_flag<>i.valid_soldto_flag and d.Customer_code=I.customer_co
 INSERT CVOARMasterAudit (field_name, field_from, field_to, customer_code, ship_to_code, movement_flag, audit_date, user_id) SELECT 'Valid_shipto_flag', d.valid_shipto_flag, i.valid_shipto_flag, i.customer_code, i.ship_to_code, 2, getdate(), SUSER_SNAME() from inserted i INNER JOIN deleted d ON i.customer_code = d.customer_code AND i.address_type = d.address_type
 where d.valid_shipto_flag<>i.valid_shipto_flag and d.Customer_code=I.customer_code and d.ship_to_code=i.ship_to_code -- 11/13/2015 tag - per KM request
 
+-- add per JB - 7/7/2016
+
+INSERT CVOARMasterAudit (field_name, field_from, field_to, customer_code, ship_to_code, movement_flag, audit_date, user_id) SELECT 'Country_code', d.country_code, i.country_code, i.customer_code, i.ship_to_code, 2, getdate(), SUSER_SNAME() from inserted i INNER JOIN deleted d ON i.customer_code = d.customer_code AND i.address_type = d.address_type
+where d.country_code<>i.country_code and d.Customer_code=I.customer_code and d.ship_to_code=i.ship_to_code -- 11/13/2015 tag - per KM request
+
+INSERT CVOARMasterAudit (field_name, field_from, field_to, customer_code, ship_to_code, movement_flag, audit_date, user_id) SELECT 'State', d.state, i.state, i.customer_code, i.ship_to_code, 2, getdate(), SUSER_SNAME() from inserted i INNER JOIN deleted d ON i.customer_code = d.customer_code AND i.address_type = d.address_type
+where d.state<>i.state and d.Customer_code=I.customer_code and d.ship_to_code=i.ship_to_code -- 11/13/2015 tag - per KM request
+
+
 -- above cannot be used to audit contact_email, attention_email, ftp, special_instr, note & extended_name they require varchar (255)
 
 BEGIN
@@ -305,11 +314,6 @@ BEGIN
  END
 
 END
-
-
-
-
-
 GO
 SET QUOTED_IDENTIFIER ON
 GO

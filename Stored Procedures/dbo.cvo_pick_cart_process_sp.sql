@@ -233,10 +233,6 @@ begin
 
 		END
  		
-		UPDATE dbo.cvo_cart_orders_processed SET order_status = 'C', processed_date = @asofdate 
-			WHERE order_no = @cart_order_no
-
-
 		SELECT @tran_id = MIN(p.tran_id) FROM tdc_pick_queue p
 				 WHERE ((@iscons = 0 AND trans_type_no = @order_no
 						AND trans_type_ext = @order_ext)
@@ -244,6 +240,10 @@ begin
 				AND p.tran_id > @tran_id
 
 	END -- processing loop
+
+	UPDATE dbo.cvo_cart_orders_processed SET order_status = 'C', processed_date = @asofdate 
+	WHERE order_no = @cart_order_no
+
     END -- proc_option = 1
     
 IF @proc_option = 99
@@ -288,6 +288,7 @@ begin
 END -- proc_option = 99
 
  
+
 
 
 

@@ -22,8 +22,6 @@ CREATE TABLE [dbo].[cvo_soft_alloc_det]
 GO
 CREATE NONCLUSTERED INDEX [cvo_soft_alloc_det_ind3_041913] ON [dbo].[cvo_soft_alloc_det] ([location], [part_no], [soft_alloc_no], [status]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [cvo_soft_alloc_det_ind6_101613] ON [dbo].[cvo_soft_alloc_det] ([location], [part_no], [soft_alloc_no], [status]) ON [PRIMARY]
-GO
 CREATE NONCLUSTERED INDEX [cvo_soft_alloc_det_ind5_043013] ON [dbo].[cvo_soft_alloc_det] ([location], [part_no], [soft_alloc_no], [status]) INCLUDE ([deleted], [quantity]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [cvo_soft_alloc_det_ind1] ON [dbo].[cvo_soft_alloc_det] ([order_no], [order_ext], [line_no]) ON [PRIMARY]

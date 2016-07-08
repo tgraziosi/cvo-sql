@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -57,6 +56,7 @@ AND( (t1.CODE like '%opt%' and price_code<>'O')
   OR (t1.CODE in  ('VWEST','VILLA','FEC-M','FEC-A','BBG') and price_code not in ('D','D1') )
   OR (t1.CODE in  ('PRI','VT','OOGP','FEC-A','BBG') and price_code not in ('D','D1') )
   OR (t1.CODE like '%@BBCode%' and price_code <>'D' )
+  OR (t1.code LIKE '%PEARLE%' AND price_code <> 'P') -- 7/8/2016 PER MS REQUEST
  )
  and primary_flag = 1
 order by t1.customer_code, t1.code
@@ -86,6 +86,7 @@ left join #ContrCust t3 on t1.customer_code=t3.customer_key
 -- EXEC CustDesigPriceType_SSRS_sp
 
 END
+
 
 
 GO
