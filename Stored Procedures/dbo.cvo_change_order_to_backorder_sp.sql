@@ -31,6 +31,7 @@ v1.13 CB 21/08/2015 - Issue #1563 - Upsell flag
 v1.14 CB 25/01/2016 - Add missing column
 v1.15 CB 26/01/2016 - #1581 2nd Polarized Option
 v1.16 CB 23/05/2016 - Ensure contract is not null
+v1.17 CB 20/06/2016 - Issue #1602 - Must Go Today flag
 
 
 
@@ -108,11 +109,11 @@ BEGIN
 	INSERT INTO CVO_orders_all(order_no,ext,add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,  
 		commission_pct, stage_hold, prior_hold, credit_approved, replen_inv, xfer_no, stock_move, stock_move_cust_code,  
 		stock_move_ship_to, stock_move_replace_inv, stock_move_order_no, stock_move_ext, stock_move_ri_order_no, stock_move_ri_ext, invoice_note, commission_override, email_address, upsell_flag,     -- v1.4 v1.11 v1.12 v1.13
-		st_consolidate) -- v1.14
+		st_consolidate, must_go_today) -- v1.14 v1.17
 	SELECT order_no, @new_order_ext, add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,dbo.f_cvo_get_buying_group(@cust_code,GETDATE()), allocation_date, -- v1.8 
 		commission_pct, stage_hold, prior_hold, credit_approved, replen_inv, xfer_no, stock_move, stock_move_cust_code,  
 		stock_move_ship_to, stock_move_replace_inv, stock_move_order_no, stock_move_ext, stock_move_ri_order_no, stock_move_ri_ext, invoice_note, commission_override, email_address, upsell_flag, -- v1.4 v1.11  v1.12 v1.13
-		st_consolidate -- v1.14
+		st_consolidate, must_go_today -- v1.14 v1.17
 	FROM cvo_orders_all (NOLOCK)  
 	WHERE order_no = @order_no  
 	AND  ext = @order_ext  

@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -68,6 +67,8 @@ SET NOCOUNT ON
 -- v11.8 CT 15/05/2015 - Issue #1474 - don't create backorder if only out of stock items are cases
 -- v11.9 CB 21/08/2015 - Issue #1563 - Upsell flag
 -- v12.0 CB 26/01/2016 - #1581 2nd Polarized Option
+-- v12.1 CB 20/06/2016 - Issue #1602 - Must Go Today flag
+-- v12.1.1 TG 07/12/2016 - default mgt flag to 0 (no) when creating bo per KM
   
 exec @err = fs_updordtots @ordno, @ordext  
  if @@error != 0  
@@ -251,9 +252,9 @@ INSERT orders_all ( order_no, ext,  cust_code, ship_to,
 -- v2.0 Add missing columns		TLM
  INSERT INTO CVO_orders_all (  
     order_no,  ext,  add_case, add_pattern, promo_id, promo_level, free_shipping,
-		split_order, flag_print, buying_group, allocation_date,  commission_pct, stage_hold,prior_hold, invoice_note, commission_override, email_address, st_consolidate, upsell_flag) -- v1.2 + v10.2 v11.4 v11.5 v11.6 v11.9
+		split_order, flag_print, buying_group, allocation_date,  commission_pct, stage_hold,prior_hold, invoice_note, commission_override, email_address, st_consolidate, upsell_flag, must_go_today) -- v1.2 + v10.2 v11.4 v11.5 v11.6 v11.9 v12.1
  SELECT order_no, @ext, add_case, add_pattern, promo_id, promo_level, free_shipping,
-		split_order, flag_print, dbo.f_cvo_get_buying_group(@cust_code,GETDATE()), allocation_date,  commission_pct, stage_hold, prior_hold, invoice_note, commission_override, email_address, 0, upsell_flag -- v1.2 + v10.2 + v11.2 v11.4 v11.5 v11.6 v11.7 v11.9
+		split_order, flag_print, dbo.f_cvo_get_buying_group(@cust_code,GETDATE()), allocation_date,  commission_pct, stage_hold, prior_hold, invoice_note, commission_override, email_address, 0, upsell_flag, 0 --must_go_today -- v1.2 + v10.2 + v11.2 v11.4 v11.5 v11.6 v11.7 v11.9 v12.1 v12.1.1
  FROM CVO_orders_all  
  WHERE order_no=@ordno and ext=@ordext  
  if @@error != 0  

@@ -26,13 +26,14 @@ CREATE procedure [dbo].[cvo_matl_fcst_style_0616_sp]
  @usedrp = 1, 
  @current = 1, 
  @collection = 'as', 
- @style = null, 
+ @style = 'artistic', 
  @specfit = '*all*',
  @usg_option = 'o',
- @debug = 1, -- debug
+ @debug = 0, -- debug
  @location = '001'
 
- 
+ select * From cvo_ifp_rank
+
 */
 -- 090314 - tag
 -- get sales since the asof date, and use it to consume the demand line
@@ -990,7 +991,11 @@ and i.void = 'n'
 and p.part_no = #sku.sku 
 and p.rel_date <= dateadd(yy,1,ia.field_26)
 and p.type = 'p' and p.location = '001'
-), 0) else 0 end
+), 0) else 0 END,
+CASE WHEN #style.pom_date IS NULL OR #style.pom_date = '1/1/1900' THEN r.ORDER_THRU_DATE 
+	WHEN  #style.pom_date < r.ORDER_THRU_DATE THEN #style.pom_date
+	ELSE r.order_thru_date END AS ORDER_THRU_DATE,
+r.TIER -- 7/8/2016
 
 from #SKU 
 
@@ -1018,8 +1023,12 @@ group by i.category, ia.field_2, i.vendor
 ) as specs
 on specs.brand = #style.brand and specs.style = #style.style
 
+LEFT OUTER JOIN
+cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
+
 
 end
+
 
 
 

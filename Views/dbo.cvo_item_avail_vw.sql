@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -150,6 +149,14 @@ FROM lot_bin_stock (NOLOCK) WHERE location = t3.location AND part_no = t1.part_n
 QcQty = ISNULL((SELECT SUM(qty) AS QcQty FROM lot_bin_recv lbr (NOLOCK) WHERE lbr.qc_flag = 'y' AND 
 lbr.location = t3.location AND lbr.part_no = t1.part_no),0)
 
+,QcQty2 = ISNULL((SELECT SUM(qty) AS QcQty
+FROM lot_bin_stock lb (NOLOCK)
+JOIN tdc_bin_master bm (NOLOCK)
+ON bm.bin_no = lb.bin_no AND bm.location = lb.location
+WHERE bm.usage_type_code = 'receipt'
+AND lb.part_no = t1.part_no),0)
+
+
 , future_ord_qty = ISNULL(fo.future_open_qty,0)
 
 -- select top 10 * from lot_bin_recv
@@ -194,6 +201,7 @@ GROUP BY ol.part_no, ol.location) fo
 	ON fo.part_no = t3.part_no AND fo.location = t3.location
 WHERE  t3.void<>'V'
 -- and T3.LOCATION = '001'
+
 
 
 

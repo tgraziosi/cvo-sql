@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -485,9 +484,9 @@ BEGIN
 
 			-- cvo_orders_all
 			INSERT INTO CVO_orders_all(order_no,ext,add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,
-										commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, st_consolidate, upsell_flag) 	-- v1.6	v2.7 v2.9 v3.0 v3.1
+										commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, st_consolidate, upsell_flag, must_go_today) 	-- v1.6	v2.7 v2.9 v3.0 v3.1 v3.3
 			SELECT	order_no, @new_ext, add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,
-					commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, st_consolidate, upsell_flag -- v1.6 v2.7 v2.9 v3.0 v3.1
+					commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, st_consolidate, upsell_flag, must_go_today -- v1.6 v2.7 v2.9 v3.0 v3.1 v3.3
 			FROM	cvo_orders_all (NOLOCK)
 			WHERE	order_no = @order_no
 			AND		ext = @order_ext

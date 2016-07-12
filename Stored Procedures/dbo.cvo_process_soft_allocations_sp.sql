@@ -83,7 +83,6 @@ BEGIN
 	SELECT	soft_alloc_no, order_no, order_ext
 	FROM	dbo.cvo_soft_alloc_hdr (NOLOCK)
 	WHERE	[status] IN (0,-3) --include future allocations which may be changed to 0 in this run
---	AND		order_no = 2840031 --CRAIG
 	-- END v3.9
 
 	-- v2.5 Start
@@ -455,7 +454,6 @@ BEGIN
 	-- v3.8
 	EXEC cvo_check_stock_pre_allocation_sp
 
-
 	-- v5.1 Start
 	DELETE	a
 	FROM	#exclusions a
@@ -540,7 +538,6 @@ BEGIN
 		-- v4.3 Start
 		AND		(@start_date > CASE WHEN o.user_def_fld3 = '' THEN CONVERT(varchar(19),CONVERT(datetime,LEFT(date_entered,19)),121)
 										ELSE CONVERT(varchar(19),CONVERT(datetime,LEFT(o.user_def_fld3,19)),121) END)
---AND		a.order_no = 2840031 --CRAIG
 		-- v4.3 End
 
 	COMMIT TRAN

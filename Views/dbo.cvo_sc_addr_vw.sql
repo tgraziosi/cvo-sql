@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -47,10 +46,11 @@ LEFT OUTER JOIN arsalesp rsm (NOLOCK)
 	ON rsm.salesperson_code = slp.sales_mgr_code
 
 where (isnull(x.salesperson_code,'') not in ('internal','ss'))
-and (slp.status_type = 1)
+and (slp.status_type = 1) -- active
 -- or (slp.status_type = 0 and x.status = 1))
 -- and slp.salesperson_name not like '%default%'
 -- order by slp.territory_code
+
 
 
 

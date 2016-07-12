@@ -138,13 +138,27 @@ BEGIN
 		SET @bin_qty = 0
 
 	-- Get order details
-	SELECT	@cust_code = cust_code,
-			@status = status,
-			@back_ord_flag = back_ord_flag
-	FROM	orders_all (NOLOCK)
-	WHERE	order_no = @order_no
-	AND		ext = @order_ext
-	
+	-- v1.2 Start
+--	SELECT	@cust_code = cust_code,
+--			@status = status,
+--			@back_ord_flag = back_ord_flag
+--	FROM	orders_all (NOLOCK)
+--	WHERE	order_no = @order_no
+--	AND		ext = @order_ext
+
+	SELECT	@cust_code = a.cust_code,
+			@status = a.status,
+			@back_ord_flag = a.back_ord_flag,
+			@order_no = a.order_no,
+			@order_ext = a.ext
+	FROM	orders_all a (NOLOCK)
+	JOIN	tdc_pick_queue b (NOLOCK)
+	ON		a.order_no = b.trans_type_no
+	AND		a.ext = b.trans_type_ext
+	JOIN	cvo_masterpack_consolidation_picks c (NOLOCK)
+	ON		b.tran_id = c.child_tran_id
+	WHERE	c.parent_tran_id = @tran_id
+	-- v1.2 End
 
 	-- Get the hold code and reason for the order type
 	SELECT	@hold_code = a.hold_code,
@@ -232,23 +246,50 @@ BEGIN
 			lot_ser		varchar(25),
 			tran_id		int)
 
-		INSERT	#remove_parent_trans
-		SELECT	@tran_id
+		-- v1.2 Start
+		IF (@back_ord_flag = 1)
+		BEGIN
+			INSERT	#remove_parent_trans
+			SELECT	parent_tran_id
+			FROM	cvo_masterpack_consolidation_picks (NOLOCK)
+			WHERE	consolidation_no = @cons_no
 
-		INSERT	#no_stock_cons (order_no, order_ext, line_no, location, part_no, qty_req, bin_no, lot_ser, tran_id)
-		SELECT	a.trans_type_no,
-				a.trans_type_ext,
-				a.line_no,
-				a.location,
-				a.part_no,
-				a.qty_to_process,
-				a.bin_no,
-				a.lot,
-				a.tran_id
-		FROM	tdc_pick_queue a (NOLOCK)
-		JOIN	cvo_masterpack_consolidation_picks b (NOLOCK)
-		ON		a.tran_id = b.child_tran_id
-		WHERE	b.parent_tran_id = @tran_id
+			INSERT	#no_stock_cons (order_no, order_ext, line_no, location, part_no, qty_req, bin_no, lot_ser, tran_id)
+			SELECT	a.trans_type_no,
+					a.trans_type_ext,
+					a.line_no,
+					a.location,
+					a.part_no,
+					a.qty_to_process,
+					a.bin_no,
+					a.lot,
+					a.tran_id
+			FROM	tdc_pick_queue a (NOLOCK)
+			JOIN	cvo_masterpack_consolidation_picks b (NOLOCK)
+			ON		a.tran_id = b.child_tran_id
+			WHERE	b.consolidation_no = @cons_no
+		END
+		ELSE
+		BEGIN
+			INSERT	#remove_parent_trans
+			SELECT	@tran_id	
+
+			INSERT	#no_stock_cons (order_no, order_ext, line_no, location, part_no, qty_req, bin_no, lot_ser, tran_id)
+			SELECT	a.trans_type_no,
+					a.trans_type_ext,
+					a.line_no,
+					a.location,
+					a.part_no,
+					a.qty_to_process,
+					a.bin_no,
+					a.lot,
+					a.tran_id
+			FROM	tdc_pick_queue a (NOLOCK)
+			JOIN	cvo_masterpack_consolidation_picks b (NOLOCK)
+			ON		a.tran_id = b.child_tran_id
+			WHERE	b.parent_tran_id = @tran_id
+		END
+		-- v1.2 End
 
 		SET @last_row_id = 0
 		SET @qty_to_unalloc = @orig_qty - @picked_qty
@@ -629,7 +670,19 @@ BEGIN
 			-- Put Ship Complete transactions on hold
 			IF ISNULL(@back_ord_flag,0) = 1
 			BEGIN
-				EXEC cvo_no_stock_hold_ship_complete_allocations_sp @order_no, @order_ext
+				-- v1.2 Start
+				-- EXEC cvo_no_stock_hold_ship_complete_allocations_sp @order_no, @order_ext
+				
+				EXEC @ret = dbo.cvo_cancel_order_sp @order_no, @order_ext, @userid, @cust_code, @location, 2
+				IF (@ret <> 0)
+				BEGIN
+					RAISERROR ('Ship Complete Order Reset Failed.', 16, 1)     
+					SELECT -2
+					RETURN
+				END
+
+				EXEC dbo.cvo_recreate_sa_sp	@order_no, @order_ext
+				-- v1.2 End
 			END
 		
 			-- Send email if option enabled and order is not a backorder
@@ -666,15 +719,30 @@ BEGIN
 				-- Check there's nothing already picked
 				IF NOT EXISTS (SELECT 1 FROM dbo.tdc_carton_detail_tx (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext)
 				BEGIN
-					UPDATE
-						dbo.orders_all
-					SET
-						[status] = 'N', 
-						printed = 'N' 
-					WHERE
-						order_no = @order_no 
-						AND ext = @order_ext
-						AND [status] > 'N'
+					-- v1.2 Start
+					IF ISNULL(@back_ord_flag,0) = 1
+					BEGIN
+						UPDATE	dbo.orders_all
+						SET		[status] = 'A', 
+								printed = 'N',
+								hold_reason = 'SC'
+						WHERE	order_no = @order_no 
+						AND		ext = @order_ext
+						AND		[status] = 'N'	
+					END
+					ELSE
+					BEGIN
+						UPDATE
+							dbo.orders_all
+						SET
+							[status] = 'N', 
+							printed = 'N' 
+						WHERE
+							order_no = @order_no 
+							AND ext = @order_ext
+							AND [status] > 'N'
+					END
+					-- v1.2 End
 				END
 			END
 
@@ -687,6 +755,19 @@ BEGIN
 
 			IF (@consolidation_no IS NOT NULL)
 			BEGIN
+
+				-- v1.2 Start
+				UPDATE	a
+				SET		assign_user_id = NULL
+				FROM	tdc_pick_queue a
+				JOIN	cvo_masterpack_consolidation_picks b (NOLOCK)
+				ON		a.tran_id = b.child_tran_id
+				WHERE	b.consolidation_no = @consolidation_no
+
+				DELETE	cvo_masterpack_consolidation_picks
+				WHERE	consolidation_no = @consolidation_no
+				-- v1.2 End
+
 				DELETE	cvo_masterpack_consolidation_det
 				WHERE	order_no = @order_no
 				AND		order_ext = @order_ext
@@ -705,6 +786,7 @@ BEGIN
 					WHERE	consolidation_no = @consolidation_no
 					
 				END
+
 			END
 			-- v1.1 End 
 

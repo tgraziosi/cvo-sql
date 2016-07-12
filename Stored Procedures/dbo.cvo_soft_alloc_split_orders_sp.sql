@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -441,9 +440,9 @@ BEGIN
 
 		-- cvo_orders_all
 		INSERT INTO #CVO_orders_all(order_no,ext,add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,
-									commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, st_consolidate, upsell_flag) 	-- v1.2 v2.0 v2.1 v2.2 v2.3
+									commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, st_consolidate, upsell_flag, must_go_today) 	-- v1.2 v2.0 v2.1 v2.2 v2.3 v2.6
 		SELECT	@order_no, @new_ext, add_case,add_pattern,promo_id,promo_level,free_shipping,'Y',flag_print,buying_group, allocation_date, -- v1.3 Force split flag
-				commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, st_consolidate, upsell_flag -- v1.2 v2.0 v2.1 v2.2 v2.3
+				commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, st_consolidate, upsell_flag, must_go_today -- v1.2 v2.0 v2.1 v2.2 v2.3 v2.6
 		FROM	cvo_orders_all (NOLOCK)
 		WHERE	order_no = @order_no
 		AND		ext = @order_ext
@@ -659,9 +658,9 @@ BEGIN
 
 		-- cvo_orders_all
 		INSERT INTO CVO_orders_all(order_no,ext,add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,
-									commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, st_consolidate, upsell_flag) 	-- v1.2	v2.0 v2.1 v2.2 v2.3
+									commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, st_consolidate, upsell_flag, must_go_today) 	-- v1.2	v2.0 v2.1 v2.2 v2.3 v2.6
 		SELECT	order_no, ext, add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,
-				commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, st_consolidate, upsell_flag -- v1.2 v2.0 v2.1 v2.2 v2.3
+				commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, st_consolidate, upsell_flag, must_go_today -- v1.2 v2.0 v2.1 v2.2 v2.3 v2.6
 		FROM	#cvo_orders_all (NOLOCK)
 
 		IF (@@ERROR <> 0)

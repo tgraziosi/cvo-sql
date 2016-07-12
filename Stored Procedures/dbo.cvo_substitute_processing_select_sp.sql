@@ -38,7 +38,9 @@ CREATE PROC [dbo].[cvo_substitute_processing_select_sp] @order_no_from			INT = N
 													@part_no				VARCHAR(30),
 													@replacement_part_no	VARCHAR(30),
 													@balance_order			SMALLINT = 0,
-													@location				varchar(10) -- v1.1 
+													@location				varchar(10), -- v1.1 
+													@territory_from			varchar(10), -- v1.2
+													@territory_to			varchar(10) -- v1.2
 
 AS
 BEGIN
@@ -258,6 +260,7 @@ BEGIN
 		AND (@sch_ship_to IS NULL OR a.sch_ship_date <= @sch_ship_to)
 		AND ISNULL(i.is_customized,'N') = 'N'
 		AND b.part_type = 'P'
+		AND a.ship_to_region >= @territory_from AND a.ship_to_region <= @territory_to -- v1.3
 
 	-- If balance order is on, then remove any orders which also contain the replacement part (on any extension)
 	IF ISNULL(@balance_order,0) = 1

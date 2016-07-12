@@ -36,7 +36,8 @@ BEGIN
 			@tran_id				int,
 			@last_tran_id			int,
 			@new_order_no			int,
-			@iret					int
+			@iret					int,
+			@shipcomplete			int -- v1.8
 
 	-- START v1.7
 	DECLARE @promo_id				VARCHAR(20),  
@@ -50,6 +51,15 @@ BEGIN
 	SET	@ret = 0 -- 0 = OK status reset, 1 = OK order cancelled but prompt for note, -1 = error
 	SET @message = ''
 	SET @new_order_no = 0
+	SET @shipcomplete = 0 -- v1.8
+
+	-- v1.8 Start
+	IF (@no_stock = 2)
+	BEGIN
+		SET @no_stock = 1
+		SET @shipcomplete = 1
+	END
+	-- v1.8 
 	
 	SELECT	@cancel_bin = ISNULL(value_str,'') FROM tdc_config (NOLOCK) WHERE [function] = 'CANCEL_BIN' 
 	SELECT	@cf_cancel_bin = ISNULL(value_str,'') FROM tdc_config (NOLOCK) WHERE [function] = 'CUSTOM_CANCEL_BIN'
@@ -61,7 +71,7 @@ BEGIN
 	WHERE	order_no = @order_no
 	AND		ext = @order_ext
 
-	IF (@status < 'P')
+	IF (@status < 'P' AND @shipcomplete = 0) -- v1.5
 	BEGIN
 		SELECT	@ret, @message, 0 -- v1.5
 		RETURN
@@ -74,9 +84,17 @@ BEGIN
 	BEGIN
 		SET @ret = -1
 		SET @message = 'Order cannot be cancelled as it has been masterpacked.'
-		-- return 
-		SELECT	@ret, @message, 0
-		RETURN
+		-- v1.8 Start
+		IF (@shipcomplete = 1)
+		BEGIN
+			RETURN @ret
+		END
+		ELSE
+		BEGIN
+			SELECT	@ret, @message, 0
+			RETURN
+		END
+		-- v1.8 End
 	END
 
 	-- Check for order begin freighted or staged
@@ -84,9 +102,17 @@ BEGIN
 	BEGIN
 		SET @ret = -1
 		SET @message = 'Order cannot be cancelled as it has been freighted/staged.'
-		-- return 
-		SELECT	@ret, @message, 0
-		RETURN
+		-- v1.8 Start
+		IF (@shipcomplete = 1)
+		BEGIN
+			RETURN @ret
+		END
+		ELSE
+		BEGIN
+			SELECT	@ret, @message, 0
+			RETURN
+		END
+		-- v1.8 End
 	END
 
 	-- validate that the cancellation bins have been set up
@@ -94,18 +120,34 @@ BEGIN
 	BEGIN
 		SET @ret = -1
 		SET @message = 'Cannot cancel order. Cancellation bin is missing.'
-		-- return 
-		SELECT	@ret, @message, 0
-		RETURN
+		-- v1.8 Start
+		IF (@shipcomplete = 1)
+		BEGIN
+			RETURN @ret
+		END
+		ELSE
+		BEGIN
+			SELECT	@ret, @message, 0
+			RETURN
+		END
+		-- v1.8 End
 	END
 
 	IF (@cf_cancel_bin = '')
 	BEGIN
 		SET @ret = -1
 		SET @message = 'Cannot cancel order. Custom Frame Cancellation bin is missing.'
-		-- return 
-		SELECT	@ret, @message, 0
-		RETURN
+		-- v1.8 Start
+		IF (@shipcomplete = 1)
+		BEGIN
+			RETURN @ret
+		END
+		ELSE
+		BEGIN
+			SELECT	@ret, @message, 0
+			RETURN
+		END
+		-- v1.8 End
 	END
 
 	-- Validate the cancel bins
@@ -113,18 +155,34 @@ BEGIN
 	BEGIN
 		SET @ret = -1
 		SET @message = 'Cannot cancel order. Cancellation bin does not exist or is not set up incorrectly.'
-		-- return 
-		SELECT	@ret, @message, 0
-		RETURN
+		-- v1.8 Start
+		IF (@shipcomplete = 1)
+		BEGIN
+			RETURN @ret
+		END
+		ELSE
+		BEGIN
+			SELECT	@ret, @message, 0
+			RETURN
+		END
+		-- v1.8 End
 	END
  
 	IF NOT EXISTS (SELECT 1 FROM tdc_bin_master (NOLOCK) WHERE location = @location AND bin_no = @cf_cancel_bin AND status = 'A' AND usage_type_code = 'QUARANTINE')
 	BEGIN
 		SET @ret = -1
 		SET @message = 'Cannot cancel order. Custom Frame cancellation bin does not exist or is not set up incorrectly.'
-		-- return 
-		SELECT	@ret, @message, 0
-		RETURN
+		-- v1.8 Start
+		IF (@shipcomplete = 1)
+		BEGIN
+			RETURN @ret
+		END
+		ELSE
+		BEGIN
+			SELECT	@ret, @message, 0
+			RETURN
+		END
+		-- v1.8 End
 	END
 
 	-- If the processing has reached here then we are cancelling the order
@@ -151,15 +209,33 @@ BEGIN
 			BEGIN
 				SET @ret = -1
 				SET @message = 'Order cancellation Failed, could not reopen a closed carton.'
-				SELECT	@ret, @message, 0
-				RETURN
+				-- v1.8 Start
+				IF (@shipcomplete = 1)
+				BEGIN
+					RETURN @ret
+				END
+				ELSE
+				BEGIN
+					SELECT	@ret, @message, 0
+					RETURN
+				END
+				-- v1.8 End
 			END
 
 			IF (@message > '')
 			BEGIN
 				SET @ret = -1
-				SELECT	@ret, @message, 0
-				RETURN
+				-- v1.8 Start
+				IF (@shipcomplete = 1)
+				BEGIN
+					RETURN @ret
+				END
+				ELSE
+				BEGIN
+					SELECT	@ret, @message, 0
+					RETURN
+				END
+				-- v1.8 End
 			END
 
 			SET @last_carton_no = @carton_no
@@ -235,15 +311,33 @@ BEGIN
 					BEGIN
 						SET @ret = -1
 						SET @message = 'Order cancellation Failed, could not unpack carton.'
-						SELECT	@ret, @message, 0
-						RETURN
+						-- v1.8 Start
+						IF (@shipcomplete = 1)
+						BEGIN
+							RETURN @ret
+						END
+						ELSE
+						BEGIN
+							SELECT	@ret, @message, 0
+							RETURN
+						END
+						-- v1.8 End
 					END
 
 					IF (@message > '')
 					BEGIN
 						SET @ret = -1
-						SELECT	@ret, @message, 0
-						RETURN
+						-- v1.8 Start
+						IF (@shipcomplete = 1)
+						BEGIN
+							RETURN @ret
+						END
+						ELSE
+						BEGIN
+							SELECT	@ret, @message, 0
+							RETURN
+						END
+						-- v1.8 End
 					END
 
 					SET @last_bin_no = @bin_no
@@ -410,9 +504,17 @@ BEGIN
 		BEGIN
 			SET @ret = -1
 			SET @message = 'Error cancelling order, the order contains an auto puchased item.'
-
-			SELECT	@ret, @message, 0
-			RETURN
+			-- v1.8 Start
+			IF (@shipcomplete = 1)
+			BEGIN
+				RETURN @ret
+			END
+			ELSE
+			BEGIN
+				SELECT	@ret, @message, 0
+				RETURN
+			END
+			-- v1.8 End
 		END
 
 		-- If the item was part of a custom frame break then it needs to be unpicked to a different location
@@ -452,8 +554,17 @@ BEGIN
 		BEGIN
 			SET @ret = -1
 			SET @message = 'Order cancellation Failed, could not unpick order.'
-			SELECT	@ret, @message, 0
-			RETURN
+			-- v1.8 Start
+			IF (@shipcomplete = 1)
+			BEGIN
+				RETURN @ret
+			END
+			ELSE
+			BEGIN
+				SELECT	@ret, @message, 0
+				RETURN
+			END
+			-- v1.8 End
 		END
 
 		SET @last_line_no = @line_no
@@ -471,7 +582,7 @@ BEGIN
 
 
 -- v1.6	IF (@status IN ('P','Q'))
-	IF ((@status = 'P') OR (@status = 'Q' AND @no_stock = 1)) -- v1.6
+	IF ((@status = 'P') OR (@status = 'Q' AND @no_stock = 1) OR @shipcomplete = 1) -- v1.6 v1.8
 	BEGIN
 		-- Unallocate any lines that are allocated 
 		SET @last_line_no = 0
@@ -502,15 +613,33 @@ BEGIN
 			BEGIN
 				SET @ret = -1
 				SET @message = 'Order cancellation Failed, could not unallocate order.'
-				SELECT	@ret, @message, 0
-				RETURN
+				-- v1.8 Start
+				IF (@shipcomplete = 1)
+				BEGIN
+					RETURN @ret
+				END
+				ELSE
+				BEGIN
+					SELECT	@ret, @message, 0
+					RETURN
+				END
+				-- v1.8 End
 			END
 
 			IF (@message <> '')
 			BEGIN
 				SET @ret = -1
-				SELECT	@ret, @message, 0
-				RETURN
+				-- v1.8 Start
+				IF (@shipcomplete = 1)
+				BEGIN
+					RETURN @ret
+				END
+				ELSE
+				BEGIN
+					SELECT	@ret, @message, 0
+					RETURN
+				END
+				-- v1.8 End
 			END
 
 			SET @last_line_no = @line_no
@@ -557,8 +686,17 @@ BEGIN
 			BEGIN
 				SET @ret = -1
 				SET @message = 'Order cancellation Failed, could not unallocate order.'
-				SELECT	@ret, @message, 0
-				RETURN
+				-- v1.8 Start
+				IF (@shipcomplete = 1)
+				BEGIN
+					RETURN @ret
+				END
+				ELSE
+				BEGIN
+					SELECT	@ret, @message, 0
+					RETURN
+				END
+				-- v1.8 End
 			END
 
 			-- Remove the pick queue record
@@ -569,8 +707,17 @@ BEGIN
 			BEGIN
 				SET @ret = -1
 				SET @message = 'Order cancellation Failed, could not unallocate order.'
-				SELECT	@ret, @message, 0
-				RETURN
+				-- v1.8 Start
+				IF (@shipcomplete = 1)
+				BEGIN
+					RETURN @ret
+				END
+				ELSE
+				BEGIN
+					SELECT	@ret, @message, 0
+					RETURN
+				END
+				-- v1.8 End
 			END
 
 			SET @last_tran_id = @tran_id
@@ -593,7 +740,7 @@ BEGIN
 	-- if the status is Q (printed) then just reset the status
 	-- START v1.3 - uncommenting code
 	-- v1.1 Start
-	IF (@status = 'Q')
+	IF (@status = 'Q' OR @shipcomplete = 1) -- v1.8
 	BEGIN
 		UPDATE	orders_all
 		SET		status = 'N',
@@ -605,6 +752,17 @@ BEGIN
 		BEGIN
 			SET @ret = -1
 			SET @message = 'Error updating order status, update failed.'
+			-- v1.8 Start
+			IF (@shipcomplete = 1)
+			BEGIN
+				RETURN @ret
+			END
+			ELSE
+			BEGIN
+				SELECT	@ret, @message, 0
+				RETURN
+			END
+			-- v1.8 End
 		END
 
 		-- Insert the audit record
@@ -761,9 +919,17 @@ BEGIN
 	END --v1.1 End
 
 
-	-- return 
-	SELECT	@ret, @message, @new_order_no
-	RETURN
+	-- v1.8 Start
+	IF (@shipcomplete = 1)
+	BEGIN
+		RETURN @ret
+	END
+	ELSE
+	BEGIN
+		SELECT	@ret, @message, @new_order_no
+		RETURN
+	END
+	-- v1.8 End
  
 END
 GO

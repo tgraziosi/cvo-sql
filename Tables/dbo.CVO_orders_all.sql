@@ -44,10 +44,10 @@ CREATE TABLE [dbo].[CVO_orders_all]
 [st_consolidate] [smallint] NULL CONSTRAINT [DF_CVO_orders_all_st_consolidate] DEFAULT ((0)),
 [email_address] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [GSH_released] [smallint] NULL CONSTRAINT [DF__CVO_order__GSH_r__11C5B975] DEFAULT ((0)),
-[upsell_flag] [int] NULL
+[upsell_flag] [int] NULL,
+[must_go_today] [int] NULL CONSTRAINT [DF__CVO_order__must___18C657DB] DEFAULT ((0))
 ) ON [PRIMARY]
 GO
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -294,8 +294,6 @@ AS
     END;
 
 
-GO
-GO
 GO
 SET QUOTED_IDENTIFIER ON
 GO
@@ -612,7 +610,6 @@ END
 
 
 GO
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -790,8 +787,7 @@ AS
   
   
 GO
-
-CREATE NONCLUSTERED INDEX [CVO_orders_all_bg_032814] ON [dbo].[CVO_orders_all] ([buying_group]) INCLUDE ([order_no], [ext]) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [CVO_orders_all_bg_032814] ON [dbo].[CVO_orders_all] ([buying_group]) INCLUDE ([ext], [order_no]) ON [PRIMARY]
 GO
 CREATE UNIQUE CLUSTERED INDEX [ord1] ON [dbo].[CVO_orders_all] ([order_no], [ext]) ON [PRIMARY]
 GO

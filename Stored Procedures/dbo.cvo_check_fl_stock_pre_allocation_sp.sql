@@ -118,19 +118,21 @@ BEGIN
 		
 			-- Get qty in non allocatable bins
 			-- v1.1 Start
---			SELECT	@in_stock_ex = SUM(qty)
---			FROM	cvo_lot_bin_stock_exclusions (NOLOCK)
---			WHERE	location = @location  
---			AND		part_no = @part_no  
+			-- v1.5 Start
+			SELECT	@in_stock_ex = SUM(qty)
+			FROM	cvo_lot_bin_stock_exclusions (NOLOCK)
+			WHERE	location = @location  
+			AND		part_no = @part_no  
 
-			SELECT	@in_stock_ex = SUM(a.qty) - ISNULL(SUM(b.qty),0.0)
-			FROM	cvo_lot_bin_stock_exclusions a (NOLOCK)
-			LEFT JOIN (SELECT SUM(qty) qty, location, part_no, bin_no FROM tdc_soft_alloc_tbl (NOLOCK) GROUP BY location, part_no, bin_no) b 
-			ON		a.location = b.location
-			AND		a.part_no = b.part_no
-			AND		a.bin_no = b.bin_no
-			WHERE	a.location = @location  
-			AND		a.part_no = @part_no  
+--			SELECT	@in_stock_ex = SUM(a.qty) - ISNULL(SUM(b.qty),0.0)
+--			FROM	cvo_lot_bin_stock_exclusions a (NOLOCK)
+--			LEFT JOIN (SELECT SUM(qty) qty, location, part_no, bin_no FROM tdc_soft_alloc_tbl (NOLOCK) GROUP BY location, part_no, bin_no) b 
+--			ON		a.location = b.location
+--			AND		a.part_no = b.part_no
+--			AND		a.bin_no = b.bin_no
+--			WHERE	a.location = @location  
+--			AND		a.part_no = @part_no  
+			-- v1.5 End
 			-- v1.1 End
 
 

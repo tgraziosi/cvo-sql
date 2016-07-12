@@ -220,7 +220,7 @@ BEGIN
 	IF @retval = -1
 	BEGIN
 		-- START v1.7
-		--IF ISNULL(@back_ord_flag,0) <> 1
+		IF ISNULL(@back_ord_flag,0) <> 1 -- v2.4
 		-- END v1.7
 		BEGIN
 			-- Unallocate missing qty		
@@ -553,7 +553,20 @@ BEGIN
 		-- Put Ship Complete transactions on hold
 		IF ISNULL(@back_ord_flag,0) = 1
 		BEGIN
-			EXEC cvo_no_stock_hold_ship_complete_allocations_sp @order_no, @order_ext
+			-- v2.4 Start
+			-- EXEC cvo_no_stock_hold_ship_complete_allocations_sp @order_no, @order_ext
+			
+			EXEC @ret = dbo.cvo_cancel_order_sp @order_no, @order_ext, @userid, @cust_code, @location, 2
+			IF (@ret <> 0)
+			BEGIN
+				RAISERROR ('Ship Complete Order Reset Failed.', 16, 1)     
+				SELECT -2
+				RETURN
+			END
+
+			EXEC dbo.cvo_recreate_sa_sp	@order_no, @order_ext
+			-- v2.4 End
+
 		END
 		
 		/*
@@ -609,15 +622,30 @@ BEGIN
 		-- Check there's nothing already picked
 		IF NOT EXISTS (SELECT 1 FROM dbo.tdc_carton_detail_tx (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext)
 		BEGIN
-			UPDATE
-				dbo.orders_all
-			SET
-				[status] = 'N', 
-				printed = 'N' -- v1.9 - TAG - 050114
-			WHERE
-				order_no = @order_no 
-				AND ext = @order_ext
-				AND [status] > 'N'
+			-- v2.4 Start
+			IF ISNULL(@back_ord_flag,0) = 1
+			BEGIN
+				UPDATE	dbo.orders_all
+				SET		[status] = 'A', 
+						printed = 'N',
+						hold_reason = 'SC'
+				WHERE	order_no = @order_no 
+				AND		ext = @order_ext
+				AND		[status] = 'N'	
+			END
+			ELSE
+			BEGIN
+				UPDATE
+					dbo.orders_all
+				SET
+					[status] = 'N', 
+					printed = 'N' -- v1.9 - TAG - 050114
+				WHERE
+					order_no = @order_no 
+					AND ext = @order_ext
+					AND [status] > 'N'	
+			END
+			-- v2.4 End
 		END
 	END
 	-- END v1.8
