@@ -16,6 +16,7 @@ CREATE TABLE #brand ([brand] VARCHAR(20))
 begin
 	INSERT INTO #brand ([brand])
 	SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@brand)
+	UNION ALL SELECT 'SUN'
 END
 
 CREATE TABLE #tier ([tier] VARCHAR(1))
@@ -64,6 +65,7 @@ AND cic.order_thru_date <> ISNULL(@NewOrderC, cic.order_thru_date)
 
 END 
 	
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_ifp_config_update_sp] TO [public]

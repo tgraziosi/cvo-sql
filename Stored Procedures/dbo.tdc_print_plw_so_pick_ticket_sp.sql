@@ -29,6 +29,7 @@ GO
 -- v6.6 CB 02/03/2016 - Add link to polarized lines
 -- v6.7 CB 09/06/2016 - Deal with manual case quantities
 -- v6.8 CB 15/06/2016 - Fix issue with multiple case lines
+-- v6.9 CB 11/07/2016 - Need to recalc line count if order has manual case quantities
 
 CREATE PROCEDURE [dbo].[tdc_print_plw_so_pick_ticket_sp]  
  @user_id     varchar(50),  
@@ -64,7 +65,8 @@ DECLARE @printed_on_the_page int,
  @display_line            int,					--v4.,0
  @order_time		varchar(10),		--v2.1.5
  @polarized_line varchar(40), -- v6.6
- @man_case int -- v6.7
+ @man_case int, -- v6.7
+ @man_count int -- v6.9
    
 DECLARE @sku_code VARCHAR(16), @height DECIMAL(20,8), @width DECIMAL(20,8), @cubic_feet DECIMAL(20,8),  
   @length DECIMAL(20,8), @cmdty_code VARCHAR(8), @weight_ea DECIMAL(20,8), @so_qty_increment DECIMAL(20,8),   
@@ -824,6 +826,17 @@ END
 	AND		b.man_qty > 0
 	AND ISNULL(a.kit_caption,'') <> 'NEW'
 	-- v6.7 End
+
+	-- v6.9 Start
+	SELECT @man_count = (SELECT COUNT(1) FROM #so_pick_ticket WHERE kit_caption = 'NEW')
+	SELECT @details_count = @details_count + ISNULL(@man_count,0)           
+	
+	SELECT @total_pages =   
+	  CASE WHEN @details_count % @max_details_on_page = 0   
+		   THEN @details_count / @max_details_on_page    
+				ELSE @details_count / @max_details_on_page + 1   
+	  END    
+	-- v6.9 End
 
 	SELECT @cursor_statement =	'DECLARE detail_cursor CURSOR FOR  
 								SELECT line_no, part_type,  uom, [description], ord_qty, dest_bin,  

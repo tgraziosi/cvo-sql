@@ -1077,6 +1077,9 @@ EXEC dbo.CVO_build_autopack_carton_sp @order_no, @order_ext
 EXEC dbo.cvo_update_bo_processing_sp 'A', @order_no, @order_ext
 -- v3.0 End
 
+-- v3.4 Start
+EXEC CVO_Consolidate_Pick_queue_sp @order_no, @order_ext
+-- v3.4 End
 
 -- v2.9 Start
 IF OBJECT_ID('tempdb..#consolidate_picks') IS NOT NULL

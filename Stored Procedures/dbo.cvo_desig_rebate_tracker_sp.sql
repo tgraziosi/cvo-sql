@@ -57,9 +57,9 @@ SELECT DISTINCT email.mergecust, CAST(email.contact_email AS VARCHAR(255)) conta
 INTO #email
 FROM 
 (
- SELECT distinct RIGHT(customer_code,5) mergecust, contact_email
- FROM armaster WHERE contact_email IS NOT NULL AND CHARINDEX('@',contact_email) > 0
- UNION 
+ --SELECT distinct RIGHT(customer_code,5) mergecust, contact_email, 'Customer'
+ --FROM armaster WHERE contact_email IS NOT NULL AND CHARINDEX('@',contact_email) > 0
+ --UNION 
  SELECT DISTINCT RIGHT(customer_code,5) mergecust, contact_email
  FROM adm_arcontacts WHERE contact_email IS NOT NULL AND CHARINDEX('@',contact_email) > 0
  AND contact_code = 'Dr.'
@@ -70,7 +70,8 @@ SELECT cdr.progyear, cdr.interval ,cdr.code, facts.description, cdr.goal1, cdr.r
                  t.region ,
                  t.terr territory_code ,
         		 cust.address_name,
-				 contact_email = emails.contact_emails,
+				 contact_email = cust.contact_email,
+				 dr_email = emails.contact_emails,
                  facts.grosssales ,
                  facts.netsales ,
                  facts.rareturns ,
@@ -134,7 +135,7 @@ GROUP BY RIGHT(cust_code, 5)
 
 LEFT OUTER join
 (SELECT DISTINCT e.mergecust, 
-		STUFF (( SELECT DISTINCT '; ' + ee.contact_email 
+		STUFF (( SELECT DISTINCT ';' + ee.contact_email 
 				FROM #email AS ee
 				WHERE ee.mergecust = e.mergecust
 				FOR XML PATH ('')), 1, 1, '') contact_emails
@@ -146,6 +147,7 @@ AND t.region IS NOT NULL
 -- SELECT * FROM dbo.cvo_designation_codes AS ccdc
 
 END
+
 
 
 

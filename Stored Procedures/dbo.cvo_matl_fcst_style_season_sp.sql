@@ -49,7 +49,7 @@ CREATE procedure [dbo].[cvo_matl_fcst_style_season_sp]
 -- 9/3/2015 - fix for  po lines in next year
 -- 10/6/2015 - PO lines - make the outer range < not <= to avoid 13th bucket on report
 -- 10/20/2015 - add seasonality multiplier, promo and substitute flagging
-
+-- 7/15/2016 - calc starting inventory with allocations if usage is on orders as allocations are already in the demand number. If on shipments, then net out allocations.
 as 
 begin
 
@@ -70,7 +70,6 @@ set @startdate = '01/01/1949'  -- starting release date
 -- set @enddate = '12/31/2020' -- ending release date
 -- set @enddate = @asofdate
 set @enddate = ISNULL(@endrel, @asofdate)
-
 declare @coll_list varchar(1000), @style_list varchar(8000), @sf VARCHAR(1000), @s_start INT, @s_end INT, @s_mult DECIMAL(20,8)
 
 select @coll_list = @collection, @style_list = @style, @SF = @SpecFit
@@ -775,8 +774,10 @@ declare @inv int, @last_inv int, @INV_AVL INT, @fct int, @drp int, @sls int, @po
 create index idx_f on #SKU (sku asc)
 
 select @sku = min(sku) from #SKU
-select @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty,0) - (isnull(cia.sof,0) + isnull(cia.allocated,0) ) 
-	 , @atp = ISNULL(qty_avl,0)
+-- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
+SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) - 
+	   CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
+	   , @atp = ISNULL(qty_avl,0)
 from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku and cia.location = @loc
 
 select @sort_seq = 0
@@ -830,9 +831,11 @@ begin
 		select @ord = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq + 1
 	END
 	SELECT @SKU = MIN(SKU) FROM #SKU WHERE SKU > @SKU
-	select @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty,0) - (isnull(cia.sof,0) + isnull(cia.allocated,0) ) 
-		, @atp = ISNULL(cia.qty_avl,0)
-		from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku and cia.location = @loc
+-- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
+	SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) - 
+		   CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
+		   , @atp = ISNULL(qty_avl,0)
+	from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku and cia.location = @loc
 	select @sort_seq = 0
 	SELECT @INV_AVL = @LAST_INV
 	select @fct = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'fct' and sort_seq = @sort_seq + 1
@@ -947,6 +950,7 @@ on specs.brand = #style.brand and specs.style = #style.style
 
 
 end
+
 
 
 

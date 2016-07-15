@@ -155,7 +155,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
 */
 -- 6/28/2016 tweak for BTS 2016
 CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN ('843','844')*/  THEN 'BTS' 
-	 WHEN category_2 NOT LIKE '%child%' AND i.category IN('jc','op') THEN 'Tween'
+	 WHEN category_2 NOT LIKE '%child%' AND i.category IN('jc','op') AND FIELD_2 NOT IN ('Sundae','Smoothie') THEN 'Tween'
 	 ELSE '' END GENDER, 
 
 case when field_32 = 'none' /*OR ia.field_2 IN ('gelato','popsicle','sherbet')*/ then '' else isnull(FIELD_32,'') end as SpecialtyFit,
@@ -564,6 +564,7 @@ END
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
 
 
 

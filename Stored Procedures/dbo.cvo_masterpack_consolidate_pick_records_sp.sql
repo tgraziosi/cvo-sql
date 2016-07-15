@@ -17,6 +17,7 @@ CREATE TABLE #consolidate_picks(
 -- v1.2 CB 31/07/2015 - If orders in set are printed then reset
 -- v1.3 CB 08/06/2016 - Split out manual case qty
 -- v1.4 CB 15/06/2016 - Fix issue with multiple case lines
+-- v1.5 CB 11/07/2016 - Fix issue when order has manual case quantities
 
 CREATE PROC [dbo].[cvo_masterpack_consolidate_pick_records_sp] @consolidation_no INT
 AS
@@ -180,10 +181,11 @@ BEGIN
 		order_no	int,
 		order_ext	int,
 		line_no		int,
-		man_qty		decimal(20,8))
+		man_qty		decimal(20,8),
+		from_line_no int) -- v1.5
 
 	INSERT	#man_sum
-	SELECT	a.order_no, a.order_ext, a.line_no, a.ordered - SUM(b.ordered)
+	SELECT	a.order_no, a.order_ext, a.line_no, a.ordered - SUM(b.ordered), MAX(a.from_line_no) -- v1.5
 	FROM	#cvo_ord_list a
 	JOIN	#cvo_ord_list b
 	ON		a.order_no = b.order_no 
@@ -198,6 +200,7 @@ BEGIN
 	ON		a.order_no = b.order_no
 	AND		a.order_ext = b.order_ext
 	AND		a.line_no = b.line_no
+	AND		a.from_line_no = b.from_line_no -- v1.5
 
 --	UPDATE	a
 --	SET		man_qty = a.ordered - b.ordered
@@ -255,7 +258,7 @@ BEGIN
 	TRUNCATE TABLE #man_sum
 	
 	INSERT	#man_sum
-	SELECT	a.order_no, a.order_ext, a.line_no, a.alloc_qty - SUM(b.alloc_qty)
+	SELECT	a.order_no, a.order_ext, a.line_no, a.alloc_qty - SUM(b.alloc_qty), MAX(a.from_line_no) -- v1.5
 	FROM	#cvo_ord_list a
 	JOIN	#cvo_ord_list b
 	ON		a.order_no = b.order_no 
@@ -270,6 +273,7 @@ BEGIN
 	ON		a.order_no = b.order_no 
 	AND		a.order_ext = b.order_ext 
 	AND		a.line_no = b.line_no
+	AND		a.from_line_no = b.from_line_no
 
 --	UPDATE	a
 --	SET		man_qty = a.alloc_qty - b.alloc_qty

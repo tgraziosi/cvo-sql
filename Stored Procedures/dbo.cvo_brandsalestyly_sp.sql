@@ -11,6 +11,7 @@ CREATE procedure [dbo].[cvo_brandsalestyly_sp]
 as
 
 -- 042015 - make brand a multi-value list, like territory
+-- 071416 - change unit breaks per LM request
 
 declare @fromdateparam datetime, @fromdatelyparam datetime
 
@@ -73,24 +74,45 @@ SizeSales = case when [net amount] is null then null
 		when [Net Amount] < 5000 then 6
 		else 7
 		end
+--,SizeQty = case when [net quantity] is null then null
+--		when [Net Quantity] <= 0 then '0 or Less'
+--		when [Net Quantity] < 12 then '1 - 12'
+--		when [Net Quantity] < 25 then '13 - 24'
+--		when [Net Quantity] < 50 then '25 - 49'
+--		when [Net Quantity] < 75 then '50 - 74'
+--		when [Net Quantity] < 100 then '75 - 99'
+--		else '100 or more'
+--		end
+--,SizeQty_sort = case when [Net Quantity] is null then null
+--		when [Net Quantity] <= 0 then 1
+--		when [Net Quantity] < 12 then 2
+--		when [Net Quantity] < 25 then 3
+--		when [Net Quantity] < 50 then 4
+--		when [Net Quantity] < 75 then 5
+--		when [Net Quantity] < 100 then 6
+--		else 7
+--		end 
+
 ,SizeQty = case when [net quantity] is null then null
 		when [Net Quantity] <= 0 then '0 or Less'
-		when [Net Quantity] < 12 then '1 - 12'
-		when [Net Quantity] < 25 then '13 - 24'
-		when [Net Quantity] < 50 then '25 - 49'
-		when [Net Quantity] < 75 then '50 - 74'
-		when [Net Quantity] < 100 then '75 - 99'
+		when [Net Quantity] < 15 then '1 - 15'
+		when [Net Quantity] < 29 then '16 - 29'
+		when [Net Quantity] < 49 then '30 - 49'
+		when [Net Quantity] < 74 then '50 - 74'
+		when [Net Quantity] < 99 then '75 - 99'
 		else '100 or more'
 		end
 ,SizeQty_sort = case when [Net Quantity] is null then null
 		when [Net Quantity] <= 0 then 1
-		when [Net Quantity] < 12 then 2
-		when [Net Quantity] < 25 then 3
-		when [Net Quantity] < 50 then 4
-		when [Net Quantity] < 75 then 5
-		when [Net Quantity] < 100 then 6
+		when [Net Quantity] < 15 THEN 2
+		when [Net Quantity] < 29 then 3
+		when [Net Quantity] < 49 then 4
+		when [Net Quantity] < 74 then 5
+		when [Net Quantity] < 99 then 6
 		else 7
-		end from cte
+		end 
+FROM cte
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_brandsalestyly_sp] TO [public]
