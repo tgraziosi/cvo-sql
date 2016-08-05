@@ -19,7 +19,7 @@ BEGIN
 -- generate sku's from cmi into epicor
 --  
 -- 
--- exec [cvo_cmi_sku_generate_sp] 'bcbg_r', 'b969', null, null, '07/18/2016','N', 0
+-- exec [cvo_cmi_sku_generate_sp] 'bcbg', 'appeal', null, null, '01/24/2017','N', 1
 
 -- updates:
 -- 6/8/2016 - fixup hang tag and upc parts for retail sku's.  
@@ -33,7 +33,8 @@ DECLARE
 	@hangtag_cost decimal(9,2),
 	@upc_cost DECIMAL(9,2),
 	@pattern_cost DECIMAL(20,2), 
-	@pattern_vendor VARCHAR(10)
+	@pattern_vendor VARCHAR(10),
+	@tpr INT 
 	
 -- SELECT  @coll = 'bt' , @model = 'eye-density', @colorname = null, @eye_size = null, @upd = 'n', @release_date = '04/26/2016'
 
@@ -124,9 +125,10 @@ SELECT part_no ,
        model_lead_time ,
        lens_color,
 	   short_color_name = UPPER( CASE WHEN LEFT(cmi.ColorName,3) = 'GRE' THEN -- handle the GREY/GREEN dilemma
-			 CASE when cmi.ColorGroupCode = 'GRY' THEN 'GRE' -- Grey
-				  WHEN cmi.colorgroupcode = 'GRN' THEN 'GRN' 
-				  ELSE LEFT(colorname,3) END
+								 CASE when cmi.ColorGroupCode = 'GRY' THEN 'GRE' -- Grey
+									WHEN cmi.colorgroupcode = 'GRN' THEN 'GRN' 
+									ELSE LEFT(colorname,3) END
+									WHEN cmi.frame_category = '3-piece rimless' THEN LEFT( SUBSTRING(cmi.colorname,CHARINDEX(' ',cmi.colorname,1)+1,LEN(cmi.colorname)) , 3 )
 		    ELSE LEFT(colorname,3) END ) -- 1/26/2016	 
 	  , ISNULL(cmi.frame_only,0) frame_only
 	  , cmi.dim_lens_cost
@@ -137,6 +139,8 @@ INTO #cmi
 -- FROM [cvo-db-03].cvo.dbo.cvo_cmi_catalog_view cmi
 FROM dbo.cvo_cmi_catalog_view cmi
 WHERE cmi.model = @model AND cmi.collection = @coll
+
+UPDATE #CMI SET short_color_name = 'BLS' WHERE short_color_name = 'BLU' AND COLORNAME LIKE '%BLUSH%'
 
 -- Handle Retail Skus - 3/15/2016
 
@@ -171,7 +175,11 @@ SET     short_model = CASE WHEN ISNULL(smn.short_model, '') = ''
                       END
 FROM    #short_model_name smn;
 
-IF @debug = 1 SELECT * FROM #short_model_name AS smn
+--IF @debug = 1 SELECT * FROM #short_model_name AS smn
+
+-- is this 3pc rimless?
+
+SELECT @tpr = CASE WHEN EXISTS (SELECT 1 FROM #cmi WHERE frame_category = '3-piece rimless') THEN 1 ELSE 0 END
 
 IF ( OBJECT_ID('tempdb.dbo.#cvo_cmi_sku_xref') IS NOT NULL )
     DROP TABLE #cvo_cmi_sku_xref;
@@ -225,7 +233,7 @@ INSERT  INTO #parts_list
                 UPPER(c.Collection) collection ,
                 UPPER(c.model) model ,
                 UPPER(smn.short_model) short_model ,
-                NULL ,
+                '' ,
                 0 ,
                 NULL ,
                 'BRUIT' ,
@@ -262,7 +270,8 @@ INSERT  INTO #parts_list
                                                     AND smn.model = c.model
         WHERE   1 = 1
 				AND c.specialty_fit <> 'retail'
-				AND c.pattern_text <> 'No - Do not Order';
+				AND c.pattern_text <> 'No - Do not Order'
+				AND c.frame_category <> '3-piece rimless';
 
 INSERT  INTO #parts_list
         ( collection ,
@@ -284,6 +293,7 @@ INSERT  INTO #parts_list
                 'FRAME' ,
                 UPPER(
 				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
+				+ CASE WHEN @tpr = 0 THEN '' ELSE UPPER(LEFT(c.colorname,1)) end
                 + ISNULL(UPPER(short_color_name), 'ccc')
                 + CAST(c.eye_size AS VARCHAR(2))
                 + CAST(c.dbl_size AS VARCHAR(2))
@@ -313,7 +323,7 @@ INSERT  INTO #parts_list
                 UPPER(smn.short_model) short_model ,
                 upper(c.colorname) colorname ,
                 c.eye_size ,
-                c.temple_size ,
+                CASE WHEN @tpr = 0 THEN c.temple_size ELSE NULL end ,
                 'FRAME ONLY' ,
                 UPPER(
 				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
@@ -360,7 +370,8 @@ INSERT  INTO #parts_list
         WHERE   1 = 1
 				AND c.colorname = ISNULL(@colorname,c.colorname)
 				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
-				AND c.specialty_fit <> 'retail';
+				AND c.specialty_fit <> 'retail'
+				AND c.frame_category <> '3-piece rimless';
 
 -- Demolens for Frames
 INSERT  INTO #parts_list
@@ -391,7 +402,8 @@ INSERT  INTO #parts_list
         WHERE   1 = 1
                 AND ((c.RES_type IN ('frame') AND c.collection <> 'BT') OR 
 					 (c.res_type IN ('frame only') AND c.collection = 'BT'))
-				AND c.specialty_fit <> 'retail';
+				AND c.specialty_fit <> 'retail'
+				AND c.frame_category <> '3-piece rimless';
 
 -- DEMOLENS for Suns
 INSERT  INTO #parts_list
@@ -424,7 +436,8 @@ INSERT  INTO #parts_list
 				AND c.colorname = ISNULL(@colorname,c.colorname)
 				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
 				AND C.RES_type = 'SUN'
-				AND c.specialty_fit <> 'retail';
+				AND c.specialty_fit <> 'retail'
+				AND c.frame_category <> '3-piece rimless';
 
 
 INSERT  INTO #parts_list
@@ -443,11 +456,11 @@ INSERT  INTO #parts_list
                 UPPER(smn.short_model) short_model ,
                 upper(c.colorname) colorname ,
                 0 ,
-                CAST(c.temple_size AS DECIMAL(18,1)) ,
+                CAST(c.temple_size AS DECIMAL(18,1)),
                 'TEMPLE-L' ,
 				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
                 + ISNULL(UPPER(short_color_name), 'ccc') + 'LS'
-                + CAST(CAST(c.temple_size AS INT) AS VARCHAR(3))
+                + CASE WHEN @tpr = 0 THEN CAST(CAST(c.temple_size AS INT) AS VARCHAR(3)) ELSE '145' END 
 								
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
@@ -458,27 +471,6 @@ INSERT  INTO #parts_list
                 AND CHARINDEX('cable', c.hinge_type) = 0
 				AND c.specialty_fit <> 'retail';
 
-	    SELECT DISTINCT
-                UPPER(c.Collection) collection ,
-                UPPER(c.model) model ,
-                UPPER(smn.short_model) short_model ,
-                upper(c.colorname) colorname ,
-                0 ,
-                c.temple_size ,
-                'TEMPLE-R' ,
-                CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
-                + ISNULL(UPPER(short_color_name), 'ccc') + 'RS'
-                + CAST(CAST(c.temple_size AS INT) AS VARCHAR(3))
-				
-        FROM    #cmi c
-                INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
-                                                    AND smn.model = c.model
-        WHERE   1 = 1
-				AND c.colorname = ISNULL(@colorname,c.colorname)
-				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
-                AND CHARINDEX('cable', c.hinge_type) = 0
-				AND c.specialty_fit <> 'retail';
-
 INSERT  INTO #parts_list
         ( collection ,
           model ,
@@ -489,17 +481,17 @@ INSERT  INTO #parts_list
           part_type ,
           part_no
         )
-        SELECT DISTINCT
+	    SELECT DISTINCT
                 UPPER(c.Collection) collection ,
                 UPPER(c.model) model ,
                 UPPER(smn.short_model) short_model ,
                 upper(c.colorname) colorname ,
                 0 ,
-                c.temple_size ,
+                CAST(c.temple_size AS DECIMAL(18,1)) ,
                 'TEMPLE-R' ,
                 CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
                 + ISNULL(UPPER(short_color_name), 'ccc') + 'RS'
-                + CAST(CAST(c.temple_size AS INT) AS VARCHAR(3))
+                + CASE WHEN @tpr = 0 THEN CAST(CAST(c.temple_size AS INT) AS VARCHAR(3)) ELSE '145' END 
 				
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
@@ -508,8 +500,7 @@ INSERT  INTO #parts_list
 				AND c.colorname = ISNULL(@colorname,c.colorname)
 				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
                 AND CHARINDEX('cable', c.hinge_type) = 0
-				AND c.specialty_fit <> 'retail'
-				;
+				AND c.specialty_fit <> 'retail';
 
 /* Cant do this yet - 1/26/2016
 
@@ -670,6 +661,144 @@ INSERT  INTO #parts_list
 				AND C.RES_type IN ('frame','SUN')
 				AND c.specialty_fit = 'retail';
 
+-- Add special parts for 3-piece rimless styles
+-- BR - Bridge, TS - Temple Sleeve, TT - Temple Tip, Dem - Demolens BY shape, pattern - by shape, DG - drilling guide by shape
+
+IF @tpr = 1
+BEGIN
+
+	INSERT  INTO #parts_list
+        ( collection ,
+          model ,
+          short_model ,
+          colorname ,
+          eye_size ,
+          temple_size ,
+          part_type ,
+          part_no
+        )
+        SELECT DISTINCT
+                UPPER(c.Collection) collection ,
+                UPPER(c.model) model ,
+                UPPER(smn.short_model) short_model ,
+                UPPER(C.colorname) COLORNAME ,
+                0 ,
+                NULL ,
+                'PATTERN' ,
+                CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END 
+				+ RTRIM(smn.short_model) 
+				+ LEFT(c.colorname,1) 
+				+ PT.PT
+        FROM    #cmi c
+                INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
+                                                    AND smn.model = c.model
+				CROSS JOIN (SELECT 'P' PT UNION SELECT 'DG') PT -- PATTERNS AND DRILLING GUIDES 
+
+        WHERE   1 = 1
+				AND c.specialty_fit <> 'retail'
+				AND c.pattern_text <> 'No - Do not Order'
+
+		INSERT  INTO #parts_list
+        ( collection ,
+          model ,
+          short_model ,
+          colorname ,
+          eye_size ,
+          temple_size ,
+          part_type ,
+          part_no
+        )
+        SELECT DISTINCT
+                UPPER(c.Collection) collection ,
+                UPPER(c.model) model ,
+                UPPER(smn.short_model) short_model ,
+                UPPER(C.COLORNAME) COLORNAME ,
+                c.eye_size ,
+                NULL ,
+                'DEMOLEN' ,
+                CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END 
+				+ RTRIM(smn.short_model) + 'DEM'
+				+ LEFT(c.colorname,1) 
+                + CAST(c.eye_size AS VARCHAR(2))
+				
+        FROM    #cmi c
+                INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
+                                                    AND smn.model = c.model
+        WHERE   1 = 1
+                AND c.RES_type IN ('frame') 
+				AND c.specialty_fit <> 'retail'
+
+		INSERT  INTO #parts_list
+        ( collection ,
+          model ,
+          short_model ,
+          colorname ,
+          eye_size ,
+          temple_size ,
+          part_type ,
+          part_no
+        )
+        SELECT DISTINCT
+                UPPER(c.Collection) collection ,
+                UPPER(c.model) model ,
+                UPPER(smn.short_model) short_model ,
+                upper(c.colorname) colorname ,
+                c.eye_size ,
+                NULL ,
+                'BRIDGE' ,
+                UPPER(
+				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
+                + ISNULL(UPPER(short_color_name), 'ccc') + BR.BR
+                + CAST(c.dbl_size AS VARCHAR(2))
+				)
+        FROM    #cmi c
+                INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
+                                                    AND smn.model = c.model
+				CROSS JOIN
+                (SELECT 'UBR' BR 
+				 UNION SELECT 'MBR' 
+				 UNION SELECT 'PBR') BR
+
+        WHERE   1 = 1
+				AND c.colorname = ISNULL(@colorname,c.colorname)
+				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
+				AND c.specialty_fit <> 'retail'
+
+		INSERT  INTO #parts_list
+        ( collection ,
+          model ,
+          short_model ,
+          colorname ,
+          eye_size ,
+          temple_size ,
+          part_type ,
+          part_no
+        )
+        SELECT DISTINCT
+                UPPER(c.Collection) collection ,
+                UPPER(c.model) model ,
+                UPPER(smn.short_model) short_model ,
+                upper(c.colorname) colorname ,
+                0 ,
+                c.temple_size ,
+                'TEMPLE-TIP' ,
+                CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
+                + ISNULL(UPPER(short_color_name), 'ccc') + TT.TT
+                --+ CAST(CAST(c.temple_size AS INT) AS VARCHAR(3))
+				
+        FROM    #cmi c
+                INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
+                                                    AND smn.model = c.model
+				CROSS JOIN
+				(SELECT 'TSR' TT UNION SELECT 'TSL' 
+				UNION SELECT 'TTL' UNION SELECT 'TTR'
+				UNION SELECT 'CTL' UNION SELECT 'CTR' 
+				UNION SELECT 'EPL' UNION SELECT 'EPR') TT -- SKULL, TIPS, CABLE, AND END PIECES
+
+        WHERE   1 = 1
+				AND c.colorname = ISNULL(@colorname,c.colorname)
+
+END
 
 
 IF ( OBJECT_ID('tempdb.dbo.#err_list') IS NOT NULL )
@@ -714,7 +843,7 @@ INSERT  INTO #err_list
 -- select * From #parts_list
 --END
 
-IF @debug = 1 SELECT * FROM #parts_list AS pl
+-- IF @debug = 1 SELECT 'PARTS_LIST', * FROM #parts_list AS pl
 
 
 IF ( OBJECT_ID('tempdb.dbo.#parts_to_add') IS NOT NULL )
@@ -736,27 +865,28 @@ SELECT DISTINCT
                         ELSE c.[RES_type]
                    END ,
         case_part  = CAST(CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'bruit' ) THEN [case_part] ELSE null END AS VARCHAR(80) ),
-        frame_category = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'bruit', 'front' ) THEN [frame_category] ELSE null END ,
-        frame_material = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'bruit', 'front' ) THEN [front_material] ELSE null END ,
-        temple_material = CASE WHEN pl.part_type IN ( 'frame', 'frame only','bruit', 'temple-l', 'temple-r', 'cable-l', 'cable-r' ) THEN [temple_material] ELSE null end ,
-        nose_pads = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'bruit', 'front' ) THEN [nose_pads] ELSE null END,
-		hinge_type = CASE WHEN pl.part_type NOT IN ( 'pattern', 'front', 'frame only', 'demolen' ) THEN [hinge_type] ELSE NULL END ,
+        frame_category = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'bruit', 'front' , 'bridge') THEN [frame_category] ELSE null END ,
+        frame_material = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'bruit', 'front', 'bridge' ) THEN [front_material] ELSE null END ,
+        temple_material = CASE WHEN pl.part_type IN ( 'frame', 'frame only','bruit', 'temple-l', 'temple-r', 'cable-l', 'cable-r' , 'temple-tip') THEN [temple_material] ELSE null end ,
+        nose_pads = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'bridge', 'bruit', 'front' ) THEN [nose_pads] ELSE null END,
+		hinge_type = CASE WHEN pl.part_type NOT IN ( 'pattern', 'front', 'bridge','demolen' ) THEN [hinge_type] ELSE NULL END ,
         release_date = ISNULL(c.dim_release_date, ISNULL(release_date,'1/1/1900')),
 		colorgroupcode = CAST(CASE WHEN pl.part_type NOT IN ( 'bruit', 'pattern', 'demolen' ) THEN [ColorGroupCode] ELSE null END AS varchar(15)) ,
-        colorname = CASE WHEN pl.part_type NOT IN ( 'bruit', 'pattern', 'demolen' ) THEN c.ColorName ELSE NULL end ,
+        colorname = CASE WHEN @tpr = 1 AND PL.PART_TYPE IN ('PATTERN','DEMOLEN') THEN LEFT(C.COLORNAME,2)
+						 WHEN pl.part_type NOT IN ( 'bruit', 'pattern', 'demolen' ) THEN c.ColorName ELSE NULL end ,
         specialty_fit = CASE WHEN pl.part_type NOT IN ('bruit','pattern','demolen') THEN c.specialty_fit ELSE NULL end ,
         web_saleable_Flag = CASE WHEN pl.part_type IN ( 'frame' , 'frame only') THEN [web_saleable_flag] END ,
         eye_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) THEN c.[eye_size] ELSE NULL END ,
         a_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) THEN c.a_size ELSE NULL END ,
         b_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) THEN c.b_size ELSE NULL END , 
         ed_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) THEN c.ed_size ELSE NULL END ,
-        dbl_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) THEN c.dbl_size ELSE NULL END ,
+        dbl_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'bridge','demolen' ) THEN c.dbl_size ELSE NULL END ,
         temple_size =   
-			CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'temple-l', 'temple-r', 'cable-r', 'cable-l' ) 
+			CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'temple-l', 'temple-r', 'temple-tip', 'cable-r', 'cable-l' ) 
 			THEN c.temple_size
 			ELSE NULL END ,
   --     
-		temple_tip_material = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'temple-l', 'temple-r', 'cable-r', 'cable-l' ) THEN c.temple_tip_material ELSE NULL END ,
+		temple_tip_material = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'temple-l', 'temple-r', 'temple-tip','cable-r', 'cable-l' ) THEN c.temple_tip_material ELSE NULL END ,
         suns_only = CASE WHEN pl.part_type IN ( 'frame', 'bruit', 'front' ) THEN suns_only ELSE NULL END ,
         isnull([front_price],0) front_price ,
         isnull([temple_price],0) temple_price ,
@@ -802,8 +932,6 @@ WHERE   1 = 1
         --                 WHERE  part_no = pl.part_no );
 
 
-IF @debug = 1  SELECT * FROM #parts_to_add
-
 -- More Validations
 
 INSERT  INTO #err_list
@@ -814,7 +942,7 @@ INSERT  INTO #err_list
                 frame_material ,
                 'frame material missing'
         FROM    #parts_to_add pl
-        WHERE   pl.part_type IN ( 'frame', 'bruit', 'front', 'frame only' )
+        WHERE   pl.part_type IN ( 'frame', 'bruit', 'front', 'bridge', 'frame only' )
 		AND NOT EXISTS ( SELECT TOP 1 kys FROM     dbo.CVO_frame_matl
                                        WHERE    description = ISNULL(pl.frame_material,'') AND ISNULL(void,'N') = 'N')
 
@@ -1136,7 +1264,8 @@ INSERT  #ia
 						  ELSE ''
                           END , -- case 
                 field_2 = UPPER(c.model) , -- model
-                field_3 = UPPER(CASE WHEN c.part_type IN ( 'pattern', 'demolen', 'bruit' ) THEN ''
+                field_3 = UPPER(CASE WHEN @tpr = 1 AND c.part_type IN ( 'pattern', 'demolen', 'bruit' ) THEN LEFT(C.COLORNAME,2)
+								WHEN C.PART_TYPE IN ('PATTERN','DEMOLEN','BRUIT') THEN ''
                                ELSE ISNULL(c.colorname,'')
                           END) ,
                 -- field_4 = CASE WHEN c.part_type IN ( 'frame', 'front', 'bruit' )
@@ -1147,13 +1276,15 @@ INSERT  #ia
                                       WHERE     cc.part_type = 'pattern'
                                                 AND cc.collection = c.Collection
                                                 AND cc.model = c.model
+												AND RIGHT(cc.part_no,1) = 'P'
+												AND LEFT(c.colorname,1) = LEFT(ISNULL(cc.colorname,c.colorname),1)
                                     )
 								ELSE ''
                           END , -- pattern part #
                 field_5 = CASE WHEN c.ispolarizedavailable = 1 THEN 'Y'
                                ELSE null
                           END , -- polarized
-                field_6 = CASE WHEN c.part_type NOT IN ( 'bruit', 'demolen', 'temple-l','temple-r','cable-r','cable-l','hngtag','upc' )
+                field_6 = CASE WHEN c.part_type NOT IN ( 'bruit', 'demolen', 'temple-l','temple-r','temple-tip','cable-r','cable-l','hngtag','upc' )
                                THEN c.dbl_size
 							   ELSE ''
                           END , -- bridge size (dbl size)
@@ -1165,11 +1296,13 @@ INSERT  #ia
                                     ), 'N/A')
                                ELSE 'N/A'
                           END , -- nose pad
-                field_8 = CASE WHEN c.part_type NOT IN ( 'pattern', 'demolen' ,'hngtag','upc')
-                               THEN CAST(ISNULL(c.temple_size,0) AS integer)
+                field_8 = CASE WHEN @TPR = 1 AND C.PART_TYPE IN ('TEMPLE-L','TEMPLE-R') THEN 145 
+							   WHEN @TPR = 1 AND C.PART_TYPE IN ('TEMPLE-TIP') THEN 0
+							   WHEN c.part_type NOT IN ( 'pattern', 'demolen' ,'hngtag','upc')
+                               THEN  CAST(ISNULL(c.temple_size,0) AS integer)
 							   ELSE 0
                           END , -- temple length
-                field_10 = CASE WHEN c.part_type IN ( 'frame', 'frame only', 'front','bruit')
+                field_10 = CASE WHEN c.part_type IN ( 'frame', 'frame only', 'front','bridge','bruit')
 				                       THEN ISNULL(( SELECT TOP 1
                                                 kys
 									   FROM     dbo.CVO_frame_matl
@@ -1178,7 +1311,7 @@ INSERT  #ia
 									 ELSE ''
 				           END , -- frame material
 
-				field_11 = CASE WHEN c.part_type IN ( 'frame', 'frame only', 'front','bruit')
+				field_11 = CASE WHEN c.part_type IN ( 'frame', 'frame only', 'front','bridge','bruit')
                                 THEN ( SELECT TOP 1
                                                 kys
                                        FROM     dbo.CVO_frame_type
@@ -1186,7 +1319,7 @@ INSERT  #ia
                                      )
 									 ELSE 'UNKNOWN'
                            END , -- frame type
-                field_12 = CASE WHEN c.part_type NOT IN ( 'pattern', 'demolen', 'front' ,'hngtag','upc')
+                field_12 = CASE WHEN c.part_type NOT IN ( 'pattern', 'demolen', 'front' ,'bridge','hngtag','upc')
                                 THEN ISNULL(( SELECT TOP 1
                                                 kys
                                        FROM     dbo.CVO_temple_matl
@@ -1194,7 +1327,7 @@ INSERT  #ia
                                      ),'UNKNOWN')
 									 ELSE ''
                            END , -- temple material, if different than frame
-                field_13 = CASE WHEN c.part_type NOT IN ( 'pattern', 'demolen' ,'front','hngtag','upc')
+                field_13 = CASE WHEN c.part_type NOT IN ( 'pattern', 'demolen' ,'front','bridge','hngtag','upc')
                                 THEN ISNULL(( SELECT TOP 1
                                                 kys
                                        FROM     dbo.CVO_temple_hindge
@@ -1276,8 +1409,7 @@ INSERT  #ia
 --
 
 
--- IF @debug = 1 SELECT * FROM #parts_to_add
-
+ IF @debug = 1 SELECT 'PARTS_TO_ADD', * FROM #parts_to_add
 
 INSERT  #i
         ( part_no ,
@@ -1306,7 +1438,7 @@ INSERT  #i
 			
 									WHEN c.part_type = 'frame only'
                                     THEN ISNULL(c.Collection,'') + ' ' + ISNULL(c.model,'') + ' '
-                                        + UPPER(ISNULL(ia.field_3,'')) + ' FRAME ONLY '
+                                        + UPPER(ISNULL(ia.field_3,'')) + CASE WHEN @tpr = 1 THEN ' CHASSIS ONLY ' ELSE ' FRAME ONLY ' END
                                         + CAST(ROUND(ISNULL(c.eye_size,0), 0) AS VARCHAR(2))
                                         + '/'
                                         + CAST(ROUND(ISNULL(c.dbl_size,0), 0) AS VARCHAR(2))
@@ -1316,23 +1448,44 @@ INSERT  #i
 			                       WHEN c.part_type IN ( 'bruit', 'pattern' )
                                    THEN LTRIM(RTRIM(c.Collection)) + ' '
                                         + LTRIM(RTRIM(c.model)) + ' '
-                                        + LTRIM(RTRIM(c.res_type))
+										+ CASE WHEN @tpr = 1 THEN LEFT(ISNULL(IA.FIELD_3,0),2) ELSE '' END
+                                        + CASE WHEN RIGHT(IA.PART_NO,2) = 'DG' THEN 'DRILLING GUIDE'
+											ELSE LTRIM(RTRIM(c.res_type)) END
                                    WHEN c.part_type = 'front'
                                    THEN c.Collection + ' ' + c.model + ' '
                                         + UPPER(ia.field_3) + ' '
                                         + ia.category_3 + ' '
                                         + CAST(CAST (c.eye_size AS INTEGER) AS VARCHAR(2))
-                                   WHEN c.part_type IN ( 'temple-l',
-                                                         'temple-r', 'cable-r',
-                                                         'cable-l' )
+								  WHEN c.part_type = 'bridge'
+								   THEN c.Collection + ' ' + c.model + ' '
+                                        + UPPER(ia.field_3) + ' '
+										+ CASE WHEN IA.PART_NO LIKE '%MBR%' THEN 'METAL '
+											WHEN IA.part_no LIKE '%PBR%' THEN 'PLASTIC '
+											WHEN IA.part_no LIKE '%UBR%' THEN 'UNIFIT ' 
+											ELSE '' END
+                                        + ia.category_3 + ' '
+                                        + CAST(CAST (c.dbl_size AS INTEGER) AS VARCHAR(2))
+										+ CASE WHEN @TPR = 1 AND (IA.PART_NO LIKE '%MBR%' OR IA.PART_NO LIKE '%PBR%') THEN ' W/NOSE PADS' ELSE '' END
+                                   WHEN c.part_type IN ( 'temple-l','temple-r',
+														 'cable-r','cable-l' )
                                    THEN c.Collection + ' ' + c.model + ' '
                                         + UPPER(ia.field_3) + ' '
+										+ CASE WHEN @TPR = 1 THEN 'PADDLE ' ELSE '' END
                                         + ia.category_3 + ' '
-                                        + CAST(CAST (ISNULL(c.temple_size,0) AS INTEGER) AS VARCHAR(3))
-                                   WHEN c.part_type = 'temple-tip'
+                                        + CASE WHEN @TPR = 1 THEN '145' ELSE CAST(CAST (ISNULL(c.temple_size,0) AS INTEGER) AS VARCHAR(3)) END
+								   WHEN c.part_type IN ( 'temple-tip')
                                    THEN c.Collection + ' ' + c.model + ' '
-                                        + ia.category_3 + ' '
-                                        + CAST(CAST(c.eye_size AS INTEGER) AS VARCHAR(2))
+                                        + UPPER(ia.field_3) + ' '
+										+ CASE WHEN RIGHT(ia.part_no,3) = 'TTR' THEN 'TEMPLE TIP RIGHT'
+											   WHEN RIGHT(IA.part_no,3) = 'TTL' THEN 'TEMPLE TIP LEFT'
+											   WHEN RIGHT(IA.part_no,3) = 'TSR' THEN 'TEMPLE SLEEVE RIGHT'
+											   WHEN RIGHT(ia.part_no,3) = 'TSL' THEN 'TEMPLE SLEEVE LEFT'
+											   WHEN RIGHT(ia.part_no,3) = 'CTL' THEN 'CABLE TEMPLE TIP LEFT'
+											   WHEN RIGHT(ia.part_no,3) = 'CTR' THEN 'CABLE TEMPLE TIP RIGHT'
+											   WHEN RIGHT(ia.part_no,3) = 'EPL' THEN 'END PIECE LEFT'
+											   WHEN RIGHT(ia.part_no,3) = 'EPR' THEN 'END PIECE RIGHT'
+											   ELSE IA.category_3
+											   END
                                    WHEN c.part_type = 'demolen'
                                    THEN LTRIM(RTRIM(c.Collection)) 
 										+ ' ' 
@@ -1340,6 +1493,7 @@ INSERT  #i
 										+ ' ' 
                                     	+ CASE WHEN c.res_type = 'SUN' THEN UPPER(ISNULL(ia.field_3,'')) ELSE '' END
 									    + ' DEMOLENS '
+										+ CASE WHEN @tpr = 1 THEN LEFT(ISNULL(IA.FIELD_3,''),2) ELSE '' END
 										+ CAST(CAST (c.eye_size AS INTEGER) AS VARCHAR(4))
 								  WHEN c.part_type = 'hangtag'
 								  THEN LTRIM(RTRIM(c.collection))
@@ -1378,7 +1532,7 @@ INSERT  #i
 									THEN CAST(0.008 AS DECIMAL(20,8))
 								 WHEN c.part_type IN ( 'demolen') -- 7/5/2016 - from .001 as per IC
 									THEN CAST (0.005 AS DECIMAL(20, 8))
-                                 WHEN c.part_type IN ( 'temple-tip' ,'hangtag', 'upc')
+                                 WHEN c.part_type IN ( 'temple-tip' ,'bridge','hangtag', 'upc')
 									THEN CAST (0.001 AS DECIMAL(20, 8))
                                  ELSE CAST(0.0001 AS DECIMAL(20, 8)) -- must be non-zero value
                             END ,
@@ -1388,7 +1542,8 @@ INSERT  #i
                 account = ( CASE WHEN c.Collection = 'IZX' THEN 'IZX'
                                  ELSE LTRIM(RTRIM(LEFT(c.Collection, 2)))
                             END ) + ' '
-                + CASE WHEN c.res_type IN ('sun') THEN 'Sun'
+                + CASE WHEN c.res_Type IN ('sun') AND collection IN ('PT','izx') THEN 'Suns'
+					   WHEN c.res_type IN ('sun') THEN 'Sun'
 					   WHEN (LEFT(c.PrimaryDemographic, 3) IN ( 'boy', 'gir') 
 					   OR c.specialty_fit = 'pediatric'
                        or CHARINDEX('child',c.primarydemographic,0)>0
@@ -1601,7 +1756,7 @@ INSERT  #pp
 				--AND NOT EXISTS ( SELECT 1
     --                         FROM   #err_list e
     --                         WHERE  e.part_no = c.part_no )
-                AND c.part_type = 'front';
+                AND (c.part_type = 'front' OR (@tpr = 1 AND c.part_type = 'bridge'));
 
 INSERT  #pp
         ( part_no ,
@@ -1624,8 +1779,9 @@ INSERT  #pp
 				--AND NOT EXISTS ( SELECT 1
     --                         FROM   #err_list e
     --                         WHERE  e.part_no = c.part_no )
-                AND c.part_type IN ( 'temple-l', 'temple-r', 'cable-r',
-                                     'cable-l' ); 
+                AND (c.part_type IN ( 'temple-l', 'temple-r', 'cable-r',
+                                     'cable-l' )
+				OR (@tpr = 1 AND c.part_type IN ('PATTERN','temple-tip')))
 
 INSERT  #pp
         ( part_no ,
@@ -1710,15 +1866,44 @@ INSERT  #pp
     --                         WHERE  e.part_no = c.part_no )
                 AND c.part_type IN ( 'demolen','pattern' ,'hangtag','upc');
 
+-- 3-pc rimless pricing hack
+IF @TPR = 1
+BEGIN
+	UPDATE p SET p_price = CASE WHEN p.part_no LIKE '%ubr%' THEN 15.00
+							  WHEN p.part_no LIKE '%pbr%' OR p.part_no LIKE '%mbr%' THEN 20.00
+							  WHEN p.part_no LIKE '%ep%' THEN 10.00
+							  WHEN p.part_no LIKE '%ts%' THEN 21.25
+							  WHEN p.part_no LIKE '%ct%' OR p.part_no LIKE '%tt%' THEN 0
+							  WHEN p.part_no LIKE '%ls%' OR p.part_no LIKE '%rs%' THEN 21.25
+							  ELSE 0 END,
+			   std_cost = CASE WHEN p.part_no LIKE '%ubr%' THEN 1.33
+							  WHEN p.part_no LIKE '%pbr%' THEN 1.76
+							  WHEN p.part_no LIKE '%mbr%' THEN 1.50
+							  WHEN p.part_no LIKE '%ep%' THEN 0.78
+							  WHEN p.part_no LIKE '%ts%' THEN .89
+							  WHEN p.part_no LIKE '%ct%' OR p.part_no LIKE '%tt%' THEN 0.49 -- .98/pair
+							  WHEN p.part_no LIKE '%ls%' OR p.part_no LIKE '%rs%' THEN 0.93
+							  WHEN p.part_no LIKE '%dem%' THEN 0.42
+							  WHEN p.part_no LIKE '%dg%' THEN 0.10
+							  WHEN #i.type_code = 'pattern' THEN @pattern_cost
+							  ELSE 0 END
+		FROM #pp p 
+		JOIN #i ON #i.part_no = p.part_no
+		WHERE #i.type_code <> 'frame'
+
+	UPDATE #pp SET std_ovhd_dolrs = ROUND(std_cost * @ovhd_pct,2), 
+								std_util_dolrs = CASE WHEN std_cost > 1 THEN @util_cost ELSE 0 end
+end
+							  
 IF @debug = 1
 begin
 --	 SELECT  'cmi', * FROM    #ia;
 --	 -- elect 'epc', * From dbo.inv_master_add where field_2 = @model
 --	 SELECT  'cmi', * FROM    #i;
 --	 -- select 'epc', * From dbo.inv_master where part_no like 'asadv%'
-SELECT  * FROM    #pp;
-SELECT * FROM #I;
-SELECT * FROM #IA;
+SELECT '#pp', * FROM    #pp;
+SELECT '#i',* FROM #I;
+SELECT '#ia',* FROM #IA;
 end
 
 IF @upd = 'Y'
@@ -1894,6 +2079,8 @@ BEGIN
 			end
 			
 			-- create build plan
+			IF @tpr = 0
+			begin
 			INSERT INTO what_part 
 			( asm_no, part_no, uom, who_entered, seq_no, attrib, active, bench_stock, 
 			note, eff_date, date_entered, conv_factor, constrain, fixed, qty, alt_seq_no, 
@@ -1960,7 +2147,9 @@ BEGIN
 				and a.colorname = c.colorname and a.temple_size = c.temple_size
 			where c.part_type = 'cable-l' and a.part_type  IN ( 'frame', 'frame only')
 			and not exists (select 1 from what_part where a.part_no = asm_no and seq_no = '009')
-		
+			
+			END -- @tpr
+            
 			commit tran
 		
 			-- rollback tran
@@ -2047,6 +2236,9 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
+
+
 
 
 

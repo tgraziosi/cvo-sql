@@ -3,6 +3,8 @@ GO
 SET ANSI_NULLS ON
 GO
 -- v1.0 CB 13/07/2016 - Performance  
+-- v1.1 tg 8/5/2016 - insert blocks of 500 to minimize locking.
+
 CREATE PROCEDURE [dbo].[adm_copy_loc_sp] @loc_source varchar(10),  
 									@loc_dest varchar (10),  
 									@part_no_from varchar(30),  
@@ -93,11 +95,12 @@ BEGIN
 
 		CREATE INDEX #parts_to_copy_ind0 ON #parts_to_copy(from_location, part_no)
 
+
 		INSERT INTO #inv_list ( part_no, location, bin_no, avg_cost, avg_direct_dolrs, avg_ovhd_dolrs, avg_util_dolrs, in_stock, hold_qty, min_stock, max_stock,  
 			min_order, issued_mtd, issued_ytd, lead_time, status, labor, qty_year_end, qty_month_end, qty_physical, entered_who, entered_date, void, void_who, void_date,
 			std_cost, std_labor, std_direct_dolrs, std_ovhd_dolrs, std_util_dolrs, setup_labor, freight_unit, note, cycle_date, acct_code, eoq, dock_to_stock, order_multiple, 
 			abc_code, abc_code_frozen_flag, rank_class, po_uom, so_uom)   
-		SELECT	ptc.part_no, ptc.to_location, a.bin_no, 0, 0, 0, 0, 0, a.hold_qty, a.min_stock, a.max_stock, a.min_order, 0, 0, a.lead_time, a.status, a.labor, 0, 0, 0, '',
+		SELECT  ptc.part_no, ptc.to_location, a.bin_no, 0, 0, 0, 0, 0, a.hold_qty, a.min_stock, a.max_stock, a.min_order, 0, 0, a.lead_time, a.status, a.labor, 0, 0, 0, '',
 				GETDATE(), 'N', NULL, NULL, a.std_cost, a.std_labor, a.std_direct_dolrs, a.std_ovhd_dolrs, a.std_util_dolrs, a.setup_labor, a.freight_unit, a.note, a.cycle_date, 
 				a.acct_code, a.eoq, a.dock_to_stock, a.order_multiple, a.abc_code, a.abc_code_frozen_flag, a.rank_class, a.po_uom, a.so_uom   
 		FROM	#parts_to_copy ptc
@@ -107,16 +110,25 @@ BEGIN
 		JOIN	inv_master b (NOLOCK)
 		ON		a.part_no = b.part_no  
 
-		INSERT	inv_list ( part_no, location, bin_no, avg_cost, avg_direct_dolrs, avg_ovhd_dolrs, avg_util_dolrs, in_stock, hold_qty, min_stock, max_stock,  
-			min_order, issued_mtd, issued_ytd, lead_time, status, labor, qty_year_end, qty_month_end, qty_physical, entered_who, entered_date, void, void_who, void_date,
-			std_cost, std_labor, std_direct_dolrs, std_ovhd_dolrs, std_util_dolrs, setup_labor, freight_unit, note, cycle_date, acct_code, eoq, dock_to_stock, order_multiple, 
-			abc_code, abc_code_frozen_flag, rank_class, po_uom, so_uom)
-		SELECT	part_no, location, bin_no, avg_cost, avg_direct_dolrs, avg_ovhd_dolrs, avg_util_dolrs, in_stock, hold_qty, min_stock, max_stock,  
-			min_order, issued_mtd, issued_ytd, lead_time, status, labor, qty_year_end, qty_month_end, qty_physical, entered_who, entered_date, void, void_who, void_date,
-			std_cost, std_labor, std_direct_dolrs, std_ovhd_dolrs, std_util_dolrs, setup_labor, freight_unit, note, cycle_date, acct_code, eoq, dock_to_stock, order_multiple, 
-			abc_code, abc_code_frozen_flag, rank_class, po_uom, so_uom
-		FROM	#inv_list
+		WHILE EXISTS (SELECT 1 FROM #inv_list)
+		begin
+			INSERT	inv_list ( part_no, location, bin_no, avg_cost, avg_direct_dolrs, avg_ovhd_dolrs, avg_util_dolrs, in_stock, hold_qty, min_stock, max_stock,  
+				min_order, issued_mtd, issued_ytd, lead_time, status, labor, qty_year_end, qty_month_end, qty_physical, entered_who, entered_date, void, void_who, void_date,
+				std_cost, std_labor, std_direct_dolrs, std_ovhd_dolrs, std_util_dolrs, setup_labor, freight_unit, note, cycle_date, acct_code, eoq, dock_to_stock, order_multiple, 
+				abc_code, abc_code_frozen_flag, rank_class, po_uom, so_uom)
+			SELECT	TOP (500) part_no, location, bin_no, avg_cost, avg_direct_dolrs, avg_ovhd_dolrs, avg_util_dolrs, in_stock, hold_qty, min_stock, max_stock,  
+				min_order, issued_mtd, issued_ytd, lead_time, status, labor, qty_year_end, qty_month_end, qty_physical, entered_who, entered_date, void, void_who, void_date,
+				std_cost, std_labor, std_direct_dolrs, std_ovhd_dolrs, std_util_dolrs, setup_labor, freight_unit, note, cycle_date, acct_code, eoq, dock_to_stock, order_multiple, 
+				abc_code, abc_code_frozen_flag, rank_class, po_uom, so_uom
+			FROM	#inv_list
 
+			DELETE	a
+			FROM	#inv_list a
+			JOIN	inv_list b (NOLOCK)
+			ON		a.location = b.location
+			AND		a.part_no = b.part_no
+		END
+        
 	END  
   
 	IF (@master = 1)   
@@ -154,15 +166,25 @@ BEGIN
 		JOIN	inv_master b (NOLOCK)
 		ON		a.part_no = b.part_no 
  
-		INSERT INTO inv_list ( part_no, location, bin_no, avg_cost, avg_direct_dolrs, avg_ovhd_dolrs, avg_util_dolrs, in_stock, hold_qty, min_stock, max_stock,  
-			min_order, issued_mtd, issued_ytd, lead_time, status, labor, qty_year_end, qty_month_end, qty_physical, entered_who, entered_date, void, void_who, void_date,
-			std_cost, std_labor, std_direct_dolrs, std_ovhd_dolrs, std_util_dolrs, setup_labor, freight_unit, note, cycle_date, acct_code, eoq, dock_to_stock, order_multiple, 
-			abc_code, abc_code_frozen_flag, rank_class, po_uom, so_uom)   
-		SELECT	part_no, location, bin_no, avg_cost, avg_direct_dolrs, avg_ovhd_dolrs, avg_util_dolrs, in_stock, hold_qty, min_stock, max_stock,  
+ 		WHILE EXISTS (SELECT 1 FROM #inv_list)
+		begin
+			INSERT INTO inv_list ( part_no, location, bin_no, avg_cost, avg_direct_dolrs, avg_ovhd_dolrs, avg_util_dolrs, in_stock, hold_qty, min_stock, max_stock,  
 				min_order, issued_mtd, issued_ytd, lead_time, status, labor, qty_year_end, qty_month_end, qty_physical, entered_who, entered_date, void, void_who, void_date,
 				std_cost, std_labor, std_direct_dolrs, std_ovhd_dolrs, std_util_dolrs, setup_labor, freight_unit, note, cycle_date, acct_code, eoq, dock_to_stock, order_multiple, 
-				abc_code, abc_code_frozen_flag, rank_class, po_uom, so_uom
-		FROM	#inv_list
+				abc_code, abc_code_frozen_flag, rank_class, po_uom, so_uom)   
+			SELECT	part_no, location, bin_no, avg_cost, avg_direct_dolrs, avg_ovhd_dolrs, avg_util_dolrs, in_stock, hold_qty, min_stock, max_stock,  
+					min_order, issued_mtd, issued_ytd, lead_time, status, labor, qty_year_end, qty_month_end, qty_physical, entered_who, entered_date, void, void_who, void_date,
+					std_cost, std_labor, std_direct_dolrs, std_ovhd_dolrs, std_util_dolrs, setup_labor, freight_unit, note, cycle_date, acct_code, eoq, dock_to_stock, order_multiple, 
+					abc_code, abc_code_frozen_flag, rank_class, po_uom, so_uom
+			FROM	#inv_list
+
+			DELETE	a
+			FROM	#inv_list a
+			JOIN	inv_list b (NOLOCK)
+			ON		a.location = b.location
+			AND		a.part_no = b.part_no
+		end
+
 
 		DELETE	a
 		FROM	#parts_to_copy a
@@ -181,6 +203,7 @@ BEGIN
 
 
 END
+
 GO
 GRANT EXECUTE ON  [dbo].[adm_copy_loc_sp] TO [public]
 GO

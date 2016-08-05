@@ -57,6 +57,7 @@ v1.1	CT	10/10/2012	Added logic to write coop changes to audit table
 v1.2	CT	22/10/2012	Call recalculate routine when customer has coop switched off
 v2.0	tag - get rid of coop updates and add commission update instead
 select * From cvoarmasteraudit order by audit_date desc
+v2.1 - add freight_charge changes to audit - per MS
 
 update cvo_armaster_all set commission = isnull(commission,0) + 1.0 where
 isnull(commissionable,0) = 1
@@ -116,6 +117,40 @@ INNER JOIN deleted d ON
 i.customer_code = d.customer_code 
 AND i.address_type = d.address_type
 where isnull(d.commission,0)<>isnull(i.commission,0)
+
+-- v2.1
+INSERT CVOARMasterAudit 
+(field_name
+, field_from
+, field_to
+, customer_code
+, ship_to_code
+, movement_flag
+, audit_date
+, user_id) 
+SELECT distinct 'Freight Charge'
+, cast (CASE d.freight_charge
+			WHEN 1 THEN 'Cust Pays'
+			WHEN 2 THEN 'Free BO'
+			WHEN 3 THEN 'Free All'
+			ELSE 'Unknown'
+			end as VARCHAR(20))
+, cast (CASE i.freight_charge
+			WHEN 1 THEN 'Cust Pays'
+			WHEN 2 THEN 'Free BO'
+			WHEN 3 THEN 'Free All'
+			ELSE 'Unknown'
+			end as varchar(20))
+, i.customer_code
+, i.ship_to
+, 2 -- change
+, getdate()
+, SUSER_SNAME() 
+from inserted i 
+INNER JOIN deleted d ON 
+i.customer_code = d.customer_code 
+AND i.address_type = d.address_type
+where isnull(d.freight_charge,0)<>isnull(i.freight_charge,0)
 
 END  
   

@@ -82,10 +82,11 @@ SELECT cdr.progyear, cdr.interval ,cdr.code, facts.description, cdr.goal1, cdr.r
 	desig_RAretpct = CASE WHEN facts.desig_grosssales = 0 THEN 0 ELSE facts.desig_rareturns/facts.desig_grosssales end,
 	RAretpct = CASE WHEN facts.grosssales = 0 THEN 0 ELSE facts.rareturns/facts.grosssales END,
 	NeedForGoal1 = cdr.goal1 - facts.desig_netsales,
-	NeedForGoal1RA = (CASE WHEN cdr.rrless = 0 THEN 0 ELSE facts.rareturns/cdr.rrless END) - cdr.goal1,
-	NeedForGoal2 = cdr.goal2 - facts.desig_netsales,
-	NeedForGoal2RA = (CASE WHEN cdr.rrless = 0 THEN 0 ELSE facts.rareturns/cdr.rrless END) - cdr.goal2,
-	RebatePotential = facts.desig_netsales * ISNULL(cdr.rebatepct1,0) + facts.desig_netsales * ISNULL(cdr.rebatepct2,0)
+	NeedForGoal1RA = (CASE WHEN cdr.rrless = 0 THEN 0 ELSE (facts.desig_rareturns/cdr.rrless) - facts.desig_grosssales END) ,
+	NeedForGoal2 = CASE WHEN ISNULL(cdr.goal2,0) = 0 THEN 0 ELSE cdr.goal2 - facts.desig_netsales end,
+	NeedForGoal2RA = CASE WHEN ISNULL(cdr.goal2,0) = 0 THEN 0 ELSE (CASE WHEN cdr.rrless = 0 THEN 0 ELSE (facts.desig_rareturns/cdr.rrless) - facts.desig_grosssales END) end ,
+	RebatePotential = CASE WHEN facts.desig_netsales < cdr.goal1 THEN cdr.goal1 ELSE facts.desig_netsales end * ISNULL(cdr.rebatepct1,0) 
+					  + CASE WHEN cdr.goal2 IS NULL THEN 0 ELSE CASE WHEN facts.desig_netsales < cdr.goal2 THEN cdr.goal2 ELSE facts.desig_netsales end * ISNULL(cdr.rebatepct2,0) end
 
 FROM 
 dbo.cvo_designation_rebates AS cdr
@@ -93,12 +94,12 @@ LEFT OUTER JOIN
 (
 SELECT RIGHT(ccdc.customer_code,5) mergecust,
 ccdc.code, ccdc.description, ccdc.start_date,
-SUM(asales) grosssales,
-SUM(anet) netsales, 
-SUM(CASE WHEN sbm.return_code = '' THEN sbm.areturns ELSE 0 END) rareturns,
-SUM(CASE WHEN yyyymmdd >= ISNULL(ccdc.start_date,yyyymmdd) THEN asales ELSE 0 end) desig_grosssales,
-SUM(CASE WHEN yyyymmdd >= ISNULL(ccdc.start_date,yyyymmdd) THEN anet ELSE 0 end) desig_netsales,
-SUM(CASE WHEN yyyymmdd >= ISNULL(ccdc.start_date,yyyymmdd) AND sbm.return_code = '' THEN sbm.areturns ELSE 0 end) desig_rareturns
+SUM(ISNULL(asales,0)) grosssales,
+SUM(ISNULL(anet,0)) netsales, 
+SUM(CASE WHEN ISNULL(sbm.return_code,'') = '' THEN ISNULL(sbm.areturns,0) ELSE 0 END) rareturns,
+SUM(CASE WHEN ISNULL(yyyymmdd,@edate) >= ISNULL(ccdc.start_date,ISNULL(yyyymmdd,@edate)) THEN ISNULL(asales,0) ELSE 0 end) desig_grosssales,
+SUM(CASE WHEN ISNULL(yyyymmdd,@edate) >= ISNULL(ccdc.start_date,ISNULL(yyyymmdd,@edate)) THEN ISNULL(anet,0) ELSE 0 end) desig_netsales,
+SUM(CASE WHEN ISNULL(yyyymmdd,@edate) >= ISNULL(ccdc.start_date,ISNULL(yyyymmdd,@edate)) AND ISNULL(sbm.return_code,'') = '' THEN ISNULL(sbm.areturns,0) ELSE 0 end) desig_rareturns
 from
 ( SELECT DISTINCT cdc.code desig_code, cdc.description
 FROM 
@@ -107,17 +108,18 @@ WHERE cdc.rebate = 'Y'
 ) dr
 JOIN dbo.cvo_cust_designation_codes AS ccdc ON ccdc.code = dr.desig_code
 LEFT OUTER JOIN cvo_sbm_details sbm ON sbm.customer = ccdc.customer_code 
+	AND sbm.yyyymmdd BETWEEN @sdate AND @edate
 
 WHERE 1=1 
-AND ccdc.primary_flag = 1 AND ISNULL(ccdc.end_date,@today) >= @today
-AND sbm.yyyymmdd BETWEEN @sdate AND @edate
+AND ccdc.primary_flag = 1 AND ISNULL(ccdc.end_date,@edate) >= @edate
+-- AND ISNULL(sbm.yyyymmdd,@edate) BETWEEN @sdate AND @edate
 
 GROUP BY RIGHT(ccdc.customer_code,5) ,
          ccdc.code ,
          ccdc.description ,
          ccdc.start_date
-         ) AS facts 
-ON cdr.code = facts.code AND cdr.progyear = @progyear
+) AS facts 
+ON cdr.code = ISNULL(facts.code,cdr.code) AND cdr.progyear = @progyear
 
 JOIN 
 (SELECT RIGHT(customer_code,5) mergecust, MIN(customer_name) address_name, MAX(contact_email) contact_email, territory_code
@@ -147,6 +149,10 @@ AND t.region IS NOT NULL
 -- SELECT * FROM dbo.cvo_designation_codes AS ccdc
 
 END
+
+
+
+
 
 
 

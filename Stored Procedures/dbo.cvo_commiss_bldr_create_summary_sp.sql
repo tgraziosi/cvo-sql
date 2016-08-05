@@ -3,14 +3,14 @@ GO
 SET ANSI_NULLS ON
 GO
 
-CREATE  PROCEDURE [dbo].[cvo_commiss_bldr_create_summary_sp] (@fiscalPeriod VARCHAR(10) =  NULL )
+CREATE  PROCEDURE [dbo].[cvo_commiss_bldr_create_summary_sp] (@fiscalPeriod VARCHAR(10) =  NULL, @slp VARCHAR(10) = null )
 AS 
 
 SET NOCOUNT ON;
 
--- exec cvo_commiss_bldr_create_summary_sp '01/2016'
+-- exec cvo_commiss_bldr_create_summary_sp '01/2016', 'solomoci'
 -- exec dbo.cvo_commission_bldr_sp '12/01/2015', '12/31/2015'
--- SELECT * FROM cvo_commission_summary_work_tbl AS ccswt
+-- SELECT * FROM cvo_commission_summary_work_tbl AS ccswt where salesperson = 'solomoci'
 -- update v set v.rep_code = slp.salesperson_code
 	-- From cvo_commission_promo_values v
 	--LEFT OUTER JOIN arsalesp slp ON slp.salesperson_name = v.rep_code
@@ -77,8 +77,8 @@ BEGIN
 	, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
 end
 
-IF EXISTS (SELECT 1 FROM cvo_commission_summary_work_tbl AS ccswt WHERE ccswt.report_month = @fp)
-		   DELETE FROM cvo_commission_summary_work_tbl WHERE report_month = @fp
+IF EXISTS (SELECT 1 FROM cvo_commission_summary_work_tbl AS ccswt WHERE ccswt.report_month = @fp AND ccswt.salesperson = ISNULL(@slp,ccswt.salesperson))
+		   DELETE FROM cvo_commission_summary_work_tbl WHERE report_month = @fp AND salesperson = ISNULL(@slp,salesperson)
 
 insert into cvo_commission_summary_work_tbl
 (salesperson, salesperson_name, territory, region, hiredate
@@ -96,18 +96,19 @@ select a.Salesperson ,
        dbo.adm_format_pltdate_f(r.date_hired) hiredate ,
        a.amount ,
        a.comm_amt
-	   , ISNULL( r.draw_amount,0 ) draw_amount
-	   , @drawweeks
-	   , total_draw = ISNULL(r.draw_amount,0) * @drawweeks
-	   , prior_month_bal = CASE WHEN ISNULL ( pfphist.net_pay, 0) <> 0 THEN pfphist.net_pay
-							ELSE ISNULL( pfp.net_pay, 0 ) end
+	   , ISNULL(draw_over.draw_amount, ISNULL( r.draw_amount,0 )) draw_amount
+	   , ISNULL(draw_over.qty, @drawweeks) drawweeks
+	   , total_draw = ISNULL(draw_over.draw_amount, ISNULL( r.draw_amount,0 )) * ISNULL(draw_over.qty, @drawweeks)
+	   , prior_month_bal = CASE WHEN pfphist.net_pay IS NULL THEN ISNULL(pfp.net_pay,0)
+							ELSE pfphist.net_pay
+						   end
 	   , commission = case WHEN ISNULL(r.commission,0) IN (0,12) THEN 12 ELSE r.commission end, 
-	incentivePC = case when ISNULL(r.commission,0) IN (0, 12) 
+	incentivePC = case when ISNULL(r.commission,0) IN (0, 12) OR r.salesperson_code IN ('WitteBu','OhlhauTh') 
 					then case when amount >= 60000 then 2
 						 when amount >= 50000 then 1
 						 else 0 end
 					else 0 end,
-	incentive = case when ISNULL(r.commission,0) in (0, 12) 
+	incentive = case when ISNULL(r.commission,0) in (0, 12) OR r.salesperson_code IN ('WitteBu','OhlhauTh') 
 					then case when amount >= 60000 then amount * .02
 						 when amount >= 50000 then amount * .01
 						 else 0 end
@@ -129,6 +130,7 @@ from
 		, convert(money,SUM(comm_amt)) comm_amt 
 	from cvo_commission_bldr_work_tbl
 	WHERE fiscal_period = @fp
+	AND Salesperson = ISNULL(@slp, Salesperson)
 	GROUP BY Salesperson
 			,salesperson_name
 			,fiscal_period) a
@@ -139,7 +141,8 @@ from
 		ccswt.net_pay
 		FROM dbo.cvo_commission_summary_work_tbl AS ccswt
 		WHERE ccswt.report_month = @pfp
-		AND ccswt.net_pay < 0
+		AND ccswt.salesperson = ISNULL(@slp,ccswt.salesperson)
+		AND ccswt.net_pay <= 0
 	) pfp ON pfp.salesperson = a.salesperson
 	LEFT OUTER JOIN -- prior month balance to roll forward, if any
     (SELECT salesperson,
@@ -147,55 +150,89 @@ from
 		ccswt.net_pay
 		FROM dbo.cvo_commission_history_tbl AS ccswt
 		WHERE ccswt.report_month = @pfp
-		AND ccswt.net_pay < 0
+		AND ccswt.salesperson = ISNULL(@slp,ccswt.salesperson)
+		AND ccswt.net_pay <= 0
 	) pfphist ON pfphist.salesperson = a.salesperson
 	LEFT OUTER JOIN -- promo/incentive information
     (SELECT ccpv.rep_code , 
 		STUFF(( SELECT DISTINCT '; ' + ccpv2.comments 
 				FROM dbo.cvo_commission_promo_values AS ccpv2
 				WHERE ccpv2.rep_code = ccpv.rep_code AND ccpv2.recorded_month = @fp
+					AND ISNULL(ccpv2.line_type,'') NOT LIKE '%adj 3%'
+					AND ISNULL(ccpv2.line_type,'') <> 'special payment'
+					AND ccpv2.incentive_amount > 0
 				FOR XML PATH ('')
 				), 1, 1, '') promo_details
 				, SUM(ccpv.incentive_amount) promo_sum
         FROM dbo.cvo_commission_promo_values AS ccpv
-		WHERE ccpv.recorded_month = @fp AND ISNULL(ccpv.line_type,'') NOT LIKE  '%adj 3%'
+		WHERE ccpv.recorded_month = @fp 
+		AND ccpv.rep_code = ISNULL(@slp,ccpv.rep_code)
+		AND ISNULL(ccpv.line_type,'')  NOT LIKE  '%adj 3%'
+		AND ISNULL(ccpv.line_type,'') <> 'special payment'
+		AND ccpv.incentive_amount > 0
 		GROUP BY ccpv.rep_code
 	) promo_details ON (promo_details.rep_code = a.salesperson OR promo_details.rep_code = a.salesperson_name)
 		LEFT OUTER JOIN -- other additions nformation
     (SELECT ccpv.rep_code , 
 		STUFF(( SELECT DISTINCT '; ' + ccpv2.comments 
 				FROM dbo.cvo_commission_promo_values AS ccpv2
-				WHERE ccpv2.rep_code = ccpv.rep_code AND ccpv2.recorded_month = @fp
+				WHERE ccpv2.rep_code = ccpv.rep_code 
+				AND ccpv2.recorded_month = @fp
+				AND ccpv2.rep_code = ISNULL(@slp,ccpv2.rep_code)
+				AND ISNULL(ccpv2.line_type,'') LIKE '%adj 3%'
+				AND ccpv2.incentive_amount > 0
 				FOR XML PATH ('')
 				), 1, 1, '') addition_details
 				, SUM(ccpv.incentive_amount) addition_sum
         FROM dbo.cvo_commission_promo_values AS ccpv
-		WHERE ccpv.recorded_month = @fp AND ccpv.incentive_amount > 0 AND ISNULL(ccpv.line_type,'') LIKE '%adj 3%'
+		WHERE ccpv.recorded_month = @fp 
+		AND ccpv.rep_code = ISNULL(@slp, ccpv.rep_code)
+		AND ccpv.incentive_amount > 0 
+		AND ISNULL(ccpv.line_type,'') LIKE '%adj 3%'
+			
+					
 		GROUP BY ccpv.rep_code
 	) addition_details ON addition_details.rep_code = a.salesperson OR addition_details.rep_code = a.salesperson_name
-		LEFT OUTER JOIN -- other deductions nformation
+		LEFT OUTER JOIN -- other deductions information
     (SELECT ccpv.rep_code , 
 		STUFF(( SELECT DISTINCT '; ' + ccpv2.comments 
 				FROM dbo.cvo_commission_promo_values AS ccpv2
-				WHERE ccpv2.rep_code = ccpv.rep_code AND ccpv2.recorded_month = @fp
+				WHERE ccpv2.rep_code = ccpv.rep_code 
+				AND ccpv2.recorded_month = @fp
+				AND ccpv2.territory = ISNULL(@slp, ccpv2.territory)
+				AND ISNULL(ccpv2.line_type,'') LIKE '%reduction%'
 				FOR XML PATH ('')
 				), 1, 1, '') deduction_details
 				, SUM(ccpv.incentive_amount) deduction_sum
         FROM dbo.cvo_commission_promo_values AS ccpv
-		WHERE ccpv.recorded_month = @fp AND ccpv.incentive_amount < 0 AND ISNULL(line_type,'') like '%adj 3%'
+		WHERE ccpv.recorded_month = @fp 
+		AND ccpv.incentive_amount < 0 
+		AND ISNULL(line_type,'') like '%manual reduction%'
 		GROUP BY ccpv.rep_code
 	) deduction_details ON deduction_details.rep_code = a.salesperson OR deduction_details.rep_code = a.salesperson_name
+		LEFT OUTER JOIN -- draw overrides
+    (SELECT ccpv.rep_code, SUM(ccpv.qty) qty, SUM(ccpv.incentive_amount) draw_amount
+        FROM dbo.cvo_commission_promo_values AS ccpv
+		WHERE ccpv.recorded_month = @fp 
+		AND ISNULL(line_type,'') IN ('Draw_Over') 
+		GROUP BY ccpv.rep_code
+	) draw_over ON draw_over.rep_code = a.salesperson 
 
 
 
 UPDATE d SET 
-		total_earnings = comm_amt + incentive + ISNULL(other_additions,0) + ISNULL(d.promo_sum,0) - ISNULL(reduction,0),
-		net_pay = comm_amt + incentive + ISNULL(other_additions,0) + ISNULL(d.promo_sum,0) - ISNULL(reduction,0) 
+		total_earnings = comm_amt + incentive + ISNULL(other_additions,0) + ISNULL(d.promo_sum,0) + ISNULL(reduction,0),
+		net_pay = comm_amt + incentive + ISNULL(other_additions,0) + ISNULL(d.promo_sum,0) + ISNULL(reduction,0) 
 				  + total_draw + prior_month_bal
 		FROM dbo.cvo_commission_summary_work_tbl d
 		WHERE d.report_month = @fp
-
+		AND d.salesperson = ISNULL(@slp, d.salesperson)
 -- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt
+
+
+
+
+
 
 
 

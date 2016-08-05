@@ -361,9 +361,10 @@ select t1.ORDER_NO, t1.EXT, Right(t1.CUST_CODE,5)Cust_code, T1.SHIP_TO, DATE_ENT
 	OrdWeight,
 weight as CtnWeight, CS_DIM_WEIGHT, freight_charge, 
 ship_to_country_cd, ship_to_zip, routing, promo_id,
-(SELECT TOP 1 CODE FROM CVO_CUST_DESIGNATION_CODES CD WHERE CODE IN ('RXE','RX3','RX5') 
-	AND (isnull(END_DATE,@dateto) >= @DateTo) AND T1.CUST_CODE = CD.CUSTOMER_CODE ORDER BY START_DATE DESC)RxDesig,
-dbo.f_cvo_FreightRateLookup(ROUTING, LEFT(SHIP_TO_ZIP,5), CS_DIM_WEIGHT ) as UnchargedRates
+(SELECT TOP 1 CODE FROM CVO_CUST_DESIGNATION_CODES CD WHERE CODE IN ('RXE','RX3','RX5','GPN-RXE') -- 7/26/16 - add GPN-RXE 
+	AND (isnull(END_DATE,@dateto) >= @DateTo) AND T1.CUST_CODE = CD.CUSTOMER_CODE ORDER BY START_DATE DESC)Designation,
+dbo.f_cvo_FreightRateLookup(ROUTING, LEFT(SHIP_TO_ZIP,5), CS_DIM_WEIGHT ) as UnchargedRates,
+rxDesig = CASE WHEN t3.promo_level = '5' THEN 'rx5' ELSE 'rx3' end
 INTO #RXEFREIGHT
 FROM orders_all t1 (nolock)
 inner JOIN CVO_ARMASTER_ALL T2 (NOLOCK) ON T1.CUST_CODE=T2.CUSTOMER_CODE AND T1.SHIP_TO=T2.SHIP_TO
@@ -381,7 +382,8 @@ AND t1.tot_ord_freight=0
 AND t3.PROMO_ID IN ('RXE','RX3','RX5')
 --and t1.cust_code ='043161'  and promo_id like 'rx%'
 GROUP BY t1.ORDER_NO, t1.EXT, t1.CUST_CODE, T1.SHIP_TO, DATE_ENTERED, t1.DATE_SHIPPED, t1.who_entered, FREIGHT_ALLOW_TYPE, ROUTING,SOLD_TO, TOTAL_AMT_ORDER, tot_ord_freight, freight_charge,
-weight, ship_to_country_cd, ship_to_zip, routing, promo_id, CS_DIM_WEIGHT, freight_charge
+weight, ship_to_country_cd, ship_to_zip, routing, promo_id, CS_DIM_WEIGHT, freight_charge,
+CASE WHEN t3.promo_level = '5' THEN 'rx5' ELSE 'rx3' end
 ORDER BY DATE_ENTERED DESC
 -- select * from #RXEFREIGHT
 
@@ -498,6 +500,8 @@ ORDER BY Terr, NetSTY DESC
 -- EXEC RankCustBillTo_sp '1/1/2014','3/31/2014', 'TRUE'
 
 END
+
+
 
 GO
 GRANT EXECUTE ON  [dbo].[RankCustBillTo_sp] TO [public]

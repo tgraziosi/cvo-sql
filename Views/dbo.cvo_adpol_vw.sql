@@ -60,8 +60,11 @@ select
 	status_desc =   
     CASE p.status + p.void    
 		WHEN 'ON' THEN 'Open'  
+		WHEN 'OO' THEN 'Open'
 		WHEN 'HN' THEN 'Hold'  
 		WHEN 'CV' THEN 'Void'  
+		WHEN 'OV' THEN 'Void'
+		WHEN 'CO' THEN 'Closed'
 		WHEN 'CN' THEN 'Closed'  
 	--   WHEN 'V' THEN 'Void'  pre-SCR 28228 KJC Jan 24 2002  
 		ELSE ''  
@@ -109,6 +112,7 @@ left join dpr_report drp (nolock)
 on p.part_no = drp.part_no and p.location = drp.location
 where p.po_key = p.po_no and pa.po_no = pa.po_key
 and r.po_key = r.po_no
+
 
 
 

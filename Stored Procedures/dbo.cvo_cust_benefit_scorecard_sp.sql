@@ -280,6 +280,7 @@ BEGIN
 CREATE TABLE [dbo].[cvo_cust_benefit_scorecard_tbl](
 	[cust_code] [VARCHAR](10) NULL,
 	[ship_to] [VARCHAR](8) NULL,
+	[address_name] VARCHAR(200) NULL,
 	[seq] [INT] NOT NULL,
 	[ben_type] [VARCHAR](60) NULL,
 	[ben_title] [VARCHAR](60) NULL,
@@ -342,6 +343,13 @@ SELECT cust_code =
  IS NOT NULL
  
  ORDER BY cust_code, ship_to, seq
+
+ UPDATE sc SET sc.address_name = ar.addr2+' '+ar.city+' '+ar.state+', '+ar.postal_code
+ FROM dbo.cvo_cust_benefit_scorecard_tbl sc
+ JOIN armaster ar ON ar.customer_code = sc.cust_code AND ar.ship_to_code = sc.ship_to
+
+ -- select * From cvo_cust_benefit_scorecard_Tbl
+
 
 
 

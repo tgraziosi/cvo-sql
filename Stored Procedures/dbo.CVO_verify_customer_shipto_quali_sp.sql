@@ -27,6 +27,7 @@ GO
 -- v3.6 CT 14/10/14 - Issue #1499 - Promo level buy in
 -- v3.7 CB 23/10/15 - #1541 - Promo rolling periods
 -- v3.8 CB 19/04/2016 - #1584 - Add min, max and number of pieces for stock order. Add min and for RX reorders.
+-- v3.9 CB 11/07/2016 - Only return fail message if actually failed
 
 -- EXEC [CVO_verify_customer_shipto_quali_sp] 'CB','1','045911', '0001', 1418426, 0
 
@@ -128,14 +129,12 @@ BEGIN
 			gender_check		SMALLINT,		-- v3.1
 			max_no_of_pieces	DECIMAL(20,8),	-- v3.2
 			pp_not_purchased	SMALLINT,		-- v3.6
-			-- rolling_period		smallint -- v3.7
-
-			rolling_period		smallint, -- v3.9
-			min_stock_orders	smallint, -- v4.0
-			max_stock_orders	smallint, -- v4.0
-			stock_orders_pieces smallint, -- v4.0
-			min_rx_orders		smallint, -- v4.0
-			max_rx_orders		smallint -- v4.0
+			rolling_period		smallint, -- v3.7
+			min_stock_orders	smallint, -- v3.8
+			max_stock_orders	smallint, -- v3.8
+			stock_orders_pieces smallint, -- v3.8
+			min_rx_orders		smallint, -- v3.8
+			max_rx_orders		smallint -- v3.8
 		)
 
 		-- START v2.9
@@ -1442,7 +1441,7 @@ BEGIN
 		-- START v2.7
 		IF @sub_check = 0
 		BEGIN
-			SELECT r as code, @fail_reason as reason FROM #t	-- v1.1
+			SELECT r as code, CASE WHEN r = 1 THEN '' ELSE @fail_reason END as reason FROM #t	-- v1.1 v3.9
 		END
 		-- END v2.7
 

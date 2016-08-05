@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -483,13 +482,14 @@ AS
                  ( SELECT TOP 1
                             code
                   FROM      cvo_cust_designation_codes CD
-                  WHERE     code IN ( 'RXE', 'RX3', 'RX5' )
+                  WHERE     code IN ( 'RXE', 'RX3', 'RX5', 'GPN-RXE' ) -- 7/26/16 - added GPN-RXE
                             AND ( ISNULL(end_date, @DateToTY) >= @DateToty )
                             AND RIGHT(t1.cust_code, 5) = RIGHT(CD.customer_code,5)
                   ORDER BY  start_date DESC
-                ) RxDesig ,
+                ) Designation ,
                 dbo.f_cvo_FreightRateLookup(T1.routing, LEFT(t1.ship_to_zip, 5),
-                                            T4.cs_dim_weight) AS UnchargedRates
+                                            T4.cs_dim_weight) AS UnchargedRates,
+				rxDesig = CASE WHEN t3.promo_level = '5' THEN 'rx5' ELSE 'rx3' end
         INTO    #RXEFREIGHT
         FROM    orders_all t1 ( NOLOCK )
                 INNER JOIN CVO_armaster_all T2 ( NOLOCK ) ON t1.cust_code = T2.customer_code
@@ -513,7 +513,8 @@ AS
                  ELSE t1.ship_to
                  END  ,
 				  dbo.f_cvo_FreightRateLookup(T1.routing, LEFT(t1.ship_to_zip, 5),
-                                            T4.cs_dim_weight)  
+                                            T4.cs_dim_weight)  ,
+				 CASE WHEN t3.promo_level = '5' THEN 'rx5' ELSE 'rx3' end
 
 		CREATE INDEX idx_rxe ON #RXEFREIGHT (Cust_code, ship_to, RxDesig)  
 
@@ -970,6 +971,8 @@ AS
                                 ) ar ON T1.customer = ar.customer; 
 
     END;
+
+
 
 GO
 

@@ -4,6 +4,8 @@ SET ANSI_NULLS ON
 GO
 CREATE PROCEDURE [dbo].[cvo_upsell_orders_sp] (@s DATETIME, @e datetime) AS 
 
+-- exec cvo_upsell_orders_sp '7/1/2016','7/31/2016'
+
 BEGIN
 SET NOCOUNT ON
 
@@ -55,7 +57,8 @@ SELECT  o.who_entered ,
         co.promo_id ,
         co.promo_level ,
         o.note order_note,
-        ol.note line_note
+        ol.note line_note,
+		ISNULL(tx.Salesperson_code,'Unknown') dept
 FROM    CVO_ord_list col
         JOIN ord_list ol ON ol.line_no = col.line_no
                             AND ol.order_ext = col.order_ext
@@ -65,6 +68,7 @@ FROM    CVO_ord_list col
                          AND o.ext = col.order_ext
         JOIN dbo.CVO_orders_all AS co ON co.order_no = o.order_no
                                          AND co.ext = o.ext
+		LEFT OUTER JOIN dbo.CVO_TerritoryXref AS tx ON REPLACE(tx.User_name,'cvoptical\','') = o.who_entered
 WHERE   col.upsell_flag = 1
         AND o.status <> 'v'
         AND o.who_entered <> 'backordr'
@@ -74,6 +78,7 @@ WHERE   col.upsell_flag = 1
 END
 
 GRANT ALL ON dbo.cvo_upsell_orders_sp TO PUBLIC
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_upsell_orders_sp] TO [public]
 GO

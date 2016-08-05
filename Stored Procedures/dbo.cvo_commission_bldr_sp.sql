@@ -4,8 +4,8 @@ SET ANSI_NULLS ON
 GO
 
 -- TAG - write to work table for commission statement Automation
--- exec   cvo_commission_bldr_sp '02/01/2016', '02/29/2016'
--- select * From cvo_commission_bldr_work_tbl
+-- exec   cvo_commission_bldr_sp '01/01/2016', '01/31/2016', '70785'
+-- select * From cvo_commission_bldr_work_tbl WHERE TERRITORY = 70785
 -- UPDATE dbo.cvo_commission_bldr_work_tbl SET fiscal_period = '01/2016' WHERE fiscal_period = '1/2016'
 
 CREATE PROCEDURE [dbo].[cvo_commission_bldr_sp]
@@ -76,8 +76,11 @@ BEGIN
 	) ON [PRIMARY]
 END
 
-IF EXISTS (SELECT 1 FROM dbo.cvo_commission_bldr_work_tbl WHERE invoicedate_dt BETWEEN @df AND @dt)
+IF EXISTS (SELECT 1 FROM dbo.cvo_commission_bldr_work_tbl W JOIN #territory AS t ON T.territory = W.Territory
+		   WHERE invoicedate_dt BETWEEN @df AND @dt)
 	DELETE FROM dbo.cvo_commission_bldr_work_tbl WHERE invoicedate_dt BETWEEN @df AND @dt
+			AND Cust_code <> '999999' -- MANUAL ADJUSTMENTS
+			AND Territory IN (SELECT DISTINCT Territory FROM #territory AS t)
 
 DECLARE @tbl_rows int
 SELECT @tbl_rows = ISNULL(MAX(id),0) FROM cvo_commission_bldr_work_tbl
@@ -146,4 +149,5 @@ INNER JOIN cvo_commission_bldr_r2_vw c ON c.Territory = t.territory
 WHERE invoicedate BETWEEN @jdatefrom AND @jdateto
 
 END
+
 GO

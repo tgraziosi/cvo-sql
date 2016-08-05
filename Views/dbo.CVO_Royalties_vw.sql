@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER OFF
 GO
 SET ANSI_NULLS OFF
@@ -189,104 +188,106 @@ LEFT OUTER JOIN cvo_ord_list col (NOLOCK) ON OL.order_no = col.order_no AND OL.o
 	-- get date applied from AR 
 	LEFT OUTER JOIN orders_invoice oi (NOLOCK) ON  ORDERS.order_no = oi.order_no AND ORDERS.ext = oi.order_ext 
 	LEFT OUTER JOIN artrx ar (NOLOCK) ON ar.trx_ctrl_num = oi.trx_ctrl_num
-WHERE (ol.shipped <> 0 OR ol.cr_shipped <> 0) AND orders.status ='t'
+WHERE (ol.shipped <> 0 OR ol.cr_shipped <> 0) AND orders.status ='t'--
 
+-- 8/1/2016 - don't include debit promo activity any longer -as per LM and MR
 -- TAG 031114
-UNION ALL
+--UNION ALL
 
--- DEBIT PROMOS - TREAT LIKE A DISCOUNT
-SELECT 
-dp.order_no    
-,dp.ext
-,arx.doc_ctrl_num Invoice         
-,dp.line_no     
-,ol.part_no                        
-,dh.debit_promo_id promo_id
-,dh.debit_promo_level promo_level                    
-,ar.addr_sort1 cust_type                                
-,ar.customer_code cust_code  
-,ar.address_name customer_name                            
-,SUBSTRING(O.ship_to_region,1,2) AS region
-,o.ship_to_region territory
-,ar.territory_code ar_territory
-,o.salesperson 
-,o.user_category order_type 
-,o.date_shipped            
-,arx.date_applied 
-,'Credit' AS doc_type 
-,i.category product_group 
-,i.type_code product_type 
-,ia.field_2 product_style                            
-,ia.category_2 product_gender  
-,CASE i.obsolete WHEN 0 THEN 'No' 
-    WHEN 1 THEN 'Yes'
-    ELSE '' END AS Obsolete, -- tag 082613
-CASE ISNULL(ar.country_code,' ')
-WHEN 'US' THEN 'Domestic' ELSE 'Intnl' END AS dom_intl,
-ISNULL(ar.country_code,' ') AS country_code,
-ISNULL(ar.state,' ') AS state_code,
--- CASE o.type WHEN 'I' THEN ol.shipped ELSE (ol.cr_shipped*-1) END as units_sold, 
-0 AS units_sold,
-CASE o.type WHEN 'I' THEN ol.shipped * ISNULL(col.orig_list_price,0) * -1
-				 ELSE ol.cr_shipped * ISNULL(col.orig_list_price,0)  
-	END AS list_price,
--- 10/21/2013 - FIX price calculation
-CASE o.type 
-WHEN 'I' THEN 
-    CASE (ISNULL(COL.is_amt_disc,'n'))
-        WHEN 'Y' THEN (ROUND(OL.SHIPPED * OL.CURR_PRICE,2) - 
-            ROUND((OL.SHIPPED * ISNULL(CoL.AMT_DISC,0)),2)) * -1
-       	ELSE
-            (ROUND(OL.SHIPPED * OL.CURR_PRICE,2) - 
-            ROUND(( (OL.SHIPPED * OL.CURR_PRICE) * (ol.discount/ 100.00)),2) ) * -1
-        END       			 
-ELSE (ol.cr_shipped * ROUND(ol.curr_price - (ol.curr_price * (ol.discount / 100)),2)) 
-END AS net_amt,
+---- DEBIT PROMOS - TREAT LIKE A DISCOUNT
+--SELECT 
+--dp.order_no    
+--,dp.ext
+--,arx.doc_ctrl_num Invoice         
+--,dp.line_no     
+--,ol.part_no                        
+--,dh.debit_promo_id promo_id
+--,dh.debit_promo_level promo_level                    
+--,ar.addr_sort1 cust_type                                
+--,ar.customer_code cust_code  
+--,ar.address_name customer_name                            
+--,SUBSTRING(O.ship_to_region,1,2) AS region
+--,o.ship_to_region territory
+--,ar.territory_code ar_territory
+--,o.salesperson 
+--,o.user_category order_type 
+--,o.date_shipped            
+--,arx.date_applied 
+--,'Credit' AS doc_type 
+--,i.category product_group 
+--,i.type_code product_type 
+--,ia.field_2 product_style                            
+--,ia.category_2 product_gender  
+--,CASE i.obsolete WHEN 0 THEN 'No' 
+--    WHEN 1 THEN 'Yes'
+--    ELSE '' END AS Obsolete, -- tag 082613
+--CASE ISNULL(ar.country_code,' ')
+--WHEN 'US' THEN 'Domestic' ELSE 'Intnl' END AS dom_intl,
+--ISNULL(ar.country_code,' ') AS country_code,
+--ISNULL(ar.state,' ') AS state_code,
+---- CASE o.type WHEN 'I' THEN ol.shipped ELSE (ol.cr_shipped*-1) END as units_sold, 
+--0 AS units_sold,
+--CASE o.type WHEN 'I' THEN ol.shipped * ISNULL(col.orig_list_price,0) * -1
+--				 ELSE ol.cr_shipped * ISNULL(col.orig_list_price,0)  
+--	END AS list_price,
+---- 10/21/2013 - FIX price calculation
+--CASE o.type 
+--WHEN 'I' THEN 
+--    CASE (ISNULL(COL.is_amt_disc,'n'))
+--        WHEN 'Y' THEN (ROUND(OL.SHIPPED * OL.CURR_PRICE,2) - 
+--            ROUND((OL.SHIPPED * ISNULL(CoL.AMT_DISC,0)),2)) * -1
+--       	ELSE
+--            (ROUND(OL.SHIPPED * OL.CURR_PRICE,2) - 
+--            ROUND(( (OL.SHIPPED * OL.CURR_PRICE) * (ol.discount/ 100.00)),2) ) * -1
+--        END       			 
+--ELSE (ol.cr_shipped * ROUND(ol.curr_price - (ol.curr_price * (ol.discount / 100)),2)) 
+--END AS net_amt,
 
-CASE o.type 
-WHEN 'I' THEN
-    CASE ISNULL(col.is_amt_disc,'n') 
-    WHEN 'y' THEN 
-    (ol.shipped * ISNULL(col.orig_list_price,0) -  ol.shipped * ROUND(ol.curr_price - ISNULL(col.amt_disc,0),2)) * -1
-    ELSE
-    (ol.shipped * ISNULL(col.orig_list_price,0) - (ol.shipped * ROUND(ol.curr_price - (ol.curr_price * (ol.discount / 100)),2))) * -1
-	END
-	ELSE (ol.cr_shipped * ISNULL(col.orig_list_price,0) - (ol.cr_shipped * ROUND(ol.curr_price - (ol.curr_price * (ol.discount / 100)),2))) 
-END AS discount_amount
-,
-CASE WHEN col.orig_list_price = 0 THEN 0 ELSE
-ROUND((1 - 
-(CASE o.type 
-WHEN 'I' THEN 
-    CASE (ISNULL(COL.is_amt_disc,'n'))
-        WHEN 'Y' THEN (ROUND(OL.SHIPPED * OL.CURR_PRICE,2) - 
-            ROUND((OL.SHIPPED * ISNULL(CoL.AMT_DISC,0)),2)) * -1
-       	ELSE
-            (ROUND(OL.SHIPPED * OL.CURR_PRICE,2) - 
-            ROUND(( (OL.SHIPPED * OL.CURR_PRICE) * (ol.discount/ 100.00)),2) ) * -1
-        END       			 
-ELSE (ol.cr_shipped * ROUND(ol.curr_price - (ol.curr_price * (ol.discount / 100)),2)) 
-END)/
-(
-CASE o.type WHEN 'I' THEN ol.shipped * ISNULL(col.orig_list_price,0) * -1
-				 ELSE ol.cr_shipped * ISNULL(col.orig_list_price,0)  
-	END
-))*100, 2) END AS DISCOUNT_PCT
-,ol.return_code ,
-o.cust_po	-- 12/30/2015 - tag for LM
-,dbo.adm_get_pltdate_f(o.date_shipped) x_date_shipped
-FROM 
-cvo_debit_promo_customer_det dp
-INNER JOIN ord_list ol ON ol.order_no = dp.order_no AND ol.order_ext = dp.ext AND ol.line_no = dp.line_no
-INNER JOIN cvo_ord_list col ON col.order_no = dp.order_no AND col.order_ext = dp.ext AND col.line_no = dp.line_no
-INNER JOIN orders o ON o.order_no = ol.order_no AND o.ext = ol.order_ext
-INNER JOIN armaster ar ON ar.customer_code = o.cust_code AND ar.ship_To_code = o.ship_to
-INNER JOIN inv_master i ON i.part_no = ol.part_no
-INNER JOIN inv_master_add ia ON ia.part_no = ol.part_no
-LEFT OUTER JOIN artrxcdt arx ON dp.trx_ctrl_num = arx.trx_ctrl_num
-INNER JOIN cvo_debit_promo_customer_hdr dh ON dh.hdr_rec_id = dp.hdr_rec_id
-WHERE arx.gl_rev_acct LIKE '4530%' 
-AND (ol.shipped <> 0 OR ol.cr_shipped <> 0) AND O.status ='t'
+--CASE o.type 
+--WHEN 'I' THEN
+--    CASE ISNULL(col.is_amt_disc,'n') 
+--    WHEN 'y' THEN 
+--    (ol.shipped * ISNULL(col.orig_list_price,0) -  ol.shipped * ROUND(ol.curr_price - ISNULL(col.amt_disc,0),2)) * -1
+--    ELSE
+--    (ol.shipped * ISNULL(col.orig_list_price,0) - (ol.shipped * ROUND(ol.curr_price - (ol.curr_price * (ol.discount / 100)),2))) * -1
+--	END
+--	ELSE (ol.cr_shipped * ISNULL(col.orig_list_price,0) - (ol.cr_shipped * ROUND(ol.curr_price - (ol.curr_price * (ol.discount / 100)),2))) 
+--END AS discount_amount
+--,
+--CASE WHEN col.orig_list_price = 0 THEN 0 ELSE
+--ROUND((1 - 
+--(CASE o.type 
+--WHEN 'I' THEN 
+--    CASE (ISNULL(COL.is_amt_disc,'n'))
+--        WHEN 'Y' THEN (ROUND(OL.SHIPPED * OL.CURR_PRICE,2) - 
+--            ROUND((OL.SHIPPED * ISNULL(CoL.AMT_DISC,0)),2)) * -1
+--       	ELSE
+--            (ROUND(OL.SHIPPED * OL.CURR_PRICE,2) - 
+--            ROUND(( (OL.SHIPPED * OL.CURR_PRICE) * (ol.discount/ 100.00)),2) ) * -1
+--        END       			 
+--ELSE (ol.cr_shipped * ROUND(ol.curr_price - (ol.curr_price * (ol.discount / 100)),2)) 
+--END)/
+--(
+--CASE o.type WHEN 'I' THEN ol.shipped * ISNULL(col.orig_list_price,0) * -1
+--				 ELSE ol.cr_shipped * ISNULL(col.orig_list_price,0)  
+--	END
+--))*100, 2) END AS DISCOUNT_PCT
+--,ol.return_code ,
+--o.cust_po	-- 12/30/2015 - tag for LM
+--,dbo.adm_get_pltdate_f(o.date_shipped) x_date_shipped
+--FROM 
+--cvo_debit_promo_customer_det dp
+--INNER JOIN ord_list ol ON ol.order_no = dp.order_no AND ol.order_ext = dp.ext AND ol.line_no = dp.line_no
+--INNER JOIN cvo_ord_list col ON col.order_no = dp.order_no AND col.order_ext = dp.ext AND col.line_no = dp.line_no
+--INNER JOIN orders o ON o.order_no = ol.order_no AND o.ext = ol.order_ext
+--INNER JOIN armaster ar ON ar.customer_code = o.cust_code AND ar.ship_To_code = o.ship_to
+--INNER JOIN inv_master i ON i.part_no = ol.part_no
+--INNER JOIN inv_master_add ia ON ia.part_no = ol.part_no
+--LEFT OUTER JOIN artrxcdt arx ON dp.trx_ctrl_num = arx.trx_ctrl_num
+--INNER JOIN cvo_debit_promo_customer_hdr dh ON dh.hdr_rec_id = dp.hdr_rec_id
+--WHERE arx.gl_rev_acct LIKE '4530%' 
+--AND (ol.shipped <> 0 OR ol.cr_shipped <> 0) AND O.status ='t'
+
 
 
 

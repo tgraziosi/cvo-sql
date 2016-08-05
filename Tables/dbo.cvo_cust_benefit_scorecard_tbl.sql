@@ -2,6 +2,7 @@ CREATE TABLE [dbo].[cvo_cust_benefit_scorecard_tbl]
 (
 [cust_code] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [ship_to] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[address_name] [varchar] (200) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [seq] [int] NOT NULL,
 [ben_type] [varchar] (60) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [ben_title] [varchar] (60) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,

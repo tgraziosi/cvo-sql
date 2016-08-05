@@ -15,8 +15,8 @@ BEGIN
 
 /*
 
-EXEC CVO_UPC_UPLOAD_SP '008','008', -1, 'ADHOC', 1
-EXEC CVO_UPC_UPLOAD_SP '001','RR REFURB', 1, 'ADHOC', 1
+EXEC CVO_UPC_UPLOAD_SP '008','008', -1, 'ADHOC', 0
+EXEC CVO_UPC_UPLOAD_SP '001','RR REFURB', 1, 'ADHOC', 0
 
 TRUNCATE TABLE CVO_UPC_UPLOAD
 SELECT * fROM CVO_UPC_UPLOAD
@@ -30,7 +30,7 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 			@location		varchar(10),
 			@part_no		varchar(30),
 			@bin_no			varchar(20),
-			@qty			decimal(20,8),
+			@qty_to_adj			decimal(20,8),
 			@reason_code	varchar(10),
 			@code			VARCHAR(10),
 			@bin_qty		DECIMAL(20,8)
@@ -177,7 +177,7 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 			@location = location,
 			@part_no = part_no,
 			@bin_no = bin_no,
-			@qty = qty
+			@qty_to_adj = qty
 	FROM	#cvo_inv_adj
 	WHERE	row_id > @last_row_id
 	ORDER BY row_id ASC
@@ -194,7 +194,7 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 			FROM lot_bin_stock 
 			WHERE location = @loc AND bin_no = @bin AND part_no = @part_no
 			
-			IF @qty > ISNULL(@bin_qty ,@qty)
+			IF @qty_to_adj > ISNULL(@bin_qty ,0)
 			
 				INSERT INTO #adm_inv_adj_log
 				        ( adj_no ,
@@ -222,7 +222,7 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 				          @bin_no, -- bin_no - varchar(12)
 				          '1' , -- lot_ser - varchar(25)
 				          GETDATE() , -- date_exp - datetime
-				          @qty , -- qty - decimal
+				          @qty_to_adj , -- qty - decimal
 				          @direction , -- direction - int
 				          'Inv Adj' , -- who_entered - varchar(50)
 				          '' , -- reason_code - varchar(10)
@@ -235,13 +235,13 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 				          'Not enough qty in bin. Only have '+CAST(ISNULL(@bin_qty,0) AS VARCHAR(20)) , -- err_msg - varchar(255)
 				          0  -- row_id - int
 				        )
-						SELECT @qty = ISNULL(@bin_qty,@qty)
+						SELECT @qty_to_adj = ISNULL(@bin_qty,0)
 		end
 
-        IF @qty > 0
+        IF @qty_to_adj > 0
 		begin
 			INSERT INTO #adm_inv_adj (loc, part_no, bin_no, lot_ser, date_exp, qty, direction, who_entered, reason_code, code) 									
-			VALUES(@location, @part_no, @bin_no, '1', GETDATE()+365, @qty, @direction,'Inv Adj', @reason_code, @code)
+			VALUES(@location, @part_no, @bin_no, '1', GETDATE()+365, @qty_to_adj, @direction,'Inv Adj', @reason_code, @code)
 
 			-- SELECT * FROM #adm_inv_adj
 
@@ -257,7 +257,7 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 				@location = location,
 				@part_no = part_no,
 				@bin_no = bin_no,
-				@qty = qty
+				@qty_to_adj = qty
 		FROM	#cvo_inv_adj
 		WHERE	row_id > @last_row_id
 		ORDER BY row_id ASC
@@ -279,6 +279,7 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 	-- IF (SELECT COUNT(*) FROM cvo_upc_upload) > 0 AND @debug = 0 TRUNCATE TABLE CVO_UPC_UPLOAD
 
 END
+
 
 
 GO

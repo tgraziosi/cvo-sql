@@ -23,10 +23,11 @@ WHERE ISNULL(i.void,'N') = 'N' ) a
 ON a.collection = pom.collection AND a.style = pom.style
 WHERE pom.Active = 1 
 -- AND (tl IN (@tl))
-AND a.attrib NOT IN ('retail')
+AND a.attrib NOT IN ('retail','hvc')
 AND pom.pom_date >= DATEADD(YEAR, -2, pom.asofdate)
 
 END
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_pom_status_by_style_sp] TO [public]

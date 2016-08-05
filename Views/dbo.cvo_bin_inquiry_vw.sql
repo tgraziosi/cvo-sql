@@ -6,7 +6,7 @@ GO
 
 
 
--- select * from cvo_bin_inquiry_vw where part_no = 'bcgcolink5316'
+-- select * from cvo_bin_inquiry_vw where location = 'grupo'
 
 CREATE view [dbo].[cvo_bin_inquiry_vw]
 as 
@@ -17,14 +17,14 @@ as
 				round(((il.std_cost + il.std_ovhd_dolrs + il.std_util_dolrs) * b.qty),2) as	ext_cost,
 				 isnull(pb.[primary],'N') primary_bin,
 				 bm.last_modified_date, bm.modified_by
-		    FROM tdc_bin_master bm (nolock)
-		    inner join lot_bin_stock b (nolock)  
-				on bm.bin_no = b.bin_no and bm.location = b.location
-	        inner join inv_master i (nolock) on b.part_no = i.part_no
+		    FROM lot_bin_stock b (nolock)  
+			inner join inv_master i (nolock) on b.part_no = i.part_no
 	        inner join inv_list il (nolock) 
-				on il.part_no = i.part_no and il.location = bm.location
+				on il.part_no = i.part_no and il.location = b.location
 			LEFT OUTER JOIN tdc_bin_part_qty pb on b.bin_no = pb.bin_no and pb.location = b.location and pb.part_no = b.part_no
-            WHERE 1=1
+            LEFT OUTER JOIN tdc_bin_master (nolock) bm
+				ON bm.bin_no = b.bin_no and bm.location = b.location
+			WHERE 1=1
 
         union
 
@@ -53,6 +53,7 @@ as
         ON		s.location = l.location AND		s.part_no = l.part_no AND		s.bin_no = l.bin_no
         WHERE	l.location IS NULL AND		l.part_no IS NULL AND		l.bin_no IS NULL
     
+
 
 
 

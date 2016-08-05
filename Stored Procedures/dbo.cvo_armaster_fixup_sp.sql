@@ -151,6 +151,13 @@ join artrx o  on ar.customer_code = o.customer_code and ar.ship_to_code = o.ship
 where o.territory_code <> ar.territory_code
 and o.territory_code = '' and o.trx_type in (2031,2032)
 */
+
+-- Ship-to rx consolidate flag has to be zero - 8/2/2016
+
+UPDATE co SET rx_consolidate = 0
+-- SELECT * 
+FROM cvo_armaster_all co
+ where ship_to > '' and rx_consolidate > 0
 GO
 GRANT EXECUTE ON  [dbo].[cvo_armaster_fixup_sp] TO [public]
 GO

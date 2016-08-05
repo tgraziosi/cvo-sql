@@ -8,11 +8,13 @@ GO
 -- Create date: 2/22/2016
 -- Description:	EyeRep Main Customer Data
 -- EXEC [cvo_eyerep_accounts_sp]
--- SELECT * From cvo_eyerep_actshp_tbl
--- 
+-- SELECT * From cvo_eyerep_acthis_tbl
+-- SELECT * From cvo_eyerep_repEXT_tbl
+-- SELECT * From cvo_eyerep_actsls_tbl
 -- tag - 071213 - create a regular table instead of temp table
 -- tag - 8/21/2015 - add sales rep customer accounts
 -- tag - 6/30/2016 - add ordtyp.txt table for promotions
+-- tag - 7/28/2016 - add actext.txt, actsls.txt, repext.txt
 -- =============================================
 
 CREATE PROCEDURE [dbo].[cvo_eyerep_accounts_sp] 
@@ -130,8 +132,6 @@ AND ADDRESS_TYPE=0
 
 -- Process Ship-to Customers
 
-
--- PULL LIST FOR CUSTOMERS
 IF(OBJECT_ID('dbo.cvo_eyerep_actshp_tbl') is null)
 	begin
 	CREATE TABLE [dbo].[cvo_eyerep_actshp_tbl](
@@ -178,6 +178,138 @@ INNER JOIN #allterr (nolock) on ar.customer_code = #allterr.customer_code
 WHERE 1=1
 AND STATUS_TYPE=1
 AND ADDRESS_TYPE=1
+
+-- account extension data
+-- 7/26/2016
+
+IF(OBJECT_ID('dbo.cvo_eyerep_actext_tbl') is null)
+	begin
+	CREATE TABLE [dbo].[cvo_eyerep_actext_tbl](
+	[acct_id] [varchar](20) NOT NULL,
+	[field_name] [varchar](50) NULL,
+	[field_value] [varchar](200) NULL,
+	[display_order] INT NULL,
+	[rep_id] [varchar](20) NULL,
+	) ON [PRIMARY]
+	GRANT ALL ON dbo.cvo_eyerep_actext_tbl TO PUBLIC
+	end
+
+
+truncate table cvo_eyerep_actext_tbl
+
+INSERT INTO dbo.cvo_eyerep_actext_tbl
+        ( acct_id ,
+		  field_name,
+		  field_value,
+		  display_order,
+		  rep_id
+        )
+SELECT  ar.customer_code , 
+	'DISCOUNT CODE' field_name,
+	ISNULL(AR.PRICE_CODE,'Unknown') field_value,
+	1 display_order,
+	'' rep_id
+	FROM armaster ar (nolock)
+	INNER JOIN #allterr (nolock) on ar.customer_code = #allterr.customer_code
+	WHERE ar.address_type = 0
+UNION ALL
+SELECT  ar.customer_code , 
+	'PRIMARY DESIGNATION' field_name,
+	dc.description field_value,
+	2 display_order,
+	'' rep_id
+	FROM armaster ar (nolock)
+	INNER JOIN #allterr (nolock) on ar.customer_code = #allterr.customer_code
+	INNER JOIN dbo.cvo_cust_designation_codes AS cdc ON cdc.customer_code = ar.customer_code AND CDC.primary_flag = 1
+	INNER JOIN dbo.cvo_designation_codes AS dc ON dc.code = cdc.code
+	WHERE ar.address_type = 0
+UNION ALL
+SELECT  ar.customer_code , 
+	'BUYING GROUP' field_name,
+	bg.address_name field_value,
+	3 display_order,
+	'' rep_id
+	FROM armaster ar (nolock)
+	INNER JOIN #allterr (nolock) on ar.customer_code = #allterr.customer_code
+	INNER JOIN ARNAREL AS NA ON NA.CHILD = ar.customer_code AND NA.CHILD <> NA.parent
+	INNER JOIN armaster bg ON bg.customer_code = na.parent
+	WHERE ar.address_type = 0
+UNION ALL
+SELECT  ar.customer_code , 
+	'STATUS' field_name,
+	CASE WHEN AR.status_type = 1 THEN 'Active'
+		 WHEN ar.status_type = 2 THEN 'Inactive'
+		 WHEN ar.status_type = 3 THEN 'No New Business'
+		 ELSE 'Unknown' END
+		 AS  field_value,
+	4 display_order,
+	'' rep_id
+	FROM armaster ar (nolock)
+	INNER JOIN #allterr (nolock) on ar.customer_code = #allterr.customer_code
+	WHERE ar.address_type = 0
+UNION ALL
+SELECT  ar.customer_code , 
+	'OPEN DATE' field_name,
+	CONVERT(VARCHAR(10), DBO.adm_format_pltdate_f(AR.date_opened), 101)  field_value,
+	5 display_order,
+	'' rep_id
+	FROM armaster ar (nolock)
+	INNER JOIN #allterr (nolock) on ar.customer_code = #allterr.customer_code
+	WHERE ar.address_type = 0
+
+-- rx % and st %
+
+IF(OBJECT_ID('dbo.cvo_eyerep_actsls_tbl') is null)
+	begin
+	CREATE TABLE [dbo].[cvo_eyerep_actsls_tbl](
+	[acct_id] [varchar](20) NOT NULL,
+	[TY_ytd_sales] NUMERIC NULL,
+	LY_ytd_sales numeric NULL,
+	ty_r12_sales NUMERIC NULL,
+	LY_r12_sales numeric NULL,
+	aging30 NUMERIC NULL,
+	aging60 NUMERIC NULL,
+	aging90 NUMERIC NULL
+	) ON [PRIMARY]
+	GRANT ALL ON dbo.cvo_eyerep_actsls_tbl TO PUBLIC
+	end
+
+TRUNCATE table cvo_eyerep_actsls_tbl
+
+DECLARE @tystart DATETIME, @tyend DATETIME, 
+		@lystart DATETIME, @lyend DATETIME,
+		@tyr12start DATETIME, 
+		@lyr12start DATETIME
+		
+SELECT @tystart = drv.BeginDate , @tyend = drv.enddate FROM dbo.cvo_date_range_vw AS drv WHERE period = 'Year to Date'
+SELECT @lystart = drv.BeginDate , @lyend = drv.enddate FROM dbo.cvo_date_range_vw AS drv WHERE period = 'Last Year to Date'
+SELECT @tyr12start = drv.BeginDate FROM dbo.cvo_date_range_vw AS drv WHERE period = 'Rolling 12 TY'
+SELECT @lyr12start = drv.BeginDate from dbo.cvo_date_range_vw AS drv WHERE period = 'Rolling 12 LY'
+
+
+INSERT INTO dbo.cvo_eyerep_actsls_tbl
+        ( acct_id ,
+		TY_ytd_sales,
+		LY_ytd_sales,
+		ty_r12_sales,
+		LY_r12_sales,
+		aging30,
+		aging60,
+		aging90
+        )
+SELECT  eat.acct_id , 
+	SUM(ISNULL(CASE WHEN yyyymmdd BETWEEN @tystart AND @tyend THEN anet ELSE 0 END,0)) ty_ytd_sales,
+	SUM(ISNULL(CASE WHEN yyyymmdd BETWEEN @lystart AND @lyend THEN anet ELSE 0 END,0)) ly_ytd_sales,
+	SUM(ISNULL(CASE WHEN yyyymmdd BETWEEN @tyr12start AND @tyend THEN anet ELSE 0 END,0)) ty_r12_sales,
+	SUM(ISNULL(CASE WHEN yyyymmdd BETWEEN @lyr12start AND @lyend THEN anet ELSE 0 END,0)) ly_r12_sales,
+	0 aging30,
+	0 aging60,
+	0 aging90
+	FROM dbo.cvo_eyerep_acts_Tbl AS eat
+	JOIN cvo_sbm_details sbm ON sbm.customer = eat.acct_id
+	WHERE sbm.yyyymmdd BETWEEN @lyr12start AND @tyend
+	GROUP BY eat.acct_id
+
 
 -- get LIST FOR invoice terms
 
@@ -384,6 +516,62 @@ WHERE 1=1
 AND STATUS_TYPE=1
 AND ADDRESS_TYPE=1
 
+
+IF(OBJECT_ID('dbo.cvo_eyerep_repext_tbl') is null)
+	begin
+	CREATE TABLE [dbo].[cvo_eyerep_repext_tbl](
+	[rep_id] [varchar](20) NOT NULL,
+	[field_name] [varchar](50) NULL,
+	[field_value] [varchar](200) NULL,
+	[display_order] INT NULL,
+	) ON [PRIMARY]
+	GRANT ALL ON dbo.cvo_eyerep_repext_tbl TO PUBLIC
+	end
+
+
+truncate table cvo_eyerep_repext_tbl
+DECLARE @stat_year VARCHAR(5)
+SELECT @stat_year = CAST(YEAR(GETDATE()) AS VARCHAR(4))+'A'
+
+INSERT INTO dbo.cvo_eyerep_repext_tbl
+        ( rep_id ,
+		  field_name,
+		  field_value,
+		  display_order
+        )
+SELECT  ts.territory_code,
+	'% over/under LY' field_name,
+	ISNULL(CAST(ts.ly_ty_sales_incr_pct AS VARCHAR(20)),'Unknown') field_value,
+	1 display_order
+	FROM dbo.cvo_terr_scorecard AS ts (nolock) 
+	WHERE EXISTS (SELECT 1 FROM #allterr WHERE ts.Territory_Code = #AllTerr.AllTerr)
+	AND ts.Stat_Year = @stat_year
+UNION ALL
+SELECT  ts.territory_code,
+	'RX %' field_name,
+	ISNULL(CAST(ts.ty_rx_pct AS VARCHAR(20)),'Unknown') field_value,
+	2 display_order
+	FROM dbo.cvo_terr_scorecard AS ts (nolock) 
+	WHERE EXISTS (SELECT 1 FROM #allterr WHERE ts.Territory_Code = #AllTerr.AllTerr)
+	AND ts.Stat_Year = @stat_year
+UNION ALL
+SELECT  ts.territory_code,
+	'Doors >500' field_name,
+	ISNULL(CAST(ts.doors_500 AS VARCHAR(20)),'Unknown') field_value,
+	3 display_order
+	FROM dbo.cvo_terr_scorecard AS ts (nolock) 
+	WHERE EXISTS (SELECT 1 FROM #allterr WHERE ts.Territory_Code = #AllTerr.AllTerr)
+	AND ts.Stat_Year = @stat_year
+UNION ALL
+SELECT  ts.territory_code,
+	'Doors >2400' field_name,
+	ISNULL(CAST(ts.activedoors_2400 AS VARCHAR(20)),'Unknown') field_value,
+	4 display_order
+	FROM dbo.cvo_terr_scorecard AS ts (nolock) 
+	WHERE EXISTS (SELECT 1 FROM #allterr WHERE ts.Territory_Code = #AllTerr.AllTerr)
+	AND ts.Stat_Year = @stat_year
+
+
 -- ship methods
 
 IF(OBJECT_ID('dbo.cvo_eyerep_shpmth_tbl') is null)
@@ -447,35 +635,107 @@ END
 TRUNCATE TABLE cvo_eyerep_acthis_tbl
 
 DECLARE @date INTEGER
-SELECT @date = dbo.adm_get_pltdate_f(DATEADD(year,-1,GETDATE()))
+SELECT  @date = dbo.adm_get_pltdate_f(DATEADD(year,-1,GETDATE()))
 -- SELECT @date
 
-INSERT INTO cvo_eyerep_acthis_tbl
-SELECT -- DISTINCT TOP (1000) *
-ar.customer_code, CASE WHEN ar.ship_to_code <> '' THEN ar.customer_code+'-'+ar.ship_to_code ELSE '' end, X.order_ctrl_num, X.amt_tax, X.amt_net, '' AS WebOrderNumber,
-x.doc_ctrl_num, i.upc_code, xd.qty_shipped-xd.qty_returned, xd.extended_price, CONVERT(VARCHAR(8), dbo.adm_format_pltdate_f(xd.date_applied), 112), -- yyyymmdd
-'Shipped/Transferred' AS order_status, CONVERT(VARCHAR(8), o.date_entered, 112),
-ctn.tracking, ctn.tracking_type, o.user_category, xd.sequence_id
+-- regular invoices
 
-FROM #allterr 
-INNER JOIN armaster ar (nolock) on ar.customer_code = #allterr.customer_code
-JOIN artrx x (NOLOCK) ON x.customer_code = ar.customer_code AND x.ship_to_code = ar.ship_to_code
-JOIN artrxcdt xd (nolock) ON xd.trx_ctrl_num = x.trx_ctrl_num
-JOIN inv_master i (NOLOCK) ON i.part_no = xd.item_code
-LEFT OUTER JOIN dbo.orders_invoice AS oi ON oi.doc_ctrl_num = x.doc_ctrl_num
-LEFT OUTER JOIN orders o ON o.order_no = oi.order_no AND o.ext = oi.order_ext
+INSERT INTO cvo_eyerep_acthis_tbl
+--SELECT -- DISTINCT TOP (1000) *
+--ar.customer_code, 
+--CASE WHEN ar.ship_to_code <> '' THEN ar.customer_code+'-'+ar.ship_to_code ELSE '' end, 
+--X.order_ctrl_num,
+--X.amt_tax, X.amt_net, 
+--'' AS WebOrderNumber,
+--x.doc_ctrl_num,
+--i.upc_code, 
+--xd.qty_shipped-xd.qty_returned, 
+--xd.extended_price, CONVERT(VARCHAR(8), 
+--dbo.adm_format_pltdate_f(xd.date_applied), 112), -- yyyymmdd
+--'Shipped/Transferred' AS order_status, CONVERT(VARCHAR(8), o.date_entered, 112),
+--ctn.tracking, ctn.tracking_type, o.user_category, xd.sequence_id
+
+--FROM #allterr 
+--INNER JOIN armaster ar (nolock) on ar.customer_code = #allterr.customer_code
+--JOIN artrx x (NOLOCK) ON x.customer_code = ar.customer_code AND x.ship_to_code = ar.ship_to_code
+--JOIN artrxcdt xd (nolock) ON xd.trx_ctrl_num = x.trx_ctrl_num
+--JOIN inv_master i (NOLOCK) ON i.part_no = xd.item_code
+--LEFT OUTER JOIN dbo.orders_invoice AS oi ON oi.doc_ctrl_num = x.doc_ctrl_num
+--LEFT OUTER JOIN orders o ON o.order_no = oi.order_no AND o.ext = oi.order_ext
+--LEFT OUTER JOIN
+--( SELECT order_no, order_ext, MIN(ISNULL(c.cs_tracking_no,c.carton_no)) tracking, MIN(c.carrier_code) tracking_type
+--FROM tdc_carton_tx c  
+--GROUP BY c.order_no, c.order_ext 
+--) ctn ON ctn.order_ext = o.ext AND ctn.order_no = o.order_no
+
+--WHERE 1=1
+--AND EXISTS ( SELECT 1 FROM cvo_eyerep_acts_tbl a WHERE a.acct_id = ar.customer_code )
+--AND i.type_code IN ('frame','sun')
+--AND o.user_category NOT LIKE ('%-RB')
+--AND X.trx_type IN (2031)
+--AND x.date_applied > @date
+
+
+select
+customer = isnull(xx.customer_code,''),
+ship_to = CASE WHEN xx.ship_to_code <> '' THEN xx.customer_code+'-'+xx.ship_to_code ELSE '' end, 
+xx.order_ctrl_num,
+xx.amt_tax, xx.amt_net, 
+'' AS WebOrderNumber,
+xx.doc_ctrl_num,
+isnull(i.upc_code,'0000000000000') AS upc_code,
+ol.shipped - ol.cr_shipped,
+case o.type when 'i' then 
+	case isnull(cl.is_amt_disc,'n')
+		when 'y' then round (ol.shipped * (ol.curr_price - ROUND(ISNULL(cl.amt_disc,0),2)),2,1)
+		ELSE ROUND( ol.shipped * (ol.curr_price - ROUND(ol.curr_price*(ol.discount/100.00),2)) ,2) 
+	end
+else 0
+end as asales,
+CONVERT(VARCHAR(8), dbo.adm_format_pltdate_f(xx.date_applied), 112), -- yyyymmdd
+'Shipped/Transferred' AS order_status, 
+CONVERT(VARCHAR(8), oo.date_entered, 112),
+ISNULL(ctn.tracking,'') tracking, 
+ISNULL(ctn.tracking_type,'') tracking_type, 
+o.user_category, 
+ol.display_line
+
+from #allterr
+	JOIN orders o (nolock) ON o.cust_code = #allterr.customer_code
+	inner join cvo_orders_all co (nolock) on co.order_no = o.order_no and co.ext = o.ext
+	inner join ord_list ol (nolock) on ol.order_no = o.order_no and ol.order_ext = o.ext
+	left outer join cvo_ord_list cl (nolock) on cl.order_no = ol.order_no and cl.order_ext = ol.order_ext
+		and cl.line_no = ol.line_no
+left outer join orders_invoice oi (nolock) on oi.order_no = o.order_no and oi.order_ext = o.ext
+left outer join artrx xx (nolock) on xx.trx_ctrl_num = oi.trx_ctrl_num
+
+left outer join 
+(select order_no, min(ooo.date_entered) from orders ooo(nolock) where ooo.status <> 'v' group by ooo.order_no)
+as oo (order_no, date_entered) on oo.order_no = o.order_no
+-- tag 013114
+left outer join inv_master i on i.part_no = ol.part_no
+
 LEFT OUTER JOIN
 ( SELECT order_no, order_ext, MIN(ISNULL(c.cs_tracking_no,c.carton_no)) tracking, MIN(c.carrier_code) tracking_type
 FROM tdc_carton_tx c  
 GROUP BY c.order_no, c.order_ext 
 ) ctn ON ctn.order_ext = o.ext AND ctn.order_no = o.order_no
 
-WHERE 1=1
-AND EXISTS ( SELECT 1 FROM cvo_eyerep_acts_tbl a WHERE a.acct_id = ar.customer_code )
-AND i.type_code IN ('frame','sun')
+
+where 1=1
+AND EXISTS ( SELECT 1 FROM cvo_eyerep_acts_tbl a WHERE a.acct_id = #AllTerr.customer_code )
+and xx.date_applied > @date
+and xx.trx_type in (2031,2032) 
+and xx.doc_desc not like 'converted%' and xx.doc_desc not like '%nonsales%' 
+and xx.doc_ctrl_num not like 'cb%' and xx.doc_ctrl_num not like 'fin%'
+and xx.void_flag = 0 and xx.posted_flag = 1
 AND o.user_category NOT LIKE ('%-RB')
-AND X.trx_type IN (2031)
-AND x.date_applied > @date
+AND i.type_code IN ('frame','sun')
+AND 0 <> (ol.shipped - ol.cr_shipped) 
+
+
+
+
 
 
 

@@ -25,8 +25,10 @@ CREATE TABLE [dbo].[cvo_expo_appointments]
 [company_name] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [appt_code] [varchar] (80) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [isOutlook] [tinyint] NULL CONSTRAINT [DF__cvo_expo___isOut__5F23C62B] DEFAULT ((0)),
-[expo_id] [int] NULL
-) ON [PRIMARY]
+[expo_id] [int] NULL,
+[requested_by] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[notes] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_expo_appointments] ADD CONSTRAINT [PK__cvo_expo_appoint__5D3B7DB9] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
 GO

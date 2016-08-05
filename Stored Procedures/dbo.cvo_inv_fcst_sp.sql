@@ -2,15 +2,17 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE procedure [dbo].[cvo_matl_fcst_style_season_sp] 
+CREATE procedure [dbo].[cvo_inv_fcst_sp] 
 @startrank datetime, 
 @asofdate datetime, 
+@location VARCHAR(10),
 @endrel DATETIME = null, -- ending release date
 @UseDrp int = 1, 
 @current int = 1,
 @collection varchar(1000) = null,
 @Style varchar(8000) = NULL,
 @SpecFit varchar(1000) = NULL,
+@gender VARCHAR(1000) = NULL,
 @usg_option CHAR(1) = 'O'
 , @Season_start int = NULL
 , @Season_end int = NULL
@@ -18,19 +20,21 @@ CREATE procedure [dbo].[cvo_matl_fcst_style_season_sp]
 , @debug INT = 0
 --
 /*
- exec cvo_matl_fcst_style_season_sp
+ exec cvo_inv_fcst_sp
  @startrank = '12/23/2013',
- @asofdate = '1/1/2016', 
- @endrel = '1/1/2016', 
+ @asofdate = '7/1/2016', 
+ @endrel = '08/01/2016', 
  @usedrp = 1, 
  @current = 1, 
- @collection = 'jmc', 
- @style = '049', 
+ @collection = 'as', 
+ @style = 'artistic', 
  @specfit = '*all*',
  @usg_option = 'o',
- @debug = 0 -- debug
+ @debug = 0, -- debug
+ @location = '001'
 
- 
+ select * From cvo_ifp_rank
+
 */
 -- 090314 - tag
 -- get sales since the asof date, and use it to consume the demand line
@@ -49,7 +53,8 @@ CREATE procedure [dbo].[cvo_matl_fcst_style_season_sp]
 -- 9/3/2015 - fix for  po lines in next year
 -- 10/6/2015 - PO lines - make the outer range < not <= to avoid 13th bucket on report
 -- 10/20/2015 - add seasonality multiplier, promo and substitute flagging
--- 7/15/2016 - calc starting inventory with allocations if usage is on orders as allocations are already in the demand number. If on shipments, then net out allocations.
+-- 07/15/2016 - calc starting inventory with allocations if usage is on orders, and without if usage is on shipments.
+	
 as 
 begin
 
@@ -70,9 +75,10 @@ set @startdate = '01/01/1949'  -- starting release date
 -- set @enddate = '12/31/2020' -- ending release date
 -- set @enddate = @asofdate
 set @enddate = ISNULL(@endrel, @asofdate)
-declare @coll_list varchar(1000), @style_list varchar(8000), @sf VARCHAR(1000), @s_start INT, @s_end INT, @s_mult DECIMAL(20,8)
 
-select @coll_list = @collection, @style_list = @style, @SF = @SpecFit
+declare @coll_list varchar(1000), @style_list varchar(8000), @sf VARCHAR(1000), @gndr VARCHAR(1000), @s_start INT, @s_end INT, @s_mult DECIMAL(20,8)
+
+select @coll_list = @collection, @style_list = @style, @SF = @SpecFit, @gndr = @gender
 	 , @s_start = ISNULL(@Season_start,1), @s_end = ISNULL(@Season_end,12), @S_mult = ISNULL(@Season_mult,1)
 
 -- select @style_list
@@ -117,6 +123,21 @@ begin
 	SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@sf)
 END
 
+-- get gender selections
+
+CREATE TABLE #gender ([gender] VARCHAR(20))
+if @gndr is NULL OR @gndr LIKE '%*ALL*%'
+BEGIN
+	INSERT INTO #gender (gender) VALUES('')
+	insert into #gender (gender)
+	select distinct kys from dbo.CVO_Gender  where void = 'n'
+end
+else
+begin
+	INSERT INTO #gender ([gender])
+	SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@gndr)
+END
+
 --select * from #style_list
 --select @style_list
 
@@ -127,7 +148,8 @@ BEGIN
 end
 
 declare @loc varchar(10)
-select @loc = '001'
+--select @loc = '001'
+SELECT @loc = @location
 
 IF(OBJECT_ID('tempdb.dbo.#dmd_mult') is not null)  drop table #dmd_mult
 create table #dmd_mult
@@ -306,11 +328,13 @@ LEFT outer join cvo_sbm_details s (nolock) on s.part_no = i.part_no
 left outer join armaster a (nolock) on a.customer_code = s.customer and a.ship_to_code = s.ship_to
 where 
 i.type_code in ('FRAME','sun','BRUIT')
-and ia.field_26 between @startdate and @enddate
+-- and ia.field_26 between @startdate and @enddate
+and ia.field_26 >= @startdate
 -- and isnull(ia.field_28, @pomdate) >= @pomdate
 -- 10/22/2015 - and i.category not in ('rr','un')
 and i.void = 'N'
 AND EXISTS (SELECT 1 FROM #sf WHERE #sf.sf = ISNULL(ia.field_32,''))
+AND EXISTS (SELECT 1 FROM #gender WHERE #gender.gender = ISNULL(ia.category_2,''))
 
 and isnull(s.yyyymmdd,@asofdate) >= dateadd(mm,-18,@asofdate) -- look back 18 months
 and isnull(s.customer,'') not in ('045733','019482','045217') -- stanton and insight and costco
@@ -326,7 +350,41 @@ and isnull(s.location,@loc) = @loc
 
 group by ia.field_26, ia.field_28, i.category, ia.field_2, i.part_no, i.type_code, yyyymmdd -- end cte
 
-IF @debug = 1 select distinct rel_date From #sls_det -- where part_no like 'jm185%'
+-- look for future release items within the list of styles
+
+--INSERT INTO #sls_det
+--        ( brand ,
+--          style ,
+--          part_no ,
+--          type_code ,
+--		  pom_date,
+--          rel_date,
+--		  rel_month     )
+
+--SELECT i.category brand,
+--ia.field_2 style,
+--i.part_no,
+--i.type_code,
+--ISNULL(ia.field_28,'1/1/1900') pom_date,
+--ia.field_26 rel_date,
+--DATEDIFF(m, ia.field_26, @asofdate) AS rel_month
+
+--FROM 
+--(SELECT DISTINCT brand,
+--style, 
+--type_code,
+--rel_date
+--FROM #sls_det) sls_det
+--JOIN inv_master i ON i.category = sls_det.brand
+--JOIN inv_master_add ia ON ia.part_no = i.part_no
+--WHERE sls_det.style = ia.field_2 AND sls_det.type_code = i.type_code
+--AND ISNULL(ia.field_26,@asofdate) > sls_det.rel_date
+--AND NOT EXISTS (SELECT 1 FROM #sls_det WHERE #sls_det.part_no = i.part_no)
+--and i.void = 'N'
+--AND EXISTS (SELECT 1 FROM #sf WHERE #sf.sf = ISNULL(ia.field_32,''))
+
+--IF @debug = 1 select distinct part_no, rel_date From #sls_det -- where part_no like 'jm185%'
+
 
 select 
 #sls_det.brand,
@@ -505,7 +563,8 @@ into #t
 From inv_master i (nolock)
 inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
 inner join #style s on s.brand = i.category and s.style = ia.field_2
-and ia.field_26 between @startdate and @enddate
+-- and ia.field_26 between @startdate and @enddate
+and ia.field_26 >= @startdate
 left outer join
 (select -- drp info by part
 drp.part_no, sum(e4_wu) p_e4_wu, sum(e12_wu) p_e12_wu, sum(e52_wu) p_e52_wu
@@ -524,12 +583,36 @@ IF ISNULL(@debug,0) = 1
 BEGIN
  SELECT * FROM #dmd_mult
  SELECT * FROM #t
+
+ SELECT brand, style, COUNT(DISTINCT rel_date) rel_date_cnt
+FROM #t 
+GROUP BY brand, style
+HAVING COUNT(DISTINCT rel_date) = 1
+AND MAX(rel_date) > @endrel
+-- ) future_releases
+
 END 
 
 if @current = 1  -- if reporting current styles/skus only remove any pom skus 
 begin
 	delete from #t where exists (select 1 from inv_master_add where part_no = #t.part_no and field_28 is not null and field_28 < @asofdate )
 END
+
+-- remove any skus after the ending release date (full styles only)
+
+
+DELETE FROM #t 
+	WHERE EXISTS (SELECT 1 FROM 
+	(SELECT brand, style, COUNT(DISTINCT rel_date) rel_date_cnt
+	FROM #t 
+	GROUP BY brand, style
+	HAVING COUNT(DISTINCT rel_date) = 1
+	AND MAX(rel_date) > @endrel
+	) future_releases
+	WHERE #t.brand = future_releases.brand AND #t.style = future_releases.style
+	)
+
+IF @debug = 1  SELECT 'after future_releases removed', * FROM #t AS t
 
 -- figure out pct of first purchase
 ;with x as 
@@ -775,10 +858,12 @@ create index idx_f on #SKU (sku asc)
 
 select @sku = min(sku) from #SKU
 -- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
-SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) - 
-	   CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
-	   , @atp = ISNULL(qty_avl,0)
-from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku and cia.location = @loc
+	SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) - 
+		   CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
+		   , @atp = ISNULL(qty_avl,0)
+	from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku and cia.location = @loc
+
+
 
 select @sort_seq = 0
 SELECT @INV_AVL = @LAST_INV
@@ -792,7 +877,15 @@ select @ord = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type =
 
 
 while @sku is not null 
-begin
+BEGIN
+
+	IF @debug = 1 
+		BEGIN
+		 SELECT @sku, @last_inv, @atp
+		 SELECT * FROM dbo.cvo_item_avail_vw AS iav WHERE iav.part_no = @sku AND iav.location = @loc
+		END
+        
+
 	update #SKU set qoh = isnull(@last_inv,0)
 					, atp = ISNULL(@atp,0)  where sku = @sku
 	WHILE @SORT_SEQ < 12
@@ -917,10 +1010,15 @@ inner join inv_master i (nolock) on i.part_no = p.part_no
 inner join inv_master_add ia (nolock) on ia.part_no = i.part_no
 where 1=1
 and i.void = 'n'
+AND P.VOID <> 'V' -- 8/3/2016
 and p.part_no = #sku.sku 
 and p.rel_date <= dateadd(yy,1,ia.field_26)
 and p.type = 'p' and p.location = '001'
-), 0) else 0 end
+), 0) else 0 END,
+CASE WHEN #style.pom_date IS NULL OR #style.pom_date = '1/1/1900' THEN r.ORDER_THRU_DATE 
+	WHEN  #style.pom_date < r.ORDER_THRU_DATE THEN #style.pom_date
+	ELSE r.order_thru_date END AS ORDER_THRU_DATE,
+r.TIER -- 7/8/2016
 
 from #SKU 
 
@@ -943,10 +1041,13 @@ MAX(ISNULL(ia.field_32,'')) sf
 from inv_master i inner join inv_master_add ia on ia.part_no = i.part_no 
 where 1=1
 and i.type_code in ('frame','sun','bruit') and i.void = 'n'
-AND ISNULL(ia.field_32,'') <> 'SpecialOrd' -- revo special order skus
+AND ISNULL(ia.field_32,'') <> 'SpecialOrd'
 group by i.category, ia.field_2, i.vendor
 ) as specs
 on specs.brand = #style.brand and specs.style = #style.style
+
+LEFT OUTER JOIN
+cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
 
 
 end
@@ -956,7 +1057,13 @@ end
 
 
 
-GO
 
-GRANT EXECUTE ON  [dbo].[cvo_matl_fcst_style_season_sp] TO [public]
+
+
+
+
+
+
+
+
 GO

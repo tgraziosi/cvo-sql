@@ -10,6 +10,8 @@ GO
 -- v1.5 CT 22/10/2014 - Issue #572 - if masterpack consolidation, clear any existing parent pick records.
 -- v1.6 CB 23/04/2015 - Performance Changes
 
+-- v1.8 CB 03/08/2016 - Remove freight code as this is done is another routine
+
 CREATE PROCEDURE [dbo].[tdc_ship_confirm_sp]	@stage_no			varchar(50),
 										@alter_by			int,
 										@user_id			varchar(255),
@@ -409,6 +411,8 @@ BEGIN
     the freight amount will be placed on the first order in the group.  
     If this is a master pack no recalculation is required.*/
 
+		-- v1.8 Start
+	/*
 	UPDATE	o 
 	SET		o.freight		= 0.00
 	FROM	orders_all o, #cartonsToShip s 
@@ -474,6 +478,8 @@ BEGIN
 	AND s.first_so_in_carton = 1  
 	AND s.commit_ok = 1 
 	AND s.master_pack = 'N'	  
+	*/
+	-- v1.8 End
 		          
 	IF @ebackofficeship = 'Y'    
 	BEGIN    
@@ -594,6 +600,7 @@ BEGIN
     
 	RETURN 1 
 END
+
 GO
 GRANT EXECUTE ON  [dbo].[tdc_ship_confirm_sp] TO [public]
 GO

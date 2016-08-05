@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -73,6 +72,7 @@ o.ship_to_name, o.location, o.cust_po, o.routing, o.fob, o.attention, o.tax_id
 , o.terms, o.curr_key, 
 ar.salesperson_code salesperson, 
 ar.territory_code Territory, 
+-- t.territory Territory, 
 t.region,
 o.total_amt_order, o.total_discount, o.total_tax, o.freight, o.qty_ordered, 
 o.qty_shipped, o.total_invoice, o.invoice_no, o.doc_ctrl_num, o.date_invoice, 
@@ -240,6 +240,7 @@ else 0 end,
 ,Convert(varchar, DateAdd(dd, (9 - DatePart(dw, date_entered)), date_entered), 101) wk_EndDate
 
 from #temp
+
 
 
 

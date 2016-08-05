@@ -17,7 +17,9 @@ SELECT @station_id = 777, @user_id = '', @asofdate = GETDATE()
 
 SELECT @cart_order_no = MIN( ccop.order_no )
 FROM dbo.cvo_cart_orders_processed AS ccop
-WHERE ccop.order_status  ='O' AND ccop.processed_date IS NULL
+WHERE (ccop.order_status  ='O' AND ccop.processed_date IS NULL)
+-- 8/5/2016 - LOOK FOR STRAY PICKS TO PROCESS
+OR EXISTS (SELECT 1 FROM dbo.cvo_cart_parts_processed AS cpp WHERE cpp.order_no = ccop.order_no AND cpp.scanned = 1 AND ispicked<>'Y')
 
 WHILE ISNULL(@cart_order_no,'') > ''
 begin
@@ -49,6 +51,7 @@ END
 -- SELECT * FROM dbo.cvo_cart_parts_processed AS ccpp WHERE ORDER_no = '13452'
 
 GRANT ALL ON cvo_pick_cart_process_checkout_wrap_sp TO PUBLIC
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_pick_cart_process_checkout_wrap_sp] TO [public]
 GO

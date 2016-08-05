@@ -62,16 +62,50 @@ SELECT ty.id ,
        ISNULL(ty.commission,0) commission ,
        ISNULL(ty.incentivePC,0) incentivePC ,
        ISNULL(ty.incentive,0) incentive ,
-       ISNULL(ty.other_additions,0) other_additions ,
-       ISNULL(ty.reduction, 0) reduction ,
-       ISNULL(ty.addition_rsn,'') addition_rsn ,
-       ISNULL(ty.reduction_rsn,'') reduction_rsn ,
+	   addition1 = (SELECT SUM(incentive_amount) -- closeouts
+		FROM dbo.cvo_commission_promo_values AS cpv
+		WHERE 
+		LEFT(cpv.recorded_month,2) = #mm.mm
+		AND RIGHT(cpv.recorded_month,4) = @year 
+		AND cpv.rep_code = #mm.salesperson
+		AND cpv.line_type = 'Close Out Adj' having SUM(incentive_amount) > 0 ) ,
+	   addition2 = (SELECT SUM(incentive_amount) -- promos
+		FROM dbo.cvo_commission_promo_values AS cpv WHERE cpv.recorded_month = @FiscalPeriod AND cpv.rep_code = #mm.salesperson
+		AND LEFT(cpv.recorded_month,2) = #mm.mm
+		AND RIGHT(cpv.recorded_month,4) = @year 
+		AND cpv.line_type NOT IN ('draw_over','special payment','manual reduction','CLOSE Out Adj','adj/additional adj3') 
+		HAVING SUM(incentive_amount) >0 ),
+       addition3= (SELECT SUM(cpv.incentive_amount) -- other
+		FROM dbo.cvo_commission_promo_values AS cpv WHERE cpv.recorded_month = @FiscalPeriod  AND cpv.rep_code = #mm.salesperson
+		AND LEFT(cpv.recorded_month,2) = #mm.mm
+		AND RIGHT(cpv.recorded_month,4) = @year 
+		AND cpv.line_type IN ('adj/additional adj3') 
+		HAVING SUM(incentive_amount) >0 ),
+	   additionrsn1 = (SELECT TOP 1 max(ISNULL(comments,''))
+		FROM dbo.cvo_commission_promo_values AS cpv WHERE cpv.recorded_month = @FiscalPeriod AND cpv.rep_code = #mm.salesperson
+		AND LEFT(cpv.recorded_month,2) = #mm.mm
+		AND RIGHT(cpv.recorded_month,4) = @year 
+		AND cpv.line_type = 'Close Out Adj' 
+		HAVING SUM(incentive_amount) >0 ),
+	   
+	   additionrsn2 = CASE WHEN #mm.mm = additionalrsn2.month_num THEN ISNULL(additionalrsn2.promo_details,'') ELSE '' end,
+
+       additionrsn3 = ( SELECT TOP 1 MAX(ISNULL(comments,''))
+		FROM dbo.cvo_commission_promo_values AS cpv	WHERE cpv.recorded_month = @FiscalPeriod  
+		 AND cpv.rep_code = #mm.salesperson 
+		 AND LEFT(cpv.recorded_month,2) = #mm.mm
+		AND RIGHT(cpv.recorded_month,4) = @year 
+		 and cpv.line_type IN ('adj/additional adj3') having SUM(incentive_amount) >0 ),
+
+	   reduction1 = reductionrsn1.reduction1,
+	   reductionrsn1 = reductionrsn1.reductionrsn1,
+
+	   
        ISNULL(ty.rep_type,0) rep_type ,
        ISNULL(ty.status_type,0) status_type ,
        #mm.territory territory ,
        #mm.region region ,
-       CASE WHEN ISNULL(tyhist.total_earnings,0) <> 0 THEN tyhist.total_earnings 
-			ELSE ISNULL(ty.total_earnings,0) END AS total_earnings ,
+       ISNULL(ty.total_earnings,0) total_earnings ,
        ISNULL(ty.total_draw,0) total_draw ,
        ISNULL(ty.prior_month_bal,0) prior_month_bal ,
        ISNULL(ty.net_pay,0) net_pay ,
@@ -82,13 +116,18 @@ SELECT ty.id ,
 	   #mm.mm month_num,
 	   @prior_year year_ly,
 	   CASE WHEN ISNULL(lyhist.total_earnings,0) <>0 THEN lyhist.total_earnings
-			ELSE ISNULL(ly.total_earnings,0) END AS total_earnings_ly
+			ELSE ISNULL(ly.total_earnings,0) END AS total_earnings_ly,
+
+	   general_note = general.comments,
+	   spec_pay.spec_pay
+
 	   FROM
        #mm 
       
 	   LEFT OUTER JOIN
 (
-SELECT       id, salesperson, hiredate, amount, comm_amt, draw_amount, draw_weeks, commission
+SELECT      id, salesperson, hiredate, amount, comm_amt, draw_amount, draw_weeks
+		    , commission
 			, incentivePC, incentive, other_additions, reduction, 
                   addition_rsn, reduction_rsn, rep_type, status_type, 
 				  territory, region, 
@@ -124,12 +163,67 @@ SELECT c.salesperson, LEFT(c.report_month,2) month_num, c.total_earnings
  WHERE CAST(RIGHT(c.report_month,4) AS int) = @prior_year
 ) lyhist ON #mm.salesperson = lyhist.salesperson AND lyhist.month_num = #mm.mm
 
+LEFT OUTER JOIN
 
+(
+SELECT DISTINCT c.rep_code, LEFT(c.recorded_month,2) month_num, 
+		STUFF(( SELECT DISTINCT '; ' + ISNULL(ccpv2.comments,'') 
+				FROM dbo.cvo_commission_promo_values AS ccpv2
+				WHERE c.rep_code = ccpv2.rep_code 
+					AND ISNULL(ccpv2.line_type,'') NOT IN ('draw_over','special payment','manual reduction','CLOSE Out Adj','Adj/Additional Adj3') 
+					AND ccpv2.incentive_amount > 0
+					AND LEFT(ccpv2.recorded_month,2) = LEFT(c.recorded_month,2)
+				FOR XML PATH ('')
+				), 1, 1, '') promo_details
+ FROM dbo.cvo_commission_promo_values AS c
+ WHERE CAST(RIGHT(c.recorded_month,4) AS int) = @year 
+ AND c.recorded_month <= @FiscalPeriod
+) additionalrsn2 ON #mm.salesperson = additionalrsn2.rep_code 
+					AND #mm.mm = additionalrsn2.month_num
+					
+
+
+LEFT OUTER JOIN
+
+(
+SELECT DISTINCT c.rep_code, LEFT(c.recorded_month,2) month_num, c.incentive_amount reduction1,
+		STUFF(( SELECT DISTINCT '; ' + ISNULL(ccpv2.comments,'') 
+				FROM dbo.cvo_commission_promo_values AS ccpv2
+				WHERE c.rep_code = ccpv2.rep_code AND ccpv2.recorded_month = @FiscalPeriod
+					AND ISNULL(ccpv2.line_type,'') IN ('Manual Reduction') 
+					AND ccpv2.incentive_amount <= 0
+				FOR XML PATH ('')
+				), 1, 1, '') reductionrsn1
+ FROM dbo.cvo_commission_promo_values AS c
+ WHERE CAST(RIGHT(c.recorded_month,4) AS int) = @year 
+ AND LEFT(c.recorded_month,2) <= LEFT(@FiscalPeriod ,2)
+ AND c.incentive_amount < 0
+ AND c.line_type IN ('manual reduction')
+
+ ) reductionrsn1 ON #mm.salesperson = reductionrsn1.rep_code AND
+				    #mm.mm =  reductionrsn1.month_num 
+
+LEFT OUTER JOIN
+(SELECT DISTINCT rep_code, comments
+FROM dbo.cvo_commission_promo_values
+WHERE line_type = 'General' AND recorded_month = 'Note' 
+) general ON #mm.salesperson = general.rep_code
+
+LEFT OUTER JOIN
+(SELECT rep_code, LEFT(recorded_month,2) month_num, SUM(incentive_amount) spec_pay
+FROM dbo.cvo_commission_promo_values 
+WHERE line_type = 'special payment'
+AND @year = CAST(RIGHT(recorded_month,4) AS INT)
+GROUP BY LEFT(recorded_month, 2) ,
+         rep_code
+) spec_pay ON #mm.salesperson = spec_pay.rep_code 
+AND #mm.mm = spec_pay.month_num
 
 ORDER BY salesperson
 
 
 END
+
 
 
 GO
