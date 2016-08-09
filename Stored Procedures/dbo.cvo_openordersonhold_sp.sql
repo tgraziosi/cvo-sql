@@ -71,6 +71,14 @@ select oo.order_no ,
 		ELSE ISNULL(ch.hold_dept,'Other') END AS hold_dept
 	, ar.addr_sort1 as CustomerType
 	, C.OpenAR
+	, DaysToShip = CASE  WHEN DATEDIFF(DAY,oo.date_sch_ship, @todate) > 28 THEN 'over 4 weeks late'
+						WHEN DATEDIFF(DAY,oo.date_sch_ship, @todate) > 14 THEN 'over 2 weeks late'
+						WHEN DATEDIFF(DAY,oo.date_sch_ship, @todate) > 0 THEN 'within 2 weeks late'
+						WHEN  DATEDIFF(DAY,oo.date_sch_ship, @todate) < -28 THEN 'future over 4 wks'
+						WHEN  DATEDIFF(DAY,oo.date_sch_ship, @todate) < -14 THEN 'future over 2 wks'
+						WHEN  DATEDIFF(DAY,oo.date_sch_ship, @todate) < 0 THEN 'future within 2 wks'
+						WHEN  DATEDIFF(DAY,oo.date_sch_ship, @todate) = 0 then 'today'
+						end
 from cvo_adord_vw oo (nolock)
 inner join armaster ar (nolock) on oo.cust_code = ar.customer_code and oo.ship_to = ar.ship_To_code
 left outer join cc_status_codes ccs (nolock) on oo.hold_reason = ccs.status_code
@@ -89,6 +97,7 @@ OR ( @FutShip = 1 AND oo.date_sch_ship > @ToDate AND oo.hold_reason = '' ) )
 and who_entered <> 'BACKORDR'
 
 END
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_openordersonhold_sp] TO [public]

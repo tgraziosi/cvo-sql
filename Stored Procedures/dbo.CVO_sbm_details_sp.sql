@@ -524,6 +524,11 @@ CREATE NONCLUSTERED INDEX [idx_cvo_sbm_yyyymmdd_cir]
 ON [dbo].[cvo_sbm_details] ([yyyymmdd])
 INCLUDE ([customer],[ship_to],[part_no],[return_code],[user_category],[qsales],[qreturns],[DateOrdered],[isCL])
 
+-- 8/9/2016 - for r12 net sales 
+CREATE NONCLUSTERED INDEX [idx_sbm_details_r12]
+ON [dbo].[cvo_sbm_details] ([yyyymmdd])
+INCLUDE ([X_MONTH],[anet])
+
 insert cvo_sbm_details
  select 
  customer,

@@ -88,7 +88,7 @@ from #t
 LEFT OUTER JOIN dbo.category AS p ON p.kys = #t.coll
 WHERE #t.free_frames <> 0
 
-UPDATE n SET n.val_1_lbl = null, n.val_2_lbl = null, n.val_3_lbl = null, n.val_4_lbl = null
+UPDATE n SET n.val_1_lbl = '', n.val_2_lbl = '', n.val_3_lbl = '', n.val_4_lbl = ''
 -- SELECT * 
 FROM #narrative AS n
 JOIN 
@@ -329,13 +329,13 @@ SELECT cust_code =
 	   seq,
        ben_type ,
        ben_title ,
-       val_1_lbl ,
+	   CASE WHEN val_1_int IS NULL THEN NULL else ISNULL(val_1_lbl,'') end,
        val_1_int ,
-       val_2_lbl ,
+       CASE WHEN val_2_int IS NULL THEN NULL ELSE ISNULL(val_2_lbl,'') end,
        val_2_int ,
-       val_3_lbl ,
+       CASE WHEN val_3_dec IS NULL THEN NULL ELSE ISNULL(val_3_lbl,'') end,
        val_3_dec ,
-       val_4_lbl ,
+       CASE WHEN val_4_dec IS NULL THEN NULL ELSE ISNULL(val_4_lbl,'') end,
        val_4_dec
  From #narrative
  WHERE  CASE WHEN LEN(cust_code) = 6 THEN cust_code ELSE 
@@ -349,6 +349,7 @@ SELECT cust_code =
  JOIN armaster ar ON ar.customer_code = sc.cust_code AND ar.ship_to_code = sc.ship_to
 
  -- select * From cvo_cust_benefit_scorecard_Tbl
+
 
 
 

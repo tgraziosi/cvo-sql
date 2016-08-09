@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -17,11 +16,11 @@ Nordstrom
 */
 /*
 BEGIN TRAN 
-	EXEC dbo.cvo_stock_sync_sp 1, 'Nordstrom' -- Report only for location 001
+	EXEC dbo.cvo_stock_sync_sp 1, 'Nordstrom' -- run for location nordstrom 
 
-	EXEC dbo.cvo_stock_sync_sp 1, '001' -- Run for location 001
+	EXEC dbo.cvo_stock_sync_sp 1, '001' -- report only for location 001
 
-	EXEC dbo.cvo_stock_sync_sp 0, '503 - scha' -- Report only for location 001	
+	EXEC dbo.cvo_stock_sync_sp 0, '008' -- Report only for location 001	
 	EXEC dbo.cvo_stock_sync_sp 0, 'UK' -- Report only for location 	
 ROLLBACK TRAN
 COMMIT TRAN
@@ -80,7 +79,7 @@ BEGIN
 	INSERT	#inv_stock
 	SELECT	l.location,
 			l.part_no,
-			SUM(CASE WHEN (m.status='C' or m.status='V') THEN 0 
+			SUM(CASE WHEN (m.status='C' or m.status='V' OR m.lb_tracking = 'N') THEN 0 
 				ELSE (l.in_stock + l.issued_mtd + p.produced_mtd - p.usage_mtd - s.sales_qty_mtd + r.recv_mtd + x.xfer_mtd) END)
 	FROM	inv_list l (NOLOCK)  
 	JOIN	inv_master m (NOLOCK) 
@@ -347,7 +346,7 @@ BEGIN
 
 	END
 
-	SELECT GETDATE() RunTime, 'Stock Sync Process Finnished'
+	SELECT GETDATE() RunTime, 'Stock Sync Process Finished'
 
 END
 GO

@@ -268,7 +268,7 @@ sp_send_dbmail [ [ @profile_name = ] 'profile_name' ]
   
 			--select @CVO_SALES_REP_email = 'tmcgrady@epicor.com'   -- For Testing Only  
   
-			EXEC msdb.dbo.sp_send_dbmail @profile_name = 'WMS_1',  
+			EXEC msdb.dbo.sp_send_dbmail @profile_name = 'OrderConfirmations',  
 										@recipients  = @CVO_SALES_REP_email,   
 										@subject  = @SUBJECT,   
 										@body   = @MESSAGE,  
