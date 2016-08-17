@@ -8,7 +8,7 @@ AS
 
 SET NOCOUNT ON;
 
--- exec cvo_commiss_bldr_create_summary_sp '01/2016', 'solomoci'
+-- exec cvo_commiss_bldr_create_summary_sp '02/2016', 'strohmsc'
 -- exec dbo.cvo_commission_bldr_sp '12/01/2015', '12/31/2015'
 -- SELECT * FROM cvo_commission_summary_work_tbl AS ccswt where salesperson = 'solomoci'
 -- update v set v.rep_code = slp.salesperson_code
@@ -28,7 +28,7 @@ SELECT @end_date = DATEADD(d,-1,DATEADD(m,1,@start_date))
 
 SELECT @drawweeks = dbo.cvo_draw_weeks(@start_date, @end_date)
 
-SELECT @pfp = CAST(MONTH(DATEADD(d,-1,@start_date)) AS VARCHAR(2)) + '/' + CAST(YEAR(DATEADD(d,-1,@start_date)) AS VARCHAR(4))
+SELECT @pfp = RIGHT('00'+CAST(MONTH(DATEADD(d,-1,@start_date)) AS VARCHAR(2)),2) + '/' + RIGHT('0000'+CAST(YEAR(DATEADD(d,-1,@start_date)) AS VARCHAR(4)),4)
 
 -- SELECT @start_date, @end_date, @drawweeks
 
@@ -99,7 +99,8 @@ select a.Salesperson ,
 	   , ISNULL(draw_over.draw_amount, ISNULL( r.draw_amount,0 )) draw_amount
 	   , ISNULL(draw_over.qty, @drawweeks) drawweeks
 	   , total_draw = ISNULL(draw_over.draw_amount, ISNULL( r.draw_amount,0 )) * ISNULL(draw_over.qty, @drawweeks)
-	   , prior_month_bal = CASE WHEN pfphist.net_pay IS NULL THEN ISNULL(pfp.net_pay,0)
+	   --, pfp.net_pay, pfphist.net_pay
+	   , prior_month_bal = CASE WHEN pfphist.net_pay IS NULL OR pfphist.net_pay = 0 THEN ISNULL(pfp.net_pay,0)
 							ELSE pfphist.net_pay
 						   end
 	   , commission = case WHEN ISNULL(r.commission,0) IN (0,12) THEN 12 ELSE r.commission end, 
@@ -228,6 +229,8 @@ UPDATE d SET
 		WHERE d.report_month = @fp
 		AND d.salesperson = ISNULL(@slp, d.salesperson)
 -- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt
+
+
 
 
 

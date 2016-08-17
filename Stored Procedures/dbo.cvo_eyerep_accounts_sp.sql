@@ -541,7 +541,7 @@ INSERT INTO dbo.cvo_eyerep_repext_tbl
         )
 SELECT  ts.territory_code,
 	'% over/under LY' field_name,
-	ISNULL(CAST(ts.ly_ty_sales_incr_pct AS VARCHAR(20)),'Unknown') field_value,
+	ISNULL(CAST(ts.ly_ty_sales_incr_pct*100 AS VARCHAR(20)),'Unknown') field_value,
 	1 display_order
 	FROM dbo.cvo_terr_scorecard AS ts (nolock) 
 	WHERE EXISTS (SELECT 1 FROM #allterr WHERE ts.Territory_Code = #AllTerr.AllTerr)
@@ -549,7 +549,7 @@ SELECT  ts.territory_code,
 UNION ALL
 SELECT  ts.territory_code,
 	'RX %' field_name,
-	ISNULL(CAST(ts.ty_rx_pct AS VARCHAR(20)),'Unknown') field_value,
+	ISNULL(CAST(ts.ty_rx_pct*100 AS VARCHAR(20)),'Unknown') field_value,
 	2 display_order
 	FROM dbo.cvo_terr_scorecard AS ts (nolock) 
 	WHERE EXISTS (SELECT 1 FROM #allterr WHERE ts.Territory_Code = #AllTerr.AllTerr)
@@ -641,41 +641,6 @@ SELECT  @date = dbo.adm_get_pltdate_f(DATEADD(year,-1,GETDATE()))
 -- regular invoices
 
 INSERT INTO cvo_eyerep_acthis_tbl
---SELECT -- DISTINCT TOP (1000) *
---ar.customer_code, 
---CASE WHEN ar.ship_to_code <> '' THEN ar.customer_code+'-'+ar.ship_to_code ELSE '' end, 
---X.order_ctrl_num,
---X.amt_tax, X.amt_net, 
---'' AS WebOrderNumber,
---x.doc_ctrl_num,
---i.upc_code, 
---xd.qty_shipped-xd.qty_returned, 
---xd.extended_price, CONVERT(VARCHAR(8), 
---dbo.adm_format_pltdate_f(xd.date_applied), 112), -- yyyymmdd
---'Shipped/Transferred' AS order_status, CONVERT(VARCHAR(8), o.date_entered, 112),
---ctn.tracking, ctn.tracking_type, o.user_category, xd.sequence_id
-
---FROM #allterr 
---INNER JOIN armaster ar (nolock) on ar.customer_code = #allterr.customer_code
---JOIN artrx x (NOLOCK) ON x.customer_code = ar.customer_code AND x.ship_to_code = ar.ship_to_code
---JOIN artrxcdt xd (nolock) ON xd.trx_ctrl_num = x.trx_ctrl_num
---JOIN inv_master i (NOLOCK) ON i.part_no = xd.item_code
---LEFT OUTER JOIN dbo.orders_invoice AS oi ON oi.doc_ctrl_num = x.doc_ctrl_num
---LEFT OUTER JOIN orders o ON o.order_no = oi.order_no AND o.ext = oi.order_ext
---LEFT OUTER JOIN
---( SELECT order_no, order_ext, MIN(ISNULL(c.cs_tracking_no,c.carton_no)) tracking, MIN(c.carrier_code) tracking_type
---FROM tdc_carton_tx c  
---GROUP BY c.order_no, c.order_ext 
---) ctn ON ctn.order_ext = o.ext AND ctn.order_no = o.order_no
-
---WHERE 1=1
---AND EXISTS ( SELECT 1 FROM cvo_eyerep_acts_tbl a WHERE a.acct_id = ar.customer_code )
---AND i.type_code IN ('frame','sun')
---AND o.user_category NOT LIKE ('%-RB')
---AND X.trx_type IN (2031)
---AND x.date_applied > @date
-
-
 select
 customer = isnull(xx.customer_code,''),
 ship_to = CASE WHEN xx.ship_to_code <> '' THEN xx.customer_code+'-'+xx.ship_to_code ELSE '' end, 
@@ -734,10 +699,93 @@ AND i.type_code IN ('frame','sun')
 AND 0 <> (ol.shipped - ol.cr_shipped) 
 
 
+-- backorders
+-- backord.txt
+
+IF(OBJECT_ID('dbo.cvo_eyerep_backord_tbl') is null)
+	begin
+CREATE TABLE [dbo].[cvo_eyerep_backord_tbl](
+	[account_id] [varchar](20) NOT NULL,
+	ship_id [varchar](20) NULL,
+	ORDER_no VARCHAR(20) NOT NULL,
+	tax_amt DECIMAL(9,2) NOT NULL,
+	ship_amt DECIMAL(9,2) NOT NULL,
+	WebOrderNumber VARCHAR(13) NULL,
+	Invoice_no VARCHAR(30) NULL,
+	upc VARCHAR(50) NULL,
+	quantity DECIMAL(9,2) NOT NULL,
+	price DECIMAL(9,2) NOT NULL, -- extended price
+	ship_date VARCHAR(8) NULL,
+	ORDER_status VARCHAR(30) NULL,
+	order_date VARCHAR(8)  NULL,
+	tracking_no VARCHAR(50) NULL,
+	tracking_type VARCHAR(50) NULL,
+	order_type VARCHAR(20) NULL,
+	line_no VARCHAR(30) NULL
+	) ON [PRIMARY]
+END
 
 
+TRUNCATE TABLE dbo.cvo_eyerep_backord_tbl
+INSERT INTO dbo.cvo_eyerep_backord_tbl
+        ( account_id ,
+          ship_id ,
+          ORDER_no ,
+          tax_amt ,
+          ship_amt ,
+          WebOrderNumber ,
+          Invoice_no ,
+          upc ,
+          quantity ,
+          price ,
+          ship_date ,
+          ORDER_status ,
+          order_date ,
+          tracking_no ,
+          tracking_type ,
+          order_type ,
+          line_no
+        )
+select 
+o.cust_code account_id,
+CASE WHEN o.ship_to > '' THEN o.cust_code+'-'+o.ship_to ELSE '' END ship_address_id,
+o.order_no,
+0 AS tax_amount,
+0 AS ship_amount,
+o.user_def_fld4 webordernumber,
+'' AS invoicenumber,
+inv.upc_code upc,
+ol.ordered - ol.shipped quantity,
+ol.curr_price,
+CONVERT(VARCHAR(8), o.sch_ship_date, 112) shipdate,
+'BACKORDERED' orderstatus,
+CONVERT(VARCHAR(8), o.date_entered, 112) orderdate,
+'' trackingnumber,
+'' trackingtype,
+o.user_category ordertype,
+ol.line_no lineuniqueid
 
-
+From inv_master inv  (nolock)
+inner join ord_list ol (nolock) on inv.part_no = ol.part_no
+inner join orders o (nolock) on o.order_no = ol.order_no and o.ext = ol.order_ext
+left outer join cvo_orders_all co (nolock) on co.order_no = o.order_no and co.ext = o.ext 
+left outer join cvo_promotions p (nolock) on p.promo_id = co.promo_id and p.promo_level = co.promo_level
+-- 3/4/15
+left outer join cvo_hard_allocated_vw e (nolock) on
+	e.order_no = o.order_no 
+	and e.order_ext = o.ext 
+	and e.line_no = ol.line_no
+	and e.order_type = 's'
+where 1=1 
+AND o.cust_code IN (SELECT DISTINCT customer_code FROM #allterr)
+AND o.type = 'i'
+AND inv.type_code IN ('frame','sun')
+and ol.status < 'P' 
+AND o.status < 'p'
+and ol.ordered > (ol.shipped + isnull(e.qty,0))
+-- and o.sch_ship_date < @today
+and ol.part_type = 'p'
+AND o.who_entered = 'backordr'
 
 
 GO

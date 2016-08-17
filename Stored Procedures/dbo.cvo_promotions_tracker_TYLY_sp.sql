@@ -11,7 +11,7 @@ CREATE PROCEDURE [dbo].[cvo_promotions_tracker_TYLY_sp]
 AS
     BEGIN
 
--- exec cvo_promotions_tracker_tyly_sp '1/1/2016','08/08/2016', null , 'aspire', null
+-- exec cvo_promotions_tracker_tyly_sp '1/1/2016','08/09/2016', null , 'aspire', null
 
         SET NOCOUNT ON;
         SET ANSI_WARNINGS OFF;
@@ -20,8 +20,9 @@ AS
         DECLARE @sdately DATETIME ,
             @edately DATETIME;
 
-        SELECT  @sdately = DATEADD(YEAR, -1, @sdate) ,
-                @edately = DATEADD(ms, -1, @sdate);
+		SET  @edate   = DATEADD(ms,-1, DATEADD(DAY,1,@edate))
+        set  @sdately = DATEADD(YEAR, -1, @sdate)
+		SET  @edately = DATEADD(ms, -1, @sdate)
 
         CREATE TABLE #temptable
             (
@@ -99,7 +100,7 @@ AS
                 SUM(t.FramesOrdered) FramesOrdered ,
                 SUM(t.FramesShipped) FramesShipped ,
                 SUM(t.Qual_order) Qual_order ,
-                COUNT(t.order_no) Tot_order ,
+                COUNT(DISTINCT t.order_no) Tot_order ,
                 SUM(t.UC) UC ,
                 t.yy
         FROM    ( SELECT    salesperson ,
@@ -112,9 +113,9 @@ AS
                             Qual_order ,
                             order_no ,
                             UC ,
-                            yy = CASE WHEN date_entered BETWEEN @sdate AND @edate
+                            yy = CASE WHEN date_entered >= @sdate 
                                       THEN DATEPART(YEAR, @sdate)
-                                      WHEN date_entered BETWEEN @sdately AND @edately
+                                      WHEN date_entered <= @edately
                                       THEN DATEPART(YEAR, @sdately)
                                       ELSE 9999
                                  END
@@ -126,8 +127,12 @@ AS
                 t.promo_id ,
                 t.promo_level ,
                 t.yy;
+
+		-- SELECT * FROM #temptable AS t WHERE t.Territory IN ('30324','70780','30338')
 	   
     END;
+
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_promotions_tracker_TYLY_sp] TO [public]

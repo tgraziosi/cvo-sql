@@ -22,7 +22,7 @@ CREATE TABLE [dbo].[purchase_all]
 [fob] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [tax_code] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [terms] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[attn] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[attn] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [footing] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [blanket] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [who_entered] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,

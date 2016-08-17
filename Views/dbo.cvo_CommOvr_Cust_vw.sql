@@ -6,11 +6,13 @@ GO
 CREATE VIEW [dbo].[cvo_CommOvr_Cust_vw]
 AS
 SELECT DISTINCT TOP (100) PERCENT t1.customer_code, t2.address_name, commission, t1.commissionable
+	, t2.price_code -- 8/16/2016 - per MB request
 FROM         dbo.CVO_armaster_all t1
 JOIN	dbo.armaster_all t2 on t1.customer_code=t2.customer_code
 WHERE     t2.address_type = 0
 AND	ISNULL(commissionable,0) <> 0  -- updated 10/14/15 from commissionable is not null
 ORDER BY customer_code
+
 
 
 GO

@@ -19,6 +19,8 @@ GO
 --end
 --*/
 
+-- 8/16/2016 - remove 999 from inventory to include.  They want it as part of salesperson bags, as per DL
+
 --SELECT @MONTH = 7
 --SELECT @YEAR = 2013
 CREATE view [dbo].[cvo_sls_inv_brand_vw] as 
@@ -34,7 +36,8 @@ sum(isnull(cvo_ext_value,0)+isnull(pns_value,0)+isnull(qc_value,0)+isnull(int_va
 obs, location, datepart(month,asofdate) month, datepart(year,asofdate) year
 from cvo_inv_val_month
 where
- (location <= '200 - AAAA' or location >= '999')
+ -- (location <= '200 - AAAA' or location >= '999')
+ (location <= '200 - AAAA' or location > '999')
 and type_code in ('frame','sun') 
 --AND @MONTH = DATEPART(MONTH,ASOFDATE) AND @YEAR = DATEPART(YEAR,ASOFDATE)
 group by 
@@ -72,6 +75,7 @@ GROUP BY case when category = 'UN' then 'ME'
     ELSE CATEGORY END, 
     case when I.TYPE_CODE in ('sun','FRAME') then 'FRAME' else 'PARTS' end, 
     I.obsolete, sbm.location, sbm.c_month, sbm.c_year
+
 
 
 

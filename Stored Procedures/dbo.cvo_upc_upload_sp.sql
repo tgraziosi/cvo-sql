@@ -24,6 +24,13 @@ SELECT * fROM CVO_UPC_UPLOAD
 
 SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 
+INSERT dbo.cvo_upc_upload
+        ( upc_code, qty )
+SELECT part_no, SUM(qty) qty
+ FROM dbo.lot_bin_stock AS lbs
+WHERE location = '311 - kels'
+GROUP BY lbs.part_no
+
 */
 	DECLARE	@row_id			int,
 			@last_row_id	int,
@@ -279,6 +286,7 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 	-- IF (SELECT COUNT(*) FROM cvo_upc_upload) > 0 AND @debug = 0 TRUNCATE TABLE CVO_UPC_UPLOAD
 
 END
+
 
 
 

@@ -16,7 +16,8 @@ CREATE procedure [dbo].[cvo_inv_fcst_sp]
 @usg_option CHAR(1) = 'O'
 , @Season_start int = NULL
 , @Season_end int = NULL
-, @Season_mult DECIMAL (20,8) = null
+, @Season_mult DECIMAL (20,8) = NULL
+, @spread VARCHAR(10) = null
 , @debug INT = 0
 --
 /*
@@ -75,6 +76,8 @@ set @startdate = '01/01/1949'  -- starting release date
 -- set @enddate = '12/31/2020' -- ending release date
 -- set @enddate = @asofdate
 set @enddate = ISNULL(@endrel, @asofdate)
+
+
 
 declare @coll_list varchar(1000), @style_list varchar(8000), @sf VARCHAR(1000), @gndr VARCHAR(1000), @s_start INT, @s_end INT, @s_mult DECIMAL(20,8)
 
@@ -160,9 +163,18 @@ s_mult DECIMAL(20,8),
 sort_seq int
 )
 
+
+-- 8/17/2016
+SET @SPREAD = ISNULL(@SPREAD,'CORE')
+
 insert into #dmd_mult
-select mm, pct_sales, 0 , 0, 0 from cvo_dmd_mult
-where obs_date is NULL AND asofdate = (SELECT MAX(asofdate) FROM cvo_dmd_mult WHERE asofdate <= GETDATE())
+select mm, pct_sales, 0 , 0, 0 
+FROM cvo_dmd_mult
+where obs_date is NULL 
+AND asofdate = (SELECT MAX(asofdate) 
+				FROM cvo_dmd_mult WHERE asofdate <= GETDATE())
+-- alternate spread %'s
+AND spread = @spread
 
 -- select sum(pct_sales) from #dmd_mult -- 1.0001 for 2015
 -- 0.99980000 for 2/2015
@@ -171,7 +183,8 @@ update #dmd_mult set sort_seq =
 CASE when mm < month(@asofdate) then mm - MONTH(@ASOFDATE) + 13
 	 ELSE mm - MONTH(@ASOFDATE) + 1 END 
 
-declare @sort_seq int, @base_pct float
+declare @sort_seq int, @base_pct FLOAT, @flatten decimal(20,8)
+
 /*
 select @sort_seq = 3
 while @sort_seq <= 15
@@ -184,23 +197,25 @@ begin
 end
 */
 
-set @base_pct = (select avg(pct_sales) from #dmd_mult where sort_seq in (10,11,12)/*(11,12,1)*/ ) -- last 3 months sales %
--- the multiplier s/b the average of the 3 months prior to the asofdate
+--IF @SPREAD = 'CORE'
+--BEGIN
+	set @base_pct = (select avg(pct_sales) from #dmd_mult where sort_seq in (10,11,12)/*(11,12,1)*/ ) -- last 3 months sales %
+	-- the multiplier s/b the average of the 3 months prior to the asofdate
 
-set @sort_seq = 1
-while @sort_seq <= 12
-begin
- 
- UPDATE #dmd_mult set mult = round(1+((pct_sales-@base_pct)/@base_pct),4)
-	 , s_mult = CASE WHEN @sort_seq BETWEEN @s_start AND @s_end THEN @s_mult ELSE 1.0 end
-	 where sort_seq = @sort_seq
+	set @sort_seq = 1
+	while @sort_seq <= 12
+	begin
+ 	 UPDATE #dmd_mult set mult = round(1+((pct_sales-@base_pct)/@base_pct),4)
+		 , s_mult = CASE WHEN @sort_seq BETWEEN @s_start AND @s_end THEN @s_mult ELSE 1.0 end
+		 where sort_seq = @sort_seq
 
- set @sort_seq = @sort_seq + 1
-end
+	 set @sort_seq = @sort_seq + 1
+	end
 
-declare @flatten decimal(20,8)
-select @flatten = sum(mult) from #dmd_mult
-update #dmd_mult set mult = mult * (12/@flatten)
+
+	select @flatten = sum(mult) from #dmd_mult
+	update #dmd_mult set mult = mult * (12/@flatten)
+--END
 
 -- select * From #dmd_mult
 
@@ -1051,6 +1066,7 @@ cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
 
 
 end
+
 
 
 

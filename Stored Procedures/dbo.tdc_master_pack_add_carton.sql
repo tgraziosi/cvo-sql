@@ -13,6 +13,7 @@ GO
 -- v1.8 CB 08/05/2014 - Issue #572 - Masterpack - Polarized Labs
 -- v1.9 CB 10/07/2014 - Do not validate carriers when master packing for Polarized Labs
 -- v2.0 CB 24/09/2014 - Fix issue with 'ALLOW_MASTERPACK_GLOBAL_SHIP_TO' being switched off and stopping functionality
+-- v2.1 CB 12/08/2016 - Add back in validation for Global Ship To 
 CREATE PROC [dbo].[tdc_master_pack_add_carton]  
  @pack_no  int,  
  @carton_no  int,   
@@ -207,7 +208,8 @@ BEGIN
 
 
 END 
-
+*/
+-- v2.1 Start
 -- v1.3 Validation for global ship to's
 IF (@pack_option = 1)
 BEGIN
@@ -241,8 +243,9 @@ BEGIN
 	END
 
 END
+-- v1.2 End
+-- v2.1 End
 
-*/ -- v1.2 End
 -- START v1.5
 /*
 -- v1.4 Start

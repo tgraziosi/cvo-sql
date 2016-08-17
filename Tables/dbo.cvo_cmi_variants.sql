@@ -15,7 +15,7 @@ CREATE TABLE [dbo].[cvo_cmi_variants]
 [isActive] [smallint] NULL CONSTRAINT [DF__cvo_cmi_v__isAct__6FE7D2F8] DEFAULT ('1'),
 [lead_time] [int] NULL,
 [product_description] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[supplier_color_description] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[supplier_color_description] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [temple_color_description] [varchar] (max) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [ws_material_moq] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [ws_material_yield] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,

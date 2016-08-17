@@ -71,23 +71,24 @@ FOR UPDATE
 AS
 
 -- UPDATES
+-- 8/16/2016 - check for null values ... was not logging end dates
 -- End Date Update
 INSERT cvo_cust_designation_codes_audit (Item, customer_code, code, audit_date, user_id, ColumnChange, ColumnDataFrom, ColumnDataTo) 
 	SELECT 'UPD' as Item, i.customer_code, i.code, getdate(), SUSER_SNAME(), 'EndDate', d.end_date,  i.end_date
 	 from inserted i INNER JOIN deleted d ON i.customer_code = d.customer_code AND i.code = d.code
-where d.end_date <> i.end_date
+where ISNULL(d.end_date,'1/1/1900') <> ISNULL(i.end_date,'1/1/1900')
 
 -- Start Date Update
 INSERT cvo_cust_designation_codes_audit (Item, customer_code, code, audit_date, user_id, ColumnChange, ColumnDataFrom, ColumnDataTo) 
 	SELECT 'UPD' as Item, i.customer_code, i.code, getdate(), SUSER_SNAME(), 'StartDate', d.start_date, i.start_date
 	 from inserted i INNER JOIN deleted d ON i.customer_code = d.customer_code AND i.code = d.code
-where d.start_date <> i.start_date
+where ISNULL(d.start_date,'1/1/1900') <> ISNULL(i.start_date,'1/1/1900')
 
 -- Primary Flag Update
 INSERT cvo_cust_designation_codes_audit (Item, customer_code, code, audit_date, user_id, ColumnChange, ColumnDataFrom, ColumnDataTo) 
 	SELECT 'UPD' as Item, i.customer_code, i.code, getdate(), SUSER_SNAME(), 'PrimaryFlag', d.primary_flag, i.primary_flag
 	 from inserted i INNER JOIN deleted d ON i.customer_code = d.customer_code AND i.code = d.code
-where d.primary_flag <> i.primary_flag
+where ISNULL(d.primary_flag,-1) <> ISNULL(i.primary_flag,-1)
 
 GO
 CREATE NONCLUSTERED INDEX [missing_index_311_310_cvo_cust_designation_codes] ON [dbo].[cvo_cust_designation_codes] ([customer_code], [date_reqd], [start_date]) ON [PRIMARY]

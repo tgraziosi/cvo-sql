@@ -1521,7 +1521,8 @@ INSERT  #i
 								 WHEN c.part_type IN ('hangtag','upc') THEN 'OTHER'
                                  ELSE 'PARTS'
                             END ,
-                weight_ea = CASE WHEN c.part_type IN ( 'bruit', 'frame', 'frame only' )
+                weight_ea = CASE WHEN c.res_type = 'Sun' THEN CAST (0.1 AS decimal(20,8)) -- added 8/15/2016
+								 WHEN c.part_type IN ( 'bruit', 'frame', 'frame only' )
 									THEN CAST (0.05 AS DECIMAL(20, 8))
                                  WHEN c.part_type = 'front'
 									THEN CAST (0.025 AS DECIMAL(20, 8))
@@ -2236,6 +2237,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

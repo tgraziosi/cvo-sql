@@ -56,8 +56,15 @@ SELECT  o.who_entered ,
         ol.shipped ,
         co.promo_id ,
         co.promo_level ,
-        o.note order_note,
-        ol.note line_note,
+        CASE WHEN o.note > '' THEN 'Order: ' + o.note 
+			 ELSE '' END order_note,
+        CASE WHEN ol.note > '' then
+			 CASE WHEN o.note = '' THEN 'Line: '+ ol.note
+				  WHEN o.note <> '' THEN '; Line: '+ ol.note
+				  ELSE ol.note
+				  end
+			ELSE ol.note
+			end line_note,
 		ISNULL(tx.Salesperson_code,'Unknown') dept
 FROM    CVO_ord_list col
         JOIN ord_list ol ON ol.line_no = col.line_no
@@ -78,6 +85,7 @@ WHERE   col.upsell_flag = 1
 END
 
 GRANT ALL ON dbo.cvo_upsell_orders_sp TO PUBLIC
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_upsell_orders_sp] TO [public]

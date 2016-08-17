@@ -5,7 +5,7 @@ GO
 CREATE PROCEDURE [dbo].[cvo_commission_statement_sp] @FiscalPeriod VARCHAR(10)
 AS 
 
--- exec cvo_commission_statement_sp '01/2016'
+-- exec cvo_commission_statement_sp '02/2016'
 
 SET NOCOUNT ON;
 
@@ -81,7 +81,7 @@ SELECT ty.id ,
 		AND RIGHT(cpv.recorded_month,4) = @year 
 		AND cpv.line_type IN ('adj/additional adj3') 
 		HAVING SUM(incentive_amount) >0 ),
-	   additionrsn1 = (SELECT TOP 1 max(ISNULL(comments,''))
+	   additionrsn1 = (SELECT TOP 1 max(ISNULL(cpv.comments,''))
 		FROM dbo.cvo_commission_promo_values AS cpv WHERE cpv.recorded_month = @FiscalPeriod AND cpv.rep_code = #mm.salesperson
 		AND LEFT(cpv.recorded_month,2) = #mm.mm
 		AND RIGHT(cpv.recorded_month,4) = @year 
@@ -90,7 +90,7 @@ SELECT ty.id ,
 	   
 	   additionrsn2 = CASE WHEN #mm.mm = additionalrsn2.month_num THEN ISNULL(additionalrsn2.promo_details,'') ELSE '' end,
 
-       additionrsn3 = ( SELECT TOP 1 MAX(ISNULL(comments,''))
+       additionrsn3 = ( SELECT TOP 1 MAX(ISNULL(cpv.comments,''))
 		FROM dbo.cvo_commission_promo_values AS cpv	WHERE cpv.recorded_month = @FiscalPeriod  
 		 AND cpv.rep_code = #mm.salesperson 
 		 AND LEFT(cpv.recorded_month,2) = #mm.mm
@@ -167,6 +167,7 @@ LEFT OUTER JOIN
 
 (
 SELECT DISTINCT c.rep_code, LEFT(c.recorded_month,2) month_num, 
+		REPLACE(
 		STUFF(( SELECT DISTINCT '; ' + ISNULL(ccpv2.comments,'') 
 				FROM dbo.cvo_commission_promo_values AS ccpv2
 				WHERE c.rep_code = ccpv2.rep_code 
@@ -174,7 +175,7 @@ SELECT DISTINCT c.rep_code, LEFT(c.recorded_month,2) month_num,
 					AND ccpv2.incentive_amount > 0
 					AND LEFT(ccpv2.recorded_month,2) = LEFT(c.recorded_month,2)
 				FOR XML PATH ('')
-				), 1, 1, '') promo_details
+				), 1, 1, ''),'&amp;','&') promo_details
  FROM dbo.cvo_commission_promo_values AS c
  WHERE CAST(RIGHT(c.recorded_month,4) AS int) = @year 
  AND c.recorded_month <= @FiscalPeriod
@@ -187,13 +188,14 @@ LEFT OUTER JOIN
 
 (
 SELECT DISTINCT c.rep_code, LEFT(c.recorded_month,2) month_num, c.incentive_amount reduction1,
+		REPLACE(
 		STUFF(( SELECT DISTINCT '; ' + ISNULL(ccpv2.comments,'') 
 				FROM dbo.cvo_commission_promo_values AS ccpv2
 				WHERE c.rep_code = ccpv2.rep_code AND ccpv2.recorded_month = @FiscalPeriod
 					AND ISNULL(ccpv2.line_type,'') IN ('Manual Reduction') 
 					AND ccpv2.incentive_amount <= 0
 				FOR XML PATH ('')
-				), 1, 1, '') reductionrsn1
+				), 1, 1, ''), '&amp;','&') reductionrsn1
  FROM dbo.cvo_commission_promo_values AS c
  WHERE CAST(RIGHT(c.recorded_month,4) AS int) = @year 
  AND LEFT(c.recorded_month,2) <= LEFT(@FiscalPeriod ,2)
@@ -223,6 +225,7 @@ ORDER BY salesperson
 
 
 END
+
 
 
 
