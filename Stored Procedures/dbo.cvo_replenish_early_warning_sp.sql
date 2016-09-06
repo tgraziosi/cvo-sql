@@ -38,6 +38,8 @@ begin
 	[bin_fill_pct] decimal(38,6), 
 	[replen_qty] decimal(38,8), 
 	[asofdate] DATETIME,
+	[Notify_date] DATETIME NULL,
+	[Ack_Date] DATETIME NULL,
 	[id] INT IDENTITY(1,1) PRIMARY KEY
 	)
 end
@@ -177,9 +179,9 @@ BEGIN
     ) AS NVARCHAR(MAX) ) +
     '</td></tr></table></table><BR><BR>' ;
 
-	-- SET @email_address = 'tgraziosi@cvoptical.com'
-	-- SET @subject = @subject + ' - TESTING'
-	SET @email_address = '#DC_replen_early_warning@cvoptical.com'
+	 SET @email_address = 'tgraziosi@cvoptical.com'
+	 SET @subject = @subject + ' - TESTING'
+	--SET @email_address = '#DCReplenEarlyWarning@cvoptical.com'
 
 	EXEC @rc = msdb.dbo.sp_send_dbmail
 				@recipients = @email_address,
@@ -191,6 +193,7 @@ BEGIN
 END
 
 END
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_replenish_early_warning_sp] TO [public]
 GO

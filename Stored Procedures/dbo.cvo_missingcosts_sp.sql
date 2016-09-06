@@ -27,16 +27,20 @@ SELECT  av.part_no ,
         av.status_desc ,
         il.std_cost ,
         il.std_ovhd_dolrs ,
-        il.std_util_dolrs
+        il.std_util_dolrs,
+		i.type_code -- 8/22/2016
 FROM    dbo.cvo_adpol_vw AS av
         JOIN inv_list il ON il.location = av.location
                             AND il.part_no = av.part_no
         JOIN inv_master i ON i.part_no = av.part_no
 WHERE   status_desc = 'open'
         AND il.std_cost = 0
-        AND il.std_cost <> av.unit_cost;
+        AND il.std_cost <> av.unit_cost
+		AND av.account_no NOT LIKE '9998%' -- 8/22/2016
+		;
 
 END
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_missingcosts_sp] TO [public]
 GO

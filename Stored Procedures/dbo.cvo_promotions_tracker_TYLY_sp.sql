@@ -11,7 +11,7 @@ CREATE PROCEDURE [dbo].[cvo_promotions_tracker_TYLY_sp]
 AS
     BEGIN
 
--- exec cvo_promotions_tracker_tyly_sp '1/1/2016','08/09/2016', null , 'aspire', null
+-- exec cvo_promotions_tracker_tyly_sp '1/1/2016','08/21/2016', '40457', 'bts', null
 
         SET NOCOUNT ON;
         SET ANSI_WARNINGS OFF;
@@ -20,9 +20,12 @@ AS
         DECLARE @sdately DATETIME ,
             @edately DATETIME;
 
-		SET  @edate   = DATEADD(ms,-1, DATEADD(DAY,1,@edate))
+		SET  @edate   = DATEADD(ms,-3, DATEADD(DAY,1,@edate))
         set  @sdately = DATEADD(YEAR, -1, @sdate)
 		SET  @edately = DATEADD(ms, -1, @sdate)
+
+		-- SELECT @sdate, @edate, @sdately, @edately
+
 
         CREATE TABLE #temptable
             (
@@ -84,6 +87,10 @@ AS
         INSERT  INTO #temptable
                 EXEC cvo_promotions_tracker_terr_sp @sdate, @edate, @Terr,
                     @Promo, @PromoLevel;
+
+--                 EXEC cvo_promotions_tracker_terr_sp '1/1/2016','8/22/2016', '50505','aspire','1,3,launch,new,vew'
+--				   EXEC cvo_promotions_tracker_tyly_sp '1/1/2016','8/22/2016', '50505','aspire','1,3,launch,new,vew'
+
 -- UPDATE #temptable SET yy = 'TY' WHERE yy = null
 
 		
@@ -97,13 +104,13 @@ AS
                 t.region ,
                 t.promo_id ,
                 t.promo_level ,
-                SUM(t.FramesOrdered) FramesOrdered ,
-                SUM(t.FramesShipped) FramesShipped ,
+                SUM(t.FramesOrdered*t.Qual_order) FramesOrdered ,
+                SUM(t.FramesShipped*t.Qual_order) FramesShipped ,
                 SUM(t.Qual_order) Qual_order ,
-                COUNT(DISTINCT t.order_no) Tot_order ,
+                sum(t.order_count) Tot_order ,
                 SUM(t.UC) UC ,
                 t.yy
-        FROM    ( SELECT    salesperson ,
+        FROM    ( SELECT    slp.salesperson_code salesperson ,
                             Territory ,
                             region ,
                             promo_id ,
@@ -111,7 +118,7 @@ AS
                             FramesOrdered ,
                             FramesShipped ,
                             Qual_order ,
-                            order_no ,
+                            CASE WHEN source = 'E' THEN 1 ELSE 0 END AS order_count ,
                             UC ,
                             yy = CASE WHEN date_entered >= @sdate 
                                       THEN DATEPART(YEAR, @sdate)
@@ -120,6 +127,7 @@ AS
                                       ELSE 9999
                                  END
                   FROM      #temptable
+				  JOIN arsalesp slp ON slp.salesperson_code = #temptable.salesperson
                 ) AS t
         GROUP BY t.salesperson ,
                 t.Territory ,
@@ -131,6 +139,9 @@ AS
 		-- SELECT * FROM #temptable AS t WHERE t.Territory IN ('30324','70780','30338')
 	   
     END;
+
+
+
 
 
 

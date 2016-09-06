@@ -9,8 +9,9 @@ GO
 -- v1.4 CT 23/04/2014 - Issue #572 - mark masterpack consolidation number as shipped
 -- v1.5 CT 22/10/2014 - Issue #572 - if masterpack consolidation, clear any existing parent pick records.
 -- v1.6 CB 23/04/2015 - Performance Changes
-
+-- v1.7 CB 22/06/2016 - #1599 email ship confirmation
 -- v1.8 CB 03/08/2016 - Remove freight code as this is done is another routine
+-- v1.9 CB 03/08/2016 - Fix issue with #1599 email ship confirmation
 
 CREATE PROCEDURE [dbo].[tdc_ship_confirm_sp]	@stage_no			varchar(50),
 										@alter_by			int,
@@ -37,7 +38,9 @@ BEGIN
 			@order_type char(1),    
 			@location varchar(10),    
 			@line_no int,    
-			@order_shipped  char(1)  
+			@order_shipped  char(1),
+			@cust_code	varchar(10), -- v1.7
+			@ship_to varchar(10) -- v1.7  
 
 	DECLARE @valid int -- v1.1  
 
@@ -292,12 +295,40 @@ BEGIN
 
 			BEGIN TRAN    
 			EXEC @ret = tdc_do_ship_order_sp @order_type, @order_no, @order_ext, @stage_no, @eBackOfficeShip, @user_id, @alter_by, @order_shipped OUTPUT    
-			IF @ret = 0     
+			IF @ret = 0		
 			--BEGIN SED001 -- Coop Points     -- CVO_coop_dollars
 			--JVM 01/26/10 
 			BEGIN
 				IF @order_type = 'S'
 				BEGIN
+					-- v1.7 Start
+					IF EXISTS (SELECT 1 FROM orders_all a (NOLOCK) JOIN	armaster_all b (NOLOCK) ON a.cust_code = b.customer_code
+							WHERE a.order_no = @order_no AND a.ext = @order_ext AND b.address_type = CASE WHEN a.ship_to = '' THEN 0 ELSE 1 END
+							AND b.ship_to_code = CASE WHEN a.ship_to = '' THEN b.ship_to_code ELSE a.ship_to END AND LEFT(a.user_category,2) = 'ST'
+							AND UPPER(b.addr_sort1) = 'CUSTOMER')
+					BEGIN
+						IF NOT EXISTS (SELECT 1 FROM cvo_email_ship_confirmation (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext and etype = 0)
+						BEGIN
+							INSERT	dbo.cvo_email_ship_confirmation (order_no, order_ext, email_address, email_sent, invoice_no, doc_ctrl_num, etype)
+							SELECT	a.order_no, a.ext, CASE WHEN ISNULL(a.email_address,'') = '' THEN c.contact_email ELSE a.email_address END, 0, d.inv_number, d.doc_ctrl_num, 0 -- v1.9
+							FROM	cvo_orders_all a (NOLOCK)
+							JOIN	orders_all b (NOLOCK)
+							ON		a.order_no = b.order_no
+							AND		a.ext = b.ext
+							JOIN	armaster_all c (NOLOCK)
+							ON		b.cust_code = c.customer_code
+							JOIN	cvo_order_invoice d (NOLOCK) -- v1.9
+							ON		a.order_no = d.order_no
+							AND		a.ext = d.order_ext
+							WHERE	a.order_no = @order_no
+							AND		a.ext = @order_ext
+							AND		c.address_type = CASE WHEN b.ship_to = '' THEN 0 ELSE 1 END
+							AND		c.ship_to_code = CASE WHEN b.ship_to = '' THEN c.ship_to_code ELSE b.ship_to END 
+
+						END
+					END
+					-- v1.7 End
+
 					-- START v1.4
 					IF EXISTS(SELECT 1 FROM dbo.cvo_masterpack_consolidation_hdr a (NOLOCK) INNER JOIN dbo.cvo_masterpack_consolidation_det b (NOLOCK) ON a.consolidation_no = b.consolidation_no
 							WHERE b.order_no = @order_no AND b.order_ext = @order_ext AND a.shipped = 0)
@@ -411,7 +442,7 @@ BEGIN
     the freight amount will be placed on the first order in the group.  
     If this is a master pack no recalculation is required.*/
 
-		-- v1.8 Start
+	-- v1.8 Start
 	/*
 	UPDATE	o 
 	SET		o.freight		= 0.00
@@ -480,7 +511,8 @@ BEGIN
 	AND s.master_pack = 'N'	  
 	*/
 	-- v1.8 End
-		          
+		   
+       
 	IF @ebackofficeship = 'Y'    
 	BEGIN    
 
@@ -600,7 +632,6 @@ BEGIN
     
 	RETURN 1 
 END
-
 GO
 GRANT EXECUTE ON  [dbo].[tdc_ship_confirm_sp] TO [public]
 GO

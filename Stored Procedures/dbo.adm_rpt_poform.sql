@@ -11,6 +11,7 @@ set nocount on
 -- v2.0	 TM	04/18/2012 - Place Product Type into Project_3
 -- v2.1  CB	24/11/2015 - Outsourcing - replace make process with final frame part number and description
 -- v2.2  CB 10/03/2016 - Issue #1574 - Outsourcing  
+-- v2.3  CB 30/08/2016 - Extend attn field
 create table #po (po_key int, po_ext int NULL, printed char(1))
 
 select @range = replace(@range,'"','''')
@@ -60,7 +61,7 @@ p_ship_to_no varchar(10) NULL,  p_ship_name varchar(40) NULL,  p_ship_address1 v
 p_ship_address2 varchar(40) NULL,  p_ship_address3 varchar(40) NULL,  p_ship_address4 varchar(40) NULL, 
 p_ship_address5 varchar(40) NULL,  p_ship_city varchar(40) NULL,  p_ship_state varchar(40) NULL, 
 p_ship_zip varchar(10) NULL,  p_ship_via varchar(10) NULL,  p_fob varchar(10) NULL,  p_tax_code varchar(10) NULL, 
-p_terms varchar(10) NULL,  p_attn varchar(30) NULL,  p_footing varchar(255) NULL,  p_blanket char(1) NULL, 
+p_terms varchar(10) NULL,  p_attn varchar(40) NULL,  p_footing varchar(255) NULL,  p_blanket char(1) NULL, 
 p_who_entered varchar(20) NULL,  p_total_amt_order decimal(20,8) NULL,  p_freight decimal(20,8) NULL, 
 p_date_to_pay datetime NULL,  p_discount decimal(20,8) NULL,  p_prepaid_amt decimal(20,8) NULL, 
 p_vend_inv_no varchar(20) NULL,  p_email char(1) NULL,  p_email_name varchar(20) NULL,  p_freight_flag char(1) NULL, 
@@ -262,7 +263,6 @@ left outer join orders_all o on o.order_no = oap.order_no and o.ext = oap.ext
 join apco c on 1 = 1
 order by 
 case when @order = 0 then p.vendor_no else '' end,p.po_key,l.shipto_code, l.shipto_name, l.addr1, l.addr2,l.addr3,l.addr4,l.addr5
-
 
 
 declare @mask varchar(100), @phone varchar(50), @orig_mask varchar(100)

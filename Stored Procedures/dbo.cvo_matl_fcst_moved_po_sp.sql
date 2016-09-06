@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -7,10 +6,12 @@ CREATE procedure [dbo].[cvo_matl_fcst_moved_po_sp]  @DateFrom DATETIME  , @DaysT
 
 as
 
--- exec cvo_matl_fcst_moved_po_sp '01/11/2016' 
+-- exec cvo_matl_fcst_moved_po_sp '08/17/2016' 
 
 -- 021815 - tag - only call out items where the shipment is not yet intransit
 -- 030615 -- incorporate new line level packing list setting
+-- 081816 -- tag - fix po date logic
+
 SET NOCOUNT ON
 
 declare @fromdate datetime, @days int, @bo_thresh int
@@ -23,27 +24,34 @@ select @days =  @DaysThresh
 select @bo_thresh =  @BOThresh
 
 IF(OBJECT_ID('tempdb.dbo.#matlfcst') is not null)  drop table #matlfcst
-SELECT -- distinct 
-	  cast( min(field_from) as datetime) date_field_from
-	  , cast( min(field_to) as datetime) date_field_to
+  SELECT po_a.date_field_from
+	  , po_a.date_field_to
 	  , i.category brand
 	  , ia.field_2 style
-	  , min(r.po_no) po_no
-  into #matlfcst
-  FROM [CVO].[dbo].[CVO_PO_AUDIT] pa (nolock)
-  inner join releases r (nolock) on r.po_no = pa.po_no
+	  , po_a.po_no
+  INTO #matlfcst
+  FROM 
+   (SELECT pa.po_no,
+		 MIN(CAST(field_from AS DATETIME)) date_field_from,
+		 MIN(CAST(field_to AS datetime)) date_field_to 
+  FROM dbo.CVO_PO_AUDIT AS pa
+  JOIN dbo.purchase_all AS p ON p.po_no = pa.po_no
+  WHERE pa.field_name = 'inhouse_date' 
+  AND pa.modified_date >= @fromdate
+  and ( p.expedite_flag = 0 ) -- 021815
+  GROUP BY pa.po_no
+  having DATEDIFF(dd,MIN(CAST(field_from AS DATETIME)), MIN(CAST(field_to AS DATETIME))) > @Days
+  ) AS po_a
+  inner join releases r (nolock) on r.po_no = po_a.po_no
   inner join pur_list pl (nolock) on pl.po_no = r.po_no and pl.part_no = r.part_no and pl.line=r.po_line
   inner join purchase p (nolock) on r.po_no = p.po_no -- 021815
   inner join inv_master i (nolock) on i.part_no = r.part_no 
   inner join inv_master_add ia (nolock) On ia.part_no = i.part_no
-  where field_name = 'inhouse_date'
   and type_code in ('frame','sun','bruit')
-  and modified_date >= @fromdate 
-  and datediff(dd, field_from, field_to ) > @days
-  and ( p.expedite_flag = 0  and pl.plrecd = 0 ) -- 021815
+  and ( pl.plrecd = 0 ) -- 021815
   and r.location = '001' -- 031215 - qualify on location
-  group by
-  i.category, ia.field_2
+
+
 
   -- select datediff(dd, '6/15/2015', '7/15/2015')
 -- SELECT * FROM #matlfcst
@@ -150,5 +158,6 @@ and #mpo.bucket between dateadd(mm,datediff(mm, 0, m.date_field_from), 0) and
 ) 
 as x on x.brand = #mpo.brand and x.style = #mpo.style
 left outer join #matlfcst m on m.brand = #mpo.brand and m.style = #mpo.style
+
 
 GO

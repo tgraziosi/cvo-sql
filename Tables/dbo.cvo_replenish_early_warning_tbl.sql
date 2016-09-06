@@ -12,8 +12,10 @@ CREATE TABLE [dbo].[cvo_replenish_early_warning_tbl]
 [bin_fill_pct] [decimal] (38, 6) NULL,
 [replen_qty] [decimal] (38, 8) NULL,
 [asofdate] [datetime] NULL,
+[Notify_date] [datetime] NULL,
+[Ack_Date] [datetime] NULL,
 [id] [int] NOT NULL IDENTITY(1, 1)
 ) ON [PRIMARY]
 GO
-ALTER TABLE [dbo].[cvo_replenish_early_warning_tbl] ADD CONSTRAINT [PK__cvo_replenish_ea__1EDF23E4] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
+ALTER TABLE [dbo].[cvo_replenish_early_warning_tbl] ADD CONSTRAINT [PK__cvo_replenish_ea__0979F2AA] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
 GO

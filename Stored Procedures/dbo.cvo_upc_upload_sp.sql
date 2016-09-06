@@ -15,7 +15,7 @@ BEGIN
 
 /*
 
-EXEC CVO_UPC_UPLOAD_SP '008','008', -1, 'ADHOC', 0
+EXEC CVO_UPC_UPLOAD_SP '300 - MART','300', -1, 'WRITEOFF', 0
 EXEC CVO_UPC_UPLOAD_SP '001','RR REFURB', 1, 'ADHOC', 0
 
 TRUNCATE TABLE CVO_UPC_UPLOAD
@@ -28,7 +28,7 @@ INSERT dbo.cvo_upc_upload
         ( upc_code, qty )
 SELECT part_no, SUM(qty) qty
  FROM dbo.lot_bin_stock AS lbs
-WHERE location = '311 - kels'
+WHERE location = '300 - MART'
 GROUP BY lbs.part_no
 
 */

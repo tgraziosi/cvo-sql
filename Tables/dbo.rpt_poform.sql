@@ -21,7 +21,7 @@ CREATE TABLE [dbo].[rpt_poform]
 [p_fob] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [p_tax_code] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [p_terms] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[p_attn] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[p_attn] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [p_footing] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [p_blanket] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [p_who_entered] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,

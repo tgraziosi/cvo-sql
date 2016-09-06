@@ -49,7 +49,7 @@ BEGIN
 			 @recipients = @email_address,
 			 @body = @body_text, 
 			 @subject = @subject_line,
-			 @profile_name = 'WMS_1',
+			 @profile_name = 'OrderConfirmations',
 			 @file_attachments = @attachment,
 			 @mailitem_id = @mailitem_id OUTPUT
 

@@ -25,7 +25,7 @@ GO
 -- 052616 - show CH inventory again
 -- 6/9/2016 for kit items to fake inventory # later. show real inventory for REVO
 -- 6/28/2016 - support for July programs - BTS and TWEEN and new OP kit
---
+-- 9/2/2016 - tweeks for 9/6 release and VEW 2016 - hide all releases, not already APR until 9/9
 -- =============================================
 
 CREATE PROCEDURE [dbo].[HS_Inventory8_sp] 
@@ -345,14 +345,19 @@ update #final set Hide =
 			   WHEN ShelfQty <= 0 and [category:1] in ('EOR','EORS') THEN 1
 			   else 0 END
 
-update #final set Hide = case when COLL = 'revo' AND isnull(pomdate,@today) = '01/01/2010' then 1
+update #final set Hide = case -- 9/2/2016
+							  WHEN (ReleaseDate = '9/6/2016' AND @today < '9/9/2016' AND apr <> 'Y') THEN 1
+							  WHEN (Model = 'COLORFUL' AND COLL = 'AS') THEN 1
+							  -- 9/2/2016
+							  WHEN COLL = 'revo' AND isnull(pomdate,@today) = '01/01/2010' then 1
 							  WHEN coll = 'revo' AND model IN ('Straightshot','Bearing','Heading') THEN 1 -- 2/10/2016
 							  -- unhide for 4/26 release WHEN mastersku IN ('iz2014','iz2015','iz2016','iz2017') THEN 1
 							  WHEN MASTERSKU IN ('IZ6001','IZ6002','IZ6003','IZ6004') AND @today < '5/16/2016' THEN 1
 							  WHEN mastersku IN ('iz2026','iz2027') THEN 1 -- new iz t&C kit
+
 							   else 0 end
 
--- SELECT * FROM dbo.cvo_hs_inventory_8 AS chi WHERE chi.mastersku LIKE 'iz600%'
+-- SELECT * FROM dbo.cvo_hs_inventory_8 AS chi WHERE releasedate = '9/6/2016'
 			   
 -- 8/21/2015 - hide these until JB says to release
 
@@ -564,6 +569,7 @@ END
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
 
 
 

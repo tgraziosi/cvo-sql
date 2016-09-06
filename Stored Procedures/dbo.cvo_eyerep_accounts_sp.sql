@@ -55,7 +55,7 @@ BEGIN
 	  AND NOT EXISTS(SELECT 1 FROM #allterr WHERE #allterr.customer_code = ISNULL(employee_code,'') )
 	  
 
-	  -- SELECT * FROM #allterr
+	  -- SELECT * FROM #allterr where customer_code = '010021'
 
 -- PULL LIST FOR CUSTOMERS
 IF(OBJECT_ID('dbo.cvo_eyerep_acts_tbl') is null)
@@ -110,9 +110,9 @@ LEFT(city,30) as bill_city,
 LEFT(state,30) as bill_state,
 LEFT(postal_code,15) as bill_postcode,
 LEFT(contact_phone,15) as bill_phone,
-LEFT(CASE WHEN (contact_email LIKE '%cvoptical.com'
-				OR contact_email LIKE '%refused%')
+LEFT(CASE WHEN (contact_email LIKE '%refused%')
 			THEN ''
+			WHEN #AllTerr.customer_code = '010021' THEN 'tgraziosi@cvoptical.com'
 			ELSE REPLACE(LOWER(ISNULL(contact_email,'')),';',',')
 			END, 100),
 0 AS current_balance,
@@ -393,6 +393,7 @@ Wholesale_price,
 
 FROM cvo_inv_master_r2_vw 
 WHERE 1=1
+AND web_saleable_flag = 'Y'
 
 -- Collections
 
@@ -426,11 +427,28 @@ TRUNCATE TABLE dbo.cvo_eyerep_ordtyp_tbl
 
 INSERT dbo.cvo_eyerep_ordtyp_tbl
         ( ordtyp_id, ordtyp_description )
-SELECT DISTINCT promo_id+','+promo_level, c.promo_name  
+SELECT DISTINCT su.category_code, su.category_code+' = '+su.category_desc
+FROM dbo.so_usrcateg AS su WHERE void = 'n' 
+AND su.category_code LIKE 'st%'
+
+-- promotion codes
+
+IF(OBJECT_ID('dbo.cvo_eyerep_promocodes_tbl') is null)
+	begin
+CREATE TABLE [dbo].[cvo_eyerep_promocodes_tbl](
+	[promo_id] [varchar](20) NOT NULL,
+	[promo_description] [varchar](50) NULL
+) ON [PRIMARY]
+END
+
+TRUNCATE TABLE dbo.cvo_eyerep_promocodes_tbl
+
+INSERT dbo.cvo_eyerep_promocodes_tbl
+        ( promo_id, promo_description )
+SELECT DISTINCT promo_id+','+promo_level, promo_id+','+promo_level+' = '+c.promo_name  
 FROM cvo_promotions AS c 
 WHERE ISNULL(c.void,'N') = 'N'
 AND c.promo_start_date <= GETDATE() AND c.promo_end_date >= GETDATE()
-
 
 -- Sales Reps
 
@@ -486,13 +504,14 @@ TRUNCATE TABLE dbo.cvo_eyerep_rpact_tbl
 
 INSERT dbo.cvo_eyerep_rpact_tbl
         ( rep_id, acct_id )
-SELECT DISTINCT ar.territory_code, ar.customer_code 
+SELECT DISTINCT ISNULL(slp.territory_code, ar.territory_code) territory, ar.customer_code 
 FROM armaster ar (nolock)
 INNER JOIN #allterr (nolock) on ar.customer_code = #allterr.customer_code
+LEFT OUTER JOIN arsalesp slp ON slp.employee_code = #allterr.customer_code
 WHERE 1=1
-AND STATUS_TYPE=1
-AND ADDRESS_TYPE=0
-AND EXISTS ( SELECT 1 FROM dbo.cvo_eyerep_rp_tbl AS cert WHERE cert.rep_id = ar.territory_code)
+AND ar.STATUS_TYPE=1
+AND ar.ADDRESS_TYPE=0
+AND EXISTS ( SELECT 1 FROM dbo.cvo_eyerep_rp_tbl AS cert WHERE cert.rep_id = ISNULL(slp.territory_code,ar.territory_code))
 
 -- rep account ship addresses
 
@@ -786,6 +805,9 @@ and ol.ordered > (ol.shipped + isnull(e.qty,0))
 -- and o.sch_ship_date < @today
 and ol.part_type = 'p'
 AND o.who_entered = 'backordr'
+
+
+
 
 
 GO

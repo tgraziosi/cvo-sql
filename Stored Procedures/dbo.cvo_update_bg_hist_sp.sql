@@ -93,6 +93,7 @@ BEGIN
 	WHERE	b.action = 'D'
 	AND		a.parent = @parent
 	AND		a.relation_code = @relation
+	AND		end_date IS NULL -- v1.1
 
 	-- Buying group number updates
 	UPDATE	a

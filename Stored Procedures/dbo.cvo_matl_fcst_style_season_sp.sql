@@ -50,7 +50,9 @@ CREATE procedure [dbo].[cvo_matl_fcst_style_season_sp]
 -- 10/6/2015 - PO lines - make the outer range < not <= to avoid 13th bucket on report
 -- 10/20/2015 - add seasonality multiplier, promo and substitute flagging
 -- 7/15/2016 - calc starting inventory with allocations if usage is on orders as allocations are already in the demand number. If on shipments, then net out allocations.
-as 
+-- 8/22/2016 - have to use the core spread
+
+AS 
 begin
 
 set nocount ON
@@ -141,6 +143,8 @@ sort_seq int
 insert into #dmd_mult
 select mm, pct_sales, 0 , 0, 0 from cvo_dmd_mult
 where obs_date is NULL AND asofdate = (SELECT MAX(asofdate) FROM cvo_dmd_mult WHERE asofdate <= GETDATE())
+-- 8/22/2016
+AND spread = 'CORE'
 
 -- select sum(pct_sales) from #dmd_mult -- 1.0001 for 2015
 -- 0.99980000 for 2/2015
@@ -950,6 +954,7 @@ on specs.brand = #style.brand and specs.style = #style.style
 
 
 end
+
 
 
 

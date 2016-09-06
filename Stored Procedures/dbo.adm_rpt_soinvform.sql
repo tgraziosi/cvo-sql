@@ -38,6 +38,7 @@ set nocount on
 -- v12.0 CB 15/07/2015 - For BG then display zero prices for free frames
 -- v12.1 CB 22/09/2015 - As per Tine - They want to see the gross price (list price) as whatever it is (non-zero), and the net price to show as $0.
 -- v12.2 CB 11/05/2016 - Fix issue with promo discount
+-- v12.3 CB 04/08/2016 - #1599 email ship confirmation order may not be posted
 
 --DECLARE	@custom_count int -- v10.1 v10.3
   
@@ -349,189 +350,210 @@ select @range = replace(@range,'"','''')
 select @invoice = isnull(@invoice,'')  
   
 select @prt_summ = left(@invoice,1)  
-select @invoice = substring(@invoice,2,16)  
-  
-if @invoice <> ''  
-begin  
-  select @typ     = left(@invoice,1)  
-  select @invoice = substring(@invoice,3,16)  
-  if @typ != 'L'  
-  begin  
-    exec('insert #invoices  
-    select min(printed),invoice_no, 0,0,0,0,0, type, min(orders_all.order_no),  
-    case when type = ''I'' then 2031 else 2032 end, oi.doc_ctrl_num, 0, min(orders_all.ext)  
-    from orders_all (nolock)  
-    join orders_invoice oi (NOLOCK) on oi.order_no = orders_all.order_no and oi.order_ext = orders_all.ext  
-    where status >= ''T'' and status < ''V'' and invoice_no = ' + @invoice + ' and type = ''' + @typ + '''   
-    and isnull(tax_valid_ind,1) = 1   
-    group by invoice_no, type, oi.doc_ctrl_num')  
-  end  
-  else  
-  begin  
-    exec('insert #invoices  
-    select min(printed),invoice_no, 0,0,0,0,0, type, min(orders_all.order_no),  
-    case when type = ''I'' then 2031 else 2032 end, oi.doc_ctrl_num, 0, min(orders_all.ext)    
-    from orders_all (NOLOCK)  
-    join orders_invoice oi (NOLOCK) on oi.order_no = orders_all.order_no and oi.order_ext = orders_all.ext  
-    where status >= ''T'' and status < ''V'' and invoice_no > 0 and load_no = ' + @invoice + ' and type < ''X'' and printed < ''T''   
-    and isnull(tax_valid_ind,1) = 1   
-    group by invoice_no, type, oi.doc_ctrl_num')  
-  end  
-end  
-else  
-begin  
-  if @incl_prev = 0  
-  begin  
 
-	IF PATINDEX('%orders_all.cust_code%',@range) > 0
-	BEGIN
-		SET @cust_range = SUBSTRING(@range,PATINDEX('%orders_all.cust_code%',@range),8000)
-		SET @end_range = PATINDEX('%) )%',@cust_range) - 2
-		SET @cust_range = SUBSTRING(@cust_range,1,@end_range)
-		SET @cust_range = replace(@cust_range,'orders_all.cust_code', 'c.customer_code')  
-    
+-- v12.3 Start
+IF (@prt_summ = 'Q')
+BEGIN
+	SELECT @typ = SUBSTRING(@invoice, 2, 1)  
+	SELECT @invoice = SUBSTRING(@invoice, 4, 16)  
 
-		exec('insert #customers  (cust_code, cust_type)
-		select distinct c.customer_code, c.addr_sort1
-		from adm_cust c (nolock)
-		where ' + @cust_range ) 		
-	END
- 
-    exec('insert #invoices  
-    select min(printed),invoice_no, 0,0,0,0,0, type, min(orders_all.order_no),  
-    case when type = ''I'' then 2031 else 2032 end, oi.doc_ctrl_num, 0, min(orders_all.ext)    
-    from orders_all (nolock)  
-    join adm_cust c (nolock) on orders_all.cust_code = c.customer_code  
-    join orders_invoice oi (nolock) on oi.order_no = orders_all.order_no and oi.order_ext = orders_all.ext  
-    join locations l (nolock) on l.location = orders_all.location  
-    join region_vw r (nolock) on l.organization_id = r.org_id  
-    where orders_all.status >= ''T'' and orders_all.status < ''V'' and orders_all.invoice_no > 0 and orders_all.type < ''X'' and   
-      isnull(orders_all.tax_valid_ind,1) = 1 and  
-   orders_all.printed < ''T'' and ' + @range +  
-    ' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num')   
-  end  
-  else  
-  begin  
+	exec('insert #invoices  
+	select min(printed), inv_number, 0,0,0,0,0, type, min(orders_all.order_no),  
+	case when type = ''I'' then 2031 else 2032 end, oi.doc_ctrl_num, 0, min(orders_all.ext)  
+	from orders_all (nolock)  
+	join cvo_order_invoice oi (NOLOCK) on oi.order_no = orders_all.order_no and oi.order_ext = orders_all.ext  
+	where status >= ''R'' and status < ''V'' and inv_number = ' + @invoice + ' and type = ''' + @typ + '''   
+	and isnull(tax_valid_ind,1) = 1   
+	group by inv_number, type, oi.doc_ctrl_num')  
 
-	IF PATINDEX('%orders_all.cust_code%',@range) > 0
-	BEGIN
-		SET @cust_range = SUBSTRING(@range,PATINDEX('%orders_all.cust_code%',@range),8000)
-		SET @end_range = PATINDEX('%) )%',@cust_range) - 2
-		SET @cust_range = SUBSTRING(@cust_range,1,@end_range)
-		SET @cust_range = replace(@cust_range,'orders_all.cust_code', 'c.customer_code')  
-    
-		exec('insert #customers  (cust_code, cust_type)
-		select distinct c.customer_code, c.addr_sort1
-		from adm_cust c (nolock)
-		where ' + @cust_range ) 			
-	END
+END
+ELSE
+BEGIN
 
-    exec('insert #invoices  
-    select min(printed),invoice_no, 0,0,0,0,0, type, min(orders_all.order_no),  
-    case when type = ''I'' then 2031 else 2032 end, oi.doc_ctrl_num, 0, min(orders_all.ext)    
-    from orders_all (nolock)  
-    join adm_cust c (nolock) on orders_all.cust_code = c.customer_code  
-    join locations l (nolock) on l.location = orders_all.location   
-    join region_vw r (nolock) on l.organization_id = r.org_id   
-    join orders_invoice oi (nolock) on oi.order_no = orders_all.order_no and oi.order_ext = orders_all.ext  
-    where orders_all.status >= ''T'' and orders_all.status < ''V''  and  
-      isnull(orders_all.tax_valid_ind,1) = 1   
-      and orders_all.invoice_no > 0 and orders_all.type < ''X'' and ' + @range +  
-    ' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num')   
-  end  
+	select @invoice = substring(@invoice,2,16)  
+	  
+	if @invoice <> ''  
+	begin  
+	  select @typ     = left(@invoice,1)  
+	  select @invoice = substring(@invoice,3,16)  
+	  if @typ != 'L'  
+	  begin  
+		exec('insert #invoices  
+		select min(printed),invoice_no, 0,0,0,0,0, type, min(orders_all.order_no),  
+		case when type = ''I'' then 2031 else 2032 end, oi.doc_ctrl_num, 0, min(orders_all.ext)  
+		from orders_all (nolock)  
+		join orders_invoice oi (NOLOCK) on oi.order_no = orders_all.order_no and oi.order_ext = orders_all.ext  
+		where status >= ''T'' and status < ''V'' and invoice_no = ' + @invoice + ' and type = ''' + @typ + '''   
+		and isnull(tax_valid_ind,1) = 1   
+		group by invoice_no, type, oi.doc_ctrl_num')  
+	  end  
+	  else  
+	  begin  
+		exec('insert #invoices  
+		select min(printed),invoice_no, 0,0,0,0,0, type, min(orders_all.order_no),  
+		case when type = ''I'' then 2031 else 2032 end, oi.doc_ctrl_num, 0, min(orders_all.ext)    
+		from orders_all (NOLOCK)  
+		join orders_invoice oi (NOLOCK) on oi.order_no = orders_all.order_no and oi.order_ext = orders_all.ext  
+		where status >= ''T'' and status < ''V'' and invoice_no > 0 and load_no = ' + @invoice + ' and type < ''X'' and printed < ''T''   
+		and isnull(tax_valid_ind,1) = 1   
+		group by invoice_no, type, oi.doc_ctrl_num')  
+	  end  
+	end  
+	else  
+	begin  
+	  if @incl_prev = 0  
+	  begin  
 
-	-- v4.1 
-	-- if any buying groups exist get the child list
-	IF EXISTS (SELECT 1 FROM #customers WHERE UPPER(cust_type) = 'BUYING GROUP')
-	BEGIN
-		-- v10.8 Start
-		-- Get the date range if set
-		IF PATINDEX('%orders_all.invoice_date%',@range) > 0
+		IF PATINDEX('%orders_all.cust_code%',@range) > 0
 		BEGIN
-			-- Extract the start and end dates from the range and convert from julian dates
-			SELECT @dstart = DATEADD(DAY,(LEFT(SUBSTRING(@range,PATINDEX("%datediff(day,'01/01/1900',orders_all.invoice_date) + 693596  >= %",@range)+ 64,8000),6)) - 693596, '01/01/1900')
-			SELECT @dend = DATEADD(DAY, (LEFT(SUBSTRING(@range,PATINDEX("%datediff(day,'01/01/1900',orders_all.invoice_date) + 693596  <= %",@range)+ 64,8000),6)) - 693596, '01/01/1900')
+			SET @cust_range = SUBSTRING(@range,PATINDEX('%orders_all.cust_code%',@range),8000)
+			SET @end_range = PATINDEX('%) )%',@cust_range) - 2
+			SET @cust_range = SUBSTRING(@cust_range,1,@end_range)
+			SET @cust_range = replace(@cust_range,'orders_all.cust_code', 'c.customer_code')  
+	    
+
+			exec('insert #customers  (cust_code, cust_type)
+			select distinct c.customer_code, c.addr_sort1
+			from adm_cust c (nolock)
+			where ' + @cust_range ) 		
 		END
-		ELSE
+	 
+		exec('insert #invoices  
+		select min(printed),invoice_no, 0,0,0,0,0, type, min(orders_all.order_no),  
+		case when type = ''I'' then 2031 else 2032 end, oi.doc_ctrl_num, 0, min(orders_all.ext)    
+		from orders_all (nolock)  
+		join adm_cust c (nolock) on orders_all.cust_code = c.customer_code  
+		join orders_invoice oi (nolock) on oi.order_no = orders_all.order_no and oi.order_ext = orders_all.ext  
+		join locations l (nolock) on l.location = orders_all.location  
+		join region_vw r (nolock) on l.organization_id = r.org_id  
+		where orders_all.status >= ''T'' and orders_all.status < ''V'' and orders_all.invoice_no > 0 and orders_all.type < ''X'' and   
+		  isnull(orders_all.tax_valid_ind,1) = 1 and  
+	   orders_all.printed < ''T'' and ' + @range +  
+		' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num')   
+	  end  
+	  else  
+	  begin  
+
+		IF PATINDEX('%orders_all.cust_code%',@range) > 0
 		BEGIN
-			SELECT @dstart = NULL
-			SELECT @dend = NULL
+			SET @cust_range = SUBSTRING(@range,PATINDEX('%orders_all.cust_code%',@range),8000)
+			SET @end_range = PATINDEX('%) )%',@cust_range) - 2
+			SET @cust_range = SUBSTRING(@cust_range,1,@end_range)
+			SET @cust_range = replace(@cust_range,'orders_all.cust_code', 'c.customer_code')  
+	    
+			exec('insert #customers  (cust_code, cust_type)
+			select distinct c.customer_code, c.addr_sort1
+			from adm_cust c (nolock)
+			where ' + @cust_range ) 			
 		END
 
-		INSERT 	#customers (cust_code, 	cust_type)
-		SELECT	b.child, c.addr_sort1
-		FROM	#customers a
-		CROSS APPLY dbo.f_cvo_get_buying_group_child_list_range(a.cust_code,@dstart,@dend) b 
-		JOIN	armaster_all c (NOLOCK)
-		ON		b.child = c.customer_code
-		WHERE	c.address_type = 0
+		exec('insert #invoices  
+		select min(printed),invoice_no, 0,0,0,0,0, type, min(orders_all.order_no),  
+		case when type = ''I'' then 2031 else 2032 end, oi.doc_ctrl_num, 0, min(orders_all.ext)    
+		from orders_all (nolock)  
+		join adm_cust c (nolock) on orders_all.cust_code = c.customer_code  
+		join locations l (nolock) on l.location = orders_all.location   
+		join region_vw r (nolock) on l.organization_id = r.org_id   
+		join orders_invoice oi (nolock) on oi.order_no = orders_all.order_no and oi.order_ext = orders_all.ext  
+		where orders_all.status >= ''T'' and orders_all.status < ''V''  and  
+		  isnull(orders_all.tax_valid_ind,1) = 1   
+		  and orders_all.invoice_no > 0 and orders_all.type < ''X'' and ' + @range +  
+		' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num')   
+	  end  
 
---		SELECT	a.rel_cust, b.addr_sort1
---		FROM	artierrl a (NOLOCK)
---		JOIN	armaster_all b (NOLOCK)
---		ON		a.rel_cust = b.customer_code
---		JOIN	#customers c
---		ON		a.parent = c.cust_code
---		WHERE	a.tier_level > 1
---		AND		b.address_type = 0
---		AND		a.relation_code = @relation_code -- v10.6
-		-- v10.8 End
-
-		-- Remove any customers from the list if they already exist in the original range including the buying group
-		DELETE	#customers 
-		WHERE	cust_code in (
-			SELECT	a.cust_code 
-			FROM	orders_all a (NOLOCK)
-			JOIN	#invoices b
-			ON		a.order_no = b.order_no)
-
-		-- v4.2
-		SET @date_range = ' 1 = 1 '
-		IF PATINDEX('%orders_all.invoice_date%',@range) > 0
+		-- v4.1 
+		-- if any buying groups exist get the child list
+		IF EXISTS (SELECT 1 FROM #customers WHERE UPPER(cust_type) = 'BUYING GROUP')
 		BEGIN
-			SET @date_range = SUBSTRING(@range,PATINDEX('%datediff(day,''01/01/1900'',orders_all.invoice_date%',@range),8000)
-			SET @end_range = PATINDEX('%) )%',@date_range) - 2
-			SET @date_range = SUBSTRING(@date_range,1,@end_range)
+			-- v10.8 Start
+			-- Get the date range if set
+			IF PATINDEX('%orders_all.invoice_date%',@range) > 0
+			BEGIN
+				-- Extract the start and end dates from the range and convert from julian dates
+				SELECT @dstart = DATEADD(DAY,(LEFT(SUBSTRING(@range,PATINDEX("%datediff(day,'01/01/1900',orders_all.invoice_date) + 693596  >= %",@range)+ 64,8000),6)) - 693596, '01/01/1900')
+				SELECT @dend = DATEADD(DAY, (LEFT(SUBSTRING(@range,PATINDEX("%datediff(day,'01/01/1900',orders_all.invoice_date) + 693596  <= %",@range)+ 64,8000),6)) - 693596, '01/01/1900')
+			END
+			ELSE
+			BEGIN
+				SELECT @dstart = NULL
+				SELECT @dend = NULL
+			END
+
+			INSERT 	#customers (cust_code, 	cust_type)
+			SELECT	b.child, c.addr_sort1
+			FROM	#customers a
+			CROSS APPLY dbo.f_cvo_get_buying_group_child_list_range(a.cust_code,@dstart,@dend) b 
+			JOIN	armaster_all c (NOLOCK)
+			ON		b.child = c.customer_code
+			WHERE	c.address_type = 0
+
+	--		SELECT	a.rel_cust, b.addr_sort1
+	--		FROM	artierrl a (NOLOCK)
+	--		JOIN	armaster_all b (NOLOCK)
+	--		ON		a.rel_cust = b.customer_code
+	--		JOIN	#customers c
+	--		ON		a.parent = c.cust_code
+	--		WHERE	a.tier_level > 1
+	--		AND		b.address_type = 0
+	--		AND		a.relation_code = @relation_code -- v10.6
+			-- v10.8 End
+
+			-- Remove any customers from the list if they already exist in the original range including the buying group
+			DELETE	#customers 
+			WHERE	cust_code in (
+				SELECT	a.cust_code 
+				FROM	orders_all a (NOLOCK)
+				JOIN	#invoices b
+				ON		a.order_no = b.order_no)
+
+			-- v4.2
+			SET @date_range = ' 1 = 1 '
+			IF PATINDEX('%orders_all.invoice_date%',@range) > 0
+			BEGIN
+				SET @date_range = SUBSTRING(@range,PATINDEX('%datediff(day,''01/01/1900'',orders_all.invoice_date%',@range),8000)
+				SET @end_range = PATINDEX('%) )%',@date_range) - 2
+				SET @date_range = SUBSTRING(@date_range,1,@end_range)
+
+			END
+			
+
+			IF @incl_prev = 0  
+			BEGIN
+				exec('insert #invoices  
+				select min(printed),invoice_no, 0,0,0,0,0, type, min(orders_all.order_no),  
+				case when type = ''I'' then 2031 else 2032 end, oi.doc_ctrl_num, 0, min(orders_all.ext)    
+				from orders_all (nolock)  
+				join adm_cust c (nolock) on orders_all.cust_code = c.customer_code  
+				join orders_invoice oi (nolock) on oi.order_no = orders_all.order_no and oi.order_ext = orders_all.ext  
+				join locations l (nolock) on l.location = orders_all.location  
+				join region_vw r (nolock) on l.organization_id = r.org_id  
+				join #customers tc on c.customer_code = tc.cust_code
+				where orders_all.status >= ''T'' and orders_all.status < ''V'' and orders_all.invoice_no > 0 and orders_all.type < ''X'' and   
+				  isnull(orders_all.tax_valid_ind,1) = 1 and  ' + @date_range + ' and
+			   orders_all.printed < ''T'' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num')   
+
+			END 
+			ELSE
+			BEGIN
+			   exec('insert #invoices  
+				select min(printed),invoice_no, 0,0,0,0,0, type, min(orders_all.order_no),  
+				case when type = ''I'' then 2031 else 2032 end, oi.doc_ctrl_num, 0, min(orders_all.ext)    
+				from orders_all (nolock)  
+				join adm_cust c (nolock) on orders_all.cust_code = c.customer_code  
+				join locations l (nolock) on l.location = orders_all.location   
+				join region_vw r (nolock) on l.organization_id = r.org_id   
+				join orders_invoice oi (nolock) on oi.order_no = orders_all.order_no and oi.order_ext = orders_all.ext  
+				join #customers tc on c.customer_code = tc.cust_code
+				where orders_all.status >= ''T'' and orders_all.status < ''V''  and  ' + @date_range + ' and
+				  isnull(orders_all.tax_valid_ind,1) = 1   
+				  and orders_all.invoice_no > 0 and orders_all.type < ''X'' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num')   
+			END
 
 		END
-		
 
-		IF @incl_prev = 0  
-		BEGIN
-		    exec('insert #invoices  
-			select min(printed),invoice_no, 0,0,0,0,0, type, min(orders_all.order_no),  
-			case when type = ''I'' then 2031 else 2032 end, oi.doc_ctrl_num, 0, min(orders_all.ext)    
-			from orders_all (nolock)  
-			join adm_cust c (nolock) on orders_all.cust_code = c.customer_code  
-			join orders_invoice oi (nolock) on oi.order_no = orders_all.order_no and oi.order_ext = orders_all.ext  
-			join locations l (nolock) on l.location = orders_all.location  
-			join region_vw r (nolock) on l.organization_id = r.org_id  
-			join #customers tc on c.customer_code = tc.cust_code
-			where orders_all.status >= ''T'' and orders_all.status < ''V'' and orders_all.invoice_no > 0 and orders_all.type < ''X'' and   
-			  isnull(orders_all.tax_valid_ind,1) = 1 and  ' + @date_range + ' and
-		   orders_all.printed < ''T'' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num')   
-
-		END 
-		ELSE
-		BEGIN
-		   exec('insert #invoices  
-			select min(printed),invoice_no, 0,0,0,0,0, type, min(orders_all.order_no),  
-			case when type = ''I'' then 2031 else 2032 end, oi.doc_ctrl_num, 0, min(orders_all.ext)    
-			from orders_all (nolock)  
-			join adm_cust c (nolock) on orders_all.cust_code = c.customer_code  
-			join locations l (nolock) on l.location = orders_all.location   
-			join region_vw r (nolock) on l.organization_id = r.org_id   
-			join orders_invoice oi (nolock) on oi.order_no = orders_all.order_no and oi.order_ext = orders_all.ext  
-			join #customers tc on c.customer_code = tc.cust_code
-			where orders_all.status >= ''T'' and orders_all.status < ''V''  and  ' + @date_range + ' and
-			  isnull(orders_all.tax_valid_ind,1) = 1   
-			  and orders_all.invoice_no > 0 and orders_all.type < ''X'' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num')   
-		END
-
-	END
-
-end  
-
+	end  
+END
+-- v12.3 End
 -- v4.1  
 DROP TABLE #customers
 
@@ -563,251 +585,503 @@ from #invoices (nolock)
 --set printed = 'T'  
 --from orders_all o, #invoices t  
 --where o.invoice_no = t.invoice_no and o.printed < 'T' and o.type = t.type  
-  
-insert #rpt_soinvform  
-SELECT   
-o.order_no, o.ext, o.cust_code, o.ship_to, o.req_ship_date, o.sch_ship_date, o.date_shipped, o.date_entered,  
-o.cust_po, o.who_entered, o.status, o.attention, o.phone, o.terms, o.routing, o.special_instr, o.invoice_date,  
-o.total_invoice, o.total_amt_order, o.salesperson, o.tax_id, o.tax_perc, o.invoice_no, o.fob, o.freight,  
-#invoices.printed,  
-o.discount, o.label_no, o.cancel_date, o.new,  
-isnull(o.ship_to_name,''),    -- mls 3/1/05 SCR 34332  
-isnull(o.ship_to_add_1,''),  
-isnull(o.ship_to_add_2,''),  
-isnull(o.ship_to_add_3,''),  
-isnull(o.ship_to_add_4,''),  
-isnull(o.ship_to_add_5,''),  
-isnull(o.ship_to_city,''),  
-isnull(o.ship_to_state,''),  
-isnull(o.ship_to_zip,''),  
-isnull(o.ship_to_country,''),  
-isnull(o.ship_to_region,''),  
-o.cash_flag, o.type, o.back_ord_flag, o.freight_allow_pct, o.route_code, o.route_no, o.date_printed, o.date_transfered,  
-o.cr_invoice_no, o.who_picked, o.note, o.void, o.void_who, o.void_date, o.changed, isnull(o.remit_key,''),  
-o.forwarder_key, o.freight_to, o.sales_comm, o.freight_allow_type, o.cust_dfpa, o.location,   
-o.total_tax, o.total_discount, o.f_note, o.invoice_edi, o.edi_batch, o.post_edi_date, o.blanket,   
-o.gross_sales, o.load_no, o.curr_key, o.curr_type, o.curr_factor, o.bill_to_key, o.oper_factor,   
-o.tot_ord_tax, o.tot_ord_disc, o.tot_ord_freight, o.posting_code, o.rate_type_home, o.rate_type_oper, o.reference_code,  
-o.hold_reason, o.dest_zone_code, o.orig_no, o.orig_ext, o.tot_tax_incl, o.process_ctrl_num, o.batch_code, o.tot_ord_incl,  
-o.barcode_status, o.multiple_flag, o.so_priority_code, o.FO_order_no, o.blanket_amt, o.user_priority, o.user_category,  
-o.from_date, o.to_date, isnull(o.consolidate_flag,0), o.proc_inv_no,  
-isnull(o.sold_to_addr1,''),  -- mls 3/1/05 SCR 34332   
-isnull(o.sold_to_addr2,''),  
-isnull(o.sold_to_addr3,''),  
-isnull(o.sold_to_addr4,''),  
-isnull(o.sold_to_addr5,''),  
-isnull(o.sold_to_addr6,''),  
-o.user_code, o.user_def_fld1, o.user_def_fld2, o.user_def_fld3, o.user_def_fld4, o.user_def_fld5, o.user_def_fld6,  
-o.user_def_fld7, o.user_def_fld8, o.user_def_fld9, o.user_def_fld10, o.user_def_fld11, o.user_def_fld12,  
-case when o.type != 'I' then 0 else isnull(o.eprocurement_ind,0) end,  
-o.sold_to,  
-  
-l.line_no,  
-l.location,  
-l.part_no,  
-isnull(l.description,''),  
-l.time_entered,  
-l.ordered,  
-l.shipped,  
-CASE o.type WHEN 'I' THEN ROUND((l.curr_price - ROUND(cv1.amt_disc,2)),2,1)  -- v10.7
-   ELSE CASE l.discount WHEN 0 THEN l.curr_price  
-   -- START v11.6
-   ELSE CASE WHEN cv1.list_price = l.curr_price THEN ROUND(cv1.list_price - (cv1.list_price * l.discount/100),2)
-      ELSE ROUND((l.curr_price - ROUND(l.curr_price * l.discount/100,2 * l.discount/100,2)),2,1) END
-   --ELSE ROUND((l.curr_price - ROUND(cv1.amt_disc,2)),2,1) -- v10.7
-   -- END v11.6
-END END as price,             --v3.0  
-l.price_type,  
-isnull(l.note,''),  
-l.status,  
-l.cost,  
-l.who_entered,  
-l.sales_comm,  
-l.temp_price,  
-l.temp_type,  
-l.cr_ordered,  
-l.cr_shipped,  
-l.discount,  
-l.uom,  
-l.conv_factor,  
-l.void,  
-l.void_who,  
-l.void_date,  
-l.std_cost,  
-l.cubic_feet,  
-l.printed,  
-l.lb_tracking,  
-l.labor,  
-l.direct_dolrs,  
-l.ovhd_dolrs,  
-l.util_dolrs,  
-l.taxable,  
-l.weight_ea,  
-l.qc_flag,  
-l.reason_code,  
-l.row_id,  
-l.qc_no,  
-l.rejected,  
-l.part_type,  
-isnull(l.orig_part_no,''),  
-l.back_ord_flag,  
-l.gl_rev_acct,  
-l.total_tax,  
-l.tax_code,  
-l.curr_price,  
-l.oper_price,  
-l.display_line,
--- START v11.5  
---cv1.list_price as std_direct_dolrs,                   --v3.0 List Price  
--- v12.2 Start
-CASE WHEN l.curr_price < 0 THEN l.curr_price ELSE
-CASE WHEN l.curr_price > cv1.list_price THEN l.curr_price ELSE cv1.list_price END 
-END
--- v12.2 End
-as std_direct_dolrs,                   --v3.0 List Price 
-/*
-CASE o.type WHEN 'I' THEN (cv1.list_price - l.curr_price) + ROUND(cv1.amt_disc,2) -- v10.7 
-   ELSE CASE l.discount WHEN 0 THEN (cv1.list_price - l.curr_price)   
-   ELSE (cv1.list_price - l.curr_price) + ROUND(cv1.amt_disc,2) -- v10.7  
-END END as std_ovhd_dolrs,      --v3.0 Total Discount  
-*/
--- v12.2 Start
-CASE WHEN l.curr_price < 0 THEN 0 ELSE
-CASE WHEN l.curr_price > cv1.list_price THEN 0 ELSE
+
+-- v12.3 Start
+IF (@prt_summ = 'Q')
+BEGIN
+	insert #rpt_soinvform  
+	SELECT   
+	o.order_no, o.ext, o.cust_code, o.ship_to, o.req_ship_date, o.sch_ship_date, o.date_shipped, o.date_entered,  
+	o.cust_po, o.who_entered, o.status, o.attention, o.phone, o.terms, o.routing, o.special_instr, o.invoice_date,  
+	o.total_invoice, o.total_amt_order, o.salesperson, o.tax_id, o.tax_perc, i.inv_number, o.fob, o.freight,  
+	#invoices.printed,  
+	o.discount, o.label_no, o.cancel_date, o.new,  
+	isnull(o.ship_to_name,''),    -- mls 3/1/05 SCR 34332  
+	isnull(o.ship_to_add_1,''),  
+	isnull(o.ship_to_add_2,''),  
+	isnull(o.ship_to_add_3,''),  
+	isnull(o.ship_to_add_4,''),  
+	isnull(o.ship_to_add_5,''),  
+	isnull(o.ship_to_city,''),  
+	isnull(o.ship_to_state,''),  
+	isnull(o.ship_to_zip,''),  
+	isnull(o.ship_to_country,''),  
+	isnull(o.ship_to_region,''),  
+	o.cash_flag, o.type, o.back_ord_flag, o.freight_allow_pct, o.route_code, o.route_no, o.date_printed, o.date_transfered,  
+	o.cr_invoice_no, o.who_picked, o.note, o.void, o.void_who, o.void_date, o.changed, isnull(o.remit_key,''),  
+	o.forwarder_key, o.freight_to, o.sales_comm, o.freight_allow_type, o.cust_dfpa, o.location,   
+	o.total_tax, o.total_discount, o.f_note, o.invoice_edi, o.edi_batch, o.post_edi_date, o.blanket,   
+	o.gross_sales, o.load_no, o.curr_key, o.curr_type, o.curr_factor, o.bill_to_key, o.oper_factor,   
+	o.tot_ord_tax, o.tot_ord_disc, o.tot_ord_freight, o.posting_code, o.rate_type_home, o.rate_type_oper, o.reference_code,  
+	o.hold_reason, o.dest_zone_code, o.orig_no, o.orig_ext, o.tot_tax_incl, o.process_ctrl_num, o.batch_code, o.tot_ord_incl,  
+	o.barcode_status, o.multiple_flag, o.so_priority_code, o.FO_order_no, o.blanket_amt, o.user_priority, o.user_category,  
+	o.from_date, o.to_date, isnull(o.consolidate_flag,0), o.proc_inv_no,  
+	isnull(o.sold_to_addr1,''),  -- mls 3/1/05 SCR 34332   
+	isnull(o.sold_to_addr2,''),  
+	isnull(o.sold_to_addr3,''),  
+	isnull(o.sold_to_addr4,''),  
+	isnull(o.sold_to_addr5,''),  
+	isnull(o.sold_to_addr6,''),  
+	o.user_code, o.user_def_fld1, o.user_def_fld2, o.user_def_fld3, o.user_def_fld4, o.user_def_fld5, o.user_def_fld6,  
+	o.user_def_fld7, o.user_def_fld8, o.user_def_fld9, o.user_def_fld10, o.user_def_fld11, o.user_def_fld12,  
+	case when o.type != 'I' then 0 else isnull(o.eprocurement_ind,0) end,  
+	o.sold_to,  
+	  
+	l.line_no,  
+	l.location,  
+	l.part_no,  
+	isnull(l.description,''),  
+	l.time_entered,  
+	l.ordered,  
+	l.shipped,  
+	CASE o.type WHEN 'I' THEN ROUND((l.curr_price - ROUND(cv1.amt_disc,2)),2,1)  -- v10.7
+	   ELSE CASE l.discount WHEN 0 THEN l.curr_price  
+	   -- START v11.6
+	   ELSE CASE WHEN cv1.list_price = l.curr_price THEN ROUND(cv1.list_price - (cv1.list_price * l.discount/100),2)
+		  ELSE ROUND((l.curr_price - ROUND(l.curr_price * l.discount/100,2 * l.discount/100,2)),2,1) END
+	   --ELSE ROUND((l.curr_price - ROUND(cv1.amt_disc,2)),2,1) -- v10.7
+	   -- END v11.6
+	END END as price,             --v3.0  
+	l.price_type,  
+	isnull(l.note,''),  
+	l.status,  
+	l.cost,  
+	l.who_entered,  
+	l.sales_comm,  
+	l.temp_price,  
+	l.temp_type,  
+	l.cr_ordered,  
+	l.cr_shipped,  
+	l.discount,  
+	l.uom,  
+	l.conv_factor,  
+	l.void,  
+	l.void_who,  
+	l.void_date,  
+	l.std_cost,  
+	l.cubic_feet,  
+	l.printed,  
+	l.lb_tracking,  
+	l.labor,  
+	l.direct_dolrs,  
+	l.ovhd_dolrs,  
+	l.util_dolrs,  
+	l.taxable,  
+	l.weight_ea,  
+	l.qc_flag,  
+	l.reason_code,  
+	l.row_id,  
+	l.qc_no,  
+	l.rejected,  
+	l.part_type,  
+	isnull(l.orig_part_no,''),  
+	l.back_ord_flag,  
+	l.gl_rev_acct,  
+	l.total_tax,  
+	l.tax_code,  
+	l.curr_price,  
+	l.oper_price,  
+	l.display_line,
+	-- START v11.5  
+	--cv1.list_price as std_direct_dolrs,                   --v3.0 List Price  
+	-- v12.2 Start
+	CASE WHEN l.curr_price < 0 THEN l.curr_price ELSE
+	CASE WHEN l.curr_price > cv1.list_price THEN l.curr_price ELSE cv1.list_price END 
+	END
+	-- v12.2 End
+	as std_direct_dolrs,                   --v3.0 List Price 
+	/*
 	CASE o.type WHEN 'I' THEN (cv1.list_price - l.curr_price) + ROUND(cv1.amt_disc,2) -- v10.7 
-	ELSE CASE l.discount WHEN 0 THEN (cv1.list_price - l.curr_price) 
-	-- START v11.6
-	ELSE CASE WHEN cv1.list_price = l.curr_price THEN ROUND(cv1.list_price * l.discount/100,2) 
-	ELSE (cv1.list_price - l.curr_price) + ROUND(l.curr_price * l.discount/100,2) END END
-	--ELSE (cv1.list_price - l.curr_price) + ROUND(cv1.amt_disc,2) END -- v10.7  
-	-- END v11.6 
-	END 
-END
-END
--- v12.2 End
-as std_ovhd_dolrs,      --v3.0 Total Discount 
-/*
-CASE l.price WHEN 0 THEN 100                    --v3.0 Discount Pct  
-    ELSE CASE cv1.list_price WHEN 0 THEN 0  
-    ELSE CASE o.type WHEN 'I'   
-      THEN CAST((((cv1.list_price - (l.curr_price - ROUND(cv1.amt_disc,2))) / cv1.list_price) * 100) as DECIMAL(20,2))  -- v10.7
-    ELSE CASE l.discount WHEN 0 THEN CAST((((cv1.list_price - (l.curr_price - ROUND(cv1.amt_disc,2))) / cv1.list_price) * 100) as DECIMAL(20,2))  -- v10.7
-    ELSE CAST((((cv1.list_price - l.curr_price) / cv1.list_price) * 100) as DECIMAL(20,2))  
-END END END END as std_util_dolrs,                    --v3.0 Discount Pct  
-*/
-CASE WHEN l.curr_price > cv1.list_price THEN 0 ELSE
+	   ELSE CASE l.discount WHEN 0 THEN (cv1.list_price - l.curr_price)   
+	   ELSE (cv1.list_price - l.curr_price) + ROUND(cv1.amt_disc,2) -- v10.7  
+	END END as std_ovhd_dolrs,      --v3.0 Total Discount  
+	*/
+	-- v12.2 Start
+	CASE WHEN l.curr_price < 0 THEN 0 ELSE
+	CASE WHEN l.curr_price > cv1.list_price THEN 0 ELSE
+		CASE o.type WHEN 'I' THEN (cv1.list_price - l.curr_price) + ROUND(cv1.amt_disc,2) -- v10.7 
+		ELSE CASE l.discount WHEN 0 THEN (cv1.list_price - l.curr_price) 
+		-- START v11.6
+		ELSE CASE WHEN cv1.list_price = l.curr_price THEN ROUND(cv1.list_price * l.discount/100,2) 
+		ELSE (cv1.list_price - l.curr_price) + ROUND(l.curr_price * l.discount/100,2) END END
+		--ELSE (cv1.list_price - l.curr_price) + ROUND(cv1.amt_disc,2) END -- v10.7  
+		-- END v11.6 
+		END 
+	END
+	END
+	-- v12.2 End
+	as std_ovhd_dolrs,      --v3.0 Total Discount 
+	/*
 	CASE l.price WHEN 0 THEN 100                    --v3.0 Discount Pct  
-    ELSE CASE cv1.list_price WHEN 0 THEN 0  
-    ELSE CASE o.type WHEN 'I'   
-      THEN CAST((((cv1.list_price - (l.curr_price - ROUND(cv1.amt_disc,2))) / cv1.list_price) * 100) as DECIMAL(20,2))  -- v10.7
-    ELSE CASE l.discount WHEN 0 THEN CAST((((cv1.list_price - (l.curr_price - ROUND(cv1.amt_disc,2))) / cv1.list_price) * 100) as DECIMAL(20,2))  -- v10.7
-    ELSE CAST((((cv1.list_price - l.curr_price) / cv1.list_price) * 100) as DECIMAL(20,2))  
-END END END END END as std_util_dolrs,                    --v3.0 Discount Pct  
--- END v11.5
-l.reference_code,  
-l.contract,  
-l.agreement_id,  
-l.ship_to,  
-l.service_agreement_flag,  
-l.inv_available_flag,  
-l.create_po_flag,  
-l.load_group_no,  
-l.return_code,  
-l.user_count,  
-datalength(rtrim(replace(cast((l.ordered + l.cr_ordered) as varchar(40)),'0',' '))) -   
-charindex('.',cast((l.ordered + l.cr_ordered) as varchar(40))),  
-datalength(rtrim(replace(cast((l.shipped + l.cr_shipped) as varchar(40)),'0',' '))) -   
-charindex('.',cast((l.shipped + l.cr_shipped) as varchar(40))),  
-datalength(rtrim(replace(cast(l.curr_price as varchar(40)),'0',' '))) -   
-charindex('.',cast(l.curr_price as varchar(40))),  
-  
-c.customer_name,     
-isnull(c.addr1,''),  
-isnull(c.addr2,''),     
-isnull(c.addr3,''),     
-isnull(c.addr4,''),     
-isnull(c.addr5,''),     
-isnull(c.addr6,''),  
-c.contact_name,     
-c.inv_comment_code,     
-c.city,  
-c.state,     
-c.postal_code,  
-c.country,  
-  
-n.company_name,     
-n.addr1,     
-n.addr2,     
-n.addr3,     
-n.addr4,     
-n.addr5,     
-n.addr6,     
-  
-isnull(r.name,''),  
-isnull(r.addr1,''),     
-isnull(r.addr2,''),     
-isnull(r.addr3,''),     
-isnull(r.addr4,''),     
-isnull(r.addr5,''),     
-  
-g.currency_mask,     
-g.curr_precision,   
-g.rounding_factor,   
-case when g.neg_num_format in (0,1,2,10,15) then 1 when g.neg_num_format in (6,7,9,14) then 2   
-  when g.neg_num_format in (5,8,11,16) then 3 else 0 end,  
-case when g.neg_num_format in (2,3,6,9,10,13) then 1 when g.neg_num_format in (4,7,8,11,12,14) then 2 else 3 end,  
-g.symbol,  
-case when g.neg_num_format < 9 then '' when g.neg_num_format in (9,11,14,16) then 'b' else 'a' end,  
-'.',  
-',',  
-  
-p.amt_payment,     
-p.amt_disc_taken,     
-  
-isnull(m.comment_line ,''),  
-  
-i.doc_ctrl_num,  
-#invoices.discount,  
-#invoices.tax,  
-#invoices.freight,  
-#invoices.payments,  
-#invoices.total_invoice,  
-  
-isnull(v.ship_via_name,o.routing),  
-isnull(f.description,o.freight_allow_type),  
-isnull(fob.fob_desc,o.fob),  
-isnull(t.terms_desc,o.terms),  
-isnull(tax.tax_desc,o.tax_id),  
-isnull(taxd.tax_desc,l.tax_code),  
-case when o.type = 'I' then 'Invoice' else 'Credit Memo' end,  
-case when @order = 0 then o.cust_code   
-  when @order = 1 then replicate(' ',@ord_len - datalength(convert(varchar(10),#invoices.order_no))) + convert(varchar(10),#invoices.order_no)  
-  else '' end,  
-'',  
-  
-'',2,2,0,1,'','b','.',',',  
-isnull((select min(note_no) from notes n where n.code = convert(varchar(10),o.order_no) and n.code_type = 'O' and n.invoice = 'Y'),-1),  
-case when isnull(c.check_extendedname_flag,0) = 1 then c.extended_name else c.customer_name end -- extended_name  
-  
-from #invoices   
-join dbo.orders_all o (nolock) on o.invoice_no = #invoices.invoice_no and o.type = #invoices.type and o.ext = #invoices.order_ext -- v4.4
-join dbo.ord_list l (nolock) on l.order_no = o.order_no and l.order_ext = o.ext  
-join dbo.cvo_ord_list cv1 (nolock) on l.order_no = cv1.order_no and l.order_ext = cv1.order_ext and l.line_no = cv1.line_no  --v3.0  
-join dbo.adm_cust_all c (nolock) on c.customer_code = o.cust_code     
-join dbo.arco n (nolock) on 1 = 1  
-left outer join dbo.arremit r (nolock) on r.kys = o.remit_key  
-join dbo.glcurr_vw g (nolock) on g.currency_code = o.curr_key     
-left outer join dbo.ord_payment p (nolock) on p.order_no = o.order_no and p.order_ext = o.ext  
-left outer join dbo.arcommnt m (nolock) on m.comment_code = c.inv_comment_code  
-join dbo.orders_invoice i (nolock) on i.order_no = o.order_no and i.order_ext = o.ext  
-left outer join dbo.arshipv v (nolock) on v.ship_via_code = o.routing  
-left outer join dbo.freight_type f (nolock) on f.kys = o.freight_allow_type  
-left outer join dbo.arfob fob (nolock) on fob.fob_code = o.fob  
-left outer join dbo.arterms t (nolock) on t.terms_code = o.terms  
-left outer join dbo.artax tax (nolock) on tax.tax_code = o.tax_id  
-left outer join dbo.artax taxd (nolock) on taxd.tax_code = l.tax_code  
-  
-  
+		ELSE CASE cv1.list_price WHEN 0 THEN 0  
+		ELSE CASE o.type WHEN 'I'   
+		  THEN CAST((((cv1.list_price - (l.curr_price - ROUND(cv1.amt_disc,2))) / cv1.list_price) * 100) as DECIMAL(20,2))  -- v10.7
+		ELSE CASE l.discount WHEN 0 THEN CAST((((cv1.list_price - (l.curr_price - ROUND(cv1.amt_disc,2))) / cv1.list_price) * 100) as DECIMAL(20,2))  -- v10.7
+		ELSE CAST((((cv1.list_price - l.curr_price) / cv1.list_price) * 100) as DECIMAL(20,2))  
+	END END END END as std_util_dolrs,                    --v3.0 Discount Pct  
+	*/
+	CASE WHEN l.curr_price > cv1.list_price THEN 0 ELSE
+		CASE l.price WHEN 0 THEN 100                    --v3.0 Discount Pct  
+		ELSE CASE cv1.list_price WHEN 0 THEN 0  
+		ELSE CASE o.type WHEN 'I'   
+		  THEN CAST((((cv1.list_price - (l.curr_price - ROUND(cv1.amt_disc,2))) / cv1.list_price) * 100) as DECIMAL(20,2))  -- v10.7
+		ELSE CASE l.discount WHEN 0 THEN CAST((((cv1.list_price - (l.curr_price - ROUND(cv1.amt_disc,2))) / cv1.list_price) * 100) as DECIMAL(20,2))  -- v10.7
+		ELSE CAST((((cv1.list_price - l.curr_price) / cv1.list_price) * 100) as DECIMAL(20,2))  
+	END END END END END as std_util_dolrs,                    --v3.0 Discount Pct  
+	-- END v11.5
+	l.reference_code,  
+	l.contract,  
+	l.agreement_id,  
+	l.ship_to,  
+	l.service_agreement_flag,  
+	l.inv_available_flag,  
+	l.create_po_flag,  
+	l.load_group_no,  
+	l.return_code,  
+	l.user_count,  
+	datalength(rtrim(replace(cast((l.ordered + l.cr_ordered) as varchar(40)),'0',' '))) -   
+	charindex('.',cast((l.ordered + l.cr_ordered) as varchar(40))),  
+	datalength(rtrim(replace(cast((l.shipped + l.cr_shipped) as varchar(40)),'0',' '))) -   
+	charindex('.',cast((l.shipped + l.cr_shipped) as varchar(40))),  
+	datalength(rtrim(replace(cast(l.curr_price as varchar(40)),'0',' '))) -   
+	charindex('.',cast(l.curr_price as varchar(40))),  
+	  
+	c.customer_name,     
+	isnull(c.addr1,''),  
+	isnull(c.addr2,''),     
+	isnull(c.addr3,''),     
+	isnull(c.addr4,''),     
+	isnull(c.addr5,''),     
+	isnull(c.addr6,''),  
+	c.contact_name,     
+	c.inv_comment_code,     
+	c.city,  
+	c.state,     
+	c.postal_code,  
+	c.country,  
+	  
+	n.company_name,     
+	n.addr1,     
+	n.addr2,     
+	n.addr3,     
+	n.addr4,     
+	n.addr5,     
+	n.addr6,     
+	  
+	isnull(r.name,''),  
+	isnull(r.addr1,''),     
+	isnull(r.addr2,''),     
+	isnull(r.addr3,''),     
+	isnull(r.addr4,''),     
+	isnull(r.addr5,''),     
+	  
+	g.currency_mask,     
+	g.curr_precision,   
+	g.rounding_factor,   
+	case when g.neg_num_format in (0,1,2,10,15) then 1 when g.neg_num_format in (6,7,9,14) then 2   
+	  when g.neg_num_format in (5,8,11,16) then 3 else 0 end,  
+	case when g.neg_num_format in (2,3,6,9,10,13) then 1 when g.neg_num_format in (4,7,8,11,12,14) then 2 else 3 end,  
+	g.symbol,  
+	case when g.neg_num_format < 9 then '' when g.neg_num_format in (9,11,14,16) then 'b' else 'a' end,  
+	'.',  
+	',',  
+	  
+	p.amt_payment,     
+	p.amt_disc_taken,     
+	  
+	isnull(m.comment_line ,''),  
+	  
+	i.doc_ctrl_num,  
+	#invoices.discount,  
+	#invoices.tax,  
+	#invoices.freight,  
+	#invoices.payments,  
+	#invoices.total_invoice,  
+	  
+	isnull(v.ship_via_name,o.routing),  
+	isnull(f.description,o.freight_allow_type),  
+	isnull(fob.fob_desc,o.fob),  
+	isnull(t.terms_desc,o.terms),  
+	isnull(tax.tax_desc,o.tax_id),  
+	isnull(taxd.tax_desc,l.tax_code),  
+	case when o.type = 'I' then 'Invoice' else 'Credit Memo' end,  
+	case when @order = 0 then o.cust_code   
+	  when @order = 1 then replicate(' ',@ord_len - datalength(convert(varchar(10),#invoices.order_no))) + convert(varchar(10),#invoices.order_no)  
+	  else '' end,  
+	'',  
+	  
+	'',2,2,0,1,'','b','.',',',  
+	isnull((select min(note_no) from notes n where n.code = convert(varchar(10),o.order_no) and n.code_type = 'O' and n.invoice = 'Y'),-1),  
+	case when isnull(c.check_extendedname_flag,0) = 1 then c.extended_name else c.customer_name end -- extended_name  
+	  
+	from #invoices   
+	join dbo.orders_all o (nolock) on o.order_no = #invoices.order_no and o.type = #invoices.type and o.ext = #invoices.order_ext -- v4.4
+	join dbo.ord_list l (nolock) on l.order_no = o.order_no and l.order_ext = o.ext  
+	join dbo.cvo_ord_list cv1 (nolock) on l.order_no = cv1.order_no and l.order_ext = cv1.order_ext and l.line_no = cv1.line_no  --v3.0  
+	join dbo.adm_cust_all c (nolock) on c.customer_code = o.cust_code     
+	join dbo.arco n (nolock) on 1 = 1  
+	left outer join dbo.arremit r (nolock) on r.kys = o.remit_key  
+	join dbo.glcurr_vw g (nolock) on g.currency_code = o.curr_key     
+	left outer join dbo.ord_payment p (nolock) on p.order_no = o.order_no and p.order_ext = o.ext  
+	left outer join dbo.arcommnt m (nolock) on m.comment_code = c.inv_comment_code  
+	join dbo.cvo_order_invoice i (nolock) on i.order_no = o.order_no and i.order_ext = o.ext  
+	left outer join dbo.arshipv v (nolock) on v.ship_via_code = o.routing  
+	left outer join dbo.freight_type f (nolock) on f.kys = o.freight_allow_type  
+	left outer join dbo.arfob fob (nolock) on fob.fob_code = o.fob  
+	left outer join dbo.arterms t (nolock) on t.terms_code = o.terms  
+	left outer join dbo.artax tax (nolock) on tax.tax_code = o.tax_id  
+	left outer join dbo.artax taxd (nolock) on taxd.tax_code = l.tax_code  
+
+
+END
+ELSE
+BEGIN  
+	insert #rpt_soinvform  
+	SELECT   
+	o.order_no, o.ext, o.cust_code, o.ship_to, o.req_ship_date, o.sch_ship_date, o.date_shipped, o.date_entered,  
+	o.cust_po, o.who_entered, o.status, o.attention, o.phone, o.terms, o.routing, o.special_instr, o.invoice_date,  
+	o.total_invoice, o.total_amt_order, o.salesperson, o.tax_id, o.tax_perc, o.invoice_no, o.fob, o.freight,  
+	#invoices.printed,  
+	o.discount, o.label_no, o.cancel_date, o.new,  
+	isnull(o.ship_to_name,''),    -- mls 3/1/05 SCR 34332  
+	isnull(o.ship_to_add_1,''),  
+	isnull(o.ship_to_add_2,''),  
+	isnull(o.ship_to_add_3,''),  
+	isnull(o.ship_to_add_4,''),  
+	isnull(o.ship_to_add_5,''),  
+	isnull(o.ship_to_city,''),  
+	isnull(o.ship_to_state,''),  
+	isnull(o.ship_to_zip,''),  
+	isnull(o.ship_to_country,''),  
+	isnull(o.ship_to_region,''),  
+	o.cash_flag, o.type, o.back_ord_flag, o.freight_allow_pct, o.route_code, o.route_no, o.date_printed, o.date_transfered,  
+	o.cr_invoice_no, o.who_picked, o.note, o.void, o.void_who, o.void_date, o.changed, isnull(o.remit_key,''),  
+	o.forwarder_key, o.freight_to, o.sales_comm, o.freight_allow_type, o.cust_dfpa, o.location,   
+	o.total_tax, o.total_discount, o.f_note, o.invoice_edi, o.edi_batch, o.post_edi_date, o.blanket,   
+	o.gross_sales, o.load_no, o.curr_key, o.curr_type, o.curr_factor, o.bill_to_key, o.oper_factor,   
+	o.tot_ord_tax, o.tot_ord_disc, o.tot_ord_freight, o.posting_code, o.rate_type_home, o.rate_type_oper, o.reference_code,  
+	o.hold_reason, o.dest_zone_code, o.orig_no, o.orig_ext, o.tot_tax_incl, o.process_ctrl_num, o.batch_code, o.tot_ord_incl,  
+	o.barcode_status, o.multiple_flag, o.so_priority_code, o.FO_order_no, o.blanket_amt, o.user_priority, o.user_category,  
+	o.from_date, o.to_date, isnull(o.consolidate_flag,0), o.proc_inv_no,  
+	isnull(o.sold_to_addr1,''),  -- mls 3/1/05 SCR 34332   
+	isnull(o.sold_to_addr2,''),  
+	isnull(o.sold_to_addr3,''),  
+	isnull(o.sold_to_addr4,''),  
+	isnull(o.sold_to_addr5,''),  
+	isnull(o.sold_to_addr6,''),  
+	o.user_code, o.user_def_fld1, o.user_def_fld2, o.user_def_fld3, o.user_def_fld4, o.user_def_fld5, o.user_def_fld6,  
+	o.user_def_fld7, o.user_def_fld8, o.user_def_fld9, o.user_def_fld10, o.user_def_fld11, o.user_def_fld12,  
+	case when o.type != 'I' then 0 else isnull(o.eprocurement_ind,0) end,  
+	o.sold_to,  
+	  
+	l.line_no,  
+	l.location,  
+	l.part_no,  
+	isnull(l.description,''),  
+	l.time_entered,  
+	l.ordered,  
+	l.shipped,  
+	CASE o.type WHEN 'I' THEN ROUND((l.curr_price - ROUND(cv1.amt_disc,2)),2,1)  -- v10.7
+	   ELSE CASE l.discount WHEN 0 THEN l.curr_price  
+	   -- START v11.6
+	   ELSE CASE WHEN cv1.list_price = l.curr_price THEN ROUND(cv1.list_price - (cv1.list_price * l.discount/100),2)
+		  ELSE ROUND((l.curr_price - ROUND(l.curr_price * l.discount/100,2 * l.discount/100,2)),2,1) END
+	   --ELSE ROUND((l.curr_price - ROUND(cv1.amt_disc,2)),2,1) -- v10.7
+	   -- END v11.6
+	END END as price,             --v3.0  
+	l.price_type,  
+	isnull(l.note,''),  
+	l.status,  
+	l.cost,  
+	l.who_entered,  
+	l.sales_comm,  
+	l.temp_price,  
+	l.temp_type,  
+	l.cr_ordered,  
+	l.cr_shipped,  
+	l.discount,  
+	l.uom,  
+	l.conv_factor,  
+	l.void,  
+	l.void_who,  
+	l.void_date,  
+	l.std_cost,  
+	l.cubic_feet,  
+	l.printed,  
+	l.lb_tracking,  
+	l.labor,  
+	l.direct_dolrs,  
+	l.ovhd_dolrs,  
+	l.util_dolrs,  
+	l.taxable,  
+	l.weight_ea,  
+	l.qc_flag,  
+	l.reason_code,  
+	l.row_id,  
+	l.qc_no,  
+	l.rejected,  
+	l.part_type,  
+	isnull(l.orig_part_no,''),  
+	l.back_ord_flag,  
+	l.gl_rev_acct,  
+	l.total_tax,  
+	l.tax_code,  
+	l.curr_price,  
+	l.oper_price,  
+	l.display_line,
+	-- START v11.5  
+	--cv1.list_price as std_direct_dolrs,                   --v3.0 List Price  
+	-- v12.2 Start
+	CASE WHEN l.curr_price < 0 THEN l.curr_price ELSE
+	CASE WHEN l.curr_price > cv1.list_price THEN l.curr_price ELSE cv1.list_price END 
+	END
+	-- v12.2 End
+	as std_direct_dolrs,                   --v3.0 List Price 
+	/*
+	CASE o.type WHEN 'I' THEN (cv1.list_price - l.curr_price) + ROUND(cv1.amt_disc,2) -- v10.7 
+	   ELSE CASE l.discount WHEN 0 THEN (cv1.list_price - l.curr_price)   
+	   ELSE (cv1.list_price - l.curr_price) + ROUND(cv1.amt_disc,2) -- v10.7  
+	END END as std_ovhd_dolrs,      --v3.0 Total Discount  
+	*/
+	-- v12.2 Start
+	CASE WHEN l.curr_price < 0 THEN 0 ELSE
+	CASE WHEN l.curr_price > cv1.list_price THEN 0 ELSE
+		CASE o.type WHEN 'I' THEN (cv1.list_price - l.curr_price) + ROUND(cv1.amt_disc,2) -- v10.7 
+		ELSE CASE l.discount WHEN 0 THEN (cv1.list_price - l.curr_price) 
+		-- START v11.6
+		ELSE CASE WHEN cv1.list_price = l.curr_price THEN ROUND(cv1.list_price * l.discount/100,2) 
+		ELSE (cv1.list_price - l.curr_price) + ROUND(l.curr_price * l.discount/100,2) END END
+		--ELSE (cv1.list_price - l.curr_price) + ROUND(cv1.amt_disc,2) END -- v10.7  
+		-- END v11.6 
+		END 
+	END
+	END
+	-- v12.2 End
+	as std_ovhd_dolrs,      --v3.0 Total Discount 
+	/*
+	CASE l.price WHEN 0 THEN 100                    --v3.0 Discount Pct  
+		ELSE CASE cv1.list_price WHEN 0 THEN 0  
+		ELSE CASE o.type WHEN 'I'   
+		  THEN CAST((((cv1.list_price - (l.curr_price - ROUND(cv1.amt_disc,2))) / cv1.list_price) * 100) as DECIMAL(20,2))  -- v10.7
+		ELSE CASE l.discount WHEN 0 THEN CAST((((cv1.list_price - (l.curr_price - ROUND(cv1.amt_disc,2))) / cv1.list_price) * 100) as DECIMAL(20,2))  -- v10.7
+		ELSE CAST((((cv1.list_price - l.curr_price) / cv1.list_price) * 100) as DECIMAL(20,2))  
+	END END END END as std_util_dolrs,                    --v3.0 Discount Pct  
+	*/
+	CASE WHEN l.curr_price > cv1.list_price THEN 0 ELSE
+		CASE l.price WHEN 0 THEN 100                    --v3.0 Discount Pct  
+		ELSE CASE cv1.list_price WHEN 0 THEN 0  
+		ELSE CASE o.type WHEN 'I'   
+		  THEN CAST((((cv1.list_price - (l.curr_price - ROUND(cv1.amt_disc,2))) / cv1.list_price) * 100) as DECIMAL(20,2))  -- v10.7
+		ELSE CASE l.discount WHEN 0 THEN CAST((((cv1.list_price - (l.curr_price - ROUND(cv1.amt_disc,2))) / cv1.list_price) * 100) as DECIMAL(20,2))  -- v10.7
+		ELSE CAST((((cv1.list_price - l.curr_price) / cv1.list_price) * 100) as DECIMAL(20,2))  
+	END END END END END as std_util_dolrs,                    --v3.0 Discount Pct  
+	-- END v11.5
+	l.reference_code,  
+	l.contract,  
+	l.agreement_id,  
+	l.ship_to,  
+	l.service_agreement_flag,  
+	l.inv_available_flag,  
+	l.create_po_flag,  
+	l.load_group_no,  
+	l.return_code,  
+	l.user_count,  
+	datalength(rtrim(replace(cast((l.ordered + l.cr_ordered) as varchar(40)),'0',' '))) -   
+	charindex('.',cast((l.ordered + l.cr_ordered) as varchar(40))),  
+	datalength(rtrim(replace(cast((l.shipped + l.cr_shipped) as varchar(40)),'0',' '))) -   
+	charindex('.',cast((l.shipped + l.cr_shipped) as varchar(40))),  
+	datalength(rtrim(replace(cast(l.curr_price as varchar(40)),'0',' '))) -   
+	charindex('.',cast(l.curr_price as varchar(40))),  
+	  
+	c.customer_name,     
+	isnull(c.addr1,''),  
+	isnull(c.addr2,''),     
+	isnull(c.addr3,''),     
+	isnull(c.addr4,''),     
+	isnull(c.addr5,''),     
+	isnull(c.addr6,''),  
+	c.contact_name,     
+	c.inv_comment_code,     
+	c.city,  
+	c.state,     
+	c.postal_code,  
+	c.country,  
+	  
+	n.company_name,     
+	n.addr1,     
+	n.addr2,     
+	n.addr3,     
+	n.addr4,     
+	n.addr5,     
+	n.addr6,     
+	  
+	isnull(r.name,''),  
+	isnull(r.addr1,''),     
+	isnull(r.addr2,''),     
+	isnull(r.addr3,''),     
+	isnull(r.addr4,''),     
+	isnull(r.addr5,''),     
+	  
+	g.currency_mask,     
+	g.curr_precision,   
+	g.rounding_factor,   
+	case when g.neg_num_format in (0,1,2,10,15) then 1 when g.neg_num_format in (6,7,9,14) then 2   
+	  when g.neg_num_format in (5,8,11,16) then 3 else 0 end,  
+	case when g.neg_num_format in (2,3,6,9,10,13) then 1 when g.neg_num_format in (4,7,8,11,12,14) then 2 else 3 end,  
+	g.symbol,  
+	case when g.neg_num_format < 9 then '' when g.neg_num_format in (9,11,14,16) then 'b' else 'a' end,  
+	'.',  
+	',',  
+	  
+	p.amt_payment,     
+	p.amt_disc_taken,     
+	  
+	isnull(m.comment_line ,''),  
+	  
+	i.doc_ctrl_num,  
+	#invoices.discount,  
+	#invoices.tax,  
+	#invoices.freight,  
+	#invoices.payments,  
+	#invoices.total_invoice,  
+	  
+	isnull(v.ship_via_name,o.routing),  
+	isnull(f.description,o.freight_allow_type),  
+	isnull(fob.fob_desc,o.fob),  
+	isnull(t.terms_desc,o.terms),  
+	isnull(tax.tax_desc,o.tax_id),  
+	isnull(taxd.tax_desc,l.tax_code),  
+	case when o.type = 'I' then 'Invoice' else 'Credit Memo' end,  
+	case when @order = 0 then o.cust_code   
+	  when @order = 1 then replicate(' ',@ord_len - datalength(convert(varchar(10),#invoices.order_no))) + convert(varchar(10),#invoices.order_no)  
+	  else '' end,  
+	'',  
+	  
+	'',2,2,0,1,'','b','.',',',  
+	isnull((select min(note_no) from notes n where n.code = convert(varchar(10),o.order_no) and n.code_type = 'O' and n.invoice = 'Y'),-1),  
+	case when isnull(c.check_extendedname_flag,0) = 1 then c.extended_name else c.customer_name end -- extended_name  
+	  
+	from #invoices   
+	join dbo.orders_all o (nolock) on o.invoice_no = #invoices.invoice_no and o.type = #invoices.type and o.ext = #invoices.order_ext -- v4.4
+	join dbo.ord_list l (nolock) on l.order_no = o.order_no and l.order_ext = o.ext  
+	join dbo.cvo_ord_list cv1 (nolock) on l.order_no = cv1.order_no and l.order_ext = cv1.order_ext and l.line_no = cv1.line_no  --v3.0  
+	join dbo.adm_cust_all c (nolock) on c.customer_code = o.cust_code     
+	join dbo.arco n (nolock) on 1 = 1  
+	left outer join dbo.arremit r (nolock) on r.kys = o.remit_key  
+	join dbo.glcurr_vw g (nolock) on g.currency_code = o.curr_key     
+	left outer join dbo.ord_payment p (nolock) on p.order_no = o.order_no and p.order_ext = o.ext  
+	left outer join dbo.arcommnt m (nolock) on m.comment_code = c.inv_comment_code  
+	join dbo.orders_invoice i (nolock) on i.order_no = o.order_no and i.order_ext = o.ext  
+	left outer join dbo.arshipv v (nolock) on v.ship_via_code = o.routing  
+	left outer join dbo.freight_type f (nolock) on f.kys = o.freight_allow_type  
+	left outer join dbo.arfob fob (nolock) on fob.fob_code = o.fob  
+	left outer join dbo.arterms t (nolock) on t.terms_code = o.terms  
+	left outer join dbo.artax tax (nolock) on tax.tax_code = o.tax_id  
+	left outer join dbo.artax taxd (nolock) on taxd.tax_code = l.tax_code  
+
+END
+-- v12.3 End
+ 
 -- CVO : Delete any transactions where the Customer is not printing credit memos  
 if ISNULL((select isnull(value_str,'N') from config where flag = 'CVO_FILTER_CREDITS'),'N') = 'Y'
 begin

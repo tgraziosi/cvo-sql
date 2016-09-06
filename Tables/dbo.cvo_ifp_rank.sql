@@ -13,7 +13,9 @@ CREATE TABLE [dbo].[cvo_ifp_rank]
 [months_of_sales] [int] NULL,
 [TIER] [varchar] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [ORDER_THRU_DATE] [datetime] NULL,
-[last_upd_date] [datetime] NULL
+[last_upd_date] [datetime] NULL,
+[m4_net] [float] NULL,
+[rel_month] [int] NULL
 ) ON [PRIMARY]
 GO
 CREATE UNIQUE CLUSTERED INDEX [idx_ifp_rank] ON [dbo].[cvo_ifp_rank] ([id]) ON [PRIMARY]

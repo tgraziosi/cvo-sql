@@ -125,7 +125,6 @@ select a.Salesperson ,
 from 
 
 	(select salesperson
-		, salesperson_name
 		, fiscal_period
 		, CONVERT(money,SUM(amount)) amount
 		, convert(money,SUM(comm_amt)) comm_amt 
@@ -133,7 +132,6 @@ from
 	WHERE fiscal_period = @fp
 	AND Salesperson = ISNULL(@slp, Salesperson)
 	GROUP BY Salesperson
-			,salesperson_name
 			,fiscal_period) a
 	JOIN arsalesp r ON r.salesperson_code = a.Salesperson
 	LEFT OUTER JOIN -- prior month balance to roll forward, if any
@@ -172,7 +170,7 @@ from
 		AND ISNULL(ccpv.line_type,'') <> 'special payment'
 		AND ccpv.incentive_amount > 0
 		GROUP BY ccpv.rep_code
-	) promo_details ON (promo_details.rep_code = a.salesperson OR promo_details.rep_code = a.salesperson_name)
+	) promo_details ON (promo_details.rep_code = a.salesperson OR promo_details.rep_code = r.salesperson_name)
 		LEFT OUTER JOIN -- other additions nformation
     (SELECT ccpv.rep_code , 
 		STUFF(( SELECT DISTINCT '; ' + ccpv2.comments 
@@ -193,7 +191,7 @@ from
 			
 					
 		GROUP BY ccpv.rep_code
-	) addition_details ON addition_details.rep_code = a.salesperson OR addition_details.rep_code = a.salesperson_name
+	) addition_details ON addition_details.rep_code = a.salesperson OR addition_details.rep_code = r.salesperson_name
 		LEFT OUTER JOIN -- other deductions information
     (SELECT ccpv.rep_code , 
 		STUFF(( SELECT DISTINCT '; ' + ccpv2.comments 
@@ -210,7 +208,7 @@ from
 		AND ccpv.incentive_amount < 0 
 		AND ISNULL(line_type,'') like '%manual reduction%'
 		GROUP BY ccpv.rep_code
-	) deduction_details ON deduction_details.rep_code = a.salesperson OR deduction_details.rep_code = a.salesperson_name
+	) deduction_details ON deduction_details.rep_code = a.salesperson OR deduction_details.rep_code = r.salesperson_name
 		LEFT OUTER JOIN -- draw overrides
     (SELECT ccpv.rep_code, SUM(ccpv.qty) qty, SUM(ccpv.incentive_amount) draw_amount
         FROM dbo.cvo_commission_promo_values AS ccpv
@@ -229,6 +227,7 @@ UPDATE d SET
 		WHERE d.report_month = @fp
 		AND d.salesperson = ISNULL(@slp, d.salesperson)
 -- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt
+
 
 
 

@@ -31,13 +31,14 @@ AS
 				field_29 = DATEADD(DAY,89,field_28) -- cs_date per KM request 7/28/16
 		FROM    inv_master_add T1
         WHERE   (datetime_2 IS NULL OR field_29 IS NULL)
-                AND field_28 IS NOT NULL;
+                AND (field_28 IS NOT NULL and field_28 <= GETDATE()); -- dont mark future poms - 08/26/2016 tag
+
         UPDATE  T1
         SET     datetime_2 = NULL,
 				field_29 = null
         FROM    inv_master_add T1
         WHERE   (datetime_2 IS NOT NULL OR field_29 IS NOT NULL)
-                AND field_28 IS NULL;  --EL 7/15/2014
+                AND (field_28 IS NULL OR field_28 >= GETDATE());  --EL 7/15/2014 -- dont mark future poms - 082616 tag
 
 
 
@@ -82,12 +83,17 @@ AS
 -- TAG - 022414
 
 -- Remove unmatched part_no's from inv_master_add
-        DELETE  FROM inv_master_add
-        WHERE   part_no = ( SELECT  T1.part_no
-                            FROM    inv_master_add T1
-                                    FULL OUTER JOIN inv_master T2 ON T1.part_no = T2.part_no
-                            WHERE   T2.part_no IS NULL
-                          );
+        --DELETE  FROM inv_master_add
+        --WHERE   part_no = ( SELECT  T1.part_no
+        --                    FROM    inv_master_add T1
+        --                            FULL OUTER JOIN inv_master T2 ON T1.part_no = T2.part_no
+        --                    WHERE   T2.part_no IS NULL
+        --                  );
+
+		-- SELECT * 
+		DELETE 
+		FROM dbo.inv_master_add
+		WHERE NOT EXISTS (SELECT 1 FROM inv_master WHERE inv_master.part_no = inv_master_add.part_no)
 
 -- MAINTAIN CVO_INV_MASTER_ADD TABLE
         INSERT  cvo_inv_master_add
@@ -146,6 +152,8 @@ AS
                 AND ISNULL(field_26, GETDATE()) < GETDATE();
 
     END;
+
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_inv_master_fixup_sp] TO [public]

@@ -16,6 +16,8 @@ CREATE VIEW [dbo].[cvo_item_avail_vw] AS
 -- tag - 02/11/2015 - add plc_status
 -- tag - 11/13/2015 - add future order qty
 -- tag = 2/8/16 - add drp usage figures
+-- tag - 8/25/2016 - for IFP, get the QC Hold qty from inv_recv, not lot_bin_stock
+
 -- select * From cvo_item_avail_vw where location = '001' and future_ord_qty > 0
 SELECT         
  ISNULL(t1.category,'') AS Brand,
@@ -149,12 +151,13 @@ FROM lot_bin_stock (NOLOCK) WHERE location = t3.location AND part_no = t1.part_n
 QcQty = ISNULL((SELECT SUM(qty) AS QcQty FROM lot_bin_recv lbr (NOLOCK) WHERE lbr.qc_flag = 'y' AND 
 lbr.location = t3.location AND lbr.part_no = t1.part_no),0)
 
-,QcQty2 = ISNULL((SELECT SUM(qty) AS QcQty
-FROM lot_bin_stock lb (NOLOCK)
-JOIN tdc_bin_master bm (NOLOCK)
-ON bm.bin_no = lb.bin_no AND bm.location = lb.location
-WHERE bm.usage_type_code = 'receipt'
-AND lb.part_no = t1.part_no),0)
+--,QcQty2 = ISNULL((SELECT SUM(qty) AS QcQty
+--FROM lot_bin_stock lb (NOLOCK)
+--JOIN tdc_bin_master bm (NOLOCK)
+--ON bm.bin_no = lb.bin_no AND bm.location = lb.location
+--WHERE bm.usage_type_code = 'receipt'
+--AND lb.part_no = t1.part_no),0)
+, QcQty2 = ISNULL((SELECT hold_rcv FROM inv_recv ir WHERE ir.part_no = t1.part_no AND ir.location = t3.location),0)
 
 
 , future_ord_qty = ISNULL(fo.future_open_qty,0)
@@ -201,6 +204,7 @@ GROUP BY ol.part_no, ol.location) fo
 	ON fo.part_no = t3.part_no AND fo.location = t3.location
 WHERE  t3.void<>'V'
 -- and T3.LOCATION = '001'
+
 
 
 
