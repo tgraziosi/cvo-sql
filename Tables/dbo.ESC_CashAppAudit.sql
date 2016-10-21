@@ -10,8 +10,6 @@ CREATE TABLE [dbo].[ESC_CashAppAudit]
 [ProcessResult] [varchar] (100) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [missing_index_292058_292057_ESC_CashAppAudit] ON [dbo].[ESC_CashAppAudit] ([ParentRecID]) ON [PRIMARY]
-GO
 GRANT REFERENCES ON  [dbo].[ESC_CashAppAudit] TO [public]
 GO
 GRANT SELECT ON  [dbo].[ESC_CashAppAudit] TO [public]

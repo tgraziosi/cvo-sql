@@ -8,7 +8,7 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT * FROM dbo.cvo_hs_inventory_8 where shelfqty = 2000  where MASTERSKU like 'IZ600%'
+-- SELECT * FROM dbo.cvo_hs_inventory_8 where collection = 'ME'  shelfqty = 2000  where MASTERSKU like 'IZ600%'
 -- DROP TABLE dbo.cvo_hs_inventory_8
 -- 		
 -- 072814 - tag - 1) add special values, 2) performance updates
@@ -26,58 +26,78 @@ GO
 -- 6/9/2016 for kit items to fake inventory # later. show real inventory for REVO
 -- 6/28/2016 - support for July programs - BTS and TWEEN and new OP kit
 -- 9/2/2016 - tweeks for 9/6 release and VEW 2016 - hide all releases, not already APR until 9/9
+-- 9/8/2016 - tweeks for VEW
+-- 10/7/2016 - set up me selldown
 -- =============================================
 
-CREATE PROCEDURE [dbo].[HS_Inventory8_sp] 
+CREATE PROCEDURE [dbo].[HS_Inventory8_sp]
 AS
-BEGIN
+    BEGIN
 
-	SET NOCOUNT ON;
-	SET ANSI_WARNINGS OFF;
+        SET NOCOUNT ON;
+        SET ANSI_WARNINGS OFF;
 
 -- EXPORT FOR HANDSHAKE
 
-declare @today datetime, @location varchar(10), @CH DATETIME
-set @today = dateadd(dd, datediff(dd,0,getdate()), 0)
-set @location = '001'
-SET @CH = '9/1/2015' -- START OF CH SELL-DOWN PERIOD
+        DECLARE @today DATETIME ,
+            @location VARCHAR(10) ,
+            @CH DATETIME,
+			@ME datetime;
+        SET @today = DATEADD(dd, DATEDIFF(dd, 0, GETDATE()), 0);
+        SET @location = '001';
+        SET @CH = '9/1/2015'; -- START OF CH SELL-DOWN PERIOD
+		SET @ME = '12/31/2099'; -- START OF me SELL-DOWN PERIOD - 10/7 - on hold per JK
+		-- SET @ME = '10/06/2016'; -- START OF me SELL-DOWN PERIOD
 
-
-IF(OBJECT_ID('tempdb.dbo.#EOS') is not null)  drop table #EOS
-CREATE TABLE #EOS
-(
-Col int,
-Prog varchar (3),
-Brand	varchar(4),
-Style	varchar(60),
-part_no	varchar(30),
-pom_date	datetime,
-Gender	varchar(30),
-Avail	decimal(10,2),
-ReserveQty	decimal(10,2),
-TrueAvail_2 decimal(10,2),
-TrueAvail varchar(20),
-)
-INSERT INTO #EOS EXEC CVO_EOS_SP
+        IF ( OBJECT_ID('tempdb.dbo.#EOS') IS NOT NULL )
+            DROP TABLE #EOS;
+        CREATE TABLE #EOS
+            (
+              Col INT ,
+              Prog VARCHAR(3) ,
+              Brand VARCHAR(4) ,
+              Style VARCHAR(60) ,
+              part_no VARCHAR(30) ,
+              pom_date DATETIME ,
+              Gender VARCHAR(30) ,
+              Avail DECIMAL(10, 2) ,
+              ReserveQty DECIMAL(10, 2) ,
+              TrueAvail_2 DECIMAL(10, 2) ,
+              TrueAvail VARCHAR(20),
+            );
+        INSERT  INTO #EOS
+                EXEC CVO_EOS_SP;
 -- 8/26/2015
-DELETE FROM #eos WHERE brand = 'ch' AND @today >= @CH
+        DELETE  FROM #EOS
+        WHERE   Brand = 'ch'
+                AND @today >= @CH;
+
+-- 10/6/2016
+        DELETE  FROM #EOS
+        WHERE   Brand = 'me'
+                AND @today >= @ME;
+
 -- SELECT * FROM #EOS where part_no like 'izCL%'  
 
 
 -- make a list of Costco sku's from history
-IF(OBJECT_ID('tempdb.dbo.#cc') is not null)  
-drop table #cc
+        IF ( OBJECT_ID('tempdb.dbo.#cc') IS NOT NULL )
+            DROP TABLE #cc;
 
-select i.part_no 
-into #cc
-from inv_master i 
-where exists (select 1 from cvo_sbm_details sbm (nolock) where i.part_no = sbm.part_no and sbm.customer='045217')
+        SELECT  i.part_no
+        INTO    #cc
+        FROM    inv_master i
+        WHERE   EXISTS ( SELECT 1
+                         FROM   cvo_sbm_details sbm ( NOLOCK )
+                         WHERE  i.part_no = sbm.part_no
+                                AND sbm.customer = '045217' );
 
 -- select * from #cc
 
 
-IF(OBJECT_ID('tempdb.dbo.#Data1') is not null) drop table #Data1
-select i.part_no as sku, 
+        IF ( OBJECT_ID('tempdb.dbo.#Data1') IS NOT NULL )
+            DROP TABLE #Data1;
+        SELECT  I.part_no AS sku , 
 
 --convert(varchar(150),
 --case when type_code in ('sun','frame') and len(t1.part_no)=11 then left(t1.part_no,4)
@@ -85,68 +105,118 @@ select i.part_no as sku,
 --	when type_code in ('sun','frame') and len(t1.part_no)=13 then left(t1.part_no,6)
 --	when type_code in ('sun','frame') and len(t1.part_no)=12 then left(t1.part_no,5) else '' END 
 --	) as mastersku,
-
-convert(varchar(150),
-		CASE WHEN i.category = 'revo' THEN RTRIM(LEFT(i.part_no,6))
-			 WHEN i.type_code in ('sun','frame') then left(i.part_no, LEN(i.PART_NO)-7)
-		else '' END 
-	   ) as mastersku,
-
-CASE WHEN i.category ='revo' AND i.type_code IN ('other','pop') THEN CONVERT(VARCHAR(150), i.description) 
-	ELSE CONVERT(varchar(150),(CAT.Description + ' ' + FIELD_2)) END AS name, 
-
-convert(decimal(10,2),price_a) as unitPrice, 
-1 as minQty, 
-1 as multQty,  
-CASE WHEN i.TYPE_CODE IN ('other','POP') THEN 'POP' ELSE 'CLEARVISION'  end as manufacturer,
-upc_code as barcode, 
-
-CASE WHEN i.category ='revo' AND i.type_code IN ('other','pop') THEN CONVERT(VARCHAR(150), i.description) 
-	ELSE CONVERT(varchar(150),(CAT.Description + ' ' + FIELD_2)) END AS longDesc, 
-
-variantdescription = case when i.type_code in ('other','pop') then i.description 
-		WHEN i.type_code = 'sun' THEN
-			convert(varchar(150),(CAT.Description + ' ' + FIELD_2 + ' ' + FIELD_3 + ' ' 
-			+ (ISNULL(CAST(str(FIELD_17, 2, 0) AS VARCHAR(2)),'') 
-			+ '/' + ISNULL(CAST(field_6 AS VARCHAR(2)),'') 
-			+ '/' + ISNULL(CAST(field_8 AS VARCHAR(3)),'') ) 
-			+ ' ' + ISNULL(field_23,'') -- sun lens color - 1/11/16
-			)) 
-		else
-		convert(varchar(150),(CAT.Description + ' ' + FIELD_2 + ' ' + FIELD_3 + ' ' 
-		+ (ISNULL(CAST(str(FIELD_17, 2, 0) AS VARCHAR(2)),'') + '/' + ISNULL(CAST(field_6 AS VARCHAR(2)),'') 
-		+ '/' + ISNULL(CAST(field_8 AS VARCHAR(3)),'') ) )) 
-		end,
- '' as imageURLs, 
-[category:1] = CASE 
-	 WHEN I.part_no = 'OPZSUNSKIT' THEN 'SUN'
-	 WHEN i.TYPE_CODE IN ('OTHER','POP') THEN 'POP'
+                CONVERT(VARCHAR(150), CASE WHEN I.category IN ( 'revo', 'bt' )
+                                                OR ( I.category = 'as'
+                                                     AND IA.field_2 = 'colorful'
+                                                   )
+                                           THEN RTRIM(LEFT(I.part_no, 6)) -- 9/6/2016 put all colorful together
+                                           WHEN I.type_code IN ( 'sun',
+                                                              'frame' )
+                                           THEN LEFT(I.part_no,
+                                                     LEN(I.part_no) - 7)
+                                           ELSE ''
+                                      END) AS mastersku ,
+                CASE WHEN I.category = 'revo'
+                          AND I.type_code IN ( 'other', 'pop' )
+                     THEN CONVERT(VARCHAR(150), I.description)
+                     ELSE CONVERT(VARCHAR(150), ( CAT.description + ' '
+                                                  + field_2 ))
+                END AS name ,
+                CONVERT(DECIMAL(10, 2), price_a) AS unitPrice ,
+                1 AS minQty ,
+                1 AS multQty ,
+                CASE WHEN I.type_code IN ( 'other', 'POP' ) THEN 'POP'
+					 WHEN i.category IN ('LS') THEN 'LONESTAR' -- 9/30/2016 - per JB request
+                     ELSE 'CLEARVISION'
+                END AS manufacturer ,
+                upc_code AS barcode ,
+                CASE WHEN I.category = 'revo'
+                          AND I.type_code IN ( 'other', 'pop' )
+                     THEN CONVERT(VARCHAR(150), I.description)
+                     ELSE CONVERT(VARCHAR(150), ( CAT.description + ' '
+                                                  + field_2 ))
+                END AS longDesc ,
+                variantdescription = CASE WHEN I.type_code IN ( 'other', 'pop' )
+                                          THEN I.description
+                                          WHEN I.type_code = 'sun'
+                                          THEN CONVERT(VARCHAR(150), ( CAT.description
+                                                              + ' ' + field_2
+                                                              + ' ' + field_3
+                                                              + ' '
+                                                              + ( ISNULL(CAST(STR(field_17,
+                                                              2, 0) AS VARCHAR(2)),
+                                                              '') + '/'
+                                                              + ISNULL(CAST(field_6 AS VARCHAR(2)),
+                                                              '') + '/'
+                                                              + ISNULL(CAST(field_8 AS VARCHAR(3)),
+                                                              '') ) + ' '
+                                                              + ISNULL(field_23,
+                                                              '') -- sun lens color - 1/11/16
+                                                              ))
+                                          ELSE CONVERT(VARCHAR(150), ( CAT.description
+                                                              + ' ' + field_2
+                                                              + ' ' + field_3
+                                                              + ' '
+                                                              + ( ISNULL(CAST(STR(field_17,
+                                                              2, 0) AS VARCHAR(2)),
+                                                              '') + '/'
+                                                              + ISNULL(CAST(field_6 AS VARCHAR(2)),
+                                                              '') + '/'
+                                                              + ISNULL(CAST(field_8 AS VARCHAR(3)),
+                                                              '') ) ))
+                                     END ,
+                '' AS imageURLs ,
+                [category:1] = CASE WHEN I.part_no = 'OPZSUNSKIT' THEN 'SUN'
+									WHEN @today >= @me AND i.category = 'me' THEN 'ME SELL-DOWN' -- 10/6/2016
+                                    WHEN I.type_code IN ( 'OTHER', 'POP' )
+                                    THEN 'POP'
 	 -- 1/11/2016
 	 -- WHEN i.category = 'CH' AND ia.FIELD_32 = 'LastChance' THEN 'CHLastChance'
-	 WHEN i.category = 'CH' AND @TODAY >= @CH THEN 'COLE HAAN' -- 05/26 - CHANGE FROM CH RETURNS TO COLE HAAN FOR LAST, LAST, CHANCE BUYS
-	 WHEN ISNULL(FIELD_28,@TODAY) >= @today THEN I.TYPE_CODE
-	 WHEN EXISTS (SELECT 1 FROM #EOS WHERE #EOS.PART_NO = I.PART_NO) THEN 'SUN SPECIALS'
+                                    WHEN I.category = 'CH'
+                                         AND @today >= @CH THEN 'COLE HAAN' -- 05/26 - CHANGE FROM CH RETURNS TO COLE HAAN FOR LAST, LAST, CHANCE BUYS
+                                    WHEN ISNULL(field_28, @today) >= @today
+                                    THEN I.type_code
+                                    WHEN EXISTS ( SELECT    1
+                                                  FROM      #EOS
+                                                  WHERE     #EOS.part_no = I.part_no )
+                                    THEN 'SUN SPECIALS'
 	 -- 12/12/14 - sunps takes precedence
-	 WHEN i.TYPE_CODE = 'SUN' AND ISNULL(FIELD_28,@TODAY) < @today and isnull(field_36,'') <> 'sunps' THEN 'EORS'
-	 WHEN dbo.f_cvo_get_part_tl_status (I.part_no,@today) = 'R'
-		  and datediff(m,isnull(field_28,@today),@today) < 9  THEN 'RED'
-	 WHEN datediff(m,isnull(field_28,@today),@today) >= 24  THEN 'EOR' 
-	 WHEN datediff(m,isnull(field_28,@today),@today) >= 9 THEN 'QOP'
-
-	 ELSE I.TYPE_CODE END,
-[CATEGORY:2] = case when i.category in ('izod','izx') then 'IZOD' 
+                                    WHEN I.type_code = 'SUN'
+                                         AND ISNULL(field_28, @today) < @today
+                                         AND ISNULL(field_36, '') <> 'sunps'
+                                    THEN 'EORS'
+                                    WHEN dbo.f_cvo_get_part_tl_status(I.part_no,
+                                                              @today) = 'R'
+                                         AND DATEDIFF(m,
+                                                      ISNULL(field_28, @today),
+                                                      @today) < 9 THEN 'RED'
+                                    WHEN DATEDIFF(m, ISNULL(field_28, @today),
+                                                  @today) >= 24 THEN 'EOR'
+                                    WHEN DATEDIFF(m, ISNULL(field_28, @today),
+                                                  @today) >= 9 THEN 'QOP'
+                                    ELSE I.type_code
+                               END ,
+                [CATEGORY:2] = CASE WHEN I.category IN ( 'izod', 'izx' )
+                                    THEN 'IZOD' 
 					-- WHEN ia.field_32 = 'lastchance' THEN '' 
-ELSE CAT.DESCRIPTION END,
-ISNULL(FIELD_3,'') AS Color,
+                                    ELSE CAT.description
+                               END ,
+                ISNULL(field_3, '') AS Color ,
 -- sun lens color for REVO
-CASE WHEN i.type_code = 'sun' AND i.category = 'revo' THEN REPLACE(ISNULL(field_23,'NoLens'),' ','') ELSE -- use lens color as dimension for revo
-(ISNULL(CAST(str(FIELD_17, 2, 0) AS VARCHAR(2)),'') + '/' + ISNULL(CAST(field_6 AS VARCHAR(2)),'') + '/' + ISNULL(CAST(field_8 AS VARCHAR(3)),'') ) END 
-AS Size,
-'|' as [|],
-I.CATEGORY AS COLL, IA.field_2 as Model, 
-field_28 as POMDate,
-field_26 as ReleaseDate,
-dbo.f_cvo_get_part_tl_status (I.part_no,@today)  as Status,
+                CASE WHEN I.type_code = 'sun'
+                          AND I.category = 'revo'
+                     THEN REPLACE(ISNULL(field_23, 'NoLens'), ' ', '')
+                     ELSE -- use lens color as dimension for revo
+                          ( ISNULL(CAST(STR(field_17, 2, 0) AS VARCHAR(2)), '')
+                            + '/' + ISNULL(CAST(field_6 AS VARCHAR(2)), '')
+                            + '/' + ISNULL(CAST(field_8 AS VARCHAR(3)), '') )
+                END AS Size ,
+                '|' AS [|] ,
+                I.category AS COLL ,
+                IA.field_2 AS Model ,
+                field_28 AS POMDate ,
+                field_26 AS ReleaseDate ,
+                dbo.f_cvo_get_part_tl_status(I.part_no, @today) AS Status ,
 /*
 -- 6/26/2015 tweak for BTS 2015
 CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN ('843','844')*/  THEN 'KIDS' 
@@ -154,208 +224,385 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
 	 ELSE '' END GENDER, 
 */
 -- 6/28/2016 tweak for BTS 2016
-CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN ('843','844')*/  THEN 'BTS' 
-	 WHEN category_2 NOT LIKE '%child%' AND i.category IN('jc','op') AND FIELD_2 NOT IN ('Sundae','Smoothie') THEN 'Tween'
-	 ELSE '' END GENDER, 
-
-case when field_32 = 'none' /*OR ia.field_2 IN ('gelato','popsicle','sherbet')*/ then '' else isnull(FIELD_32,'') end as SpecialtyFit,
-case when (#apr.sku is not null) then 'Y' else ''  end as APR,
-CASE WHEN i.category = 'ch' THEN ''
-	 WHEN  FIELD_26 > DATEADD(MONTH,-6,@today) THEN 'New' 
-	 ELSE '' END AS New,
-case WHEN FIELD_36='SUNPS' THEN 'SUNPS' ELSE '' END as SUNPS,
-case when #cc.part_no is null then '' else 'CC' end as CostCo,
-case when isnull(field_28,@today) < @today then 'POM' else '' end as POM,
+                CASE WHEN category_2 LIKE '%CHILD%'
+                          AND I.category <> 'dd' /*AND FIELD_2 NOT IN ('843','844')*/
+                     THEN 'BTS'
+                     WHEN category_2 NOT LIKE '%child%'
+                          AND I.category IN ( 'jc', 'op' )
+                          AND field_2 NOT IN ( 'Sundae', 'Smoothie' )
+                     THEN 'Tween'
+                     ELSE ''
+                END GENDER ,
+                CASE WHEN field_32 = 'none' /*OR ia.field_2 IN ('gelato','popsicle','sherbet')*/
+                     THEN ''
+                     ELSE ISNULL(field_32, '')
+                END AS SpecialtyFit ,
+                CASE WHEN ( #apr.sku IS NOT NULL ) THEN 'Y'
+                     ELSE ''
+                END AS APR ,
+                CASE WHEN I.category IN ('ch','ME') THEN ''
+                     WHEN field_26 > DATEADD(MONTH, -6, @today) THEN 'New'
+                     ELSE ''
+                END AS New ,
+                CASE WHEN field_36 = 'SUNPS' THEN 'SUNPS'
+                     ELSE ''
+                END AS SUNPS ,
+                CASE WHEN #cc.part_no IS NULL THEN ''
+                     ELSE 'CC'
+                END AS CostCo ,
+                CASE WHEN ISNULL(field_28, @today) < @today THEN 'POM'
+                     ELSE ''
+                END AS POM ,
 -- 6/9/2016 for kit items to fake inventory # later
-CASE WHEN ISNULL(field_30,'') ='Y' THEN 'Kit' ELSE '' END AS Kit,
-shelfqty = 0,
-ISNULL(invupd.shelfqty,'999') ShelfQty2,
-cia.nextpoduedate
-, cia.NextPOOnOrder
-, isnull(drp.e12_wu,0) drp_usg
-, isnull(cia.qty_avl,0) qty_avl
-, New_shelfqty = case when isnull(cia.qty_avl,0) <= isnull(drp.e12_wu,0) then 0 else isnull(cia.qty_avl,0) end
-
-INTO #Data1
-FROM inv_master (NOLOCK) I
-JOIN inv_master_add (NOLOCK) IA on IA.part_no=I.part_no
-JOIN CATEGORY (NOLOCK) CAT ON I.category=CAT.kys
-JOIN part_price (NOLOCK) PP on I.part_no=PP.part_no
+                CASE WHEN ISNULL(field_30, '') = 'Y' THEN 'Kit'
+                     ELSE ''
+                END AS Kit ,
+                shelfqty = 0 ,
+                ISNULL(invupd.ShelfQty, '999') ShelfQty2 ,
+                cia.NextPODueDate ,
+                cia.NextPOOnOrder ,
+                ISNULL(drp.e12_WU, 0) drp_usg ,
+                ISNULL(cia.qty_avl, 0) qty_avl ,
+                New_shelfqty = CASE WHEN ISNULL(cia.qty_avl, 0) <= ISNULL(drp.e12_WU,
+                                                              0) THEN 0
+                                    ELSE ISNULL(cia.qty_avl, 0)
+                               END
+        INTO    #Data1
+        FROM    inv_master (NOLOCK) I
+                JOIN inv_master_add (NOLOCK) IA ON IA.part_no = I.part_no
+                JOIN category (NOLOCK) CAT ON I.category = CAT.kys
+                JOIN part_price (NOLOCK) PP ON I.part_no = PP.part_no
 -- left outer join #eos on #eos.part_no = t1.part_no
-left outer join CVO_ITEM_AVAIL_VW  (nolock) cia on cia.location=@location AND cia.part_no = i.part_no 
-left outer join CVO_HS_INVENTORY_QTYUPD invupd (nolock) on i.part_no=invupd.sku
-left outer join #cc on #cc.part_no = I.part_no
+                LEFT OUTER JOIN cvo_item_avail_vw (NOLOCK) cia ON cia.location = @location
+                                                              AND cia.part_no = I.part_no
+                LEFT OUTER JOIN CVO_HS_INVENTORY_QTYUPD invupd ( NOLOCK ) ON I.part_no = invupd.sku
+                LEFT OUTER JOIN #cc ON #cc.part_no = I.part_no
 -- 030215 -- get apr info from table
-left outer join cvo_apr_tbl #apr on #apr.sku = i.part_no 
-					 and @today between #apr.eff_date and #apr.obs_date -- 3/2/2015 tag
+                LEFT OUTER JOIN cvo_apr_tbl #apr ON #apr.sku = I.part_no
+                                                    AND @today BETWEEN #apr.eff_date AND #apr.obs_date -- 3/2/2015 tag
 -- 032615 use drp 4 week usage as safety stock
-left outer join dpr_report drp (nolock) on drp.part_no = i.part_no and drp.location = @location
-
-WHERE i.VOID <> 'V' AND category not in ('CORP','FP','BT')
-  AND (ISNULL(FIELD_32,'') NOT IN ('HVC','RETAIL','COSTCO','SpecialOrd') -- 5/12/16 -- added special order for revo custom
+                LEFT OUTER JOIN DPR_Report drp ( NOLOCK ) ON drp.part_no = I.part_no
+                                                             AND drp.location = @location
+        WHERE   I.void <> 'V'
+                AND category NOT IN ( 'CORP', 'FP' )
+                AND ( ISNULL(field_32, '') NOT IN ( 'HVC', 'RETAIL', 'COSTCO',
+                                                    'SpecialOrd', 'btconvert' ) -- 5/12/16 -- added special order for revo custom
   -- 4/26/2016 don't need anymore
 --      OR (category IN ('RR') AND ia.field_2 NOT IN ('Rutgers','Vanderbilt','Wildcat Peak') AND GETDATE() >='12/29/2015')
 --	  ) 
 --  4/26/2016 oh yes we do need this
-      OR (category IN ('RR') AND GETDATE() >='12/29/2015')
-	  ) 
-  
-  AND (i.TYPE_CODE IN ('SUN','FRAME') OR isnull(field_36,'') = 'HSPOP')
+                      OR ( category IN ( 'RR' )
+                           AND GETDATE() >= '12/29/2015'
+                         ) -- add Lonestar
+                    )
+                AND ( I.type_code IN ( 'SUN', 'FRAME' )
+                      OR ISNULL(field_36, '') = 'HSPOP'
+                    )
   -- 6/29/2015 - set to 1 day.  was 11.  have no idea why
-  AND (field_26 <= DATEADD(D,1,@today) OR  #apr.sku is not null OR (field_26 = '4/26/2016' AND category <> 'AS')) -- vee 2016
+                AND ( field_26 <= DATEADD(D, 1, @today)
+                      OR #apr.sku IS NOT NULL
+					  OR i.category = 'LS' -- 9/27/2016
+                      OR ( field_26 = '4/26/2016'
+                           AND category <> 'AS'
+                         )
+                    ); -- vee 2016
   
 -- select * From #data1 where sku = 'bcviabla5515'
 
 
-create index idx_data1 on #data1 ( sku )
+        CREATE INDEX idx_data1 ON #Data1 ( sku );
 
-CREATE NONCLUSTERED INDEX [idx_new_mastersku]
-ON [dbo].[#Data1] ([New]) INCLUDE ([mastersku])
+        CREATE NONCLUSTERED INDEX idx_new_mastersku
+        ON dbo.#Data1 (New) INCLUDE (mastersku);
 
 
-UPDATE  #Data1 SET NAME='IZOD CLEAR DISPLAY FRAME KIT'
-		, LongDesc='IZOD CLEAR DISPLAY FRAME KIT'
-		, [CATEGORY:1]= 'FRAME', MANUFACTURER= 'CLEARVISION' 
-	    WHERE sku = 'IZCLDISKITA'
+        UPDATE  #Data1
+        SET     name = 'IZOD CLEAR DISPLAY FRAME KIT' ,
+                longDesc = 'IZOD CLEAR DISPLAY FRAME KIT' ,
+                [category:1] = 'FRAME' ,
+                manufacturer = 'CLEARVISION'
+        WHERE   sku = 'IZCLDISKITA';
 
 -- 06/26/2015
-UPDATE  #Data1 SET [CATEGORY:1]= 'FRAME', MANUFACTURER= 'CLEARVISION' 
-		, longdesc = variantdescription, name = variantdescription, size = ''--, model = 'READER'
-	    WHERE sku in ('ETREADER','izztr90kit','bczdisplaykit','izodinter','opsherbetm')
+        UPDATE  #Data1
+        SET     [category:1] = 'FRAME' ,
+                manufacturer = 'CLEARVISION' ,
+                longDesc = variantdescription ,
+                name = variantdescription ,
+                Size = ''--, model = 'READER'
+        WHERE   sku IN ( 'ETREADER', 'izztr90kit', 'bczdisplaykit',
+                         'izodinter', 'opsherbetm', 'ascolo6pckit',
+                         'ascolo12pckit', 'ascolo18pckit', 'bcbgslp',
+                         'BTZADULTS', 'BTZKIDS' ); -- 9/8/2016
 
-UPDATE  #Data1 SET longDesc = REPLACE (longDesc,'PERFORMX ','IZOD PERFORMX ') 
-			, name = REPLACE (name,'PERFORMX ','IZOD PERFORMX ') 
-			, VariantDescription = REPLACE (VariantDescription,'PERFORMX ','IZOD PERFORMX ') 
+        UPDATE  #Data1
+        SET     longDesc = REPLACE(longDesc, 'PERFORMX ', 'IZOD PERFORMX ') ,
+                name = REPLACE(name, 'PERFORMX ', 'IZOD PERFORMX ') ,
+                variantdescription = REPLACE(variantdescription, 'PERFORMX ',
+                                             'IZOD PERFORMX '); 
 -- 1/2/2015 - tag - for durahinge
-update  #data1 set longdesc = replace (longdesc, 'durahinge durahinge','DURAHINGE')
-			, name = replace (name, 'durahinge durahinge','DURAHINGE')
-			, variantdescription = replace (variantdescription, 'durahinge durahinge','DURAHINGE')
+        UPDATE  #Data1
+        SET     longDesc = REPLACE(longDesc, 'durahinge durahinge',
+                                   'DURAHINGE') ,
+                name = REPLACE(name, 'durahinge durahinge', 'DURAHINGE') ,
+                variantdescription = REPLACE(variantdescription,
+                                             'durahinge durahinge',
+                                             'DURAHINGE');
 
-UPDATE  #Data1 SET longDesc = REPLACE (longDesc,'"','') 
-			, name = REPLACE (name,'"','') 
-			, VariantDescription = REPLACE (VariantDescription,'"','') 
+        UPDATE  #Data1
+        SET     longDesc = REPLACE(longDesc, '"', '') ,
+                name = REPLACE(name, '"', '') ,
+                variantdescription = REPLACE(variantdescription, '"', ''); 
     
 -- PULL ALL SPECS for STYLE together
-  IF(OBJECT_ID('tempdb.dbo.#Spec') is not null) drop table #Spec
-  select distinct Mastersku, Num, Spec into #Spec from (
-  select mastersku, 1 as Num, Gender as Spec from #Data1 where Gender <> ''
-  UNION ALL
-  select mastersku, 2 as Num, SpecialtyFit from #Data1 where SpecialtyFit <> ''
-  UNION ALL
-  select mastersku, 3 as Num, case when APR ='Y' then 'APR' else '' end from #Data1 where APR <> '' and sunps <>'sunps'
-  UNION ALL
-  select mastersku, 4 as Num, New from #Data1 where New <> ''
-  union all -- 072814 - add special values list
-  select distinct #data1.mastersku, 5 as num, 'SPV' 
-		from #data1 join cvo_spv_tbl on #data1.sku = cvo_spv_tbl.sku 
-		where @today between cvo_spv_tbl.eff_date and isnull(cvo_spv_tbl.obs_date,@today)
-		and cvo_spv_tbl.mastersku is not null
+        IF ( OBJECT_ID('tempdb.dbo.#Spec') IS NOT NULL )
+            DROP TABLE #Spec;
+        SELECT DISTINCT
+                mastersku ,
+                Num ,
+                Spec
+        INTO    #Spec
+        FROM    ( SELECT    mastersku ,
+                            1 AS Num ,
+                            GENDER AS Spec
+                  FROM      #Data1
+                  WHERE     GENDER <> ''
+                  UNION ALL
+                  SELECT    mastersku ,
+                            2 AS Num ,
+                            SpecialtyFit
+                  FROM      #Data1
+                  WHERE     SpecialtyFit <> ''
+                  UNION ALL
+                  SELECT    mastersku ,
+                            3 AS Num ,
+                            CASE WHEN APR = 'Y' THEN 'APR'
+                                 ELSE ''
+                            END
+                  FROM      #Data1
+                  WHERE     APR <> ''
+                            AND SUNPS <> 'sunps'
+                  UNION ALL
+                  SELECT    mastersku ,
+                            4 AS Num ,
+                            New
+                  FROM      #Data1
+                  WHERE     New <> ''
+                  UNION ALL -- 072814 - add special values list
+                  SELECT DISTINCT
+                            #Data1.mastersku ,
+                            5 AS num ,
+                            'SPV'
+                  FROM      #Data1
+                            JOIN cvo_spv_tbl ON #Data1.sku = cvo_spv_tbl.sku
+                  WHERE     @today BETWEEN cvo_spv_tbl.eff_date
+                                   AND     ISNULL(cvo_spv_tbl.obs_date, @today)
+                            AND cvo_spv_tbl.mastersku IS NOT NULL
 		-- 02/27/2015 - if it's already qop it can't be a spv too
-		and [category:1] <> 'QOP'
-
-  UNION ALL
-  select mastersku, 5 as Num, SunPs from #Data1 where SunPS <> ''
+                            AND [category:1] <> 'QOP'
+                  UNION ALL
+                  SELECT    mastersku ,
+                            5 AS Num ,
+                            SUNPS
+                  FROM      #Data1
+                  WHERE     SUNPS <> ''
   --UNION ALL
   --SELECT mastersku, 6 AS num, '1.1' FROM #data1 WHERE ReleaseDate = '11/2/2015' AND COLL = 'AS'
   --UNION ALL
   --select mastersku, 6 as Num, '*D*' from #Data1 where POM <> ''
-  )tmp
+                ) tmp;
 
 -- --   select * from #Spec
-IF(OBJECT_ID('tempdb.dbo.#Spec1') is not null)
-drop table dbo.#Spec1
-      ;WITH C AS 
-            ( SELECT mastersku, Num, Spec FROM #Spec )
-            select Distinct mastersku,
-             STUFF ( ( SELECT ' ' + Spec
-             FROM #Spec WHERE mastersku = C.mastersku
-             FOR XML PATH ('') ), 1, 1, ''  ) AS NEW
-      INTO #Spec1 FROM C
+        IF ( OBJECT_ID('tempdb.dbo.#Spec1') IS NOT NULL )
+            DROP TABLE dbo.#Spec1;
+            WITH    C AS ( SELECT   mastersku ,
+                                    Num ,
+                                    Spec
+                           FROM     #Spec
+                         )
+            SELECT DISTINCT
+                    mastersku ,
+                    STUFF(( SELECT  ' ' + Spec
+                            FROM    #Spec
+                            WHERE   mastersku = C.mastersku
+                          FOR
+                            XML PATH('')
+                          ), 1, 1, '') AS NEW
+            INTO    #Spec1
+            FROM    C;
 
-create index idx_spec on #spec ( mastersku )
-create index idx_spec1 on #spec1 ( mastersku )
+        CREATE INDEX idx_spec ON #Spec ( mastersku );
+        CREATE INDEX idx_spec1 ON #Spec1 ( mastersku );
 
 -- -- 
-delete from #SPEC where mastersku=''
+        DELETE  FROM #Spec
+        WHERE   mastersku = '';
 --  select * from #Spec1 where mastersku=''
-delete from #SPEC1 where mastersku=''      
+        DELETE  FROM #Spec1
+        WHERE   mastersku = '';      
     
 -- UPDATES
-update #Data1 set mastersku = 'BCGLIL' where sku like 'bcglil%' 
-update #Data1 set mastersku = 'BCANGS' where sku like 'bcANG_______S' 
+        UPDATE  #Data1
+        SET     mastersku = 'BCGLIL'
+        WHERE   sku LIKE 'bcglil%'; 
+        UPDATE  #Data1
+        SET     mastersku = 'BCANGS'
+        WHERE   sku LIKE 'bcANG_______S'; 
 
 --2/25/2016
-UPDATE #data1 SET mastersku = mastersku+'X' WHERE mastersku IN ('RE4064','RE4066') AND POMDate <= '1/1/2010'
+        UPDATE  #Data1
+        SET     mastersku = mastersku + 'X'
+        WHERE   mastersku IN ( 'RE4064', 'RE4066' )
+                AND POMDate <= '1/1/2010';
 
-UPDATE  #Data1 SET NAME='OCEAN PACIFIC SUNS KIT'
-		, LongDesc='OCEAN PACIFIC SUNS KIT'
-		, [CATEGORY:1]= 'SUN', MANUFACTURER= 'CLEARVISION' 
-	    WHERE sku = 'OPZSUNSKIT'
+        UPDATE  #Data1
+        SET     name = 'OCEAN PACIFIC SUNS KIT' ,
+                longDesc = 'OCEAN PACIFIC SUNS KIT' ,
+                [category:1] = 'SUN' ,
+                manufacturer = 'CLEARVISION'
+        WHERE   sku = 'OPZSUNSKIT';
 -- select * from #Data1
 
-IF(OBJECT_ID('#Final') is not null)    drop table #Final
+        IF ( OBJECT_ID('#Final') IS NOT NULL )
+            DROP TABLE #Final;
 
-select sku, 
-case when manufacturer ='POP' then ''  
-	 else mastersku end as mastersku,  
+        SELECT  sku ,
+                CASE WHEN manufacturer = 'POP' THEN ''
+                     ELSE mastersku
+                END AS mastersku ,  
 --ISNULL((select name + ' (' + New + case when pomdate is not null then ' *D)' else ' )' end from #Spec1 t2 
 --	 where t1.mastersku=t2.mastersku),name)  AS name, 
-ISNULL((select name + ' (' + New + ')' from #Spec1 t2 where t1.mastersku=t2.mastersku),name)  AS name, 
-unitPrice, minQty, multQty, 
-Manufacturer,  
-barcode, 
+                ISNULL(( SELECT name + ' (' + NEW + ')'
+                         FROM   #Spec1 t2
+                         WHERE  t1.mastersku = t2.mastersku
+                       ), name) AS name ,
+                unitPrice ,
+                minQty ,
+                multQty ,
+                manufacturer ,
+                barcode , 
 --ISNULL((select longDesc + ' (' + New + case when pomdate is not null then ' *D)' else ' )' end  from #Spec1 t2 
 --	where t1.mastersku=t2.mastersku),longDesc) AS  longDesc,
-ISNULL((select longdesc + ' (' + New + ')'  from #Spec1 t2 where t1.mastersku=t2.mastersku),longdesc)  AS longdesc
-, VariantDescription = isnull((select variantdescription + ' (*D)' 
-		  from inv_master_add ia where ia.part_no = t1.sku 
-			and isnull(ia.field_28,getdate()) < getdate()),VariantDescription) 
-		  
-, imageURLs,
+                ISNULL(( SELECT longDesc + ' (' + NEW + ')'
+                         FROM   #Spec1 t2
+                         WHERE  t1.mastersku = t2.mastersku
+                       ), longDesc) AS longdesc ,
+                VariantDescription = ISNULL(( SELECT    variantdescription
+                                                        + ' (*D)'
+                                              FROM      inv_master_add ia
+                                              WHERE     ia.part_no = t1.sku
+                                                        AND ISNULL(ia.field_28,
+                                                              GETDATE()) < GETDATE()
+                                            ), variantdescription) ,
+                imageURLs ,
 --  updated to add EOS to category:1  EL 062514
-[category:1], 
-[category:2], 
-Color,
+                [category:1] ,
+                [CATEGORY:2] ,
+                Color ,
 -- Lens_color,
-Size, 
-[|], 
-COLL, Model, POMDate, ReleaseDate, Status, GENDER, SpecialtyFit, APR, New, SUNPS, CostCo
+                Size ,
+                [|] ,
+                COLL ,
+                Model ,
+                POMDate ,
+                ReleaseDate ,
+                Status ,
+                GENDER ,
+                SpecialtyFit ,
+                APR ,
+                New ,
+                SUNPS ,
+                CostCo
 -- , ShelfQty
-, ShelfQty = 
+                ,
+                ShelfQty = 
 -- 2/4/16 - add izod interchangeable fudge qty for 2/23 release
-	CASE WHEN t1.coll = 'izod' AND t1.Model IN ('6001','6002','6003','6004') THEN t1.qty_avl + ISNULL(t1.NextPOOnOrder, 0)
+                CASE WHEN t1.COLL = 'izod'
+                          AND t1.Model IN ( '6001', '6002', '6003', '6004' )
+                     THEN t1.qty_avl + ISNULL(t1.NextPOOnOrder, 0)
 		 -- 5/26/16 - SHOW ch QTYS FOR LAST, LAST CHANCE BUYS -- WHEN T1.coll = 'CH' then 0
-		 WHEN SKU = 'IZODINTER' THEN 2000 -- ISNULL(T1.QTY_AVL,0) + ISNULL(t1.NextPOOnOrder,0)
-		 WHEN Kit = 'Kit' THEN 2000 -- 6/9/2016 - dummy up inventory for all promo kits
-		 WHEN t1.apr = 'y' or t1.sunps = 'sunps' /*OR t1.[CATEGORY:2] = 'revo'*/ THEN 2000 -- APR and sunps and revo
-		 when t1.[category:1] in ('spv','qop','eor') then isnull(t1.qty_avl,0)
-		 
-	ELSE case when t1.qty_avl < t1.drp_usg then 0 else isnull(t1.qty_avl,0) end
-	END
-, NextPODueDate
-, 0 as hide
-
-INTO #Final
- from #Data1 t1
- Order by coll, model
+                     WHEN t1.COLL = 'CH' THEN 0 -- 9/13/2016 - PUT BACK
+                     WHEN sku = 'IZODINTER' THEN 2000 -- ISNULL(T1.QTY_AVL,0) + ISNULL(t1.NextPOOnOrder,0)
+                     WHEN Kit = 'Kit' THEN 2000 -- 6/9/2016 - dummy up inventory for all promo kits
+                     WHEN t1.APR = 'y'
+                          OR t1.SUNPS = 'sunps' /*OR t1.[CATEGORY:2] = 'revo'*/
+                     THEN 2000 -- APR and sunps and revo
+                     WHEN t1.[category:1] IN ( 'spv', 'qop', 'eor' )
+                     THEN ISNULL(t1.qty_avl, 0)
+                     ELSE CASE WHEN t1.qty_avl < t1.drp_usg THEN 0
+                               ELSE ISNULL(t1.qty_avl, 0)
+                          END
+                END ,
+                NextPODueDate ,
+                0 AS hide
+        INTO    #Final
+        FROM    #Data1 t1
+        ORDER BY COLL ,
+                Model;
  
-update #final set Hide = 
-			   case when manufacturer = 'POP' then
-				 case when isnull(pomdate,@today) < @today then 1 else 0 end
-			   WHEN ShelfQty <= 0 and [category:1] in ('EOR','EORS') THEN 1
-			   else 0 END
+        UPDATE  #Final
+        SET     hide = CASE WHEN manufacturer = 'POP'
+                            THEN CASE WHEN ISNULL(POMDate, @today) < @today
+                                      THEN 1
+                                      ELSE 0
+                                 END
+                            WHEN ShelfQty <= 0
+                                 AND [category:1] IN ( 'EOR', 'EORS' ) THEN 1
+                            ELSE 0
+                       END;
 
-update #final set Hide = case -- 9/2/2016
-							  WHEN (ReleaseDate = '9/6/2016' AND @today < '9/9/2016' AND apr <> 'Y') THEN 1
-							  WHEN (Model = 'COLORFUL' AND COLL = 'AS') THEN 1
-							  -- 9/2/2016
-							  WHEN COLL = 'revo' AND isnull(pomdate,@today) = '01/01/2010' then 1
-							  WHEN coll = 'revo' AND model IN ('Straightshot','Bearing','Heading') THEN 1 -- 2/10/2016
+        UPDATE  #Final
+        SET     hide = CASE -- 9/2/2016
+							WHEN ( coll = 'bt' AND GETDATE() < '10/25/2016') THEN 1 -- don't let BT show up early
+                            WHEN ( COLL = 'LS'
+                                   AND GETDATE() < ReleaseDate
+                                 ) THEN 1-- 9/27/2016 per JB request
+                            WHEN ( SpecialtyFit = 'slp'
+                                   AND @today < '10/7/2016'
+                                 ) THEN 1
+                            WHEN ( ReleaseDate = '9/27/2016'
+                                   AND APR = 'Y'
+                                   AND @today BETWEEN '9/14/2016' AND '9/18/2016'
+                                 ) THEN 0
+                            WHEN ( ReleaseDate = '9/27/2016'
+                                   AND ( APR = 'Y'
+                                         OR SpecialtyFit = '1.3'
+                                       )
+                                 ) THEN 1
+                            WHEN ( Model = 'COLORFUL'
+                                   AND COLL = 'AS'
+                                   AND @today > '9/23/2016'
+                                 ) THEN 1
+                            WHEN ( ReleaseDate = '9/6/2016'
+                                   AND @today < '9/9/2016'
+                                   AND APR <> 'Y'
+                                 ) THEN 1
+							  							  -- 9/2/2016
+                            WHEN COLL = 'revo'
+                                 AND ISNULL(POMDate, @today) = '01/01/2010'
+                            THEN 1
+                            WHEN COLL = 'revo'
+                                 AND Model IN ( 'Straightshot', 'Bearing',
+                                                'Heading' ) THEN 1 -- 2/10/2016
 							  -- unhide for 4/26 release WHEN mastersku IN ('iz2014','iz2015','iz2016','iz2017') THEN 1
-							  WHEN MASTERSKU IN ('IZ6001','IZ6002','IZ6003','IZ6004') AND @today < '5/16/2016' THEN 1
-							  WHEN mastersku IN ('iz2026','iz2027') THEN 1 -- new iz t&C kit
+                            WHEN mastersku IN ( 'IZ6001', 'IZ6002', 'IZ6003',
+                                                'IZ6004' )
+                                 AND @today < '5/16/2016' THEN 1
+							  -- 9/7/2016 WHEN mastersku IN ('iz2026','iz2027') THEN 1 -- new iz t&C kit
+                            ELSE 0
+                       END;
 
-							   else 0 end
+-- plug for VEW 090816
+        UPDATE  #Final
+        SET     hide = 0
+        WHERE   mastersku = 'ascolo'
+                OR sku = 'bcbgslp';
+
+-- plug for semi-rimless
+        UPDATE  #Final
+        SET     hide = 1
+        WHERE   SpecialtyFit = '1.3'
+		AND GETDATE() < '10/8/2016'; -- per KB - let them show up end of day Friday.
 
 -- SELECT * FROM dbo.cvo_hs_inventory_8 AS chi WHERE releasedate = '9/6/2016'
 			   
@@ -368,8 +615,9 @@ update #final set Hide = case -- 9/2/2016
 --	AND Model IN ('audra','gloria','harper','marlowe','2008','2009')
 
 
-DELETE FROM #final 
-	WHERE RIGHT(sku,2) = 'F1' AND [CATEGORY:2] = 'revo'
+        DELETE  FROM #Final
+        WHERE   RIGHT(sku, 2) = 'F1'
+                AND [CATEGORY:2] IN ( 'revo', 'bt' );
 
 
 
@@ -384,146 +632,176 @@ DELETE FROM #final
 --   select * from #final2 where 
 -- FINAL
 
-IF(OBJECT_ID('dbo.cvo_hs_inventory_8') is not null)
-	BEGIN    
-		TRUNCATE table cvo_hs_inventory_8
-	END
-    ELSE
-    BEGIN
-		CREATE TABLE [dbo].[cvo_hs_inventory_8](
-			[sku] [varchar](30) NOT NULL,
-			[mastersku] [varchar](150) NULL,
-		[name] [nvarchar](max) NULL,
-		[unitPrice] [decimal](10, 2) NULL,
-		[minQty] [int] NOT NULL,
-		[multQty] [int] NOT NULL,
-		[Manufacturer] [varchar](11) NOT NULL,
-		[barcode] [varchar](20) NULL,
-		[longdesc] [nvarchar](max) NULL,
-		[VariantDescription] [varchar](260) NULL,
-		[imageURLs] [varchar](1) NOT NULL,
-		[category:1] [varchar](12) NULL,
-		[category:2] [varchar](40) NULL,
-		[Color] [varchar](40) NOT NULL,
+        IF ( OBJECT_ID('dbo.cvo_hs_inventory_8') IS NOT NULL )
+            BEGIN    
+                TRUNCATE TABLE cvo_hs_inventory_8;
+            END;
+        ELSE
+            BEGIN
+                CREATE TABLE dbo.cvo_hs_inventory_8
+                    (
+                      sku VARCHAR(30) NOT NULL ,
+                      mastersku VARCHAR(150) NULL ,
+                      name NVARCHAR(MAX) NULL ,
+                      unitPrice DECIMAL(10, 2) NULL ,
+                      minQty INT NOT NULL ,
+                      multQty INT NOT NULL ,
+                      Manufacturer VARCHAR(11) NOT NULL ,
+                      barcode VARCHAR(20) NULL ,
+                      longdesc NVARCHAR(MAX) NULL ,
+                      VariantDescription VARCHAR(260) NULL ,
+                      imageURLs VARCHAR(1) NOT NULL ,
+                      [category:1] VARCHAR(12) NULL ,
+                      [category:2] VARCHAR(40) NULL ,
+                      Color VARCHAR(40) NOT NULL ,
 		--[Lens_color] VARCHAR(40) NOT NULL,
-		[Size] [varchar](9) NOT NULL,
-		[|] [varchar](1) NOT NULL,
-		[COLL] [varchar](10) NULL,
-		[Model] [varchar](40) NULL,
-		[POMDate] [datetime] NULL,
-		[ReleaseDate] [datetime] NULL,
-		[Status] [varchar](1) NULL,
-		[GENDER] [varchar](5) NOT NULL,
-		[SpecialtyFit] [varchar](40) NOT NULL,
-		[APR] [varchar](1) NOT NULL,
-		[New] [varchar](3) NOT NULL,
-		[SUNPS] [varchar](5) NOT NULL,
-		[CostCo] [varchar](2) NOT NULL,
-		[ShelfQty] [decimal](38, 8) NOT NULL,
-		[NextPODueDate] [datetime] NULL,
-		[hide] [int] NOT NULL,
-		[MasterHIDE] [int] NOT NULL
-		) ON [PRIMARY] 
+                      Size VARCHAR(9) NOT NULL ,
+                      [|] VARCHAR(1) NOT NULL ,
+                      COLL VARCHAR(10) NULL ,
+                      Model VARCHAR(40) NULL ,
+                      POMDate DATETIME NULL ,
+                      ReleaseDate DATETIME NULL ,
+                      Status VARCHAR(1) NULL ,
+                      GENDER VARCHAR(5) NOT NULL ,
+                      SpecialtyFit VARCHAR(40) NOT NULL ,
+                      APR VARCHAR(1) NOT NULL ,
+                      New VARCHAR(3) NOT NULL ,
+                      SUNPS VARCHAR(5) NOT NULL ,
+                      CostCo VARCHAR(2) NOT NULL ,
+                      ShelfQty DECIMAL(38, 8) NOT NULL ,
+                      NextPODueDate DATETIME NULL ,
+                      hide INT NOT NULL ,
+                      MasterHIDE INT NOT NULL
+                    )
+                ON  [PRIMARY]; 
 		
-		CREATE index idx_inv7 on cvo_hs_inventory_8 ( manufacturer, mastersku, sku )
+                CREATE INDEX idx_inv7 ON cvo_hs_inventory_8 ( Manufacturer, mastersku, sku );
 
-		CREATE NONCLUSTERED INDEX [idx_hs_inv_part_no] ON [dbo].[cvo_hs_inventory_8]
-		([sku] ASC)
-		INCLUDE ([mastersku]) 
-		WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, 
-		DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+                CREATE NONCLUSTERED INDEX idx_hs_inv_part_no ON dbo.cvo_hs_inventory_8
+                (sku ASC)
+                INCLUDE (mastersku) 
+                WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, 
+                DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY];
 
 
-end
+            END;
 
-INSERT into dbo.cvo_hs_inventory_8 
-select t1.sku ,
-       t1.mastersku ,
-       t1.name ,
-       t1.unitPrice ,
-       t1.minQty ,
-       t1.multQty ,
-       t1.manufacturer ,
-       t1.barcode ,
-       t1.longdesc ,
-       t1.VariantDescription ,
-       t1.imageURLs ,
-       t1.[category:1] ,
-       t1.[CATEGORY:2] ,
-       t1.Color ,
+        INSERT  INTO dbo.cvo_hs_inventory_8
+                SELECT  t1.sku ,
+                        t1.mastersku ,
+                        t1.name ,
+                        t1.unitPrice ,
+                        t1.minQty ,
+                        t1.multQty ,
+                        t1.manufacturer ,
+                        t1.barcode ,
+                        t1.longdesc ,
+                        t1.VariantDescription ,
+                        t1.imageURLs ,
+                        t1.[category:1] ,
+                        t1.[CATEGORY:2] ,
+                        t1.Color ,
 	   -- t1.lens_color,
-       t1.Size ,
-       t1.[|] ,
-       t1.COLL ,
-       t1.Model ,
-       t1.POMDate ,
-       t1.ReleaseDate ,
-       t1.Status ,
-       t1.GENDER ,
-       t1.SpecialtyFit ,
-       t1.APR ,
-       t1.New ,
-       t1.SUNPS ,
-       t1.CostCo ,
-       t1.ShelfQty ,
-       t1.NextPODueDate ,
-       t1.hide, 
-case when (select count(*) from #FINAL t2 where t1.mastersku=t2.mastersku) 
-		= (select sum(HIDE) from #FINAL t2 where t1.mastersku=t2.mastersku group by mastersku) 
-		THEN 1 else 0 END AS MasterHIDE
+                        t1.Size ,
+                        t1.[|] ,
+                        t1.COLL ,
+                        t1.Model ,
+                        t1.POMDate ,
+                        t1.ReleaseDate ,
+                        t1.Status ,
+                        t1.GENDER ,
+                        t1.SpecialtyFit ,
+                        t1.APR ,
+                        t1.New ,
+                        t1.SUNPS ,
+                        t1.CostCo ,
+                        t1.ShelfQty ,
+                        t1.NextPODueDate ,
+                        t1.hide ,
+                        CASE WHEN ( SELECT  COUNT(*)
+                                    FROM    #Final t2
+                                    WHERE   t1.mastersku = t2.mastersku
+                                  ) = ( SELECT  SUM(hide)
+                                        FROM    #Final t2
+                                        WHERE   t1.mastersku = t2.mastersku
+                                        GROUP BY mastersku
+                                      ) THEN 1
+                             ELSE 0
+                        END AS MasterHIDE
+                FROM    #Final t1;
 
-from #FINAL t1
 
 
+        DELETE  FROM cvo_hs_inventory_8
+        WHERE   sku LIKE 'izc%TEMPKIT';
+        UPDATE  cvo_hs_inventory_8
+        SET     mastersku = 'MESHE'
+        WHERE   mastersku = 'MESHEB';
+        UPDATE  cvo_hs_inventory_8
+        SET     Size = ''
+        WHERE   Manufacturer = 'pop'
+                OR sku = 'IZCLDISKITA'; 
 
-DELETE FROM cvo_hs_inventory_8 
-	where sku like 'izc%TEMPKIT'
-UPDATE cvo_hs_inventory_8 set MASTERSKU='MESHE' 
-	where mastersku='MESHEB'
-UPDATE cvo_hs_inventory_8 set SIZE='' 
-	WHERE MANUFACTURER ='pop' or SKU = 'IZCLDISKITA' 
-
-update cvo_hs_inventory_8 set sku = upper(sku), mastersku = upper(mastersku)
-		, VariantDescription = REPLACE(VariantDescription,'//',''), size = REPLACE(size,'//','')
+        UPDATE  cvo_hs_inventory_8
+        SET     sku = UPPER(sku) ,
+                mastersku = UPPER(mastersku) ,
+                VariantDescription = REPLACE(VariantDescription, '//', '') ,
+                Size = REPLACE(Size, '//', '');
 
 -- mixed categories
 
 -- select distinct [category:1] from cvo_hs_inventory_8
-IF(OBJECT_ID('tempdb.dbo.#cats') is not null) drop table dbo.#cats
-create table #cats
-(
-crank int,
-category varchar(15)
-)
-INSERT INTO #CATS VALUES(1,'COLE HAAN')
-insert into #cats values(2,'FRAME')
-insert into #cats values(3,'SUN')
-insert into #cats values(4,'SUN SPECIALS')
-insert into #cats values(5,'EORS')
-insert into #cats values(6,'RED')
-insert into #cats values(7,'QOP')
-insert into #cats values(8,'EOR')
-insert into #cats values(99,'POP')
-
-
-;with cte as 
-(
-select i8.mastersku, min(#cats.crank) newcat From cvo_hs_inventory_8 i8 
-LEFT OUTER JOIN #CATS ON #cats.category = i8.[category:1]
-where i8.mastersku in 
-(
-select mastersku from cvo_hs_inventory_8
-where [category:1] <> 'pop' AND mastersku <> ''
-group by mastersku
-having count(distinct [category:1])>1
-)
-group by i8.mastersku
+        IF ( OBJECT_ID('tempdb.dbo.#cats') IS NOT NULL )
+            DROP TABLE dbo.#cats;
+        CREATE TABLE #cats
+            (
+              crank INT ,
+              category VARCHAR(15)
+            );
+        INSERT  INTO #cats
+        VALUES  ( 1, 'COLE HAAN' );
+		INSERT INTO #cats
+		VALUES  ( 2, 'ME SELL-DOWN' );
+		INSERT  INTO #cats
+        VALUES  ( 3, 'FRAME' );
+        INSERT  INTO #cats
+        VALUES  ( 4, 'SUN' );
+        INSERT  INTO #cats
+        VALUES  ( 5, 'SUN SPECIALS' );
+        INSERT  INTO #cats
+        VALUES  ( 6, 'EORS' );
+        INSERT  INTO #cats
+        VALUES  ( 7, 'RED' );
+        INSERT  INTO #cats
+        VALUES  ( 8, 'QOP' );
+        INSERT  INTO #cats
+        VALUES  ( 9, 'EOR' );
+        INSERT  INTO #cats
+        VALUES  ( 99, 'POP' );
+            WITH    cte
+                      AS ( SELECT   i8.mastersku ,
+                                    MIN(#cats.crank) newcat
+                           FROM     cvo_hs_inventory_8 i8
+                                    LEFT OUTER JOIN #cats ON #cats.category = i8.[category:1]
+                           WHERE    i8.mastersku IN (
+                                    SELECT  mastersku
+                                    FROM    cvo_hs_inventory_8
+                                    WHERE   [category:1] <> 'pop'
+                                            AND mastersku <> ''
+                                    GROUP BY mastersku
+                                    HAVING  COUNT(DISTINCT [category:1]) > 1 )
+                           GROUP BY i8.mastersku
 -- order by i8.mastersku
-)
-update i set i.[category:1] = (select top 1 category from #cats where crank = cte.newcat)  
+                         )
+            UPDATE  i
+            SET     i.[category:1] = ( SELECT TOP 1
+                                                category
+                                       FROM     #cats
+                                       WHERE    crank = cte.newcat
+                                     )  
 -- select cte.mastersku, cte.newcat, (select category from #cats where crank = cte.newcat)  
-from cte
-inner join cvo_hs_inventory_8 i on i.mastersku = cte.mastersku
+            FROM    cte
+                    INNER JOIN cvo_hs_inventory_8 i ON i.mastersku = cte.mastersku;
 
 /*
 SELECT 
@@ -548,18 +826,24 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 --FROM inv_master_add ia WHERE field_2 = 'hermosa beach'
 --AND category_2 <> 'Female-adult'
 
-UPDATE  dbo.cvo_hs_inventory_8 SET NAME='OCEAN PACIFIC SUNS KIT'
-		, LongDesc='OCEAN PACIFIC SUNS KIT'
-		, [CATEGORY:1]= 'SUN', MANUFACTURER= 'CLEARVISION' 
-	    WHERE sku = 'OPZSUNSKIT'
+        UPDATE  dbo.cvo_hs_inventory_8
+        SET     name = 'OCEAN PACIFIC SUNS KIT' ,
+                longdesc = 'OCEAN PACIFIC SUNS KIT' ,
+                [category:1] = 'SUN' ,
+                Manufacturer = 'CLEARVISION'
+        WHERE   sku = 'OPZSUNSKIT';
 -- select * from #Data1
 
+-- 9/13/16 - put everything in CH RETURNS instead
+--UPDATE dbo.cvo_hs_inventory_8  SET [category:1] = 'LAST CHANCE' 
+--	WHERE [category:1] = 'COLE HAAN' AND ShelfQty > 0
 
-UPDATE dbo.cvo_hs_inventory_8  SET [category:1] = 'LAST CHANCE' 
-	WHERE [category:1] = 'COLE HAAN' AND ShelfQty > 0
+        UPDATE  dbo.cvo_hs_inventory_8
+        SET     [category:1] = 'CH RETURNS'
+        WHERE   [category:1] = 'COLE HAAN'; 
 
 
-END
+    END;
 
 --SELECT distinct manufacturer, [category:1] FROM #data1 ORDER BY manufacturer, [category:1]
 
@@ -569,6 +853,23 @@ END
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

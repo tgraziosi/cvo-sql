@@ -1,4 +1,4 @@
-CREATE TABLE [dbo].[cvo_vision_expo_orders]
+CREATE TABLE [dbo].[cvo_vision_expo_orders_2015]
 (
 [id] [int] NOT NULL IDENTITY(1, 1),
 [expo_id] [int] NULL,
@@ -15,9 +15,9 @@ CREATE TABLE [dbo].[cvo_vision_expo_orders]
 [order_category] [char] (12) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
-ALTER TABLE [dbo].[cvo_vision_expo_orders] ADD CONSTRAINT [PK__cvo_vision_expo___09A70B6E] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
+ALTER TABLE [dbo].[cvo_vision_expo_orders_2015] ADD CONSTRAINT [PK__cvo_vision_expo___09A70B6E] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
 GO
-ALTER TABLE [dbo].[cvo_vision_expo_orders] WITH NOCHECK ADD CONSTRAINT [FK__cvo_visio__expo___0A9B2FA7] FOREIGN KEY ([expo_id]) REFERENCES [dbo].[cvo_vision_expo_config] ([id])
+ALTER TABLE [dbo].[cvo_vision_expo_orders_2015] WITH NOCHECK ADD CONSTRAINT [FK__cvo_visio__expo___0A9B2FA7] FOREIGN KEY ([expo_id]) REFERENCES [dbo].[cvo_vision_expo_config] ([id])
 GO
-ALTER TABLE [dbo].[cvo_vision_expo_orders] NOCHECK CONSTRAINT [FK__cvo_visio__expo___0A9B2FA7]
+ALTER TABLE [dbo].[cvo_vision_expo_orders_2015] NOCHECK CONSTRAINT [FK__cvo_visio__expo___0A9B2FA7]
 GO

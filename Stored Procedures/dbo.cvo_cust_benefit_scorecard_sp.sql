@@ -56,16 +56,26 @@ FROM armaster ar (NOLOCK)
 LEFT OUTER JOIN dbo.cvo_item_pricing_analysis o (NOLOCK) ON o.cust_code = ar.customer_code AND o.ship_to = ar.ship_to_code
 JOIN inv_master i (NOLOCK) ON i.part_no = o.part_no
 WHERE i.type_code IN ('frame','sun')
-AND o.promo_id NOT IN ('pc','style out')
-AND o.date_entered BETWEEN  @startdate AND @enddate
-AND ISNULL(o.promo_id,'') <> ''
+AND ISNULL(o.promo_id,'') NOT IN ('pc','style out')
+AND ISNULL(o.date_entered,@startdate) BETWEEN  @startdate AND @enddate
+-- AND ISNULL(o.promo_id,'') <> ''
 AND ar.customer_code = ISNULL(@cust,ar.customer_code)
  
 GROUP BY ar.customer_code, CASE WHEN ar.status_type = 1 THEN ar.ship_to_code ELSE '' END, ar.address_name, CAST(i.category AS VARCHAR(50)) 
 
 
-INSERT INTO #narrative (cust_code, ship_to, ben_type, ben_title )
-SELECT DISTINCT cust_code, ship_to, 'Customer Name', address_name FROM #t
+INSERT INTO #narrative (cust_code, ship_to, ben_type, ben_title, val_3_dec )
+SELECT DISTINCT t.cust_code, t.ship_to, 'Customer Name', t.address_name, SUM(ISNULL(sbm.anet,0))
+FROM 
+(SELECT DISTINCT cust_code, ship_to, address_name FROM #t) AS t
+LEFT OUTER JOIN cvo_sbm_details sbm
+ON sbm.customer = t.cust_code AND sbm.ship_to = t.ship_to
+WHERE ISNULL(yyyymmdd,@enddate) BETWEEN @startdate AND @enddate
+GROUP BY t.cust_code ,
+         t.ship_to ,
+         t.address_name
+
+UPDATE #narrative SET val_3_lbl = '12 Mth Net Sales ending '+CONVERT(VARCHAR(10),@enddate,101) WHERE ben_type = 'Customer Name'
 
 insert into #narrative (cust_code, ship_to, ben_type, ben_title, val_1_lbl, val_1_int, val_2_lbl, val_2_int, val_3_lbl, val_3_dec)
 SELECT  cust_code
@@ -98,6 +108,7 @@ WHERE ben_type = 'Promotional Frame Benefit' AND val_1_lbl = 'Free Frames'
 GROUP BY n2.cust_code, n2.ship_to
 ) AS min_seq ON min_seq.cust_code = n.cust_code AND min_seq.ship_to = n.ship_to
 WHERE min_seq.seq <> n.seq
+AND ben_Type = 'Promotional Frame Benefit' AND val_1_lbl = 'Free Frames'
 
 
 insert into #narrative (cust_code, ship_to, ben_type, ben_title, val_1_lbl, val_1_int, val_3_lbl, val_3_dec)
@@ -348,7 +359,8 @@ SELECT cust_code =
  FROM dbo.cvo_cust_benefit_scorecard_tbl sc
  JOIN armaster ar ON ar.customer_code = sc.cust_code AND ar.ship_to_code = sc.ship_to
 
- -- select * From cvo_cust_benefit_scorecard_Tbl
+ -- select * From cvo_cust_benefit_scorecard_Tbl where cust_code = '043105'
+
 
 
 

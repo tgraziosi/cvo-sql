@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -18,7 +17,7 @@ begin
 set nocount on
  
 -- for testing
-/*
+ /*
 declare
 @startdate datetime, 
 @enddate datetime,
@@ -26,7 +25,7 @@ declare
 set @startdate = '12/22/2014'
 set @enddate = '12/31/2020'
 set @c = null
-*/
+ */
 
 
 if(object_id('tempdb.dbo.#c') is not null)
@@ -45,7 +44,30 @@ begin
  SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@c)
 end
 
-if(object_id('tempdb.dbo.#line_sheet') is not null)
+-- load up not red POMs into table
+
+if(object_id('tempdb.dbo.#pom') is not null)
+drop table #pom
+
+SELECT pts.id ,
+       pts.asofdate ,
+       pts.collection ,
+       pts.style ,
+       pts.color_desc ,
+       pts.pom_date ,
+       pts.qty_avl ,
+       pts.in_stock ,
+       pts.e12_wu ,
+       pts.po_on_order ,
+       pts.tl ,
+       pts.Style_pom_status ,
+       pts.Active ,
+       pts.eff_date ,
+       pts.obs_date 
+INTO #pom
+FROM dbo.cvo_pom_tl_status AS pts WHERE GETDATE() between eff_date AND obs_date
+
+IF(object_id('tempdb.dbo.#line_sheet') is not null)
 drop table #line_sheet
 
 create table #line_sheet
@@ -89,24 +111,44 @@ select distinct cmi.collection, model, eye_size
 from cvo_cmi_catalog_view cmi
 inner join #c c on c.collection = cmi.collection
 -- where release_date between @startdate and @enddate
+LEFT OUTER JOIN #pom ON #pom.collection = cmi.Collection AND #pom.style = cmi.model AND #pom.color_desc = cmi.ColorName
 where 1=1
-and dbo.f_cvo_get_pom_tl_status(cmi.collection, cmi.model,cmi.ColorName, getdate()) NOT IN ('R')
+AND ISNULL(#pom.tl,'') NOT IN ('R')
+-- and dbo.f_cvo_get_pom_tl_status(cmi.collection, cmi.model, cmi.ColorName, getdate()) NOT IN ('R')
 and specialty_Fit not in ('retail','hvc')
 
 -- get styles from Epicor DB
 
-insert into #line_sheet (collection, style, eye_size, source)
-select distinct i.category, ia.field_2, ia.field_17, 'cvo'
-from inv_master i (nolock)
-inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
-inner join #c c on c.collection = i.category
-where i.void='n' and i.type_code in ('frame','sun')
-and ia.field_32 not in ('retail','hvc') -- specialty fit
+INSERT  INTO #line_sheet
+        ( collection ,
+          style ,
+          eye_size ,
+          source
+        )
+        SELECT DISTINCT
+                i.category ,
+                ia.field_2 ,
+                ia.field_17 ,
+                'cvo'
+        FROM    inv_master i ( NOLOCK )
+                INNER JOIN inv_master_add ia ( NOLOCK ) ON i.part_no = ia.part_no
+                INNER JOIN #c c ON c.collection = i.category
+				LEFT OUTER JOIN #pom ON #pom.collection = c.collection AND #pom.style = ia.field_2 AND #pom.color_desc = ia.field_3
+        WHERE   i.void = 'n'
+                AND i.type_code IN ( 'frame', 'sun' )
+                AND ia.field_32 NOT IN ( 'retail', 'hvc' ) -- specialty fit
 -- and ia.field_26 between @startdate and @enddate
-and not exists(select 1 from #line_sheet l where l.collection = i.category and l.style = ia.field_2
-and l.eye_size = ia.field_17 and l.source='cmi')
-and dbo.f_cvo_get_pom_tl_status(i.category, ia.field_2,ia.field_3, getdate()) NOT IN ('R') -- active and green
-order by i.category, ia.field_2, ia.field_17
+                AND NOT EXISTS ( SELECT 1
+                                 FROM   #line_sheet l
+                                 WHERE  l.collection = i.category
+                                        AND l.style = ia.field_2
+                                        AND l.eye_size = ia.field_17
+                                        AND l.source = 'cmi' )
+				AND ISNULL(#pom.tl,'') NOT IN ('R')
+                -- AND dbo.f_cvo_get_pom_tl_status(i.category, ia.field_2,ia.field_3, GETDATE()) NOT IN ('R' ) -- active and green
+ORDER BY        i.category ,
+                ia.field_2 ,
+                ia.field_17;
 
 -- select * From #line_sheet
 
@@ -148,7 +190,10 @@ case when isnull(cmi.img_34,'') <> '' then img_34 else ''/*isnull(cmi.img_temple
 cmi.prim_img, isnull(cmi.colorname,'') colorname, 'cmi'
 from cvo_cmi_catalog_view cmi 
 inner join #line_sheet l on l.collection = cmi.collection and l.style = cmi.model
-WHERE dbo.f_cvo_get_pom_tl_status(cmi.collection, cmi.model,cmi.colorname, getdate()) NOT IN ('R')
+LEFT OUTER JOIN #pom ON #pom.collection = cmi.Collection AND #pom.style = cmi.model AND #pom.color_desc = cmi.ColorName
+WHERE 1=1
+-- AND dbo.f_cvo_get_pom_tl_status(cmi.collection, cmi.model,cmi.colorname, getdate()) NOT IN ('R')
+AND ISNULL(#pom.tl,'') NOT IN ('R')
 
 --inner join #c c on c.collection = cmi.collection
 --where release_date between @startdate and @enddate
@@ -164,13 +209,16 @@ inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
 inner join #line_sheet l on l.collection = i.category and l.style = ia.field_2
 -- inner join #c c on c.collection = i.category
 left outer join cvo_inv_master_add cia (nolock) on i.part_no = cia.part_no
+LEFT OUTER JOIN #pom ON #pom.collection = i.category AND #pom.style = ia.field_2 AND #pom.color_desc = ia.field_3
 where i.void='n' and i.type_code in ('frame','sun')
 -- and ia.field_26 between @startdate and @enddate
 and not exists(select 1 from #junk l 
 	where l.collection = i.category and l.style = ia.field_2 
 	--and l.eye_size = ia.field_17 
 	and l.source='cmi' and l.color = isnull(ia.field_3,l.color))
-AND   dbo.f_cvo_get_pom_tl_status(i.category, ia.field_2, ia.field_3, getdate()) NOT IN ('R')
+AND 1=1
+-- and   dbo.f_cvo_get_pom_tl_status(i.category, ia.field_2, ia.field_3, getdate()) NOT IN ('R')
+AND ISNULL(#pom.tl,'') NOT IN ('R')
 
 -- select * from #temp
 
@@ -560,7 +608,7 @@ select distinct  -- from Epicor Database
 	-- when ia.category_2 = 'Female-Child' and i.category in ('jmc') then '(girls)'
 	-- when ia.category_2 like '%child%' and i.category in ('op') then '(kids)'
 	-- else isnull(ia.category_2,'') end) as PrimaryDemographic,
-	lower((select description from cvo_gender where kys = ia.category_2)) PrimaryDemographic,
+	lower((SELECT TOP (1) description from cvo_gender where kys = ia.category_2)) PrimaryDemographic,
 	lower(case when ia.category_4 = 'UNKNOWN' THEN '' ELSE isnull(ia.category_4,'') END) as target_age,
 	lower(case when cia.eye_shape = 'unknown' then '' else isnull(cia.eye_shape,'') end) as eye_shape,
 	lower(isnull(l.color_1,'')) color_a,
@@ -578,25 +626,25 @@ select distinct  -- from Epicor Database
 	cast(isnull(ia.field_8,0) as varchar(3))+'mm' as temple_size,
 	-- lower(case when ia.field_9 = 'unknown' then '' else cast(isnull(ia.field_9,'') as varchar(3))+'mm' end) as overall_temple_length,
 	lower(case when ia.field_11 = 'unknown' then '' 
-		  else isnull((select description from cvo_frame_type where kys = ia.field_11),'') end) as frame_category,
+		  else isnull((SELECT TOP 1 description from cvo_frame_type where kys = ia.field_11),'') end) as frame_category,
 	lower(case when ia.field_10 = 'unknown' then '' 
-		else isnull((select description from cvo_frame_matl where kys = ia.field_10),'') end) as front_material,
+		else isnull((select TOP 1 description from cvo_frame_matl where kys = ia.field_10),'') end) as front_material,
 	lower(case when ia.field_12 = 'unknown' then '' 
-		else isnull((select description from cvo_temple_matl where kys = ia.field_12),'') end) as temple_material,
+		else isnull((select TOP 1 description from cvo_temple_matl where kys = ia.field_12),'') end) as temple_material,
 	lower(case when ia.field_7 = 'unknown' then '' 
-		else isnull((select description from cvo_nose_pad where kys = ia.field_7),'') end) as nose_pads,
+		else isnull((select TOP 1 description from cvo_nose_pad where kys = ia.field_7),'') end) as nose_pads,
 	lower(case when ia.field_13 = 'unknown' then '' 
-		else isnull((select description from cvo_temple_hindge where kys = ia.field_13),'') end)  as hinge_type,
+		else isnull((select TOP 1 description from cvo_temple_hindge where kys = ia.field_13),'') end)  as hinge_type,
 	lower(case when ia.field_24 = 'unknown' then '' 
-		else isnull((select description from cvo_sun_lens_material where kys = ia.field_24),'') end) as suns_only,
+		else isnull((SELECT TOP (1) description from cvo_sun_lens_material where kys = ia.field_24),'') end) as suns_only,
 	lower(case when ia.field_25 = 'unknown' then '' 
-		else isnull((select description from cvo_sun_lens_type where kys = ia.field_25),'') end) as lens_base,
-	lower(isnull((select description from cvo_specialty_Fit where kys = isnull(ia.field_32,'')),'')) as specialty_fit,
-	isnull((select description from gl_country c where c.country_code =  i.country_code),'') as Country_of_Origin,
+		else isnull((SELECT TOP(1) description from cvo_sun_lens_type where kys = ia.field_25),'') end) as lens_base,
+	lower(isnull((SELECT TOP(1) description from cvo_specialty_Fit where kys = isnull(ia.field_32,'')),'')) as specialty_fit,
+	isnull((SELECT TOP (1) description from gl_country c where c.country_code =  i.country_code),'') as Country_of_Origin,
 	case when isnull((select top 1 cast(long_descr as varchar(60)) from inv_master_add where part_no = ia.field_1),'') <> '' then (select top 1 cast(long_descr as varchar(60)) from inv_master_add where part_no = ia.field_1)
 	else lower(isnull((select top 1 description from inv_master where part_no = ia.field_1),''))end as case_part,
 	lower(case when ia.field_11 = 'unknown' then '' 
-		else isnull((select description from cvo_frame_type where kys = ia.field_11),'') end) as rimless_style,
+		else isnull((select TOP (1) description from cvo_frame_type where kys = ia.field_11),'') end) as rimless_style,
 	round(isnull(#pp.front_price,0),2) Front_price,
 	round(isnull(#pp.temple_price,0),2) temple_price,
 	round(isnull(#pp.frame_price,0),2) as Frame_price,
@@ -628,6 +676,8 @@ and l.source = 'cvo'
 
    
 END
+
+
 
 
 

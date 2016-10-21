@@ -172,7 +172,7 @@ select mm, pct_sales, 0 , 0, 0
 FROM cvo_dmd_mult
 where obs_date is NULL 
 AND asofdate = (SELECT MAX(asofdate) 
-				FROM cvo_dmd_mult WHERE asofdate <= GETDATE())
+				FROM cvo_dmd_mult WHERE asofdate <= GETDATE() AND SPREAD = @SPREAD)
 -- alternate spread %'s
 AND spread = @spread
 
@@ -1066,6 +1066,7 @@ cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
 
 
 end
+
 
 
 

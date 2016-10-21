@@ -13,6 +13,7 @@ GO
 -- v1.9 CT	28/01/14	- Issue #1438 - Add Residential Address checkbox
 -- v2.0	CT	12/03/14	- Issue #1458 - Ass category code field
 -- v2.1 CB  10/07/2014 - Issue #572 - Masterpack - RX Order Consolidation
+-- v2.2 CB	20/10/2016 - Add addr_valid_ind for address validation
 
 --EXEC scm_pb_get_dw_arcust1_sp '010125'
 
@@ -148,7 +149,8 @@ BEGIN
 		cvo_armaster_all.door,					-- v1.8
 		cvo_armaster_all.residential_address,	-- v1.9
 		cvo_armaster_all.category_code,			-- v2.0
-		cvo_armaster_all.rx_consolidate			-- v2.1
+		cvo_armaster_all.rx_consolidate,			-- v2.1
+		0 addr_valid_ind -- v2.2
 	FROM 
 		dbo.armaster_all a (NOLOCK) 
     LEFT OUTER JOIN 

@@ -92,6 +92,7 @@ SELECT  distinct 'commissionable'
 , SUSER_SNAME() from inserted i 
 INNER JOIN deleted d ON 
 i.customer_code = d.customer_code 
+AND i.ship_to = d.ship_to -- 9/21/2016
 AND i.address_type = d.address_type
 where isnull(d.commissionable,0)<>isnull(i.commissionable,0)
 
@@ -115,6 +116,7 @@ SELECT distinct 'commission'
 from inserted i 
 INNER JOIN deleted d ON 
 i.customer_code = d.customer_code 
+AND i.ship_to = d.ship_to -- 9/21/2016
 AND i.address_type = d.address_type
 where isnull(d.commission,0)<>isnull(i.commission,0)
 
@@ -148,9 +150,110 @@ SELECT distinct 'Freight Charge'
 , SUSER_SNAME() 
 from inserted i 
 INNER JOIN deleted d ON 
-i.customer_code = d.customer_code 
+i.customer_code = d.customer_code
+AND i.ship_to = d.ship_to -- 9/21/2016 
 AND i.address_type = d.address_type
 where isnull(d.freight_charge,0)<>isnull(i.freight_charge,0)
+
+-- 10/14/2016  - per LV request
+
+INSERT CVOARMasterAudit 
+(field_name
+, field_from
+, field_to
+, customer_code
+, ship_to_code
+, movement_flag
+, audit_date
+, user_id) 
+SELECT distinct 'Back Order Flag RX'
+, cast (CASE d.ship_complete_flag_rx
+			WHEN 0 THEN 'Allow BO'
+			WHEN 1 THEN 'Ship Comp'
+			WHEN 2 THEN 'Partial Ship'
+			ELSE 'Unknown'
+			end as VARCHAR(20))
+, cast (CASE i.ship_complete_flag_rx
+			WHEN 0 THEN 'Allow BO'
+			WHEN 1 THEN 'Ship Comp'
+			WHEN 2 THEN 'Partial Ship'
+			ELSE 'Unknown'
+			end as varchar(20))
+, i.customer_code
+, i.ship_to
+, 2 -- change
+, getdate()
+, SUSER_SNAME() 
+from inserted i 
+INNER JOIN deleted d ON 
+i.customer_code = d.customer_code
+AND i.ship_to = d.ship_to -- 9/21/2016 
+AND i.address_type = d.address_type
+where isnull(d.ship_complete_flag_rx,0)<>isnull(i.ship_complete_flag_rx,0)
+
+INSERT CVOARMasterAudit 
+(field_name
+, field_from
+, field_to
+, customer_code
+, ship_to_code
+, movement_flag
+, audit_date
+, user_id) 
+SELECT distinct 'RX Consolidate'
+, cast (CASE d.rx_consolidate
+			WHEN 0 THEN 'No'
+			WHEN 1 THEN 'Yes'
+			ELSE 'Unknown'
+			end as VARCHAR(20))
+, cast (CASE i.rx_consolidate
+			WHEN 0 THEN 'No'
+			WHEN 1 THEN 'Yes'
+			ELSE 'Unknown'
+			end as varchar(20))
+, i.customer_code
+, i.ship_to
+, 2 -- change
+, getdate()
+, SUSER_SNAME() 
+from inserted i 
+INNER JOIN deleted d ON 
+i.customer_code = d.customer_code
+AND i.ship_to = d.ship_to -- 9/21/2016 
+AND i.address_type = d.address_type
+where isnull(d.rx_consolidate,0)<>isnull(i.rx_consolidate,0)
+
+INSERT CVOARMasterAudit 
+(field_name
+, field_from
+, field_to
+, customer_code
+, ship_to_code
+, movement_flag
+, audit_date
+, user_id) 
+SELECT distinct 'Allow Substitutions'
+, cast (CASE d.allow_substitutes
+			WHEN 0 THEN 'No'
+			WHEN 1 THEN 'Yes'
+			ELSE 'Unknown'
+			end as VARCHAR(20))
+, cast (CASE i.allow_substitutes
+			WHEN 0 THEN 'No'
+			WHEN 1 THEN 'Yes'
+			ELSE 'Unknown'
+			end as varchar(20))
+, i.customer_code
+, i.ship_to
+, 2 -- change
+, getdate()
+, SUSER_SNAME() 
+from inserted i 
+INNER JOIN deleted d ON 
+i.customer_code = d.customer_code
+AND i.ship_to = d.ship_to -- 9/21/2016 
+AND i.address_type = d.address_type
+where isnull(d.allow_substitutes,0)<>isnull(i.allow_substitutes,0)
 
 END  
   

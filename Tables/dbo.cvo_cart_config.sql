@@ -10,6 +10,8 @@ CREATE TABLE [dbo].[cvo_cart_config]
 [cart4_ip] [varchar] (12) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [cart4_port] [varchar] (4) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [cart5_ip] [varchar] (16) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[cart5_port] [varchar] (6) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[cart5_port] [varchar] (6) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[cart6_ip] [varchar] (12) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[cart6_port] [int] NULL
 ) ON [PRIMARY]
 GO

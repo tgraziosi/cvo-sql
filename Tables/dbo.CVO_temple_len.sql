@@ -8,8 +8,6 @@ CREATE TABLE [dbo].[CVO_temple_len]
 [void_date] [datetime] NULL
 ) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [idx_cvo_temple_len_cmi] ON [dbo].[CVO_temple_len] ([description], [kys]) ON [PRIMARY]
-GO
 CREATE UNIQUE CLUSTERED INDEX [idx_CVO_temple_len] ON [dbo].[CVO_temple_len] ([kys]) ON [PRIMARY]
 GO
 GRANT REFERENCES ON  [dbo].[CVO_temple_len] TO [public]

@@ -11,77 +11,123 @@ GO
 -- UPDATE: 11/13/14 - USE NEW INVENTORY TABLE V8
 -- =============================================
 CREATE PROCEDURE [dbo].[HS_Inventory_QtyUpd_SP]
-
 AS
-BEGIN
-	SET NOCOUNT ON;
+    BEGIN
+        SET NOCOUNT ON;
 
 --Backup Old File 
-DROP TABLE CVO_HS_INVENTORY_QTYUPD_OLD
-SELECT * INTO CVO_HS_INVENTORY_QTYUPD_OLD FROM CVO_HS_INVENTORY_QTYUPD
+        DROP TABLE CVO_HS_INVENTORY_QTYUPD_OLD;
+        SELECT  *
+        INTO    CVO_HS_INVENTORY_QTYUPD_OLD
+        FROM    CVO_HS_INVENTORY_QTYUPD;
 -- select * from CVO_HS_INVENTORY_QTYUPD_OLD
 -- Update Handshake Inventory Qty's
 
-IF(OBJECT_ID('tempdb.dbo.#Data') is not null)   drop table #Data
-select DISTINCT SKU, 'variant' as ItemType, 
+        IF ( OBJECT_ID('tempdb.dbo.#Data') IS NOT NULL )
+            DROP TABLE #Data;
+        SELECT DISTINCT
+                sku ,
+                'variant' AS ItemType , 
 -- don't allow negative stock qty's - 030615
-case when qty_Avl < 0 /*OR t1.coll = 'ch'*/ THEN 0 ELSE qty_avl end as ShelfQty, 
-case when [category:1] in ('EOS','EOR','QOP','RED') THEN 0 
+                CASE WHEN qty_avl < 0
+                          OR t1.COLL = 'ch' THEN 0
+                     ELSE qty_avl
+                END AS ShelfQty ,
+                CASE WHEN [category:1] IN ( 'EOS', 'EOR', 'QOP', 'RED' )
+                     THEN 0 
 -- 8/26/2015
 	 -- 10/23/15 - remove per hk -- WHEN [CATEGORY:1] = 'CH SELL-DOWN' THEN 10
-	 ELSE 5 END as WarningLevel, 
-CASE WHEN [category:1] in ('EOR','EOS','SUN SPECIALS') /* remove 01/07/15 ,'RED') */
-	 and qty_avl <=0  THEN 0    -- added RED 4/22
-ELSE 1 END as IsAvailable, 
-t3.NextPODueDate as RestockDate,
-0 as isSynced
-INTO #Data
-from cvo_hs_inventory_8 t1
-left outer join CVO_ITEM_AVAIL_VW t3 on t1.sku=t3.part_no and t3.location='001'
+                     ELSE 5
+                END AS WarningLevel ,
+                CASE WHEN [category:1] IN ( 'EOR', 'EOS', 'SUN SPECIALS' ) /* remove 01/07/15 ,'RED') */
+                          AND qty_avl <= 0 THEN 0    -- added RED 4/22
+                     ELSE 1
+                END AS IsAvailable ,
+                t3.NextPODueDate AS RestockDate ,
+                0 AS isSynced
+        INTO    #Data
+        FROM    cvo_hs_inventory_8 t1 (nolock)
+                LEFT OUTER JOIN cvo_item_avail_vw t3 ON t1.sku = t3.part_no
+                                                        AND t3.location = '001';
 
 -- select * from #DATA where sku o
-UPDATE #DATA SET RestockDate =  NULL where  restockdate is not null and ShelfQty > 50
+        UPDATE  #Data
+        SET     RestockDate = NULL
+        WHERE   RestockDate IS NOT NULL
+                AND ShelfQty > 50;
 
-UPDATE #DATA SET ShelfQty = 2000, IsAvailable = 1  
+        UPDATE  #Data
+        SET     ShelfQty = 2000 ,
+                IsAvailable = 1  
 -- select * from #DATA
-where  SKU in (
+        WHERE   sku IN (
 --select t1.SKU from cvo_hs_inventory_everything7 t1
-select t1.SKU from cvo_hs_inventory_8 t1
-join #Data t2 on t1.sku=t2.sku
-join inv_master_add t3 on t1.sku=t3.part_no
-where (APR in('Y','yy') -- removed 031315 -- or t1.sku like 'AS%' -- fudge aspire inventory 2/16/2015
-OR T1.SKU = 'ETREADER'
-and t1.shelfqty <> 2000)
+                SELECT  t1.sku
+                FROM    cvo_hs_inventory_8 t1 (nolock)
+                        JOIN #Data t2 ON t1.sku = t2.sku
+                        JOIN inv_master_add t3 (nolock) ON t1.sku = t3.part_no
+                WHERE   ( APR IN ( 'Y', 'yy' ) -- removed 031315 -- or t1.sku like 'AS%' -- fudge aspire inventory 2/16/2015
+                          OR t1.sku = 'ETREADER'
+                          AND t1.ShelfQty <> 2000
+                        )
 -- OR t1.[category:2]='revo' -- 061016 - show real inventory
-OR ISNULL(t3.field_30,'') = 'Y') -- kits 061016
+                        OR ISNULL(t3.field_30, '') = 'Y' ); -- kits 061016
 
-DROP TABLE cvo_hs_inventory_qtyupd
-select t1.*, 
-CASE WHEN T1.IsAvailable <> T2.IsAvailable then 'Y' else 'N' end as Diff,
-T2.ShelfQty as OldShelfQty
-INTO CVO_HS_INVENTORY_QTYUPD 
-from #Data T1
-left outer join CVO_HS_INVENTORY_QTYUPD_OLD T2 ON T1.SKU=T2.SKU
-Order by SKU
+        DROP TABLE CVO_HS_INVENTORY_QTYUPD;
+        SELECT  T1.sku ,
+                T1.ItemType ,
+                T1.ShelfQty ,
+                T1.WarningLevel ,
+                T1.IsAvailable ,
+                T1.RestockDate ,
+                T1.isSynced ,
+                CASE WHEN T1.IsAvailable <> T2.IsAvailable THEN 'Y'
+                     ELSE 'N'
+                END AS Diff ,
+                T2.ShelfQty AS OldShelfQty
+        INTO    CVO_HS_INVENTORY_QTYUPD
+        FROM    #Data T1
+                LEFT OUTER JOIN CVO_HS_INVENTORY_QTYUPD_OLD T2 (NOLOCK) ON T1.sku = T2.SKU
+        ORDER BY SKU;
 
-update CVO_HS_INVENTORY_QTYUPD set 
-ShelfQty=(select case when Qty_avl < 0 then 0 else qty_avl end 
-from cvo_item_avail_vw where part_no ='IZZCLDISPLAY' and location='001') 
-where sku = 'IZCLDISKITA'
+        UPDATE  CVO_HS_INVENTORY_QTYUPD
+        SET     ShelfQty = ( SELECT CASE WHEN qty_avl < 0 THEN 0
+                                         ELSE qty_avl
+                                    END
+                             FROM   cvo_item_avail_vw
+                             WHERE  part_no = 'IZZCLDISPLAY'
+                                    AND location = '001'
+                           )
+        WHERE   SKU = 'IZCLDISKITA';
 
 --8/26/2015
-update CVO_HS_INVENTORY_QTYUPD set 
-ShelfQty=(select case when Qty_avl < 0 then 0 else qty_avl end 
-from cvo_item_avail_vw where part_no ='IZZDISCB8' and location='001') 
-where sku = 'IZZTR90KIT'
+        UPDATE  CVO_HS_INVENTORY_QTYUPD
+        SET     ShelfQty = ( SELECT CASE WHEN qty_avl < 0 THEN 0
+                                         ELSE qty_avl
+                                    END
+                             FROM   cvo_item_avail_vw
+                             WHERE  part_no = 'IZZDISCB8'
+                                    AND location = '001'
+                           )
+        WHERE   SKU = 'IZZTR90KIT';
 
 
 -- 12/15/2014 -- delete entries more than a month old
-delete from [dbo].[CVO_HS_INVENTORY_QTYUPD_AUDIT] 
- where timestamp < dateadd(m,-1,getdate())
+        DELETE  FROM dbo.CVO_HS_INVENTORY_QTYUPD_AUDIT
+        WHERE   TIMESTAMP < DATEADD(m, -1, GETDATE());
 
-insert into  CVO_HS_INVENTORY_QTYUPD_AUDIT
- select getdate() AS TIMESTAMP,* FROM cvo_hs_inventory_qtyupd
+        INSERT  INTO CVO_HS_INVENTORY_QTYUPD_AUDIT
+                SELECT  GETDATE() AS TIMESTAMP ,
+                        SKU ,
+                        ItemType ,
+                        ShelfQty ,
+                        WarningLevel ,
+                        IsAvailable ,
+                        RestockDate ,
+                        isSynced ,
+                        Diff ,
+                        OldShelfQty
+                FROM    CVO_HS_INVENTORY_QTYUPD;
 
 
 /*
@@ -103,7 +149,9 @@ SELECT * FROM CVO_HS_INVENTORY_QTYUPD where IsAvailable = 1 and shelfQty < 5 ord
 */
 
 -- EXEC HS_Inventory_QtyUpd_SP
-END
+    END;
+
+
 
 
 

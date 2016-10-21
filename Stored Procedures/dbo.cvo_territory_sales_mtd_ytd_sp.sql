@@ -61,12 +61,13 @@ select #tsr.*, mgr.mgr_name, mgr.mgr_date_of_hire from #tsr
 left outer join
 (select dbo.calculate_region_fn(territory_code) region, salesperson_name mgr_name,
 date_of_hire mgr_date_of_hire
-from arsalesp where salesperson_type = 1 and territory_code is not null
+from arsalesp where salesperson_type = 1 and territory_code is not NULL AND status_type = 1 -- add status check for active
 union 
 select '800','Corporate Accounts','1/1/1949')
 mgr on #tsr.region = mgr.region
 
 end
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_territory_sales_mtd_ytd_sp] TO [public]
 GO

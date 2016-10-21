@@ -9,6 +9,7 @@ GO
 -- v1.4	CT 15/10/2014 - If CVO_create_upload_credit_return_price_sp returns std pricing required for credit line, set list price = NULL to force code to recalc it
 -- v1.5 CT 10/12/2014 - Issue #1505 - New field for email address, contained in upload file
 -- v1.6 CT 18/02/2015 - Issue #1526 - Expand promo kits
+-- v1.7 CB 05/09/2016 - Use returns account
 
 CREATE PROC [dbo].[CVO_create_upload_credit_return_sp] (@SPID INT, @hold SMALLINT)  
 AS
@@ -493,7 +494,8 @@ BEGIN
 			@new_order_no, 0, @line_no, b.location, a.part_no, a.[description], GETDATE(), 0, 0, @price, 
 			@price_type, CASE @hold WHEN 0 THEN 'N' ELSE 'A' END, 0, @who_entered, 0, 0, @quantity, 0, 0, a.uom, 
 			1, 0, a.cubic_feet, a.lb_tracking, 0, 0, 0, 0, a.qc_flag, 'RETURN', 
-			a.taxable, a.[status], 0, 0, c.sales_acct_code, 0, @tax_code, @price, @price, @line_no, 
+-- v1.7		a.taxable, a.[status], 0, 0, c.sales_acct_code, 0, @tax_code, @price, @price, @line_no, 
+			a.taxable, a.[status], 0, 0, c.sales_return_code, 0, @tax_code, @price, @price, @line_no, -- v1.7
 			'N', 0, 0, 0, 'N', @return_code, 'CVO', '' 
 		FROM
 			dbo.inv_master a (NOLOCK)

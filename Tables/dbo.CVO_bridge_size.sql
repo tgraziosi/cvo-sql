@@ -8,8 +8,6 @@ CREATE TABLE [dbo].[CVO_bridge_size]
 [void_date] [datetime] NULL
 ) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [idx_cvo_bridge_size_cmi] ON [dbo].[CVO_bridge_size] ([description], [kys]) ON [PRIMARY]
-GO
 CREATE UNIQUE CLUSTERED INDEX [idx_CVO_bridge_size] ON [dbo].[CVO_bridge_size] ([kys]) ON [PRIMARY]
 GO
 GRANT REFERENCES ON  [dbo].[CVO_bridge_size] TO [public]

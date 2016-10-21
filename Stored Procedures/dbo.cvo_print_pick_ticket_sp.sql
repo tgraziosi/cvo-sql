@@ -5,7 +5,8 @@ GO
 
 CREATE PROC [dbo].[cvo_print_pick_ticket_sp] @order_no	int,
 										 @order_ext	int, 
-										 @isbackorder SMALLINT = 0 -- v1.2
+										 @isbackorder SMALLINT = 0, -- v1.2
+										 @from_auto smallint = 0 -- v1.8
 AS
 BEGIN
 
@@ -229,8 +230,13 @@ BEGIN
 	AND		ext = @order_ext
 
 	-- v1.5 Start
-	INSERT tdc_log (tran_date, userid, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
-	SELECT GETDATE(),'BACKORDER','BO','ADM','PICK TICKET', CAST(@order_no as varchar(20)), CAST(@order_ext as varchar(10)), '', '', '', @location, '', 'STATUS:Q; HOLDREASON:'
+	-- v1.8 Start
+	IF (@from_auto = 0)
+	BEGIN
+		INSERT tdc_log (tran_date, userid, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+		SELECT GETDATE(),'BACKORDER','BO','ADM','PICK TICKET', CAST(@order_no as varchar(20)), CAST(@order_ext as varchar(10)), '', '', '', @location, '', 'STATUS:Q; HOLDREASON:'
+	END
+	-- v1.8 End
 	-- v1.5 End
 
 	-- v1.6 Start

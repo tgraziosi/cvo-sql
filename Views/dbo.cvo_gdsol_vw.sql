@@ -31,6 +31,7 @@ AS
 			dbo.orders.date_shipped,
 			dbo.orders.who_entered,
 			co.promo_id,
+			co.promo_level,
 			dbo.orders.user_category,
             x_req_ship_date = ( DATEDIFF(DAY, '01/01/1900',
                                          dbo.orders.req_ship_date) + 693596 )
@@ -87,6 +88,7 @@ AS
 			t2.date_shipped,
 			t2.who_entered,
 			'' AS promo_id,
+			'' AS promo_level,
 			'ST' AS user_category,
             x_req_ship_date = 1 ,
             x_sch_ship_date = 1,
@@ -94,6 +96,7 @@ AS
 			x_date_shipped = 1
     FROM    cvo_ord_list_hist t1 ( NOLOCK )
             JOIN CVO_orders_all_Hist t2 ( NOLOCK ) ON t1.order_no = t2.order_no;
+
 
 
 

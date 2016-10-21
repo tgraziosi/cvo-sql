@@ -33,7 +33,8 @@ CREATE TABLE [dbo].[cvo_central_leads]
 [ship_to] [varchar] (6) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [lead_added_by] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [category] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_centr__categ__0DE8D6B5] DEFAULT ('SALES'),
-[lead_flag] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_centr__lead___584BE013] DEFAULT ('S')
+[lead_flag] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_centr__lead___584BE013] DEFAULT ('S'),
+[isActive] [tinyint] NULL CONSTRAINT [DF__cvo_centr__isAct__5BDE1083] DEFAULT ((1))
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_central_leads] ADD CONSTRAINT [PK__cvo_central_lead__600FF8FE] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

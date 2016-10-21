@@ -8,7 +8,7 @@ GO
 -- Create date: 2/22/2016
 -- Description:	EyeRep Main Customer Data
 -- EXEC [cvo_eyerep_accounts_sp]
--- SELECT * From cvo_eyerep_acthis_tbl
+-- SELECT * From cvo_eyerep_actshp_tbl
 -- SELECT * From cvo_eyerep_repEXT_tbl
 -- SELECT * From cvo_eyerep_actsls_tbl
 -- tag - 071213 - create a regular table instead of temp table
@@ -22,6 +22,12 @@ AS
 BEGIN
 
 	SET NOCOUNT ON;
+	SET ANSI_WARNINGS OFF;
+
+	DECLARE @today DATETIME,
+			@LOCATION VARCHAR(10)
+	SET @today = GETDATE()
+	SET @LOCATION = '001'
 	
 	IF(OBJECT_ID('tempdb.dbo.#AllTerr') is not null) DROP table dbo.#AllTerr
       ;WITH C AS 
@@ -162,7 +168,7 @@ INSERT INTO dbo.cvo_eyerep_actshp_tbl
           ship_postal ,
           default_shpmth
         )
-SELECT ar.customer_code+'-'+ar.ship_to_code,
+SELECT ar.customer_code + CASE WHEN ar.ship_to_code > '' THEN '-' + ar.ship_to_code ELSE '' end,
  ar.customer_code , 
 LEFT(addr1,50) as ship_name,
 LEFT(addr2,50) as ship_street,
@@ -177,7 +183,7 @@ FROM armaster ar (nolock)
 INNER JOIN #allterr (nolock) on ar.customer_code = #allterr.customer_code
 WHERE 1=1
 AND STATUS_TYPE=1
-AND ADDRESS_TYPE=1
+AND ADDRESS_TYPE IN (0,1)
 
 -- account extension data
 -- 7/26/2016
@@ -211,7 +217,7 @@ SELECT  ar.customer_code ,
 	'' rep_id
 	FROM armaster ar (nolock)
 	INNER JOIN #allterr (nolock) on ar.customer_code = #allterr.customer_code
-	WHERE ar.address_type = 0
+	WHERE ar.address_type = 0 AND ar.status_type = 1
 UNION ALL
 SELECT  ar.customer_code , 
 	'PRIMARY DESIGNATION' field_name,
@@ -222,7 +228,7 @@ SELECT  ar.customer_code ,
 	INNER JOIN #allterr (nolock) on ar.customer_code = #allterr.customer_code
 	INNER JOIN dbo.cvo_cust_designation_codes AS cdc ON cdc.customer_code = ar.customer_code AND CDC.primary_flag = 1
 	INNER JOIN dbo.cvo_designation_codes AS dc ON dc.code = cdc.code
-	WHERE ar.address_type = 0
+	WHERE ar.address_type = 0 AND ar.status_type = 1
 UNION ALL
 SELECT  ar.customer_code , 
 	'BUYING GROUP' field_name,
@@ -233,7 +239,7 @@ SELECT  ar.customer_code ,
 	INNER JOIN #allterr (nolock) on ar.customer_code = #allterr.customer_code
 	INNER JOIN ARNAREL AS NA ON NA.CHILD = ar.customer_code AND NA.CHILD <> NA.parent
 	INNER JOIN armaster bg ON bg.customer_code = na.parent
-	WHERE ar.address_type = 0
+	WHERE ar.address_type = 0 AND ar.status_type = 1
 UNION ALL
 SELECT  ar.customer_code , 
 	'STATUS' field_name,
@@ -246,7 +252,7 @@ SELECT  ar.customer_code ,
 	'' rep_id
 	FROM armaster ar (nolock)
 	INNER JOIN #allterr (nolock) on ar.customer_code = #allterr.customer_code
-	WHERE ar.address_type = 0
+	WHERE ar.address_type = 0 
 UNION ALL
 SELECT  ar.customer_code , 
 	'OPEN DATE' field_name,
@@ -255,7 +261,7 @@ SELECT  ar.customer_code ,
 	'' rep_id
 	FROM armaster ar (nolock)
 	INNER JOIN #allterr (nolock) on ar.customer_code = #allterr.customer_code
-	WHERE ar.address_type = 0
+	WHERE ar.address_type = 0 AND ar.status_type = 1
 
 -- rx % and st %
 
@@ -306,7 +312,7 @@ SELECT  eat.acct_id ,
 	0 aging60,
 	0 aging90
 	FROM dbo.cvo_eyerep_acts_Tbl AS eat
-	JOIN cvo_sbm_details sbm ON sbm.customer = eat.acct_id
+	LEFT OUTER JOIN cvo_sbm_details sbm ON sbm.customer = eat.acct_id
 	WHERE sbm.yyyymmdd BETWEEN @lyr12start AND @tyend
 	GROUP BY eat.acct_id
 
@@ -331,6 +337,7 @@ INSERT INTO dbo.cvo_eyerep_biltrm_tbl
 SELECT a.terms_code, a.terms_desc
 FROM dbo.arterms AS a (nolock)
 WHERE 1=1
+AND terms_desc NOT LIKE 'DO NOT USE%'
 
 -- Get Inventory master info
 
@@ -375,25 +382,72 @@ IF(OBJECT_ID('dbo.cvo_eyerep_inv_tbl') is null)
 	          base_price ,
 	          new_release
 	        )
-SELECT part_no,
-upc_code,
-[Collection],
-LEFT(model,20),
-LEFT(ColorName,20),
-CAST (cast(eye_size as int) AS varchar(3)),
-CAST (temple_size AS VARCHAR(3)),
-CAST (dbl_size AS VARCHAR(3)),
-0,
-0,
-LEFT(RES_type,20),
-'avail',
-CONVERT(VARCHAR(8),GETDATE(),112),
-Wholesale_price,
-'N'
+SELECT  i.part_no ,
+        i.upc_code ,
+        i.Collection ,
+        LEFT(i.model, 20) ,
+        LEFT(i.ColorName, 20) ,
+        CAST (CAST(i.eye_size AS INT) AS VARCHAR(3)) ,
+        CAST (i.temple_size AS VARCHAR(3)) ,
+        CAST (i.dbl_size AS VARCHAR(3)) ,
+		99999 ,
+        9999 ,
+        LEFT(i.RES_type, 20) ,
+		CASE WHEN ISNULL(IAV.QTY_AVL, 0 ) <= 0 AND ISNULL(IAV.SOF,0) > 0 THEN 'BACK-ORDERED'
+			 WHEN ISNULL(IAV.QTY_AVL, 0 ) <= 0 THEN 'OUT-OF-STOCK'
+			 WHEN ISNULL(IAV.QTY_AVL, 0)  <= ISNULL(FCCWU.e12_wu,0) THEN 'LIMITED-QUANTITIES'
+			 ELSE 'AVAILABLE' END,
 
-FROM cvo_inv_master_r2_vw 
-WHERE 1=1
-AND web_saleable_flag = 'Y'
+        CASE WHEN ISNULL(iav.qty_avl, 0) <=0 THEN ISNULL(CONVERT(VARCHAR(8), 
+			 CASE WHEN ISNULL(iav.NextPODueDate,@today) < @today THEN DATEADD(D,1,@today) 
+				  ELSE ISNULL(iav.NextPODueDate,'') end, 112),'') 
+			 ELSE '' end,
+
+        i.Wholesale_price ,
+        CASE WHEN i.release_date >= DATEADD(M,-6, @today) THEN 'Y' ELSE 'N' END
+        
+FROM    cvo_inv_master_r2_vw i
+		LEFT OUTER JOIN cvo_apr_tbl #apr ON #apr.sku = i.part_no
+				AND @today BETWEEN #apr.eff_date AND ISNULL(#apr.obs_date,@today)
+		LEFT OUTER JOIN dbo.cvo_item_avail_vw AS iav ON iav.part_no = i.part_no AND LOCATION = @LOCATION
+		LEFT OUTER JOIN DBO.f_cvo_calc_weekly_usage('O') AS fccwu ON fccwu.location = @LOCATION AND fccwu.part_no = i.part_no
+
+WHERE   1 = 1
+		AND i.collection NOT IN ('corp','fp')
+		AND i.specialty_fit NOT IN ( 'HVC', 'RETAIL', 'COSTCO','SpecialOrd', 'btconvert' ) 
+		AND (i.release_date <= DATEADD(D, 1, @today)
+			  OR #apr.sku IS NOT NULL
+              OR i.Collection = 'LS')
+		AND  (i.Collection NOT IN ('REVO','BT') AND RIGHT(i.part_no,2) <> 'F1')
+		;
+
+UPDATE dbo.cvo_eyerep_inv_tbl SET avail_date = '' WHERE avail_date = '19000101';
+
+-- set product and collection rank for each item based on last 3 months sales
+
+DECLARE @lm_start DATETIME , @lm_end DATETIME;
+SELECT @lm_start = DATEADD(M,-3,drv.BeginDate), @lm_end = DATEADD(M,-3,drv.EndDate) FROM dbo.cvo_date_range_vw AS drv WHERE period = 'Last Month';
+
+WITH rr AS 
+(SELECT r.category, r.style, r.m_net, 
+RANK() OVER (PARTITION BY r.category ORDER BY m_net DESC) AS c_rank,
+RANK() OVER (ORDER BY m_net DESC) AS p_rank
+FROM 
+(
+SELECT i.category, ia.field_2 style, SUM(sbm.qnet) m_net
+FROM inv_master i
+JOIN inv_master_add ia ON ia.part_no = i.part_no
+join cvo_sbm_details sbm ON i.part_no = sbm.part_no
+WHERE yyyymmdd BETWEEN @lm_start AND @lm_end
+AND i.type_code IN ('frame','sun')
+AND RIGHT(sbm.user_category,2) NOT IN ('CL','RB')
+GROUP BY i.category, ia.field_2
+) AS r
+) 
+UPDATE inv SET inv.product_rank = rr.p_rank, inv.collection_rank = rr.c_rank
+FROM rr JOIN dbo.cvo_eyerep_inv_tbl AS inv
+ON inv.collection_id = rr.category AND inv.style = rr.style
+;
 
 -- Collections
 
@@ -428,8 +482,8 @@ TRUNCATE TABLE dbo.cvo_eyerep_ordtyp_tbl
 INSERT dbo.cvo_eyerep_ordtyp_tbl
         ( ordtyp_id, ordtyp_description )
 SELECT DISTINCT su.category_code, su.category_code+' = '+su.category_desc
-FROM dbo.so_usrcateg AS su WHERE void = 'n' 
-AND su.category_code LIKE 'st%'
+FROM dbo.so_usrcateg AS su WHERE void = 'N' 
+AND su.category_code LIKE 'ST%'
 
 -- promotion codes
 
@@ -448,7 +502,7 @@ INSERT dbo.cvo_eyerep_promocodes_tbl
 SELECT DISTINCT promo_id+','+promo_level, promo_id+','+promo_level+' = '+c.promo_name  
 FROM cvo_promotions AS c 
 WHERE ISNULL(c.void,'N') = 'N'
-AND c.promo_start_date <= GETDATE() AND c.promo_end_date >= GETDATE()
+AND c.promo_start_date <= @today and c.promo_end_date >= @today
 
 -- Sales Reps
 
@@ -528,12 +582,14 @@ TRUNCATE TABLE dbo.cvo_eyerep_rpashp_tbl
 
 INSERT dbo.cvo_eyerep_rpashp_tbl
         ( rep_id, ship_id, acct_id )
-SELECT DISTINCT ar.territory_code, ar.customer_code+'-'+ar.ship_to_code, ar.customer_code
+SELECT DISTINCT ar.territory_code,  
+ ar.customer_code + CASE WHEN ar.ship_to_code > '' THEN '-' + ar.ship_to_code ELSE '' end,
+ ar.customer_code 
 FROM armaster ar (nolock)
 INNER JOIN #allterr (nolock) on ar.customer_code = #allterr.customer_code
 WHERE 1=1
-AND STATUS_TYPE=1
-AND ADDRESS_TYPE=1
+AND ar.STATUS_TYPE=1
+AND ADDRESS_TYPE IN (0,1)
 
 
 IF(OBJECT_ID('dbo.cvo_eyerep_repext_tbl') is null)
@@ -550,7 +606,7 @@ IF(OBJECT_ID('dbo.cvo_eyerep_repext_tbl') is null)
 
 truncate table cvo_eyerep_repext_tbl
 DECLARE @stat_year VARCHAR(5)
-SELECT @stat_year = CAST(YEAR(GETDATE()) AS VARCHAR(4))+'A'
+SELECT @stat_year = CAST(YEAR(@today) AS VARCHAR(4))+'A'
 
 INSERT INTO dbo.cvo_eyerep_repext_tbl
         ( rep_id ,
@@ -625,7 +681,7 @@ TRUNCATE TABLE dbo.cvo_eyerep_promocodes_tbl
 INSERT dbo.cvo_eyerep_promocodes_tbl
         ( promo_id, promo_description )
 SELECT promo_id+','+promo_level, promo_name
-FROM cvo_promotions WHERE GETDATE() BETWEEN ISNULL(promo_start_date,GETDATE()) AND ISNULL(promo_end_date,GETDATE())
+FROM cvo_promotions WHERE GETDATE() BETWEEN ISNULL(promo_start_date,@today) AND ISNULL(promo_end_date,@today)
 
 IF(OBJECT_ID('dbo.cvo_eyerep_acthis_tbl') is null)
 	begin
@@ -654,7 +710,7 @@ END
 TRUNCATE TABLE cvo_eyerep_acthis_tbl
 
 DECLARE @date INTEGER
-SELECT  @date = dbo.adm_get_pltdate_f(DATEADD(year,-1,GETDATE()))
+set  @date = dbo.adm_get_pltdate_f(DATEADD(year,-1,@today))
 -- SELECT @date
 
 -- regular invoices
@@ -708,7 +764,7 @@ GROUP BY c.order_no, c.order_ext
 
 where 1=1
 AND EXISTS ( SELECT 1 FROM cvo_eyerep_acts_tbl a WHERE a.acct_id = #AllTerr.customer_code )
-and xx.date_applied > @date
+and xx.date_applied >= @date
 and xx.trx_type in (2031,2032) 
 and xx.doc_desc not like 'converted%' and xx.doc_desc not like '%nonsales%' 
 and xx.doc_ctrl_num not like 'cb%' and xx.doc_ctrl_num not like 'fin%'
@@ -805,6 +861,9 @@ and ol.ordered > (ol.shipped + isnull(e.qty,0))
 -- and o.sch_ship_date < @today
 and ol.part_type = 'p'
 AND o.who_entered = 'backordr'
+
+
+
 
 
 

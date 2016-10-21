@@ -9,8 +9,6 @@ CREATE TABLE [dbo].[cvo_substitute_processing_log]
 GO
 CREATE UNIQUE NONCLUSTERED INDEX [cvo_substitute_processing_log_pk] ON [dbo].[cvo_substitute_processing_log] ([rec_id]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [cvo_substitute_processing_log_inx01] ON [dbo].[cvo_substitute_processing_log] ([spid]) ON [PRIMARY]
-GO
 GRANT REFERENCES ON  [dbo].[cvo_substitute_processing_log] TO [public]
 GO
 GRANT SELECT ON  [dbo].[cvo_substitute_processing_log] TO [public]

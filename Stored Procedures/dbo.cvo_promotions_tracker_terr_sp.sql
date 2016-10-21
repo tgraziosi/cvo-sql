@@ -12,7 +12,7 @@ CREATE PROCEDURE [dbo].[cvo_promotions_tracker_terr_sp]
     @PromoLevel VARCHAR(5000) = NULL
 -- updates
 -- 10/30 - make promo multi-value list - need to repmove parameter
--- exec cvo_promotions_tracker_terr_sp '7/1/2016','08/11/2016', '20220', 'BTS', null
+-- exec cvo_promotions_tracker_terr_sp '11/1/2015','10/15/2016', null, 'sunps', 'op'
 AS -- 122614 put parameters into local variables to prevent 'sniffing'
 -- 011816 - change who_entered criteria
 
@@ -328,7 +328,7 @@ and (o.promo_id in (@PromoLevel))
                                                FROM     cvo_promo_override_audit poa
                                                WHERE    poa.order_no = #temp.order_no
                                                         AND poa.order_ext = #temp.ext )
-							  AND #temp.ext = (SELECT MIN(o.ext) FROM orders o WHERE o.order_no = #temp.order_no)
+							  AND #temp.ext = (SELECT MIN(o.ext) FROM orders o WHERE o.order_no = #temp.order_no AND o.status <> 'V')
                             )
                         AND car.door = 1
               GROUP BY  cust_code ,
@@ -392,14 +392,14 @@ and (o.promo_id in (@PromoLevel))
             LTRIM(RTRIM(reason)) reason ,
             ISNULL(return_amt, 0) return_amt ,
             ISNULL(return_qty, 0) return_qty ,
-            CASE WHEN #temp.ext <> (SELECT MIN(ext) FROM orders o WHERE o.order_no = #temp.order_no) THEN 'S' ELSE source END AS source ,
+            CASE WHEN #temp.ext <> (SELECT MIN(ext) FROM orders o WHERE o.order_no = #temp.order_no AND o.status <> 'V') THEN 'S' ELSE source END AS source ,
             Qual_order = CASE WHEN source = 'T' THEN 0
                               WHEN ISNULL(reason, '') = ''
                                    AND NOT EXISTS ( SELECT  1
                                                     FROM    cvo_promo_override_audit poa
                                                     WHERE   poa.order_no = #temp.order_no
                                                             AND poa.order_ext = #temp.ext )
-								   AND #temp.ext = (SELECT MIN(ext) FROM orders o WHERE o.order_no = #temp.order_no) -- don't qualify split orders
+								   AND #temp.ext = (SELECT MIN(ext) FROM orders o WHERE o.order_no = #temp.order_no AND o.status <> 'V') -- don't qualify split orders
                               THEN 1
 
                               ELSE 0
@@ -420,6 +420,7 @@ and (o.promo_id in (@PromoLevel))
             CONVERT(VARCHAR, DATEADD(dd, ( 9 - DATEPART(dw, date_entered) ),
                                      date_entered), 101) wk_EndDate
     FROM    #temp;
+
 
 
 

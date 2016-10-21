@@ -502,8 +502,9 @@ BEGIN
 				END
 				ELSE
 				BEGIN
-					-- v1.6 SET @xfer_order_by = LEFT(@lbs_order_by,9) + ' bt.bin_sort DESC, ' + RIGHT(@lbs_order_by,LEN(@lbs_order_by) - 9)
-					SET @xfer_order_by = LEFT(@lbs_order_by,9) + ' bt.bin_sort ASC, ' + RIGHT(@lbs_order_by,LEN(@lbs_order_by) - 9) -- v1.6
+					-- v1.6 
+					SET @xfer_order_by = LEFT(@lbs_order_by,9) + ' bt.bin_sort DESC, ' + RIGHT(@lbs_order_by,LEN(@lbs_order_by) - 9)
+					-- tag SET @xfer_order_by = LEFT(@lbs_order_by,9) + ' bt.bin_sort ASC, ' + RIGHT(@lbs_order_by,LEN(@lbs_order_by) - 9) -- v1.6
 				END
 		
 	

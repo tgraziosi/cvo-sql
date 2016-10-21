@@ -3,11 +3,9 @@ GO
 SET ANSI_NULLS ON
 GO
 
-CREATE FUNCTION [dbo].[f_get_order_commission_brand] (@order_no int, @order_ext INT, @brand VARCHAR(10))
-RETURNS decimal (5,2)
+create PROCedure [dbo].[cvo_get_order_commission_test] (@order_no int, @order_ext INT, @debug INT = null)
+-- RETURNS decimal (5,2)
 AS
--- SELECT DBO.F_GET_ORDER_COMMISSION_BRAND (2702419,0,'revo')
--- SELECT DBO.F_GET_ORDER_COMMISSION (2702419,0)
 BEGIN
 	DECLARE @use_commission smallint,
 			@commission decimal (20,8),
@@ -44,11 +42,21 @@ BEGIN
 		AND a.ext = @order_ext
 		AND c.address_type = 0
 
+	IF @debug = 1
+		SELECT @promo_id,
+		@promo_level,
+		@cust_code ,
+		@salesperson ,
+		@price_code ,
+		@commission_override ,
+		@commission_set 
+
 	-- v1.1 Start - If commission_override flag set then return the commission_pct already set
 	IF (@commission_override = 1)
 	BEGIN
 		SET	@commission = @commission_set
-		RETURN @commission
+		IF @debug = 1 SELECT 'comm ovrride on order', @commission
+		--RETURN @commission
 	END
 	-- v1.1 End
 
@@ -69,7 +77,8 @@ BEGIN
 
 		IF (ISNULL(@use_commission,0) = 1) AND (@commission IS NOT NULL)
 		BEGIN
-			RETURN @commission
+			IF @debug = 1 SELECT 'comm ovrride on promo', @commission
+			--RETURN @commission
 		END
 	END
 
@@ -87,20 +96,11 @@ BEGIN
 		WHERE
 			customer_code = @cust_code
 			AND address_type = 0
-        
+
 		IF (ISNULL(@use_commission,0) = 1) AND (@commission IS NOT NULL)
 		BEGIN
-		-- CHECK FOR BRAND OVERRIDE
-		IF ISNULL(@brand,'CORE') <> 'CORE'
-		BEGIN
-			IF @brand = 'REVO' AND @COMMISSION > 12 
-				SELECT @COMMISSION = 12
-			IF @BRAND = 'BT' AND @COMMISSION > 15
-				SELECT @COMMISSION = 15
-			IF @brand = 'LS' AND @commission > 9 -- 9/28/2016 - per LM
-				SELECT @commission = 9
-		END
-		RETURN @commission
+		IF @debug = 1 SELECT 'comm ovrride on customer', @commission
+			--RETURN @commission
 		END
 	END
 
@@ -117,21 +117,11 @@ BEGIN
 			dbo.arsalesp (NOLOCK)
 		WHERE
 			salesperson_code = @salesperson
-       
 
 		IF (ISNULL(@use_commission,0) = 1) AND (@commission IS NOT NULL)
 		BEGIN
-				-- CHECK FOR BRAND OVERRIDE
-		IF ISNULL(@brand,'CORE') <> 'CORE'
-		BEGIN
-			IF @brand = 'REVO' AND @COMMISSION > 12 
-				SELECT @COMMISSION = 12
-			IF @BRAND = 'BT' AND @COMMISSION > 15
-				SELECT @COMMISSION = 15
-			IF @brand = 'LS' AND @commission > 9 -- 9/28/2016 - per LM
-				SELECT @commission = 9
-		END
-		RETURN @commission
+			IF @debug = 1 SELECT 'comm ovrride on slp', @commission
+			--RETURN @commission
 		END
 	END
 
@@ -149,22 +139,14 @@ BEGIN
 
 		IF @commission IS NOT NULL
 		BEGIN
-				-- CHECK FOR BRAND OVERRIDE
-		IF ISNULL(@brand,'CORE') <> 'CORE'
-		BEGIN
-			IF @brand = 'REVO' AND @COMMISSION > 12 
-				SELECT @COMMISSION = 12
-			IF @BRAND = 'BT' AND @COMMISSION > 15
-				SELECT @COMMISSION = 15
-			IF @brand = 'LS' AND @commission > 9 -- 9/28/2016 - per LM
-				SELECT @commission = 9
-		END
-		RETURN @commission
+			IF @debug = 1 SELECT 'comm ovrride on price class', @commission
+			-- RETURN @commission
 		END
 	END
 
 	-- No commission found - return 0
-	RETURN 0
+	IF @debug = 1 SELECT ' at the bottom', @commission
+	--RETURN 0
 END
 
 GO

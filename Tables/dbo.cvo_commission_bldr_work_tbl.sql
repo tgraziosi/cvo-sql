@@ -15,11 +15,11 @@ CREATE TABLE [dbo].[cvo_commission_bldr_work_tbl]
 [Level] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [type] [varchar] (3) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [Net_Sales] [float] NULL,
-[Brand] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[Brand] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [Amount] [float] NULL,
 [Comm_pct] [decimal] (5, 2) NULL,
 [Comm_amt] [float] NULL,
-[Loc] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+[Loc] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [salesperson_name] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [HireDate] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [draw_amount] [decimal] (14, 2) NULL,
@@ -31,5 +31,5 @@ CREATE TABLE [dbo].[cvo_commission_bldr_work_tbl]
 [id] [bigint] NOT NULL
 ) ON [PRIMARY]
 GO
-ALTER TABLE [dbo].[cvo_commission_bldr_work_tbl] ADD CONSTRAINT [PK__cvo_commission_b__58E01199] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
+ALTER TABLE [dbo].[cvo_commission_bldr_work_tbl] ADD CONSTRAINT [PK__cvo_commission_b__558618AF] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
 GO

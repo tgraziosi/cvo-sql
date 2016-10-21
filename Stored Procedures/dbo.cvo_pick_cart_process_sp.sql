@@ -19,13 +19,15 @@ AS
 -- select * from cvo_cart_scan_orders
 -- exec cvo_pick_cart_process_sp 1, 2350742, 0, 99 -- void
 -- exec cvo_pick_cart_process_sp 1, 13416, 0, 0 -- check in
--- exec cvo_pick_cart_process_sp 1, 2663446, 0, 1 -- pick and check out
+-- exec cvo_pick_cart_process_sp 1, 2931138, 0, 1 -- pick and check out
+
+--  select * From dbo.cvo_cart_parts_processed AS cpp WHERE cpp.order_no LIKE '2931138%'
 
 -- exec cvo_pick_cart_process_sp 'rlanka', 2404590, 0, 0
 
 
 /*
- SELECT tx_lock, use r_id, mfg_batch, * FROM tdc_pick_queue WHERE trans_type_no = 2663446
+ SELECT tx_lock, user_id, mfg_batch, * FROM tdc_pick_queue WHERE trans_type_no = 2931138
  select user_hold, * From tdc_soft_alloc_tbl where order_no = 2327724
 */
 -- order check in to Cart
@@ -288,6 +290,7 @@ begin
 END -- proc_option = 99
 
  
+
 
 
 

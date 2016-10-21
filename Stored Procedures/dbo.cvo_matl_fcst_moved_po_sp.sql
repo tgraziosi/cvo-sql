@@ -24,7 +24,7 @@ select @days =  @DaysThresh
 select @bo_thresh =  @BOThresh
 
 IF(OBJECT_ID('tempdb.dbo.#matlfcst') is not null)  drop table #matlfcst
-  SELECT po_a.date_field_from
+  SELECT distinct po_a.date_field_from -- 9/23/2016 add distinct so that po's with multiple line entries don't report.  don't need them
 	  , po_a.date_field_to
 	  , i.category brand
 	  , ia.field_2 style
@@ -158,6 +158,7 @@ and #mpo.bucket between dateadd(mm,datediff(mm, 0, m.date_field_from), 0) and
 ) 
 as x on x.brand = #mpo.brand and x.style = #mpo.style
 left outer join #matlfcst m on m.brand = #mpo.brand and m.style = #mpo.style
+
 
 
 GO

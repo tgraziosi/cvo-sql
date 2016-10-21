@@ -86,12 +86,14 @@ BEGIN
 		AND		((b.vendor BETWEEN @vendor_from AND @vendor_to ) OR 1 = @cbx_v)  
 		AND		((b.type_code BETWEEN @type_from AND @type_to) OR 1 = @cbx_t)  
 		AND		a.location = @loc_source
+		-- tag
+		AND		NOT EXISTS (SELECT 1 FROM inv_list il WHERE il.part_no = a.part_no AND il.location = @loc_dest)
 
-		DELETE	a
-		FROM	#parts_to_copy a
-		JOIN	inv_list b (NOLOCK)
-		ON		a.to_location = b.location
-		AND		a.part_no = b.part_no
+		--DELETE	a
+		--FROM	#parts_to_copy a
+		--JOIN	inv_list b (NOLOCK)
+		--ON		a.to_location = b.location
+		--AND		a.part_no = b.part_no
 
 		CREATE INDEX #parts_to_copy_ind0 ON #parts_to_copy(from_location, part_no)
 
@@ -124,9 +126,10 @@ BEGIN
 
 			DELETE	a
 			FROM	#inv_list a
-			JOIN	inv_list b (NOLOCK)
-			ON		a.location = b.location
-			AND		a.part_no = b.part_no
+			WHERE EXISTS (SELECT 1 FROM inv_list b (NOLOCK) WHERE b.location = a.location AND b.part_no = a.part_no)
+			--JOIN	inv_list b (NOLOCK)
+			--ON		a.location = b.location
+			--AND		a.part_no = b.part_no
 		END
         
 	END  
@@ -143,13 +146,15 @@ BEGIN
 		AND		((b.vendor BETWEEN @vendor_from AND @vendor_to ) OR 1 = @cbx_v)  
 		AND		((b.type_code BETWEEN @type_from AND @type_to) OR 1 = @cbx_t)  
 		AND		a.location <> @loc_dest
+		-- tag
+		AND		NOT EXISTS (SELECT 1 FROM inv_list il WHERE il.part_no = a.part_no AND il.location = @loc_dest)
 		GROUP BY a.part_no
 
-		DELETE	a
-		FROM	#parts_to_copy a
-		JOIN	inv_list b (NOLOCK)
-		ON		a.to_location = b.location
-		AND		a.part_no = b.part_no
+		--DELETE	a
+		--FROM	#parts_to_copy a
+		--JOIN	inv_list b (NOLOCK)
+		--ON		a.to_location = b.location
+		--AND		a.part_no = b.part_no
 
 		CREATE INDEX #parts_to_copy_ind0 ON #parts_to_copy(from_location, part_no)
 
@@ -172,7 +177,7 @@ BEGIN
 				min_order, issued_mtd, issued_ytd, lead_time, status, labor, qty_year_end, qty_month_end, qty_physical, entered_who, entered_date, void, void_who, void_date,
 				std_cost, std_labor, std_direct_dolrs, std_ovhd_dolrs, std_util_dolrs, setup_labor, freight_unit, note, cycle_date, acct_code, eoq, dock_to_stock, order_multiple, 
 				abc_code, abc_code_frozen_flag, rank_class, po_uom, so_uom)   
-			SELECT	part_no, location, bin_no, avg_cost, avg_direct_dolrs, avg_ovhd_dolrs, avg_util_dolrs, in_stock, hold_qty, min_stock, max_stock,  
+			SELECT	TOP (500) part_no, location, bin_no, avg_cost, avg_direct_dolrs, avg_ovhd_dolrs, avg_util_dolrs, in_stock, hold_qty, min_stock, max_stock,  
 					min_order, issued_mtd, issued_ytd, lead_time, status, labor, qty_year_end, qty_month_end, qty_physical, entered_who, entered_date, void, void_who, void_date,
 					std_cost, std_labor, std_direct_dolrs, std_ovhd_dolrs, std_util_dolrs, setup_labor, freight_unit, note, cycle_date, acct_code, eoq, dock_to_stock, order_multiple, 
 					abc_code, abc_code_frozen_flag, rank_class, po_uom, so_uom
@@ -180,21 +185,35 @@ BEGIN
 
 			DELETE	a
 			FROM	#inv_list a
-			JOIN	inv_list b (NOLOCK)
-			ON		a.location = b.location
-			AND		a.part_no = b.part_no
+			WHERE EXISTS (SELECT 1 FROM inv_list b (NOLOCK) WHERE b.location = a.location AND b.part_no = a.part_no)
+			--JOIN	inv_list b (NOLOCK)
+			--ON		a.location = b.location
+			--AND		a.part_no = b.part_no
 		end
 
 
 		DELETE	a
 		FROM	#parts_to_copy a
-		JOIN	inv_xfer b (NOLOCK)
-		ON		a.to_location = b.location
-		AND		a.part_no = b.part_no
+		WHERE EXISTS (SELECT 1 FROM INV_XFER B (nolock) WHERE b.location = a.to_location AND b.part_no = a.part_no)
+		--JOIN	inv_xfer b (NOLOCK)
+		--ON		a.to_location = b.location
+		--AND		a.part_no = b.part_no
 
-		INSERT	inv_xfer (part_no, location, commit_ed, xfer_mtd, xfer_ytd, hold_xfr, transit, commit_to_loc)
-		SELECT	ptc.part_no, ptc.to_location, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  
-		FROM	#parts_to_copy ptc	
+		WHILE EXISTS (SELECT 1 FROM #parts_to_copy AS ptc)
+		BEGIN
+
+			INSERT	inv_xfer (part_no, location, commit_ed, xfer_mtd, xfer_ytd, hold_xfr, transit, commit_to_loc)
+			SELECT	TOP (500) ptc.part_no, ptc.to_location, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  
+			FROM	#parts_to_copy ptc	
+
+			DELETE	a
+			FROM	#parts_to_copy a
+			WHERE EXISTS (SELECT 1 FROM INV_XFER B (nolock) WHERE b.location = a.to_location AND b.part_no = a.part_no)
+			--JOIN	inv_xfer b (NOLOCK)
+			--ON		a.to_location = b.location
+			--AND		a.part_no = b.part_no
+
+		END
 
  	END 
 
@@ -203,6 +222,8 @@ BEGIN
 
 
 END
+
+
 
 GO
 GRANT EXECUTE ON  [dbo].[adm_copy_loc_sp] TO [public]

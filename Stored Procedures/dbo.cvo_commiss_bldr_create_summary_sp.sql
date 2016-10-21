@@ -95,7 +95,7 @@ select a.Salesperson ,
 	   dbo.calculate_region_fn(r.territory_code) region,
        dbo.adm_format_pltdate_f(r.date_hired) hiredate ,
        a.amount ,
-       a.comm_amt
+	   a.comm_amt
 	   , ISNULL(draw_over.draw_amount, ISNULL( r.draw_amount,0 )) draw_amount
 	   , ISNULL(draw_over.qty, @drawweeks) drawweeks
 	   , total_draw = ISNULL(draw_over.draw_amount, ISNULL( r.draw_amount,0 )) * ISNULL(draw_over.qty, @drawweeks)
@@ -126,7 +126,8 @@ from
 
 	(select salesperson
 		, fiscal_period
-		, CONVERT(money,SUM(amount)) amount
+		-- , CONVERT(money,SUM(amount)) amount
+		, CONVERT(money,SUM(net_sales)) amount -- 9/12/2016
 		, convert(money,SUM(comm_amt)) comm_amt 
 	from cvo_commission_bldr_work_tbl
 	WHERE fiscal_period = @fp
@@ -227,6 +228,7 @@ UPDATE d SET
 		WHERE d.report_month = @fp
 		AND d.salesperson = ISNULL(@slp, d.salesperson)
 -- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt
+
 
 
 

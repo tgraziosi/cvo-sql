@@ -19,10 +19,10 @@ GO
 
 -- order_no = 2645156
 -- 46 sec 26052 rec
--- select * From cvo_commission_bldr_r2_vw where DateShipped between dbo.adm_get_pltdate_f('10/01/2016') AND dbo.adm_get_pltdate_f('10/30/2016') and loc = 'ar posted'
+-- select * From cvo_commission_bldr_r3_vw where DateShipped between dbo.adm_get_pltdate_f('09/01/2016') AND dbo.adm_get_pltdate_f('09/30/2016') and loc = 'ar posted'
 -- 34 sec 26053 rec
  
-CREATE VIEW [dbo].[cvo_commission_bldr_r2_vw]
+CREATE VIEW [dbo].[cvo_commission_bldr_r3_vw]
 AS
     -- AR POSTED  
  SELECT x.salesperson_code AS Salesperson ,
@@ -112,7 +112,7 @@ AS
                                  ELSE 'CORE'
                             END ,
                     SUM(a.extended_price) ext_net_sales ,
-                    SUM(CASE WHEN ISNULL(b.field_34, '') <> 1
+                    SUM(CASE WHEN ISNULL(b.field_34, 1) <> 1
                              THEN a.extended_price
                              ELSE 0
                         END) ext_comm_sales
@@ -220,7 +220,7 @@ AS
                                                  ELSE 'CORE'
                                             END ,
                                     SUM(a.extended_price) ext_net_sales ,
-                                    SUM(CASE WHEN ISNULL(b.field_34, '') <> 1
+                                    SUM(CASE WHEN ISNULL(b.field_34, 1) <> 1
                                              THEN a.extended_price
                                              ELSE 0
                                         END) ext_comm_sales
@@ -281,7 +281,7 @@ LEFT OUTER JOIN ( SELECT    a.trx_ctrl_num ,
                                                  ELSE 'CORE'
                                             END ,
                                     SUM(a.extended_price) ext_net_sales ,
-                                    SUM(CASE WHEN ISNULL(b.field_34, '') <> 1
+                                    SUM(CASE WHEN ISNULL(b.field_34, 1) <> 1
                                              THEN a.extended_price
                                              ELSE 0
                                         END) ext_comm_sales
@@ -323,19 +323,4 @@ and x.void_flag <> 1     --v2.0
 
 
 
-
-
-GO
-
-
-
-GRANT REFERENCES ON  [dbo].[cvo_commission_bldr_r2_vw] TO [public]
-GO
-GRANT SELECT ON  [dbo].[cvo_commission_bldr_r2_vw] TO [public]
-GO
-GRANT INSERT ON  [dbo].[cvo_commission_bldr_r2_vw] TO [public]
-GO
-GRANT DELETE ON  [dbo].[cvo_commission_bldr_r2_vw] TO [public]
-GO
-GRANT UPDATE ON  [dbo].[cvo_commission_bldr_r2_vw] TO [public]
 GO

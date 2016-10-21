@@ -16,6 +16,11 @@ CREATE PROCEDURE [dbo].[cvo_commission_bldr_sp]
  AS
  BEGIN
 
+  /* for testing
+ DECLARE @df DATETIME, @dt DATETIME, @t VARCHAR(1024)
+ SELECT @df = '9/1/2016', @dt = '09/30/2016', @t = NULL
+  */
+
 SET NOCOUNT ON
    
 DECLARE @jdatefrom INT, @jdateto INT, @fp VARCHAR(10)
@@ -63,7 +68,7 @@ BEGIN
 	[Amount] [float] NULL,
 	[Comm_pct] [decimal] (5, 2) NULL,
 	[Comm_amt] [float] NULL,
-	[Loc] [varchar] (8) NOT NULL,
+	[Loc] [varchar] (10) NOT NULL,
 	[salesperson_name] [varchar] (40) NULL,
 	[HireDate] [varchar] (30) NOT NULL,
 	[draw_amount] [decimal] (14, 2) NULL,
@@ -149,5 +154,6 @@ INNER JOIN cvo_commission_bldr_r2_vw c ON c.Territory = t.territory
 WHERE invoicedate BETWEEN @jdatefrom AND @jdateto
 
 END
+
 
 GO

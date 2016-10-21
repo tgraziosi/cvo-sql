@@ -127,31 +127,40 @@ BEGIN
 		END
 		ELSE IF (@status = 'A')
 		BEGIN
-			IF ((@hold_reason = 'H') OR (LEFT(@hold_reason,5) = 'PROMO') OR @hold_reason = 'FL') -- v1.2
+			-- v1.3 Start
+			IF (@hold_reason > '' AND @hold_reason <> 'STC')
 			BEGIN
-				IF NOT (LEFT(@prior_hold,5) = 'PROMO') 
-				BEGIN
-					UPDATE	cvo_orders_all
-					SET		prior_hold = 'STC'
-					WHERE	order_no = @order_no
-					AND		ext = @order_ext
-				END
+				UPDATE	cvo_orders_all
+				SET		prior_hold = 'STC'
+				WHERE	order_no = @order_no
+				AND		ext = @order_ext
 			END
-			ELSE
-			BEGIN
-				IF (@hold_reason > '' AND @hold_reason <> 'STC')
-				BEGIN		
-					UPDATE	cvo_orders_all
-					SET		prior_hold = @hold_reason
-					WHERE	order_no = @order_no
-					AND		ext = @order_ext
-			
-					UPDATE	orders_all
-					SET		hold_reason = 'STC'
-					WHERE	order_no = @order_no
-					AND		ext = @order_ext			
-				END
-			END
+--			IF ((@hold_reason = 'H') OR (LEFT(@hold_reason,5) = 'PROMO') OR @hold_reason = 'FL') -- v1.2
+--			BEGIN
+--				IF NOT (LEFT(@prior_hold,5) = 'PROMO') 
+--				BEGIN
+--					UPDATE	cvo_orders_all
+--					SET		prior_hold = 'STC'
+--					WHERE	order_no = @order_no
+--					AND		ext = @order_ext
+--				END
+--			END
+--			ELSE
+--			BEGIN
+--				IF (@hold_reason > '' AND @hold_reason <> 'STC')
+--				BEGIN		
+--					UPDATE	cvo_orders_all
+--					SET		prior_hold = @hold_reason
+--					WHERE	order_no = @order_no
+--					AND		ext = @order_ext
+--			
+--					UPDATE	orders_all
+--					SET		hold_reason = 'STC'
+--					WHERE	order_no = @order_no
+--					AND		ext = @order_ext			
+--				END
+--			END
+			-- v1.3 End
 		END
 		ELSE
 		BEGIN

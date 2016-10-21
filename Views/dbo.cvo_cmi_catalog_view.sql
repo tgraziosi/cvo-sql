@@ -7,7 +7,7 @@ GO
 
 
 
--- select * from cvo_cmi_catalog_view where collection = 'revo'
+-- select * from cvo_cmi_catalog_view where collection = 'bt'
 
 
 CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS 
@@ -16,7 +16,7 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	bm.id AS cmi_model_id,
 	bm.brand AS Collection,
 	bm.brand AS CollectionName,
-	bm.model_name AS model, 
+	REPLACE(bm.model_name,'''','') AS model, 
 	bm.short_model, -- 070914- tag
 	-- v.temple_img as img_temple, 
 	-- v.front_img as img_front, 
@@ -53,7 +53,7 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	bm.temple_tip_material,
 	bm.suns_only,
 	bm.suns_only lens_material,
-	bm.lens_base,
+	CASE WHEN ISNULL(bm.lens_base,'') = '' THEN '6 base lenses' ELSE bm.lens_base END AS lens_base,
 	bm.front_price,
 	bm.temple_price,
 	bm.wholesale_price,
@@ -122,13 +122,6 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 		--AND d.eye_size =  i.eye_size AND v.color = i.colorname
 	
 	WHERE v.isActive = 1
-
-
-
-
-
-
-
 
 
 

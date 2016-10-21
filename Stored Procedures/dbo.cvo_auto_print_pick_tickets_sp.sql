@@ -14,8 +14,8 @@ GO
 -- v1.7 CB 29/07/2015 - Need to expand v1.5 for consolidation orders
 -- v1.8 CB 14/04/2016 - #1596 - Add promo level
 -- v1.9 CB 09/06/2016 - Fix issue with consolidated pick ticket partially printing
+-- v2.0 CB 06/10/2016 - Pass in extra param when calling cvo_print_pick_ticket_sp to stop double tdc_log entries
 -- EXEC dbo.cvo_auto_print_pick_tickets_sp 'ST'
-
 CREATE PROC [dbo].[cvo_auto_print_pick_tickets_sp] (@order_type	VARCHAR(2))
 
 AS
@@ -686,7 +686,7 @@ BEGIN
 			END
 			ELSE 
 			BEGIN -- v1.2 End
-				EXEC dbo.cvo_print_pick_ticket_sp @order_no, @ext, 0
+				EXEC dbo.cvo_print_pick_ticket_sp @order_no, @ext, 0, 1 -- v2.0
 
 				-- Check if this order printed correctly
 				IF EXISTS(SELECT 1 FROM dbo.orders_all (NOLOCK) WHERE [status] = 'Q' AND order_no = @order_no AND ext = @ext)

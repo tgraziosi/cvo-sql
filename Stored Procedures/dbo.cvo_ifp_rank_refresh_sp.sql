@@ -6,21 +6,25 @@ CREATE PROCEDURE [dbo].[cvo_ifp_rank_refresh_sp]
 @br VARCHAR(1024) = null, 
 @rs VARCHAR(10) ,
 @asofdate DATETIME = null, 
-@months INT = 3, 
+@months INT = 4, 
 @debug INT = 0
 
 AS 
 BEGIN
 
--- exec cvo_ifp_rank_refresh_sp 'rr', 'frame', null, 3, 1
+-- exec cvo_ifp_rank_refresh_sp null, 'kids'
 -- SELECT * fROM CVO_IFP_CONFIG
 -- select * from cvo_ifp_rank where brand = 'rr'
+
+-- 8/30/2016 - add 4th month of sales
+
 SET NOCOUNT ON
 SET ANSI_WARNINGS OFF
 
 DECLARE @m INT, @today DATETIME, @asof DATETIME
 SELECT @m = @months, @TODAY = GETDATE(), @asof = @asofdate
-DECLARE @p1s DATETIME, @p1e DATETIME, @p2s DATETIME, @p2e DATETIME, @p3s DATETIME, @p3e DATETIME
+DECLARE @p1s DATETIME, @p1e DATETIME, @p2s DATETIME, @p2e DATETIME
+		, @p3s DATETIME, @p3e DATETIME, @p4s DATETIME, @p4e datetime
 
 IF @asofdate IS NULL 
 SELECT @asof = ENDdate FROM dbo.cvo_date_range_vw WHERE period = 'Last Month'
@@ -36,7 +40,10 @@ SELECT @p2e = DATEADD(HOUR,23,DATEADD(d,-1,@p1s))
 SELECT @p3s = DATEADD(m,-1,@p2s)
 SELECT @p3e = DATEADD(HOUR,23,DATEADD(d,-1,@p2s))
 
-IF @debug = 1 SELECT @asof, @p1s, @p1e, @p2s, @p2e, @p3s, @p3e
+SELECT @p4s = DATEADD(m,-1,@p3s)
+SELECT @p4e = DATEADD(HOUR,23,DATEADD(d,-1,@p3s))
+
+IF @debug = 1 SELECT @asof, @p1s, @p1e, @p2s, @p2e, @p3s, @p3e, @p4s, @p4s
 
 
 -- SELECT * FROM dbo.cvo_date_range_vw AS drv
@@ -71,11 +78,13 @@ begin
 , [res_type] VARCHAR(10)
 , [rel_date] DATETIME
 , [pom_date] DATETIME
+, [m4_net] float
 , [m3_net] FLOAT
 , [m2_net] FLOAT
 , [m1_net] float
 , [net_qty] FLOAT
-, [months_of_sales] int
+, [months_of_sales] INT
+, [rel_month] int
 , [TIER] varchar(1)
 , [ORDER_THRU_DATE] DATETIME
 , last_upd_date datetime )
@@ -98,14 +107,16 @@ SELECT i.category brand, ia.field_2 style
 , @rs res_type
 , MIN(ISNULL(ia.field_26,'1/1/1949')) rel_date
 , MAX(ISNULL(ia.field_28,'12/31/2099')) pom_date
+, SUM(ISNULL(CASE WHEN yyyymmdd BETWEEN @p4s AND @p4e THEN qnet ELSE 0 END,0)) m4_qnet
 , SUM(ISNULL(CASE WHEN yyyymmdd BETWEEN @p3s AND @p3e THEN qnet ELSE 0 END,0)) m3_qnet
 , SUM(ISNULL(CASE WHEN yyyymmdd BETWEEN @p2s AND @p2e THEN qnet ELSE 0 END,0)) m2_qnet
 , SUM(ISNULL(CASE WHEN yyyymmdd BETWEEN @p1s AND @p1e THEN qnet ELSE 0 END,0)) m1_qnet
 , SUM(ISNULL(qnet,0)) net_qty
 , @months AS months_of_sales
 , TIER = CASE WHEN IA.CATEGORY_2 LIKE '%CHILD%' THEN 'K'
+	WHEN ia.field_32 = 'Reader' THEN 'R' -- ET Readers
 	WHEN i.type_code = 'FRAME' THEN 'F' 
-	WHEN I.TYPE_CODE = 'SUN' THEN 'S'
+	WHEN I.TYPE_CODE = 'SUN' THEN 'S' 
 	ELSE 'Z' end
 , ORDER_THRU_DATE = CAST(NULL AS DATETIME)
 , last_upd_date = @asof
@@ -114,9 +125,9 @@ SELECT i.category brand, ia.field_2 style
 INTO #ifp
 FROM #brand b
 JOIN inv_master i (NOLOCK) ON i.category = b.brand 
-JOIN inv_master_add ia (NOLOCK) ON ia.part_no = i.part_no AND ISNULL(ia.field_32,'') NOT IN ('hvc','retail')	
+JOIN inv_master_add ia (NOLOCK) ON ia.part_no = i.part_no AND ISNULL(ia.field_32,'') NOT IN ('hvc','retail','BTConvert')	
 LEFT OUTER JOIN cvo_sbm_details sbm ON sbm.part_no = i.part_no
-	AND yyyymmdd BETWEEN @p3s AND @p1e
+	AND yyyymmdd BETWEEN @p4s AND @p1e
 	AND location = '001'
 WHERE 1=1 
 
@@ -126,15 +137,16 @@ AND ((@rs = 'KIDS' AND ia.category_2 LIKE '%child%' AND i.type_code IN ('FRAME',
 		OR (i.type_code = @rs AND @RS <> 'KIDS' AND IA.CATEGORY_2 NOT LIKE '%CHILD%' ))
 
 GROUP BY CASE WHEN IA.CATEGORY_2 LIKE '%CHILD%' THEN 'K'
+         WHEN IA.field_32 = 'Reader' THEN 'R' -- ET Readers
          WHEN i.type_code = 'FRAME' THEN 'F'
          WHEN i.TYPE_CODE = 'SUN' THEN 'S'
-         ELSE 'Z'
+		 ELSE 'Z'
          END ,
          i.category ,
          IA.field_2 
 
-HAVING MAX(ISNULL(ia.field_28,'12/31/2099')) >= @today
-AND MIN(ISNULL(ia.field_26,'1/1/1949')) <= @today -- don't pick up future releases
+HAVING MAX(ISNULL(ia.field_28,'12/31/2099')) >= @asof
+AND MIN(ISNULL(ia.field_26,'1/1/1949')) <= @asof -- don't pick up future releases
 
 		 
 -- ORDER BY CASE WHEN @rs = 'SUN' THEN i.type_code ELSE i.category END asc, SUM(ISNULL(qnet,0)) DESC
@@ -148,9 +160,11 @@ UPDATE R SET
 net_qty = CASE WHEN rel_months = 0 THEN 0 
 	 WHEN rel_months = 1 THEN ROUND(m1_qnet * @months,0)
 	 WHEN rel_months = 2 THEN ROUND((m1_qnet + m2_qnet)/2*@months,2)
+	 WHEN rel_months = 3 THEN ROUND((m1_qnet + m2_qnet + m3_qnet)/3*@months,2)
 	 ELSE net_qty end
 
-, TIER = CASE WHEN rel_months<2 THEN 'N' ELSE r.TIER end
+-- , TIER = CASE WHEN rel_months < @months-1 THEN 'N' ELSE r.TIER END
+, TIER = CASE WHEN rel_months < 2 THEN 'N' ELSE r.TIER end
 
 FROM #ifp AS r
 WHERE rel_months < @months
@@ -170,7 +184,7 @@ from #brand b
 JOIN cvo_ifp_config c ON c.brand = b.brand
 JOIN #ifp s ON s.brand = c.brand OR s.res_type = b.brand
 WHERE tag = 'tier'
-AND s.tier <> 'N'
+AND s.tier NOT IN ('N','R') -- new or readers
 
 --AND s.res_type IN (SELECT r.res_type FROM #res_type r)
 GROUP BY c.brand ,
@@ -199,6 +213,7 @@ BEGIN
 UPDATE s SET tier = 'C' ,order_thru_date = (SELECT TOP 1 order_thru_date FROM #t WHERE brand = @brand AND tier = 'C')
 FROM #ifp s
 WHERE s.TIER = 'F' AND s.pom_date <> '12/31/2099' AND brand = @brand
+
 
 UPDATE #t SET tier_qty = tier_qty - @@ROWCOUNT
 WHERE #t.brand = @brand AND #t.tier = 'C'
@@ -300,13 +315,15 @@ INSERT dbo.cvo_ifp_rank
           res_type ,
           rel_date ,
           pom_date ,
+		  m4_net ,
           m3_net ,
           m2_net ,
           m1_net ,
           net_qty ,
 		  months_of_sales,
-          TIER ,
-          ORDER_THRU_DATE ,
+		  rel_month ,
+          tier ,
+          order_thru_date ,
           last_upd_date
         )
 SELECT i.brand ,
@@ -315,11 +332,13 @@ SELECT i.brand ,
 	   UPPER(@rs),
        i.rel_date ,
        i.pom_date ,
+	   i.m4_qnet ,
        i.m3_qnet ,
        i.m2_qnet ,
        i.m1_qnet ,
 	   ROUND(i.net_qty,0) net_qty ,
 	   i.months_of_sales ,
+	   i.rel_months , 
        i.TIER ,
        i.ORDER_THRU_DATE ,
        i.last_upd_date FROM #ifp AS i
@@ -335,91 +354,21 @@ SELECT distinct       id ,
                       res_type ,
                       rel_date ,
                       pom_date ,
+					  m4_net ,
                       m3_net ,
                       m2_net ,
                       m1_net ,
                       net_qty ,
                       months_of_sales ,
-                      TIER ,
-                      ORDER_THRU_DATE ,
+					  rel_month ,
+                      tier ,
+                      order_thru_date ,
                       last_upd_date
 FROM            cvo_ifp_rank
 
 
---SELECT @id = MIN(id) FROM cvo_ifp_rank WHERE brand = @brand AND res_type = @res_type AND tier = 'F'
---SELECT @net_qty = net_qty FROM cvo_ifp_rank WHERE id = @id
-
---WHILE @brand IS NOT NULL
---begin
-
---  WHILE @tier IS NOT NULL
---	BEGIN
-
---    WHILE ISNULL(@tier_qty,0) > 0 AND @id IS NOT null
---	BEGIN
---		BEGIN
---			UPDATE cvo_ifp_rank
---			SET tier = @tier, ORDER_THRU_DATE = @order_thru_date
---			WHERE id = @id
-		
---			SELECT @tier_qty = @tier_qty  - @net_qty
---			SELECT @id = MIN(id) FROM cvo_ifp_rank WHERE brand = @brand AND res_type = @res_type AND tier = 'F'
---			SELECT @net_qty = net_qty FROM cvo_ifp_rank WHERE id = @id
---			END
---	END
-    
---	SELECT @tier = MIN(tier) FROM #t WHERE brand = @brand AND tier > @tier 
---	SELECT @tier_qty = tier_qty,  @order_thru_date = order_thru_date FROM #t WHERE brand = @brand AND @tier = tier
---	SELECT @id = MIN(id) FROM cvo_ifp_rank WHERE brand = @brand AND res_type = @res_type AND tier = 'F'
---	SELECT @net_qty = net_qty FROM cvo_ifp_rank WHERE id = @id
---	END
-
---SELECT @tier = '', @tier_qty = -1
---SELECT @brand = MIN(brand) FROM #t WHERE brand > @brand 
---SELECT @tier = MIN(tier) FROM #t WHERE brand = @brand AND tier > @tier 
---SELECT @tier_qty = tier_qty, @order_thru_date = order_thru_date FROM #t WHERE brand = @brand AND @tier = tier
---SELECT @id = MIN(id) FROM cvo_ifp_rank WHERE brand = @brand AND res_type = @res_type AND tier = 'F'
---SELECT @net_qty = net_qty FROM cvo_ifp_rank WHERE id = @id
---end  
-
----- Now do Suns
-
---select @tier = '', @tier_qty = -1, @res_type = 'SUN', @brand = 'SUN'
-
---SELECT @tier = MIN(tier) FROM #t WHERE tier > @tier AND brand = @brand
---SELECT @tier_qty = tier_qty, @order_thru_date = order_thru_date FROM #t WHERE brand = @brand AND @tier = tier
---SELECT @id = MIN(id) FROM cvo_ifp_rank WHERE res_type = @RES_TYPE AND tier = 'S'
---SELECT @net_qty = net_qty FROM cvo_ifp_rank WHERE id = @id
-
---IF @debug = 1 SELECT ' starting SUNs', @tier, @tier_qty, @id, @net_qty
-
---WHILE @tier IS NOT NULL
---	BEGIN
-
---    WHILE ISNULL(@tier_qty,0) > 0 AND @id IS NOT null
---	BEGIN
---		BEGIN
---			UPDATE cvo_ifp_rank
---			SET tier = @tier, ORDER_THRU_DATE = @order_thru_date
---			WHERE id = @id
-		
---			SELECT @tier_qty = @tier_qty  - @net_qty
---			SELECT @id = MIN(id) FROM cvo_ifp_rank WHERE RES_TYPE = @RES_TYPE AND tier = 'S'
---			SELECT @net_qty = net_qty FROM cvo_ifp_rank WHERE id = @id
---			END
---	END
-    
---	SELECT @tier = MIN(tier) FROM #t WHERE brand = @brand AND tier > @tier 
---	SELECT @tier_qty = tier_qty,  @order_thru_date = order_thru_date FROM #t WHERE brand = @brand AND @tier = tier
---	SELECT @id = MIN(id) FROM cvo_ifp_rank WHERE RES_TYPE = @RES_TYPE AND tier = 'S'
---	SELECT @net_qty = net_qty FROM cvo_ifp_rank WHERE id = @id
-
---	IF @debug = 1 SELECT ' next SUNs', @tier, @tier_qty, @id, @net_qty
-
---	END
 
 end
-
 
 
 

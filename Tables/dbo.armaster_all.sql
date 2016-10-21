@@ -278,6 +278,40 @@ where d.country_code<>i.country_code and d.Customer_code=I.customer_code and d.s
 INSERT CVOARMasterAudit (field_name, field_from, field_to, customer_code, ship_to_code, movement_flag, audit_date, user_id) SELECT 'State', d.state, i.state, i.customer_code, i.ship_to_code, 2, getdate(), SUSER_SNAME() from inserted i INNER JOIN deleted d ON i.customer_code = d.customer_code AND i.address_type = d.address_type
 where d.state<>i.state and d.Customer_code=I.customer_code and d.ship_to_code=i.ship_to_code -- 11/13/2015 tag - per KM request
 
+INSERT CVOARMasterAudit 
+(field_name
+, field_from
+, field_to
+, customer_code
+, ship_to_code
+, movement_flag
+, audit_date
+, user_id) 
+SELECT distinct 'Back Order Flag - Non RX'
+, cast (CASE d.ship_complete_flag
+			WHEN 0 THEN 'Allow BO'
+			WHEN 1 THEN 'Ship Comp'
+			WHEN 2 THEN 'Partial Ship'
+			ELSE 'Unknown'
+			end as VARCHAR(20))
+, cast (CASE i.ship_complete_flag
+			WHEN 0 THEN 'Allow BO'
+			WHEN 1 THEN 'Ship Comp'
+			WHEN 2 THEN 'Partial Ship'
+			ELSE 'Unknown'
+			end as varchar(20))
+, i.customer_code
+, i.ship_to_code
+, 2 -- change
+, getdate()
+, SUSER_SNAME() 
+from inserted i 
+INNER JOIN deleted d ON 
+i.customer_code = d.customer_code
+AND i.ship_to_code = d.ship_to_code -- 9/21/2016 
+AND i.address_type = d.address_type
+where isnull(d.ship_complete_flag,0)<>isnull(i.ship_complete_flag,0)
+
 
 -- above cannot be used to audit contact_email, attention_email, ftp, special_instr, note & extended_name they require varchar (255)
 
