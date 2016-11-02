@@ -12,7 +12,7 @@ CREATE PROCEDURE [dbo].[cvo_promotions_tracker_terr_sp]
     @PromoLevel VARCHAR(5000) = NULL
 -- updates
 -- 10/30 - make promo multi-value list - need to repmove parameter
--- exec cvo_promotions_tracker_terr_sp '11/1/2015','10/15/2016', null, 'sunps', 'op'
+-- exec cvo_promotions_tracker_terr_sp '1/1/2015','11/02/2016', '20260,40426', 'izod', 't & c'
 AS -- 122614 put parameters into local variables to prevent 'sniffing'
 -- 011816 - change who_entered criteria
 
@@ -121,7 +121,8 @@ AS -- 122614 put parameters into local variables to prevent 'sniffing'
             ar.salesperson_code salesperson ,
             ar.territory_code Territory , 
 -- t.territory Territory, 
-            t.region ,
+			dbo.calculate_region_fn(ar.territory_code) region, -- 11/2/2016
+            -- t.region ,
             o.total_amt_order ,
             o.total_discount ,
             o.total_tax ,
@@ -420,6 +421,7 @@ and (o.promo_id in (@PromoLevel))
             CONVERT(VARCHAR, DATEADD(dd, ( 9 - DATEPART(dw, date_entered) ),
                                      date_entered), 101) wk_EndDate
     FROM    #temp;
+
 
 
 
