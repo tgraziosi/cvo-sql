@@ -11,7 +11,7 @@ GO
 -- exec SSRS_SunPreSell_v3_sp
 -- =============================================
 
-create PROCEDURE [dbo].[SSRS_SunPreSell_v3_sp] @asofdate datetime = null
+CREATE PROCEDURE [dbo].[SSRS_SunPreSell_v3_sp] @asofdate datetime = null
 	
 AS
 BEGIN
@@ -65,7 +65,7 @@ from cvo_orders_all_hist (NOLOCK) o
 join cvo_ord_list_hist  (NOLOCK) ol on o.order_no=ol.order_no and o.ext=ol.order_ext
 JOIN INV_MASTER (NOLOCK) i ON ol.PART_NO=i.PART_NO
 where o.status <> 'v'
-and user_def_fld3 like '%SUNPS%'
+and user_def_fld3 like '%SUNPS%' -- promo 
 and o.ext=0
 and date_shipped between @P5From and @P2To
 and i.type_code in ('frame','sun')
@@ -89,7 +89,8 @@ join cvo_orders_all  (NOLOCK) co on o.order_no=co.order_no and o.ext=co.ext
 JOIN INV_MASTER (NOLOCK) i ON ol.PART_NO=i.PART_NO
 where o.status <> 'v'
 and promo_id like '%SUNPS%'
-and (o.ext=0 OR (o.ext>0 and o.who_entered='OutOfStock'))
+AND (o.who_entered <> 'backordr')
+-- and (o.ext=0 OR (o.ext>0 and o.who_entered='OutOfStock'))
 and date_shipped between @P5From and @P2To
 and i.type_code in ('frame','sun')
 -- and right(o.user_category,2) not in ('rb','tb')
@@ -114,7 +115,8 @@ join cvo_orders_all  (NOLOCK) co on o.order_no=co.order_no and o.ext=co.ext
 JOIN inv_master (nolock) i on ol.part_no=i.part_no
 where o.status <> 'v'
 and promo_id like '%SUNPS%'
-and (o.ext='0' OR (o.ext>0 and o.who_entered='OutOfStock'))
+AND (o.who_entered <> 'backordr')
+-- and (o.ext='0' OR (o.ext>0 and o.who_entered='OutOfStock'))
 and date_entered between @P1From and @P1To
 and type_code in ('sun','frame')
 -- and right(o.user_category,2) not in ('rb','tb')
@@ -159,5 +161,6 @@ select Status = CASE WHEN t1.status_type = '1' THEN 'Act'
 
 
 END
+
 
 GO

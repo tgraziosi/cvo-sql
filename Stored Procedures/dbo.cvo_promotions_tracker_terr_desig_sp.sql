@@ -453,6 +453,7 @@ and (o.promo_id in (@PromoLevel))
             ISNULL(return_qty, 0) return_qty ,
             source ,
             Qual_order = CASE WHEN source = 'T' THEN 0
+							  WHEN source = 'D' THEN 1 -- 10/31/2016
                               WHEN ISNULL(reason, '') = ''
                                    AND NOT EXISTS ( SELECT  1
                                                     FROM    cvo_promo_override_audit poa
@@ -479,6 +480,7 @@ and (o.promo_id in (@PromoLevel))
             CONVERT(VARCHAR, DATEADD(wk, DATEDIFF(wk, 0, date_entered), 0), 101) wk_Begindate ,
             CONVERT(VARCHAR, DATEADD(wk, DATEDIFF(wk, 0, date_entered), 0) + 6, 101) wk_EndDate
     FROM    #temp;
+
 
 
 

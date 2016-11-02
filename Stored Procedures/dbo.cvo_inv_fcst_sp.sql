@@ -23,8 +23,8 @@ CREATE procedure [dbo].[cvo_inv_fcst_sp]
 /*
  exec cvo_inv_fcst_sp
  @startrank = '12/23/2013',
- @asofdate = '7/1/2016', 
- @endrel = '08/01/2016', 
+ @asofdate = '10/1/2016', 
+ @endrel = '10/01/2016', 
  @usedrp = 1, 
  @current = 1, 
  @collection = 'as', 
@@ -298,6 +298,7 @@ IF(OBJECT_ID('tempdb.dbo.#t') is not null)  drop table #t
 IF(OBJECT_ID('tempdb.dbo.#SKU') is not null)  drop table #SKU
 IF(OBJECT_ID('tempdb.dbo.#usage') is not null)  drop table #usage
 
+
 -- get weekly usage
 
 CREATE TABLE #usage 
@@ -307,10 +308,18 @@ CREATE TABLE #usage
 , subs_w4 INT, subs_w12 INT, promo_w4 INT, promo_w12 int
 )
 
-INSERT INTO #usage 
-(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12)
-select location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12
- from dbo.f_cvo_calc_weekly_usage (@usg_option)
+-- 10/24/2016 - switch over to usage by collection for performance
+
+DECLARE @co VARCHAR(20)
+SELECT @co = MIN(coll) FROM #coll AS c
+WHILE @co IS NOT NULL
+BEGIN
+	INSERT INTO #usage 
+	(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12)
+	select location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12
+	from dbo.f_cvo_calc_weekly_usage_COLL (@usg_option, @CO)
+	SELECT @CO = MIN(COLL) FROM #COLL WHERE COLL > @co
+END
 
 -- get sales history
 select
@@ -342,7 +351,7 @@ inner join #style_list on #style_list.style = ia.field_2
 LEFT outer join cvo_sbm_details s (nolock) on s.part_no = i.part_no
 left outer join armaster a (nolock) on a.customer_code = s.customer and a.ship_to_code = s.ship_to
 where 
-i.type_code in ('FRAME','sun','BRUIT')
+i.type_code in ('FRAME','sun','BRUIT','PARTS') -- 11/1/16 - ADD PARTS
 -- and ia.field_26 between @startdate and @enddate
 and ia.field_26 >= @startdate
 -- and isnull(ia.field_28, @pomdate) >= @pomdate
@@ -590,7 +599,8 @@ group by drp.part_no
 ) as drp
 on drp.part_no = i.part_no
 cross join #dmd_mult
-where i.type_code in ('frame','sun','bruit')  and i.void = 'n'
+where i.type_code in ('FRAME','sun','BRUIT','PARTS') -- 11/1/16 - ADD PARTS
+  and i.void = 'n'
 
 create index idx_t on #t (part_no asc)
 
@@ -759,7 +769,7 @@ where 1=1
 and  #t.mm = case when DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < @asofdate
 	 THEN month(@asofdate) 
 	 ELSE month(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) end
-and type_code in ('frame','sun','bruit')
+AND inv.type_code in ('FRAME','sun','BRUIT','PARTS') -- 11/1/16 - ADD PARTS
 and r.status = 'o' and r.part_type = 'p' -- and r.location = @loc
 and inv.void = 'N'
 -- 10/6/2015 - make the outer range < not <= to avoid 13th bucket on report
@@ -797,7 +807,7 @@ left outer join cvo_sbm_details r (nolock) on #t.part_no = r.part_no
 where r.yyyymmdd >= @asofdate 
 -- and @pomdate 
 and r.x_month = #t.mm
-and type_code in ('frame','sun','bruit')
+and inv.type_code in ('FRAME','sun','BRUIT','PARTS') -- 11/1/16 - ADD PARTS
 -- and r.status = 'o' and r.part_type = 'p' and r.location = @loc
 and inv.void = 'N'
 group by inv.category, i.field_2, #t.part_no, r.x_month, #t.mult, #t.s_mult, #t.sort_seq
@@ -853,7 +863,7 @@ GROUP BY ol.part_no ,
 where rr.yyyymmdd >= @asofdate 
 -- and @pomdate 
 and rr.x_month = #t.mm
-and type_code in ('frame','sun','bruit')
+and inv.type_code in ('FRAME','sun','BRUIT','PARTS') -- 11/1/16 - ADD PARTS
 -- and r.status = 'o' and r.part_type = 'p' and r.location = @loc
 and inv.void = 'N'
 group by inv.category, i.field_2, #t.part_no, rr.x_month, #t.mult, #t.s_mult, #t.sort_seq
@@ -870,6 +880,8 @@ group by inv.category, i.field_2, #t.part_no, rr.x_month, #t.mult, #t.s_mult, #t
 declare @inv int, @last_inv int, @INV_AVL INT, @fct int, @drp int, @sls int, @po INT, @ord INT, @atp int
 
 create index idx_f on #SKU (sku asc)
+
+create index idx_sku_line_sort ON #SKU (sku ASC, LINE_TYPE ASC, sort_seq asc)
 
 select @sku = min(sku) from #SKU
 -- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
@@ -967,8 +979,9 @@ select distinct
 ,specs.moq
 ,specs.watch
 ,specs.sf
-,rel_date = (select min(release_date) From cvo_inv_master_r2_vw where collection = i.category
-		and model = ia.field_2)
+,CASE WHEN specs.rel_date = '1/1/1900' THEN NULL ELSE specs.rel_date END AS rel_date
+ --= (select min(release_date) From cvo_inv_master_r2_vw where collection = i.category
+	--	and model = ia.field_2)
 ,case when #style.pom_date = '1/1/1900' then null else #style.pom_date end as pom_date
 ,#style.mth_since_rel
 ,#style.mths_left_y2
@@ -1033,7 +1046,8 @@ and p.type = 'p' and p.location = '001'
 CASE WHEN #style.pom_date IS NULL OR #style.pom_date = '1/1/1900' THEN r.ORDER_THRU_DATE 
 	WHEN  #style.pom_date < r.ORDER_THRU_DATE THEN #style.pom_date
 	ELSE r.order_thru_date END AS ORDER_THRU_DATE,
-r.TIER -- 7/8/2016
+r.TIER, -- 7/8/2016
+i.type_code p_type_code -- res type of sku, not style - 11/1/2016
 
 from #SKU 
 
@@ -1051,9 +1065,11 @@ max(category_2) gender,
 max(i.cmdty_code) material,
 max(isnull(ia.category_1,'')) watch,
 (select top 1 moq_info from cvo_vendor_moq where vendor_code = i.vendor) moq,
-MAX(ISNULL(ia.field_32,'')) sf
+MAX(ISNULL(ia.field_32,'')) sf,
+MIN(ISNULL(ia.field_26,'1/1/1900')) rel_date
 
-from inv_master i inner join inv_master_add ia on ia.part_no = i.part_no 
+from inv_master i (nolock)
+INNER join inv_master_add ia (NOLOCK) ON ia.part_no = i.part_no 
 where 1=1
 and i.type_code in ('frame','sun','bruit') and i.void = 'n'
 AND ISNULL(ia.field_32,'') <> 'SpecialOrd'
@@ -1066,6 +1082,8 @@ cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
 
 
 end
+
+
 
 
 

@@ -16,10 +16,13 @@ SELECT distinct pom.[collection]
 		,pom.asofdate
 FROM dbo.cvo_pom_tl_status pom
 LEFT OUTER JOIN
-(SELECT DISTINCT i.category collection, ia.field_2 style, ISNULL(ia.field_32,'') attrib
+(SELECT i.category collection, ia.field_2 style, MAX( ISNULL(ia.field_32,'')) attrib
 FROM inv_master i 
 JOIN dbo.inv_master_add ia ON ia.part_no = i.part_no 
-WHERE ISNULL(i.void,'N') = 'N' ) a
+WHERE ISNULL(i.void,'N') = 'N' 
+GROUP BY i.category ,
+         ia.field_2
+) a
 ON a.collection = pom.collection AND a.style = pom.style
 WHERE pom.Active = 1 
 -- AND (tl IN (@tl))
@@ -27,6 +30,7 @@ AND a.attrib NOT IN ('retail','hvc')
 AND pom.pom_date >= DATEADD(YEAR, -2, pom.asofdate)
 
 END
+
 
 
 GO

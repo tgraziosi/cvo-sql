@@ -1442,6 +1442,7 @@ end
                                                         INNER JOIN inv_master i ( NOLOCK ) ON i.part_no = p.part_no
                                                         INNER JOIN inv_master_add ia ( NOLOCK ) ON ia.part_no = i.part_no
                                                  WHERE  1 = 1
+														AND p.void <> 'V' -- 10/25/2016
                                                         AND i.void = 'n'
                                                         AND p.part_no = #SKU.sku
                                                         AND p.rel_date <= DATEADD(yy,
@@ -1488,6 +1489,7 @@ GROUP BY                            i.category ,
 
 
     END;
+
 
 
 

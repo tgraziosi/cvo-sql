@@ -125,9 +125,9 @@ AS
                 CONVERT(DECIMAL(10, 2), price_a) AS unitPrice ,
                 1 AS minQty ,
                 1 AS multQty ,
-                CASE WHEN I.type_code IN ( 'other', 'POP' ) THEN 'POP'
-					 WHEN i.category IN ('LS') THEN 'LONESTAR' -- 9/30/2016 - per JB request
-                     ELSE 'CLEARVISION'
+                CASE WHEN i.category IN ('LS') THEN 'LONESTAR' -- 9/30/2016 - per JB request
+					 WHEN I.type_code IN ( 'other', 'POP' ) THEN 'POP'
+				     ELSE 'CLEARVISION'
                 END AS manufacturer ,
                 upc_code AS barcode ,
                 CASE WHEN I.category = 'revo'
@@ -461,7 +461,13 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                 [category:1] = 'SUN' ,
                 manufacturer = 'CLEARVISION'
         WHERE   sku = 'OPZSUNSKIT';
--- select * from #Data1
+
+		UPDATE  #Data1
+        SET     [category:1] = 'FRAME'
+        WHERE   sku = 'LONESTARTSO';
+
+-- SELECT * from dbo.cvo_hs_inventory_8 AS hi WHERE sku = 'lonestartso'
+
 
         IF ( OBJECT_ID('#Final') IS NOT NULL )
             DROP TABLE #Final;
@@ -617,7 +623,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
 
         DELETE  FROM #Final
         WHERE   RIGHT(sku, 2) = 'F1'
-                AND [CATEGORY:2] IN ( 'revo', 'bt' );
+                AND [CATEGORY:2] IN ( 'revo', 'BLUTECH' );
 
 
 
@@ -734,9 +740,11 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
 
         DELETE  FROM cvo_hs_inventory_8
         WHERE   sku LIKE 'izc%TEMPKIT';
+
         UPDATE  cvo_hs_inventory_8
         SET     mastersku = 'MESHE'
         WHERE   mastersku = 'MESHEB';
+   
         UPDATE  cvo_hs_inventory_8
         SET     Size = ''
         WHERE   Manufacturer = 'pop'
@@ -853,6 +861,9 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
+
+
 
 
 

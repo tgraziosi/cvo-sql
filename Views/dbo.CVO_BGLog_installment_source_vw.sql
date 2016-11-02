@@ -3,7 +3,7 @@ GO
 SET ANSI_NULLS OFF
 GO
 
-
+-- SELECT * FROM dbo.CVO_BGLog_installment_source_vw AS blisv WHERE blisv.cust_code = '017417' AND blisv.inv_date > '10/1/2016'
 
 
 CREATE view [dbo].[CVO_BGLog_installment_source_vw] 
@@ -12,6 +12,7 @@ AS
 -- v2.0 TM 04/27/2012 -	Ignore AR Records that are Voided
 -- v2.5 CB 10/07/2013 - Issue #927 - Buying Group Switching
 -- v2.7	CT 20/10/2014 - Issue #1367 - For Sales Orders and Credit Returns, if net price > list price, set list = net and discount = 0 and disc_perc = 0
+-- v2.8 TG 11/1/2016 - Fix where there are 10 or more installments.  not getting into the terms installment correctly
 
 -- 6 AR Split only records  *** NEW ***
 
@@ -86,12 +87,15 @@ left join arcust m (nolock) on r.parent = m.customer_code
 join arcust B (nolock) on o.cust_code = b.customer_code
 -- join Cvo_ord_list c (nolock) on  d.order_no =c.order_no and d.order_ext = c.order_ext and d.line_no = c.line_no
 -- join CVO_disc_percent p (nolock) on d.order_no = p.order_no and d.order_ext = p.order_ext and d.line_no = p.line_no
-join cvo_artermsd_installment z (nolock) on h.terms_code = z.terms_code and convert(int,right(h.doc_ctrl_num,1)) = z.sequence_id
+-- 11/1/2016 - change doc control num - join cvo_artermsd_installment z (nolock) on h.terms_code = z.terms_code and convert(int,right(h.doc_ctrl_num,1)) = z.sequence_id
+join cvo_artermsd_installment z (nolock) on h.terms_code = z.terms_code and 
+		CAST(REPLACE(RIGHT(h.doc_ctrl_num, CHARINDEX('-', REVERSE(h.doc_ctrl_num)) ),'-','') AS int)  = z.sequence_id
 -- join CVO_min_display_vw q (nolock) on q.order_no = d.order_no and q.order_ext = d.order_ext and d.display_line = q.min_line
 where (o.freight <> 0 or o.total_tax <> 0)
 and o.type = 'I'
 --and i.doc_ctrl_num in ('INV0215446')
 --where h.order_ctrl_num = ''
+AND 0 < CHARINDEX('-',h.doc_ctrl_num)
 and h.terms_code like 'INS%' 
 and h.trx_type in (2031)
 and h.doc_ctrl_num not like 'FIN%' 
@@ -163,10 +167,12 @@ left join arcust m (nolock) on r.parent = m.customer_code
 join arcust B (nolock) on o.cust_code = b.customer_code
 join Cvo_ord_list c (nolock) on  d.order_no =c.order_no and d.order_ext = c.order_ext and d.line_no = c.line_no
 join CVO_disc_percent p (nolock) on d.order_no = p.order_no and d.order_ext = p.order_ext and d.line_no = p.line_no
-join cvo_artermsd_installment z (nolock) on h.terms_code = z.terms_code and convert(int,right(h.doc_ctrl_num,1)) = z.sequence_id
+join cvo_artermsd_installment z (nolock) on h.terms_code = z.terms_code and
+	CAST(REPLACE(RIGHT(h.doc_ctrl_num, CHARINDEX('-', REVERSE(h.doc_ctrl_num)) ),'-','') AS int)  = z.sequence_id
 where 
 d.shipped > 0
 and o.type = 'I'
+AND 0 < CHARINDEX('-',h.doc_ctrl_num)
 and h.terms_code like 'INS%' 
 and h.trx_type in (2031)
 and h.doc_ctrl_num not like 'FIN%' 
@@ -177,6 +183,7 @@ AND dbo.f_cvo_get_buying_group(o.cust_code, CONVERT(varchar(10),DATEADD(DAY,h.da
 group by r.parent, m.customer_name, o.cust_code, b.customer_name, h.doc_ctrl_num, z.installment_days, o.type, h.date_due,h.date_doc, (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END), (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE disc_perc END), z.installment_prc
 --group by r.parent, m.customer_name, o.cust_code, b.customer_name, h.doc_ctrl_num, z.installment_days, o.type, h.date_due,h.date_doc, d.discount, disc_perc, z.installment_prc
 -- END v2.7
+
 
 
 
