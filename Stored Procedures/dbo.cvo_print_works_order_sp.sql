@@ -58,15 +58,16 @@ BEGIN
 		SELECT -1
 		RETURN
 	END
-		
-	EXEC CVO_disassembled_print_inv_adjust_sp @order_no, @order_ext		
+	
+	-- v1.2 Now called in routine above
+--	EXEC CVO_disassembled_print_inv_adjust_sp @order_no, @order_ext		
 
-	IF @@ERROR <> 0
-	BEGIN
-		SELECT -1
-		RETURN
-	END
-		
+--	IF @@ERROR <> 0
+--	BEGIN
+--		SELECT -1
+--		RETURN
+--	END
+	-- v1.2		
 	-- START v1.1
 	/*
 	DELETE FROM dbo.tdc_config WHERE [function] = 'mod_ebo_inv'  

@@ -84,6 +84,7 @@ BEGIN
 	WHERE	a.order_no = @order_no
 	AND		a.order_ext = @order_ext
 	AND		b.replaced = 'S'
+	AND		a.part_type <> 'C' -- v2.0
 
 	INSERT	#cf_break_kit (soft_alloc_no, location, qty, kit_line_no, kit_part_no, no_stock) -- v1.1 add qty
 	SELECT	@soft_alloc_no,

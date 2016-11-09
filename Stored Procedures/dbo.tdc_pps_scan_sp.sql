@@ -6,6 +6,7 @@ GO
 -- v1.0 CB 11/05/2011 - Case Part Consolidation
 -- v1.1 CB 14/06/2012 - Call freight recalc for all packs
 -- v1.2 CT 26/06/2013 - Issue #1308 - Don't calculate freight for ST or DO orders
+-- v1.3 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 
 CREATE PROC [dbo].[tdc_pps_scan_sp]
 	@scanned_index		int,
@@ -80,7 +81,7 @@ DECLARE
 
 
 
-SELECT @language = ISNULL((SELECT Language FROM tdc_sec (nolock) WHERE userid = (SELECT who FROM #temp_who)), 'us_english')
+SELECT @language = ISNULL((SELECT Language FROM tdc_sec (nolock) WHERE userid = (SELECT TOP 1 who FROM #temp_who)), 'us_english') -- v1.3 Add TOP 1
 
 ----------------------------------------------------------------------------------------------------------------------------
 --Set the values of the field indexes

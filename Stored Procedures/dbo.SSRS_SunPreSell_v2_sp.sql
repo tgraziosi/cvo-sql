@@ -86,6 +86,7 @@ join cvo_orders_all  (NOLOCK) co on o.order_no=co.order_no and o.ext=co.ext
 JOIN INV_MASTER (NOLOCK) i ON ol.PART_NO=i.PART_NO
 where o.status <> 'v'
 and promo_id like '%SUNPS%'
+AND co.promo_level IN ('1','2','3') -- 11/3/2016
 and (o.ext=0 OR (o.ext>0 and o.who_entered='OutOfStock'))
 and date_shipped between @P5From and @P2To
 and i.type_code in ('frame','sun')
@@ -154,5 +155,6 @@ select Status = CASE WHEN t1.status_type = '1' THEN 'Act'
 
 
 END
+
 
 GO

@@ -425,6 +425,7 @@ BEGIN
 		ON		a.order_no = b.order_no
 		AND		a.order_ext = b.order_ext
 		AND		a.line_no = b.line_no
+		AND		a.part_no = b.part_no -- v3.7
 		JOIN	@temp_sum c -- v2.7
 		ON		a.line_no = c.line_no -- v2.7
 		WHERE	b.soft_alloc_no = @soft_alloc_no

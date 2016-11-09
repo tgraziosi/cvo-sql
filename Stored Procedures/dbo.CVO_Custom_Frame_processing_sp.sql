@@ -20,6 +20,7 @@ v1.5 CB 27/07/2012 - Use primary and secondary bins for final part putaway
 v1.6 CT 07/08/2012 - If no primary, secondary or bins containing part exist, use default bin from config
 v1.7 CB 13/09/2012 - Use only OPEN bins and fix issue if primary bin is not set it returns blank and not null
 v1.8 CB 26/11/2012 - Issue #975 - Custom Frame Putaway label
+v1.9 CB 25/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 
 BEGIN TRAN
 select * from tdc_pick_queue where tran_id = 6911
@@ -82,6 +83,11 @@ BEGIN
 			@f_expires		varchar(12), -- v1.1
 			@f_queue_tran	int, -- v1.1
 			@userid			varchar(50) -- v1.8
+
+	-- v1.8 Start
+	IF EXISTS (SELECT 1 FROM ord_list (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext AND line_no = @line_no AND part_type = 'C')
+		RETURN
+	-- v1.8 End
 
 	IF (SELECT OBJECT_ID('tempdb..#adm_inv_adj')) IS NOT NULL 
 	BEGIN   

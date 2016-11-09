@@ -27,7 +27,8 @@ BEGIN
 			@part_no		varchar(30),
 			@qty_to_process	decimal(20,8),
 			@location		varchar(10),
-			@data			varchar(7500)
+			@data			varchar(7500),
+			@cf_check		varchar(10) -- v1.4
 
 	-- Create working tables
 	CREATE TABLE #cvo_ord_list (
@@ -55,7 +56,8 @@ BEGIN
 		bin_no			varchar(20),
 		lot_ser			varchar(20),
 		location		varchar(10),
-		qty_to_process	decimal(20,8))
+		qty_to_process	decimal(20,8),
+		company_no		varchar(10)) -- v1.4
 
 
 	-- Call routine to populate #cvo_ord_list with the frame/case relationship
@@ -73,8 +75,8 @@ BEGIN
 		RETURN
 	
 	-- Get a list of all the pick queue for the related case as the quantity could be from multiple bins
-	INSERT	#trans_to_pick (tran_id, part_no, bin_no, lot_ser, location, qty_to_process)
-	SELECT	tran_id, part_no, bin_no, lot, location, qty_to_process
+	INSERT	#trans_to_pick (tran_id, part_no, bin_no, lot_ser, location, qty_to_process, company_no) -- v1.4
+	SELECT	tran_id, part_no, bin_no, lot, location, qty_to_process, company_no -- v1.4
 	FROM	tdc_pick_queue (NOLOCK)
 	WHERE	trans_type_no = @order_no
 	AND		trans_type_ext = @order_ext
@@ -113,13 +115,22 @@ BEGIN
 			@bin_no = bin_no, 
 			@lot_ser = lot_ser, 
 			@location = location, 
-			@qty_to_process = qty_to_process
+			@qty_to_process = qty_to_process,
+			@cf_check = company_no -- v1.4
 	FROM	#trans_to_pick
 	WHERE	tran_id > @last_tran_id
 	ORDER BY tran_id ASC
 
 	WHILE @@ROWCOUNT <> 0
 	BEGIN
+
+		-- v1.4 Start
+		IF EXISTS (SELECT 1 FROM tdc_pick_queue (NOLOCK) WHERE trans_type_no = @order_no AND trans_type_ext = @order_ext AND line_no = @line_no AND ISNULL(company_no,'') = 'CF')
+		BEGIN
+			RETURN
+		END
+		-- v1.4 End
+
 		-- If the qty on the pick record is greater than that of the case then use the frame qty
 		IF @qty_to_process > @qty_remaining
 			SET @qty_to_process = @qty_remaining		
@@ -177,7 +188,8 @@ BEGIN
 				@bin_no = bin_no, 
 				@lot_ser = lot_ser, 
 				@location = location, 
-				@qty_to_process = qty_to_process
+				@qty_to_process = qty_to_process,
+				@cf_check = company_no -- v1.4
 		FROM	#trans_to_pick
 		WHERE	tran_id > @last_tran_id
 		ORDER BY tran_id ASC

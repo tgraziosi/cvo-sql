@@ -30,6 +30,7 @@ GO
 -- v6.7 CB 09/06/2016 - Deal with manual case quantities
 -- v6.8 CB 15/06/2016 - Fix issue with multiple case lines
 -- v6.9 CB 11/07/2016 - Need to recalc line count if order has manual case quantities
+-- v7.0 CB 23/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 
 CREATE PROCEDURE [dbo].[tdc_print_plw_so_pick_ticket_sp]  
  @user_id     varchar(50),  
@@ -66,7 +67,8 @@ DECLARE @printed_on_the_page int,
  @order_time		varchar(10),		--v2.1.5
  @polarized_line varchar(40), -- v6.6
  @man_case int, -- v6.7
- @man_count int -- v6.9
+ @man_count int, -- v6.9
+ @kit_count int -- v7.0
    
 DECLARE @sku_code VARCHAR(16), @height DECIMAL(20,8), @width DECIMAL(20,8), @cubic_feet DECIMAL(20,8),  
   @length DECIMAL(20,8), @cmdty_code VARCHAR(8), @weight_ea DECIMAL(20,8), @so_qty_increment DECIMAL(20,8),   
@@ -383,6 +385,8 @@ BEGIN
  RAISERROR ('Insert into #PrintData Failed', 16, 1)     
  RETURN  
 END  
+
+TRUNCATE TABLE #PrintData_Output -- v7.0
   
 --------------------------------------------------------------------------------------------------  
 -- Now let's run the tdc_print_label_sp to get format_id, printer_id, and number of copies -----  
@@ -458,7 +462,45 @@ SELECT @details_count =              --3.0 Rob Martin Start
 
                                                     -- 3.0 Rob Martin end
 
+-- v7.0 Start
+	IF OBJECT_ID('tempdb..#CF_kits') IS NOT NULL
+		DROP TABLE #CF_kits
 
+	CREATE TABLE #CF_kits (
+		order_no	int,
+		order_ext	int,
+		line_no		int,
+		ord_qty		decimal(20,8),
+		line_desc	varchar(60),
+		kit_id		varchar(30))
+
+	INSERT	#CF_kits
+	SELECT	a.order_no, a.order_ext, a.line_no, MIN(a.ord_qty), MIN(a.kit_caption), MIN(a.kit_id)
+	FROM	#so_pick_ticket a
+	WHERE	a.order_no = @order_no
+	AND		a.order_ext = @order_ext
+	AND		a.part_type = 'C'
+	GROUP BY a.order_no, a.order_ext, a.line_no
+
+	DELETE	a
+	FROM	#so_pick_ticket a
+	JOIN	#CF_kits b
+	ON		a.order_no = b.order_no
+	AND		a.order_ext = b.order_ext
+	AND		a.line_no = b.line_no
+	AND		a.kit_id = b.kit_id
+	AND		a.part_no <> b.kit_id
+	WHERE	a.order_no = @order_no
+	AND		a.order_ext = @order_ext
+	AND		a.part_type = 'C'
+
+	SET @kit_count = @@ROWCOUNT
+
+	IF (@kit_count IS NULL)
+		SET @kit_count = 0
+
+	DROP TABLE #CF_kits
+-- v7.0 End
 
 	
  ----------------------------------  
@@ -829,7 +871,7 @@ END
 
 	-- v6.9 Start
 	SELECT @man_count = (SELECT COUNT(1) FROM #so_pick_ticket WHERE kit_caption = 'NEW')
-	SELECT @details_count = @details_count + ISNULL(@man_count,0)           
+	SELECT @details_count = @details_count + ISNULL(@man_count,0) - @kit_count -- v7.0          
 	
 	SELECT @total_pages =   
 	  CASE WHEN @details_count % @max_details_on_page = 0   

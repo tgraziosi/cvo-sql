@@ -24,8 +24,8 @@ slp.addr2,
 slp.addr3,
 slp.addr4,
 slp.addr5,
---reverse(left(reverse(rtrim(ltrim(isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')+' '+isnull(slp.addr5,'')))),
---   charindex(' ',reverse(rtrim(ltrim(isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')+' '+isnull(slp.addr5,'')))))-1)) postal_code,
+reverse(left(reverse(rtrim(ltrim(isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')+' '+isnull(slp.addr5,'')))),
+charindex(' ',reverse(rtrim(ltrim(isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')+' '+isnull(slp.addr5,'')))))-1)) postal_code,
 slp.addr_sort2 slp_email,
 slp.phone_1 phone,
 isnull(x.ship_via,'NONE')  ship_via,
@@ -50,6 +50,7 @@ and (slp.status_type = 1) -- active
 -- or (slp.status_type = 0 and x.status = 1))
 -- and slp.salesperson_name not like '%default%'
 -- order by slp.territory_code
+
 
 
 

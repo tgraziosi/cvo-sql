@@ -189,7 +189,7 @@ BEGIN
 
 			-- Inventory - in stock
 			-- START v2.4
-			SELECT	@in_stock = in_stock - ISNULL(replen_qty,0)
+			SELECT	@in_stock = CASE WHEN status = 'C' THEN 9999999 ELSE (in_stock - ISNULL(replen_qty,0)) END -- v3.4
 			--SELECT	@in_stock = in_stock
 			-- END v2.4
 			FROM	inventory (NOLOCK)
@@ -696,6 +696,9 @@ BEGIN
 
 			INSERT	dbo.cvo_soft_alloc_hdr (soft_alloc_no, order_no, order_ext, location, bo_hold, status)
 			VALUES (@new_soft_alloc_no, @order_no, @new_ext, @location, 0, 0)		
+
+			INSERT dbo.cvo_soft_alloc_no_assign  
+			SELECT @order_no, @new_ext, @new_soft_alloc_no  
 
 			-- Soft Allocation det
 			-- Frames and suns

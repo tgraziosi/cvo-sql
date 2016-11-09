@@ -11,10 +11,8 @@ GO
 
 -- 
 /*
-	SELECT c.*,ar.price_code, ar.price_level
-	From cvo_commission_bldr_r3_vw c
-	JOIN armaster ar ON ar.customer_code =  c.Cust_code AND ar.ship_to_code = c.Ship_to
-	WHERE DateShipped between dbo.adm_get_pltdate_f('09/1/2016') AND dbo.adm_get_pltdate_f('09/30/2016') -- and brand <> 'core'
+	SELECT c.*	From cvo_commission_bldr_r2_vw c where order_no = 2935365
+		WHERE DateShipped between dbo.adm_get_pltdate_f('10/1/2016') AND dbo.adm_get_pltdate_f('10/31/2016') -- and brand <> 'core' and order_no = 2935365
 */
 
 -- order_no = 2645156
@@ -314,6 +312,7 @@ and x.void_flag <> 1     --v2.0
  UNION ALL
 
  SELECT x.salesperson_code AS Salesperson ,
+
         x.territory_code AS Territory ,
         x.customer_code AS Cust_code ,
         x.ship_to_code AS Ship_to ,
@@ -331,11 +330,11 @@ and x.void_flag <> 1     --v2.0
         CASE WHEN x.trx_type = 2031 THEN 'Inv'
              ELSE 'Crd'
         END AS type ,
-        Net_Sales = clv.ext_net_sales * CASE WHEN x.trx_type = 2031 THEN 1
+        Net_Sales = clv.ext_net_sales / ai.installment_prc * CASE WHEN x.trx_type = 2031 THEN 1
                                              ELSE -1
                                         END ,
         brand = ISNULL(clv.brand, 'CORE') ,
-        Amount = ISNULL(clv.ext_comm_sales, 0)
+        Amount = ISNULL(clv.ext_comm_sales, 0) / ai.installment_prc
         * CASE WHEN x.trx_type = 2031 THEN 1
                ELSE -1
           END , -- Issue #982
@@ -349,7 +348,7 @@ and x.void_flag <> 1     --v2.0
                                  ELSE co.commission_pct
                             END
                   END ,
-        [Comm$] = ROUND(ISNULL(clv.ext_comm_sales, 0)
+        [Comm$] = ROUND(ISNULL(clv.ext_comm_sales, 0) / ai.installment_prc
                         * CASE WHEN x.trx_type = 2031 THEN 1
                                ELSE -1
                           END * CASE WHEN clv.brand <> ('CORE') 
@@ -393,25 +392,27 @@ and x.void_flag <> 1     --v2.0
                                                   AND x.ship_to_code = ar.ship_to_code
         LEFT OUTER JOIN arcust c ( NOLOCK ) ON c.customer_code = x.customer_code
         LEFT OUTER JOIN cvo_comm_pclass p ( NOLOCK ) ON p.price_code = c.price_code
-        LEFT OUTER JOIN -- was cvo_commission_line_sum_up_vw
-        ( SELECT    a.trx_ctrl_num ,
-                    brand = CASE WHEN i.category IN ( 'REVO', 'BT', 'LS' )
-                                 THEN i.category
+				
+		LEFT OUTER JOIN dbo.cvo_artermsd_installment AS ai ON ai.terms_code = x.terms_code
+				AND ai.sequence_id = CAST(REPLACE(RIGHT(x.doc_ctrl_num, CHARINDEX('-', REVERSE(x.doc_ctrl_num))),'-','') AS INT)
+		LEFT OUTER JOIN -- was cvo_commission_line_sum_up_vw
+        ( SELECT    ipa.order_ctrl_num ,
+                    brand = CASE WHEN ipa.category IN ( 'REVO', 'BT', 'LS' )
+                                 THEN ipa.category
                                  ELSE 'CORE'
                             END ,
-                    SUM(a.extended_price) ext_net_sales ,
-                    SUM(CASE WHEN ISNULL(b.field_34, '') <> 1
-                             THEN a.extended_price
+                    SUM(ipa.ExtPrice) ext_net_sales ,
+                    SUM(CASE WHEN ISNULL(ipa.no_commission, '') <> 1
+                             THEN ipa.extprice
                              ELSE 0
                         END) ext_comm_sales
-          FROM      artrxcdt a ( NOLOCK )
-                    LEFT JOIN inv_master i ( NOLOCK ) ON i.part_no = a.item_code
-                    LEFT JOIN inv_master_add b ( NOLOCK ) ON b.part_no = i.part_no
-          GROUP BY  CASE WHEN i.category IN ( 'REVO', 'BT', 'LS' ) THEN i.category
+          FROM      dbo.cvo_item_pricing_analysis AS ipa (NOLOCK)
+          GROUP BY  CASE WHEN ipa.category IN ( 'REVO', 'BT', 'LS' ) THEN ipa.category
                          ELSE 'CORE'
                     END ,
-                    a.trx_ctrl_num
-        ) clv ON x.trx_ctrl_num = clv.trx_ctrl_num -- Issue #982
+                    ipa.order_ctrl_num
+        ) clv ON clv.order_ctrl_num = x.order_ctrl_num
+
  WHERE  x.trx_type IN ( 2031, 2032 )
         AND x.doc_desc NOT LIKE 'CONVERTED%'
         AND x.doc_desc NOT LIKE '%NONSALES%'
@@ -441,11 +442,11 @@ and x.void_flag <> 1     --v2.0
         CASE WHEN x.trx_type = 2031 THEN 'Inv'
              ELSE 'Crd'
         END AS type ,
-        clv.ext_net_sales * CASE WHEN x.trx_type = 2031 THEN 1
+        clv.ext_net_sales / ai.installment_prc * CASE WHEN x.trx_type = 2031 THEN 1
                                  ELSE -1
                             END AS Net_Sales ,
         brand = ISNULL(clv.brand, 'CORE') ,
-        ISNULL(clv.ext_comm_sales, 0) * CASE WHEN x.trx_type = 2031 THEN 1
+        ISNULL(clv.ext_comm_sales, 0) / ai.installment_prc * CASE WHEN x.trx_type = 2031 THEN 1
                                              ELSE -1
                                         END AS Amount , -- Issue #982 
         [Comm%] = CASE WHEN clv.brand <> ('CORE') 
@@ -458,7 +459,7 @@ and x.void_flag <> 1     --v2.0
                                  ELSE co.commission_pct
                             END
                   END ,
-        [Comm$] = ROUND(ISNULL(clv.ext_comm_sales, 0)
+        [Comm$] = ROUND(ISNULL(clv.ext_comm_sales, 0) / ai.installment_prc
                         * CASE WHEN x.trx_type = 2031 THEN 1
                                ELSE -1
                           END * CASE WHEN clv.brand <> ('CORE') 
@@ -502,26 +503,27 @@ and x.void_flag <> 1     --v2.0
         LEFT OUTER JOIN arcust c ( NOLOCK ) ON c.customer_code = x.customer_code
         LEFT OUTER JOIN cvo_comm_pclass p ( NOLOCK ) ON p.price_code = c.price_code
 -- LEFT JOIN dbo.cvo_commission_line_sum_up_vw clv ON x.trx_ctrl_num = clv.trx_ctrl_num -- Issue #982
-        LEFT OUTER JOIN ( SELECT    a.trx_ctrl_num ,
-                                    brand = CASE WHEN i.category IN ( 'REVO',
-                                                              'BT', 'LS' )
-                                                 THEN i.category
-                                                 ELSE 'CORE'
-                                            END ,
-                                    SUM(a.extended_price) ext_net_sales ,
-                                    SUM(CASE WHEN ISNULL(b.field_34, '') <> 1
-                                             THEN a.extended_price
-                                             ELSE 0
-                                        END) ext_comm_sales
-                          FROM      arinpcdt a ( NOLOCK )
-                                    LEFT JOIN inv_master i ( NOLOCK ) ON i.part_no = a.item_code
-                                    LEFT JOIN inv_master_add b ( NOLOCK ) ON b.part_no = i.part_no
-                          GROUP BY  CASE WHEN i.category IN ( 'REVO', 'BT' , 'LS')
-                                         THEN i.category
-                                         ELSE 'CORE'
-                                    END ,
-                                    a.trx_ctrl_num
-                        ) clv ON x.trx_ctrl_num = clv.trx_ctrl_num -- Issue #982
+        
+		LEFT OUTER JOIN dbo.cvo_artermsd_installment AS ai ON ai.terms_code = x.terms_code
+				AND ai.sequence_id = CAST(REPLACE(RIGHT(x.doc_ctrl_num, CHARINDEX('-', REVERSE(x.doc_ctrl_num))),'-','') AS INT)
+
+        LEFT OUTER JOIN ( SELECT ipa.order_ctrl_num ,
+                    brand = CASE WHEN ipa.category IN ( 'REVO', 'BT', 'LS' )
+                                 THEN ipa.category
+                                 ELSE 'CORE'
+                            END ,
+                    SUM(ipa.ExtPrice) ext_net_sales ,
+                    SUM(CASE WHEN ISNULL(ipa.no_commission, '') <> 1
+                             THEN ipa.extprice
+                             ELSE 0
+                        END) ext_comm_sales
+          FROM      dbo.cvo_item_pricing_analysis AS ipa (NOLOCK)
+          GROUP BY  CASE WHEN ipa.category IN ( 'REVO', 'BT', 'LS' ) THEN ipa.category
+                         ELSE 'CORE'
+                    END ,
+                    ipa.order_ctrl_num
+        ) clv ON clv.order_ctrl_num = x.order_ctrl_num
+		
  WHERE  x.trx_type IN ( 2031, 2032 )
         AND doc_desc NOT LIKE 'CONVERTED%'
         AND x.doc_ctrl_num NOT LIKE 'CB%'

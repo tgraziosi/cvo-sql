@@ -623,7 +623,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
 
         DELETE  FROM #Final
         WHERE   RIGHT(sku, 2) = 'F1'
-                AND [CATEGORY:2] IN ( 'revo', 'BLUTECH' );
+                AND [CATEGORY:2] IN ( 'revo', 'BLUTECH', 'aspire' );
 
 
 
@@ -861,6 +861,7 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
 
 
 

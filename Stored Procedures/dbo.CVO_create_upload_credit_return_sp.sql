@@ -10,6 +10,7 @@ GO
 -- v1.5 CT 10/12/2014 - Issue #1505 - New field for email address, contained in upload file
 -- v1.6 CT 18/02/2015 - Issue #1526 - Expand promo kits
 -- v1.7 CB 05/09/2016 - Use returns account
+-- v1.8 CB 12/09/2016 - #1613 - Custom kits in order upload
 
 CREATE PROC [dbo].[CVO_create_upload_credit_return_sp] (@SPID INT, @hold SMALLINT)  
 AS
@@ -86,7 +87,8 @@ BEGIN
 			@new_user_code			VARCHAR(8),
 			@freight_allow_type		VARCHAR(10),
 			@orig_order_no			VARCHAR(40), -- v1.1
-			@email_address			VARCHAR(255) -- v1.2
+			@email_address			VARCHAR(255), -- v1.2
+			@is_kit					int -- v1.8
 
 	-- Create temporary table
 	CREATE TABLE #std_price (
@@ -414,7 +416,8 @@ BEGIN
 		SELECT TOP 1
 			@rec_id = rec_id,
 			@part_no = part_no,
-			@quantity = quantity
+			@quantity = quantity,
+			@is_kit = kit_flag -- v1.8
 		FROM
 			dbo.cvo_upload_credit_return_det (NOLOCK)
 		WHERE
@@ -425,6 +428,25 @@ BEGIN
 
 		IF @@ROWCOUNT = 0
 			BREAK
+
+		-- v1.8 Start
+		IF (@is_kit = 1)
+		BEGIN
+			INSERT ord_list_kit (order_no, order_ext, line_no, location, part_no, part_type, ordered, shipped, status, lb_tracking, cr_ordered, cr_shipped, uom, conv_factor, cost, labor, direct_dolrs,
+					ovhd_dolrs, util_dolrs, note, qty_per, qc_flag, qc_no, description)
+			SELECT	@new_order_no, 0, @line_no, b.location, a.part_no, a.status, 0, 0, CASE @hold WHEN 0 THEN 'N' ELSE 'A' END, a.lb_tracking, 
+					@quantity, 0, a.uom, 1, 0, 0, 0, 0, 0, NULL, @quantity, a.qc_flag, 0, a.[description] 
+			FROM	dbo.inv_master a (NOLOCK)
+			JOIN	dbo.inv_list b (NOLOCK)
+			ON		a.part_no = b.part_no
+			WHERE	a.part_no = @part_no
+			AND		b.location = @location				
+
+			CONTINUE
+
+		END
+		-- v1.8 End
+
 
 		SET @line_no = @line_no + 1
 

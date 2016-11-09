@@ -24,7 +24,8 @@ GO
 -- v2.8 CB 12/07/2013 - Issue #1341 - Not calculating the soft alloc qty correctly
 -- v2.9 CB 14/03/2014 - Issue #1456 - Pass in optional part number for availability check
 -- v3.0 CB 16/06/2014 - Performance
--- v3.1 CB 20/03/2015 - Performance Changes    
+-- v3.1 CB 20/03/2015 - Performance Changes  
+-- v3.2 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames  
 
 -- Implement Soft Allocation
 -- CVO-CF-3
@@ -58,7 +59,8 @@ BEGIN
 			@replen_qty				decimal(20,8),	-- v2.1
 			@line_no				INT,				-- v2.4
 			@ord_soft_alloc_qty		decimal(20,8), -- v2.5
-			@unavailable_parts VARCHAR(1000) -- v2.7
+			@unavailable_parts		VARCHAR(1000), -- v2.7
+			@part_type				varchar(10) -- v3.2
 
 	-- Working table
 	DECLARE @returndata TABLE
@@ -402,182 +404,197 @@ BEGIN
 			-- v3.1 Start
 --			SELECT	@instock = in_stock, @replen_qty = replen_qty from inventory where location = @location and part_no = @part_no
 			SELECT	@instock = in_stock, 
-					@replen_qty = replen_qty 
+					@replen_qty = replen_qty,
+					@part_type = status -- v3.2 
 			FROM	dbo.cvo_inventory2 
 			WHERE	location = @location 
 			AND		part_no = @part_no
 			-- v3.1 End
 			
-			-- Get the allocated and quarantined quantities
-			DELETE	@tdc_data
-			INSERT	@tdc_data EXEC tdc_get_alloc_qntd_sp @location, @part_no
-			SELECT	@allocated = allocated_amt,
-					@quarantine = quarantined_amt
-			FROM	@tdc_data
-			WHERE	location = @location
-			AND		part_no = @part_no
-
-			IF (@onload = 1)
+			-- v3.2 Start
+			IF (@part_type <> 'C')
 			BEGIN
-				-- Get qty soft allocated to other orders
-				-- v2.8 Start
---				SELECT	@soft_alloc_qty = SUM(quantity)
---				FROM	dbo.cvo_soft_alloc_det (NOLOCK)
---				WHERE	location = @location
---				AND		part_no = @part_no
---				AND		soft_alloc_no <> @soft_alloc_no
---				-- START v1.2
---				-- START v1.1 - ignore soft allocations for this order
---				AND		NOT (order_no = @order_no AND order_ext = @order_ext)
---				--AND		order_no <> @order_no
---				--AND		order_ext <> @order_ext
---				-- END v1.1
---				-- END v1.2
---				AND		status NOT IN (-2,-3)
---				AND		soft_alloc_no < @soft_alloc_no
---			--	AND		inv_avail IS NOT NULL -- v1.8
 
-
-				SELECT	@soft_alloc_qty = SUM(ISNULL((CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0) - CASE WHEN a.change >= 1 THEN ISNULL((b.qty),0) ELSE 0 END) -- v1.4
-				FROM	dbo.cvo_soft_alloc_det a (NOLOCK)
-				LEFT JOIN (SELECT order_no, order_ext, line_no, part_no, SUM(qty) qty FROM dbo.tdc_soft_alloc_tbl (NOLOCK) WHERE order_type = 'S' GROUP BY order_no, order_ext, line_no, part_no) b
-				ON	a.order_no = b.order_no
-				AND	a.order_ext = b.order_ext
-				AND	a.part_no = b.part_no
-				AND a.line_no = b.line_no
-				WHERE	a.status NOT IN (-2,-3) -- v1.5 IN (0, 1, -1)
-				AND		a.soft_alloc_no < @soft_alloc_no
-				AND		a.location = @location
-				AND		a.part_no = @part_no
-				-- v2.8 End
-
-
-				-- v2.5 Start
-				SELECT	@ord_soft_alloc_qty = SUM(quantity)
-				FROM	dbo.cvo_soft_alloc_det (NOLOCK)
+				-- Get the allocated and quarantined quantities
+				DELETE	@tdc_data
+				INSERT	@tdc_data EXEC tdc_get_alloc_qntd_sp @location, @part_no
+				SELECT	@allocated = allocated_amt,
+						@quarantine = quarantined_amt
+				FROM	@tdc_data
 				WHERE	location = @location
 				AND		part_no = @part_no
-				AND		soft_alloc_no = @soft_alloc_no
-				AND		line_no < @line_no
-				AND		status NOT IN (-2,-3)
+
+				IF (@onload = 1)
+				BEGIN
+					-- Get qty soft allocated to other orders
+					-- v2.8 Start
+	--				SELECT	@soft_alloc_qty = SUM(quantity)
+	--				FROM	dbo.cvo_soft_alloc_det (NOLOCK)
+	--				WHERE	location = @location
+	--				AND		part_no = @part_no
+	--				AND		soft_alloc_no <> @soft_alloc_no
+	--				-- START v1.2
+	--				-- START v1.1 - ignore soft allocations for this order
+	--				AND		NOT (order_no = @order_no AND order_ext = @order_ext)
+	--				--AND		order_no <> @order_no
+	--				--AND		order_ext <> @order_ext
+	--				-- END v1.1
+	--				-- END v1.2
+	--				AND		status NOT IN (-2,-3)
+	--				AND		soft_alloc_no < @soft_alloc_no
+	--			--	AND		inv_avail IS NOT NULL -- v1.8
+
+
+					SELECT	@soft_alloc_qty = SUM(ISNULL((CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0) - CASE WHEN a.change >= 1 THEN ISNULL((b.qty),0) ELSE 0 END) -- v1.4
+					FROM	dbo.cvo_soft_alloc_det a (NOLOCK)
+					LEFT JOIN (SELECT order_no, order_ext, line_no, part_no, SUM(qty) qty FROM dbo.tdc_soft_alloc_tbl (NOLOCK) WHERE order_type = 'S' GROUP BY order_no, order_ext, line_no, part_no) b
+					ON	a.order_no = b.order_no
+					AND	a.order_ext = b.order_ext
+					AND	a.part_no = b.part_no
+					AND a.line_no = b.line_no
+					WHERE	a.status NOT IN (-2,-3) -- v1.5 IN (0, 1, -1)
+					AND		a.soft_alloc_no < @soft_alloc_no
+					AND		a.location = @location
+					AND		a.part_no = @part_no
+					-- v2.8 End
+
+
+					-- v2.5 Start
+					SELECT	@ord_soft_alloc_qty = SUM(quantity)
+					FROM	dbo.cvo_soft_alloc_det (NOLOCK)
+					WHERE	location = @location
+					AND		part_no = @part_no
+					AND		soft_alloc_no = @soft_alloc_no
+					AND		line_no < @line_no
+					AND		status NOT IN (-2,-3)
+					-- v2.5 End
+				END
+				ELSE
+				BEGIN
+					-- v2.8 Start
+	--				SELECT	@soft_alloc_qty = SUM(quantity)
+	--				FROM	dbo.cvo_soft_alloc_det (NOLOCK)
+	--				WHERE	location = @location
+	--				AND		part_no = @part_no
+	--				AND		soft_alloc_no <> @soft_alloc_no
+	--				-- START v1.2
+	--				-- START v1.1 - ignore soft allocations for this order
+	--				AND		NOT (order_no = @order_no AND order_ext = @order_ext)
+	--				--AND		order_no <> @order_no
+	--				--AND		order_ext <> @order_ext
+	--				-- END v1.1
+	--				-- END v1.2
+	--				AND		status NOT IN (-2,-3)
+	--				AND		soft_alloc_no < @soft_alloc_no
+	--
+	--			--	AND		inv_avail IS NOT NULL -- v1.8
+
+					SELECT	@soft_alloc_qty = SUM(ISNULL((CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0) - CASE WHEN a.change >= 1 THEN ISNULL((b.qty),0) ELSE 0 END) -- v1.4
+					FROM	dbo.cvo_soft_alloc_det a (NOLOCK)
+					LEFT JOIN (SELECT order_no, order_ext, line_no, part_no, SUM(qty) qty FROM dbo.tdc_soft_alloc_tbl (NOLOCK) WHERE order_type = 'S' GROUP BY order_no, order_ext, line_no, part_no) b
+					ON	a.order_no = b.order_no
+					AND	a.order_ext = b.order_ext
+					AND	a.part_no = b.part_no
+					AND a.line_no = b.line_no
+					WHERE	a.status NOT IN (-2,-3) -- v1.5 IN (0, 1, -1)
+					AND		a.soft_alloc_no < @soft_alloc_no
+					AND		a.location = @location
+					AND		a.part_no = @part_no
+					-- v2.8 End
+
+					-- v2.5 Start
+					SELECT	@ord_soft_alloc_qty = SUM(quantity)
+					FROM	dbo.cvo_soft_alloc_det (NOLOCK)
+					WHERE	location = @location
+					AND		part_no = @part_no
+					AND		soft_alloc_no = @soft_alloc_no
+					AND		line_no < @line_no
+					AND		status NOT IN (-2,-3)
+					-- v2.5 End
+
+				END
+				IF @soft_alloc_qty IS NULL
+					SET @soft_alloc_qty = 0
+
+				-- v2.5 Start
+				IF @ord_soft_alloc_qty IS NULL
+					SET @ord_soft_alloc_qty = 0
 				-- v2.5 End
+
+				-- START v1.1 - get qty hard allocated to this order
+				SET @alloc_to_this_order = 0
+
+				SELECT 
+					@alloc_to_this_order = SUM(qty)  
+				FROM
+					dbo.tdc_soft_alloc_tbl (NOLOCK)
+				WHERE
+					order_no = @order_no 
+					AND order_ext = @order_ext 
+					AND order_type = 'S' 
+					AND location = @location  
+					AND part_no = @part_no
+					AND	line_no = @line_no -- v2.4
+					AND	order_no <> 0 -- v1.3
+
+				-- v1.4 Start
+				SET @qty_picked = 0
+
+				-- START v2.3
+				--IF (@onload = 1)
+				--BEGIN
+
+				SELECT	@qty_picked = SUM(shipped)
+				FROM	tdc_dist_item_list (NOLOCK)
+				WHERE	order_no = @order_no
+				AND		order_ext = @order_ext
+				AND		part_no = @part_no
+				AND		line_no = @line_no -- v2.4
+				AND		[function] = 'S'
+
+				IF @qty_picked IS NULL
+					SET @qty_picked = 0
+
+				--END
+				-- END v2.3
+				-- v1.4 End
+
+				-- SELECT	@available = @instock - (@allocated + @quarantine) - ISNULL(@soft_alloc_qty,0)		
+				SELECT @available = @instock - (@allocated + @quarantine) - ISNULL(@soft_alloc_qty,0) + ISNULL(@alloc_to_this_order,0) + @qty_picked - ISNULL(@replen_qty,0) - ISNULL(@ord_soft_alloc_qty,0) -- v1.1 v1.4 v2.1 v2.5
+			
+				-- v1.7 Start
+				IF ((@available <= 0) AND (ISNULL(@alloc_to_this_order,0) > 0))
+					SET @available = ISNULL(@alloc_to_this_order,0)
+				-- v1.7 End
+
+				-- START v2.6 
+				IF @onload = 1
+				BEGIN
+					IF ISNULL(@available,0) < ISNULL(@alloc_to_this_order,0) 
+					BEGIN
+						SET @available = ISNULL(@alloc_to_this_order,0)
+					END
+				END
+				-- END v2.6
+				
+				-- END v1.1
+
+				IF @available < 0
+					SET @available = 0
+
+				UPDATE	@returndata
+				SET		avail_quantity = CASE WHEN @available >= quantity THEN quantity ELSE @available END
+				WHERE	row_id = @row_id
 			END
 			ELSE
 			BEGIN
-				-- v2.8 Start
---				SELECT	@soft_alloc_qty = SUM(quantity)
---				FROM	dbo.cvo_soft_alloc_det (NOLOCK)
---				WHERE	location = @location
---				AND		part_no = @part_no
---				AND		soft_alloc_no <> @soft_alloc_no
---				-- START v1.2
---				-- START v1.1 - ignore soft allocations for this order
---				AND		NOT (order_no = @order_no AND order_ext = @order_ext)
---				--AND		order_no <> @order_no
---				--AND		order_ext <> @order_ext
---				-- END v1.1
---				-- END v1.2
---				AND		status NOT IN (-2,-3)
---				AND		soft_alloc_no < @soft_alloc_no
---
---			--	AND		inv_avail IS NOT NULL -- v1.8
-
-				SELECT	@soft_alloc_qty = SUM(ISNULL((CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0) - CASE WHEN a.change >= 1 THEN ISNULL((b.qty),0) ELSE 0 END) -- v1.4
-				FROM	dbo.cvo_soft_alloc_det a (NOLOCK)
-				LEFT JOIN (SELECT order_no, order_ext, line_no, part_no, SUM(qty) qty FROM dbo.tdc_soft_alloc_tbl (NOLOCK) WHERE order_type = 'S' GROUP BY order_no, order_ext, line_no, part_no) b
-				ON	a.order_no = b.order_no
-				AND	a.order_ext = b.order_ext
-				AND	a.part_no = b.part_no
-				AND a.line_no = b.line_no
-				WHERE	a.status NOT IN (-2,-3) -- v1.5 IN (0, 1, -1)
-				AND		a.soft_alloc_no < @soft_alloc_no
-				AND		a.location = @location
-				AND		a.part_no = @part_no
-				-- v2.8 End
-
-				-- v2.5 Start
-				SELECT	@ord_soft_alloc_qty = SUM(quantity)
-				FROM	dbo.cvo_soft_alloc_det (NOLOCK)
-				WHERE	location = @location
-				AND		part_no = @part_no
-				AND		soft_alloc_no = @soft_alloc_no
-				AND		line_no < @line_no
-				AND		status NOT IN (-2,-3)
-				-- v2.5 End
-
+				UPDATE	@returndata
+				SET		avail_quantity = quantity
+				WHERE	row_id = @row_id
 			END
-			IF @soft_alloc_qty IS NULL
-				SET @soft_alloc_qty = 0
+			-- v3.2 End
 
-			-- v2.5 Start
-			IF @ord_soft_alloc_qty IS NULL
-				SET @ord_soft_alloc_qty = 0
-			-- v2.5 End
 
-			-- START v1.1 - get qty hard allocated to this order
-			SET @alloc_to_this_order = 0
-
-			SELECT 
-				@alloc_to_this_order = SUM(qty)  
-			FROM
-				dbo.tdc_soft_alloc_tbl (NOLOCK)
-			WHERE
-				order_no = @order_no 
-				AND order_ext = @order_ext 
-				AND order_type = 'S' 
-				AND location = @location  
-				AND part_no = @part_no
-				AND	line_no = @line_no -- v2.4
-				AND	order_no <> 0 -- v1.3
-
-			-- v1.4 Start
-			SET @qty_picked = 0
-
-			-- START v2.3
-			--IF (@onload = 1)
-			--BEGIN
-
-			SELECT	@qty_picked = SUM(shipped)
-			FROM	tdc_dist_item_list (NOLOCK)
-			WHERE	order_no = @order_no
-			AND		order_ext = @order_ext
-			AND		part_no = @part_no
-			AND		line_no = @line_no -- v2.4
-			AND		[function] = 'S'
-
-			IF @qty_picked IS NULL
-				SET @qty_picked = 0
-
-			--END
-			-- END v2.3
-			-- v1.4 End
-
-			-- SELECT	@available = @instock - (@allocated + @quarantine) - ISNULL(@soft_alloc_qty,0)		
-			SELECT @available = @instock - (@allocated + @quarantine) - ISNULL(@soft_alloc_qty,0) + ISNULL(@alloc_to_this_order,0) + @qty_picked - ISNULL(@replen_qty,0) - ISNULL(@ord_soft_alloc_qty,0) -- v1.1 v1.4 v2.1 v2.5
-		
-			-- v1.7 Start
-			IF ((@available <= 0) AND (ISNULL(@alloc_to_this_order,0) > 0))
-				SET @available = ISNULL(@alloc_to_this_order,0)
-			-- v1.7 End
-
-			-- START v2.6 
-			IF @onload = 1
-			BEGIN
-				IF ISNULL(@available,0) < ISNULL(@alloc_to_this_order,0) 
-				BEGIN
-					SET @available = ISNULL(@alloc_to_this_order,0)
-				END
-			END
-			-- END v2.6
-			
-			-- END v1.1
-
-			IF @available < 0
-				SET @available = 0
-
-			UPDATE	@returndata
-			SET		avail_quantity = CASE WHEN @available >= quantity THEN quantity ELSE @available END
-			WHERE	row_id = @row_id
 
 			SET @last_row_id = @row_id
 

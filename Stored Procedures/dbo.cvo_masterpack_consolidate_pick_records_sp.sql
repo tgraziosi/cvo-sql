@@ -18,6 +18,7 @@ CREATE TABLE #consolidate_picks(
 -- v1.3 CB 08/06/2016 - Split out manual case qty
 -- v1.4 CB 15/06/2016 - Fix issue with multiple case lines
 -- v1.5 CB 11/07/2016 - Fix issue when order has manual case quantities
+-- v1.6 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 
 CREATE PROC [dbo].[cvo_masterpack_consolidate_pick_records_sp] @consolidation_no INT
 AS
@@ -114,6 +115,21 @@ BEGIN
 		AND a.line_no = c.line_no
 	WHERE
 		a.trans = 'STDPICK'
+
+	-- v1.6 Start
+	DELETE	a
+	FROM	#picks a
+	JOIN	ord_list b (NOLOCK)
+	ON		a.order_no = b.order_no
+	AND		a.ext = b.order_ext
+	AND		a.line_no = b.line_no
+	WHERE	b.part_type = 'C'
+
+	IF NOT EXISTS(SELECT 1 FROM #picks)
+	BEGIN
+		RETURN
+	END
+	-- v1.6 End
 
 	-- v1.3 Start
 	IF OBJECT_ID('tempdb..#cvo_ord_list') IS NOT NULL
@@ -586,7 +602,26 @@ BEGIN
 			b.consolidation_no = @consolidation_no
 			AND b.parent_tran_id = @tran_id
 
+		-- v1.6 Start
+		UPDATE	a
+		SET		mp_consolidation_no = @consolidation_no
+		FROM	tdc_pick_queue a
+		JOIN	cvo_masterpack_consolidation_det b (NOLOCK)
+		ON		a.trans_type_no = b.order_no
+		AND		a.trans_type_ext = b.order_ext
+		JOIN	ord_list c (NOLOCK)
+		ON		a.trans_type_no = c.order_no
+		AND		a.trans_type_ext = c.order_ext
+		AND		a.line_no = c.line_no
+		WHERE	b.consolidation_no = @consolidation_no
+		AND		a.trans = 'STDPICK'
+		AND		a.mp_consolidation_no IS NULL
+		AND		ISNULL(a.assign_user_id,'') <> 'HIDDEN'
+		AND		c.part_type = 'C'
+		-- v1.6 End
+
 	END
+
 
 	DROP TABLE #picks
 	DROP TABLE #pick_group

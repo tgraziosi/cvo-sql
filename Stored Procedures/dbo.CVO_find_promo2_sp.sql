@@ -3,6 +3,7 @@ GO
 SET ANSI_NULLS ON
 GO
 -- v1.1 CT 11/09/2013 - Issue #1354 - add option to only return current promos
+-- v1.2 CB 09/11/2016 - If current promo flag is set then exclude void promos
 
 -- EXEC CVO_find_promo2_sp '', P, 1
 
@@ -25,6 +26,9 @@ BEGIN
 				-- START v1.1
 				AND ((@current = 0 OR (@current <> 0 AND GETDATE() BETWEEN promo_start_date AND DATEADD(dd,1,promo_end_date))))
 				-- END v1.1
+				-- v1.2 Start
+				AND (@current = 0 OR (@current <> 0 AND void IS NULL))
+				-- v1.2 End
 		ORDER BY CVO_promotions.promo_id
 
 	IF @sort = 'L'
@@ -38,6 +42,9 @@ BEGIN
 				-- START v1.1
 				AND ((@current = 0 OR (@current <> 0 AND GETDATE() BETWEEN promo_start_date AND DATEADD(dd,1,promo_end_date))))
 				-- END v1.1
+				-- v1.2 Start
+				AND (@current = 0 OR (@current <> 0 AND void IS NULL))
+				-- v1.2 End
 		ORDER BY CVO_promotions.promo_level
 
 	IF @sort = 'N'
@@ -51,6 +58,9 @@ BEGIN
 				-- START v1.1
 				AND ((@current = 0 OR (@current <> 0 AND GETDATE() BETWEEN promo_start_date AND DATEADD(dd,1,promo_end_date))))
 				-- END v1.1
+				-- v1.2 Start
+				AND (@current = 0 OR (@current <> 0 AND void IS NULL))
+				-- v1.2 End
 		ORDER BY CVO_promotions.promo_name
 
 END

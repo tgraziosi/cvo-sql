@@ -84,11 +84,11 @@ SELECT  cust_code
 -- , ben_title = p.promo_name
 , ben_title = p.description
 , val_1_lbl = 'Free Frames'
-, val_1_int = free_frames
+, val_1_int = SUM(free_frames)
 , val_2_lbl = 'Full Price Frames'
-, val_2_int = full_price_frames
+, val_2_int = SUM(full_price_frames)
 , val_3_lbl = 'Value of Free Frames'
-, val_3_dec = extprice
+, val_3_dec = SUM(extprice)
 --, sentence = 'Promotional Frame Benefit : ' + CAST(promo_id AS VARCHAR(50))
 --	+ ' Free Frames: ' + CAST(CAST(free_frames AS INTEGER) AS VARCHAR(20))
 --	+ ' Full Price Frames: ' + CAST(CAST(full_price_frames AS INTEGER) AS varchar(20))
@@ -97,6 +97,7 @@ from #t
 -- LEFT OUTER JOIN cvo_promotions p ON p.promo_id = #t.promo_id AND p.promo_level = #t.promo_level
 LEFT OUTER JOIN dbo.category AS p ON p.kys = #t.coll
 WHERE #t.free_frames <> 0
+GROUP BY cust_code, ship_to, p.description
 
 UPDATE n SET n.val_1_lbl = '', n.val_2_lbl = '', n.val_3_lbl = '', n.val_4_lbl = ''
 -- SELECT * 
@@ -242,14 +243,15 @@ SELECT #coop.customer_code cust_code,
 	   , ben_type = 'Value Add'
 	   , ben_title = 'Co-op'
 	   , val_3_lbl = 'Earned'
-	   , val_3_dec = CAST(coop_earned AS DECIMAL(10,2))
+	   , val_3_dec = CAST(SUM(coop_earned) AS DECIMAL(10,2))
 	   , val_4_lbl = 'Used'
-	   , val_4_dec = CAST(coop_redeemed AS DECIMAL(10,2))
+	   , val_4_dec = CAST(SUM(coop_redeemed) AS DECIMAL(10,2))
 	   --sentence = 
 	   --'Co-op Used: ' + CAST(CAST(coop_redeemed AS DECIMAL(10,2)) AS varchar(15))
        FROM #coop 
 	   WHERE #coop.yyear = DATEPART(YEAR, @enddate)
 	   AND #coop.customer_code IS NOT NULL
+	   GROUP BY customer_code
 
 
 -- average rx orders / week
@@ -360,6 +362,8 @@ SELECT cust_code =
  JOIN armaster ar ON ar.customer_code = sc.cust_code AND ar.ship_to_code = sc.ship_to
 
  -- select * From cvo_cust_benefit_scorecard_Tbl where cust_code = '043105'
+
+
 
 
 

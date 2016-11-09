@@ -35,6 +35,7 @@ BEGIN
 	WHERE	a.order_no = @order_no
 	AND		a.order_ext = @order_ext
 	AND		b.type_code NOT IN ('PARTS','CASE','PATTERN') -- v1.1
+	AND		b.status <> 'C' -- v1.3
 
 	INSERT	#check_allocated_qty (line_no, part_no, qty_allocated)
 	SELECT	line_no, part_no, SUM(qty)

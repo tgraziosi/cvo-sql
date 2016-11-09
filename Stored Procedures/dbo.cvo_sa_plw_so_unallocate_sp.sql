@@ -239,7 +239,18 @@ BEGIN
 				AND		trans_type_ext = @order_ext              
 				AND		location = @location             
 				AND		line_no = @line_no        
-				AND		trans_source = 'MGT'         
+				AND		trans_source = 'MGT'     
+
+				-- v1.3 Start
+				DELETE	tdc_pick_queue
+				WHERE	trans         = 'STDPICK'           
+				AND		trans_type_no  = @order_no       
+				AND		trans_type_ext = @order_ext            
+				AND		location       = @location           
+				AND		line_no        = @line_no      
+				AND		trans_source   = 'PLW'
+				AND		company_no = 'CF'
+				-- v1.3 End    
                  
 			END --(@queue_qty - @alloc_qty) = 0        
 			ELSE        

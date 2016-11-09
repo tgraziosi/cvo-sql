@@ -27,7 +27,8 @@ BEGIN
 		@quar_qty   decimal(20,8),  
 		@sa_qty    decimal(20,8),  
 		@qty    decimal(20,8), -- v1.1  
-		@replen_qty	DECIMAL(20,8) -- v2.2
+		@replen_qty	DECIMAL(20,8), -- v2.2
+		@part_type varchar(5) -- v2.5
   
  -- Create Working Table  
  CREATE TABLE #cf_break (id    int identity(1,1),  
@@ -35,7 +36,8 @@ BEGIN
        location  varchar(10),  
        line_no   int,  
        part_no   varchar(30),  
-       qty    decimal(20,8),  
+       qty    decimal(20,8),
+	   part_type varchar(5), -- v2.5  
        no_stock  int)  
 
  CREATE INDEX #cf_break_ind0 ON #cf_break(id,soft_alloc_no,line_no,no_stock) -- v1.9
@@ -132,12 +134,13 @@ CREATE INDEX #cf_allocs_line_ind0 ON #cf_allocs_line(order_no,order_ext,line_no,
   DELETE #cf_break_kit  
   
   -- Get a list of the custom frame breaks from the order  
-  INSERT #cf_break (soft_alloc_no, location, line_no, part_no, qty, no_stock)  
+  INSERT #cf_break (soft_alloc_no, location, line_no, part_no, qty, part_type, no_stock) -- v2.5
   SELECT DISTINCT @soft_alloc_no,  
     a.location,  
     a.line_no,  
     a.part_no,  
-    a.ordered,  
+    a.ordered, 
+	a.part_type, -- v2.5 
     0  
   FROM ord_list a (NOLOCK)  
   JOIN cvo_ord_list_kit b (NOLOCK)  
@@ -147,7 +150,9 @@ CREATE INDEX #cf_allocs_line_ind0 ON #cf_allocs_line(order_no,order_ext,line_no,
   WHERE a.order_no = @order_no  
   AND  a.order_ext = @order_ext  
   AND  b.replaced = 'S'  
-  
+-- v2.5  AND  a.part_type <> 'C' -- v2.4 
+
+
   INSERT #cf_break_kit (soft_alloc_no, location, qty, kit_line_no, kit_part_no, no_stock) -- v1.1 add qty  
   SELECT @soft_alloc_no,  
     b.location,  
@@ -171,7 +176,8 @@ CREATE INDEX #cf_allocs_line_ind0 ON #cf_allocs_line(order_no,order_ext,line_no,
    SELECT TOP 1 @id = id,  
      @location = location,  
      @line_no = line_no,  
-     @part_no = part_no,  
+     @part_no = part_no, 
+	 @part_type = part_type, -- v2.5
      @qty = qty -- v1.1  
    FROM #cf_break  
    WHERE id > @last_id  
@@ -193,6 +199,25 @@ CREATE INDEX #cf_allocs_line_ind0 ON #cf_allocs_line(order_no,order_ext,line_no,
 --    FROM inventory (NOLOCK)  
 --    WHERE location = @location  
 --    AND  part_no = @part_no  
+
+	-- v2.5 Start
+	IF (@part_type = 'C')
+	BEGIN
+		SET @last_id = @id  
+	  
+		SELECT TOP 1 @id = id,  
+		  @location = location,  
+		  @line_no = line_no,  
+		  @part_no = part_no,  
+		  @part_type = part_type, -- v2.5
+		  @qty = qty -- v1.1  
+		FROM #cf_break  
+		WHERE id > @last_id  
+		ORDER BY id ASC  
+
+		CONTINUE
+	END
+	-- v2.5 End
 
     SELECT	@in_stock = SUM(qty)
     FROM	lot_bin_stock (NOLOCK)
@@ -284,6 +309,7 @@ CREATE INDEX #cf_allocs_line_ind0 ON #cf_allocs_line(order_no,order_ext,line_no,
       @location = location,  
       @line_no = line_no,  
       @part_no = part_no,  
+	  @part_type = part_type, -- v2.5
       @qty = qty -- v1.1  
     FROM #cf_break  
     WHERE id > @last_id  
@@ -291,8 +317,7 @@ CREATE INDEX #cf_allocs_line_ind0 ON #cf_allocs_line(order_no,order_ext,line_no,
   
    END  
   END  
-  
-  
+    
   IF EXISTS (SELECT 1 FROM #cf_break_kit) -- Test for substitution at kit level  
   BEGIN  
    SET @last_id = 0  

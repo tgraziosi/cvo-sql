@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -31,6 +30,7 @@ GO
 -- v11.7 CB 24/07/2015 - For BG invoices only list price to show on free frames as zero
 -- v11.8 CB 08/09/2015 - As per Tine - They want to see the gross price (list price) as whatever it is (non-zero), and the net price to show as $0.
 -- v11.9 CB 30/12/2015 - Issue #1585 Use BG Setting
+-- v12.0 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 
 CREATE PROCEDURE [dbo].[tdc_print_ord_pack_list_sp](  
    @user_id    varchar(50),  
@@ -780,25 +780,27 @@ DECLARE detail_cursor CURSOR FOR
   -- Get drawing_no & upc_code of the Item   
   SELECT @UPC_Code   = upc_code, @drawing_no = sku_no FROM inv_master (NOLOCK) WHERE part_no = @part_no  
   
-  IF EXISTS(SELECT * FROM ord_list(NOLOCK)   
-      WHERE order_no   = @order_no AND order_ext  = @order_ext  
-        AND part_no    = @part_no  
-        AND part_type != 'C')  
-  BEGIN  
+-- v12. 0 Start
+--  IF EXISTS(SELECT * FROM ord_list(NOLOCK)   
+--      WHERE order_no   = @order_no AND order_ext  = @order_ext  
+--        AND part_no    = @part_no  
+--        AND part_type != 'C')  
+--  BEGIN  
    SELECT TOP 1 @item_description = [description]  
      FROM ord_list(NOLOCK)   
     WHERE order_no   = @order_no  
                     AND order_ext  = @order_ext  
       AND part_no    = @part_no  
-  END  
-  ELSE  
-  BEGIN  
-   SELECT TOP 1 @item_description = [description]  
-     FROM ord_list_kit(NOLOCK)   
-    WHERE order_no   = @order_no  
-                    AND order_ext  = @order_ext  
-      AND part_no   = @part_no  
-  END  
+--  END  
+--  ELSE  
+--  BEGIN  
+--   SELECT TOP 1 @item_description = [description]  
+--     FROM ord_list_kit(NOLOCK)   
+--    WHERE order_no   = @order_no  
+--                    AND order_ext  = @order_ext  
+--      AND part_no   = @part_no  
+--  END  
+-- v12.0 End
   
   -- v10.1 Start
   IF EXISTS (SELECT 1 FROM ord_list a (NOLOCK) JOIN cvo_ord_list b (NOLOCK) ON a.order_no = b.order_no AND a.order_ext = b.order_ext AND a.line_no = b.line_no

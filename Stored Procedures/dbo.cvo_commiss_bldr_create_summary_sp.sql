@@ -8,9 +8,9 @@ AS
 
 SET NOCOUNT ON;
 
--- exec cvo_commiss_bldr_create_summary_sp '02/2016', 'strohmsc'
+-- exec cvo_commiss_bldr_create_summary_sp '08/2016', '50531'
 -- exec dbo.cvo_commission_bldr_sp '12/01/2015', '12/31/2015'
--- SELECT * FROM cvo_commission_summary_work_tbl AS ccswt where salesperson = 'solomoci'
+-- SELECT * FROM cvo_commission_summary_work_tbl AS ccswt where salesperson = '50531'
 -- update v set v.rep_code = slp.salesperson_code
 	-- From cvo_commission_promo_values v
 	--LEFT OUTER JOIN arsalesp slp ON slp.salesperson_name = v.rep_code
@@ -104,12 +104,13 @@ select a.Salesperson ,
 							ELSE pfphist.net_pay
 						   end
 	   , commission = case WHEN ISNULL(r.commission,0) IN (0,12) THEN 12 ELSE r.commission end, 
-	incentivePC = case when ISNULL(r.commission,0) IN (0, 12) OR r.salesperson_code IN ('WitteBu','OhlhauTh') 
+	   -- 11/8/2016 - empty territories don't get incentives :)
+	incentivePC = case when (ISNULL(r.commission,0) IN (0, 12) OR r.salesperson_code IN ('WitteBu','OhlhauTh')) AND r.salesperson_code <> r.territory_code
 					then case when amount >= 60000 then 2
 						 when amount >= 50000 then 1
 						 else 0 end
 					else 0 end,
-	incentive = case when ISNULL(r.commission,0) in (0, 12) OR r.salesperson_code IN ('WitteBu','OhlhauTh') 
+	incentive = case when (ISNULL(r.commission,0) in (0, 12) OR r.salesperson_code IN ('WitteBu','OhlhauTh')) AND r.salesperson_code <> r.territory_code
 					then case when amount >= 60000 then amount * .02
 						 when amount >= 50000 then amount * .01
 						 else 0 end
@@ -228,6 +229,7 @@ UPDATE d SET
 		WHERE d.report_month = @fp
 		AND d.salesperson = ISNULL(@slp, d.salesperson)
 -- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt
+
 
 
 

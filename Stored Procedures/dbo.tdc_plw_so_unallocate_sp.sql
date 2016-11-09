@@ -25,6 +25,7 @@ GO
 -- v2.9 CB 04/02/2014 - Issue #1358 - Remove call to ship complete hold
 -- v3.0 CB 22/09/2014 - #572 Masterpack - Stock Order Consolidation
 -- v3.1 CB 31/07/2015 - Rebuild consolidated picks
+-- v3.2 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
       
 CREATE PROCEDURE  [dbo].[tdc_plw_so_unallocate_sp]       
  @user_id     VARCHAR(50),      
@@ -376,7 +377,17 @@ END -- v10.2 End
     AND		location       = @location           
     AND		line_no        = @line_no      
     AND		trans_source   = 'MGT'  
-   
+
+	-- v3.2 Start
+	DELETE	tdc_pick_queue
+	WHERE	trans         = 'STDPICK'           
+    AND		trans_type_no  = @order_no       
+    AND		trans_type_ext = @order_ext            
+    AND		location       = @location           
+    AND		line_no        = @line_no      
+    AND		trans_source   = 'PLW'
+	AND		company_no = 'CF'
+	-- v3.2 End
                
   END --(@queue_qty - @alloc_qty) = 0      
   ELSE      

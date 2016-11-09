@@ -16,10 +16,11 @@ Called by:
 Copyright:   Epicor Software 2010.  All rights reserved.  
 
  v1.1 CB 29/06/2012 - add process_id to CVO_tdc_print_ticket so it can be used in other routines
+ v1.2 CB 23/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 */
-CREATE PROCEDURE [dbo].[CVO_disassembled_print_inv_adjust_sp]
-	    @order_no	INT
-       ,@order_ext	INT  
+CREATE PROCEDURE [dbo].[CVO_disassembled_print_inv_adjust_sp] @order_no	INT,
+															  @order_ext INT, 
+															  @print_type int = 0
 AS
 
 BEGIN
@@ -50,22 +51,24 @@ BEGIN
 
 	IF @no_rows > 0 
 	BEGIN 
-		--get max detail_lines to print per page
-		SELECT	@detail_lines = detail_lines 
-		FROM 	tdc_tx_print_detail_config (NOLOCK)
-		WHERE	trans_source	= 'BO'		AND 
-				module			= 'SO'		AND 
-				trans			= 'PNTFRAM'
 
-		--SET	@detail_lines = 1
+		IF (@print_type = 0)
+		BEGIN
+			SET @detail_lines = 28
+			SET @FORMAT = '*FORMAT,CVO_SOPrintDisassembledFrame_dcf.lwl'				
+		END
+		ELSE
+		BEGIN
+			SET @detail_lines = 51
+			SET @FORMAT = '*FORMAT,CVO_SOPrintDisassembledFrame_KIT_dcf.lwl'				
+		END
 
 		IF (@no_rows % @detail_lines) > 0
 			SET @totPage = (@no_rows / @detail_lines) + 1
 		ELSE
 			SET @totPage = @no_rows / @detail_lines    
 
-		SELECT   @FORMAT		= '*FORMAT,' + format_id 
-				,@PRINTERNUMBER	= '*PRINTERNUMBER,' + CAST(printer  AS CHAR(2))
+		SELECT   @PRINTERNUMBER	= '*PRINTERNUMBER,' + CAST(printer  AS CHAR(2))
 				,@QUANTITY		= '*QUANTITY,1'
 				,@DUPLICATES	= '*DUPLICATES,'	+ CAST(ABS(quantity) AS CHAR(2))
 				,@PRINTLABEL	= '*PRINTLABEL'
@@ -73,6 +76,7 @@ BEGIN
 		WHERE	module			= 'SO'			AND 
 				trans			= 'PNTFRAM'		AND 
 				trans_source	= 'BO'
+
 
 		SET @i = 1
 		WHILE (@i <= @totPage) AND EXISTS(SELECT * FROM #PrintData )

@@ -23,6 +23,7 @@ COMMIT TRAN
 v1.1 CB 17/10/2012 - Issue #949 - Mark all lines with the tran_id_link of the STDPICK
 v1.2 CT 02/05/2013 - Write a tdc_log record to show pick queue transaction has been created
 v1.3 CT 04/04/2014 - Issue #1470 - Do select stock from bins marked as "Exclude From Allocation"
+v1.4 CB 23/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 */
 CREATE PROCEDURE [dbo].[CVO_Create_Substitution_MGMB2B_Moves_sp]	@order_no int,
 																	@order_ext int,
@@ -50,12 +51,24 @@ DECLARE @bin_no			varchar(20),
 		@tran_id_link	int,
 		@B2B_tran_id	int, -- v1.2	
 		@UserID			varchar(50), -- v1.2
-		@frame_part_no	VARCHAR(30)	-- v1.2
+		@frame_part_no	VARCHAR(30),	-- v1.2
+		@part_type		varchar(10) -- v1.4
 
 
 	-- START v1.2
 	-- Get user who allocated frame
-	SELECT @frame_part_no = part_no FROM dbo.ord_list WHERE order_no = @order_no AND order_ext = @order_ext AND line_no = @line_no
+	SELECT	@frame_part_no = part_no,
+			@part_type = part_type -- v1.4
+	FROM	dbo.ord_list (NOLOCK) 
+	WHERE	order_no = @order_no 
+	AND		order_ext = @order_ext 
+	AND		line_no = @line_no
+
+	-- v1.4 Start
+	IF (@part_type = 'C')
+		RETURN
+	-- v1.4 End
+
 
 	IF ISNULL(@frame_part_no,'') <> ''
 	BEGIN

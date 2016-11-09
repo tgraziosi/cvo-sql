@@ -34,6 +34,7 @@ GO
 -- v11.5 CB 08/09/2015 - As per Tine - They want to see the gross price (list price) as whatever it is (non-zero), and the net price to show as $0.
 -- v11.6 CB 03/12/2015 - Fix for BG customer set to regular invoice
 -- v11.7 CB 24/05/2016 - Fix code for pulling back promo name
+-- v11.8 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 
 */
 
@@ -1507,8 +1508,9 @@ BEGIN
 			-- Get drawing_no & upc_code of the Item   
 			SELECT @UPC_Code   = upc_code, @drawing_no = sku_no FROM inv_master (NOLOCK) WHERE part_no = @part_no  
 
-			IF EXISTS(SELECT * FROM ord_list(NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext  AND part_no = @part_no  AND part_type != 'C')  
-			BEGIN  
+			-- v11.8 Start
+--			IF EXISTS(SELECT * FROM ord_list(NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext  AND part_no = @part_no  AND part_type != 'C')  
+--			BEGIN  
 				SELECT TOP 1 
 					@item_description = [description]  
 				FROM 
@@ -1517,18 +1519,19 @@ BEGIN
 					order_no   = @order_no  
 					AND order_ext  = @order_ext  
 					AND part_no    = @part_no  
-			END  
-			ELSE  
-			BEGIN  
-				SELECT TOP 1 
-					@item_description = [description]  
-				FROM 
-					dbo.ord_list_kit(NOLOCK)   
-				WHERE 
-					order_no   = @order_no  
-					AND order_ext  = @order_ext  
-					AND part_no   = @part_no  
-			END  
+--			END  
+--			ELSE  
+--			BEGIN  
+--				SELECT TOP 1 
+--					@item_description = [description]  
+--				FROM 
+--					dbo.ord_list_kit(NOLOCK)   
+--				WHERE 
+--					order_no   = @order_no  
+--					AND order_ext  = @order_ext  
+--					AND part_no   = @part_no  
+--			END  
+			-- v11.8 End
 	  
 			-- v10.1 Start
 			IF EXISTS (SELECT 1 FROM ord_list a (NOLOCK) JOIN cvo_ord_list b (NOLOCK) ON a.order_no = b.order_no AND a.order_ext = b.order_ext AND a.line_no = b.line_no

@@ -6,6 +6,7 @@ GO
 -- v1.0 CB 11/05/2011 - Case Part Consolidation
 -- v10.0 CB 12/06/2012 - Soft Allocation - Remove case consolidation
 -- v10.1 CB 23/04/2015 - Performance Changes
+-- v10.2 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 
 CREATE PROC [dbo].[tdc_pps_grid_display]
 	@is_one_order_per_ctn	char(1),
@@ -141,6 +142,20 @@ BEGIN
 		WHERE	order_no = @order_no
 		AND		order_ext = @order_ext
 		AND		line_no = @line_no
+
+		-- v10.2 Start
+		IF EXISTS (SELECT 1 FROM tdc_pick_queue (NOLOCK) WHERE trans_source = 'PLW' AND trans = 'STDPICK' AND trans_type_no = @order_no
+						AND trans_type_ext = @order_ext AND line_no = @line_no AND ISNULL(company_no,'') = 'CF')
+		BEGIN
+			UPDATE	#temp_pps_carton_display 
+			SET		total_packed = 0,
+					carton_packed = 0,
+					picked = 0
+			WHERE	order_no = @order_no
+			AND		order_ext = @order_ext
+			AND		line_no = @line_no
+		END
+		-- v10.2 End
 		
 		SET @last_row_id = @row_id
 	

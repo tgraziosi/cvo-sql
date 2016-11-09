@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -31,6 +30,7 @@ v10.4 CB 05/06/2013 - Issue #1297 - Deal with polarized items
 v10.5 CB 07/06/2013 - Issue #1289 - Frame/case relationship at order entry
 v10.6 CB 18/06/2013 - Fix for when order is partially picked and then unallocated and reallocated - cases do not allocate
 v10.7 CB 26/01/2016 - #1581 2nd Polarized Option
+v10.8 CB 23/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 */
 CREATE PROCEDURE [dbo].[CVO_Calculate_qty_to_alloc_sp] AS
 BEGIN				  	
@@ -118,7 +118,8 @@ BEGIN
 -- v10.7		CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized ELSE '' END,
 				CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN fc.polarized_part ELSE '' END, -- v10.7
 				a.ordered, 
-				d.type_code, 0.0,
+				CASE WHEN d.status = 'C' THEN 'KIT' ELSE d.type_code END, -- v10.8
+				0.0,
 				ISNULL(a.create_po_flag,0),
 				ISNULL(a.cust_po,0) -- v10.4
 		FROM	ord_list a (NOLOCK)
@@ -225,6 +226,14 @@ BEGIN
 		WHERE	a.order_no = @order_no
 		AND		a.order_ext = @order_ext
 
+		-- v10.8 Start
+		UPDATE	#splits
+		SET		alloc_qty = quantity
+		WHERE	part_type = 'KIT'
+		AND		order_no = @order_no
+		AND		order_ext = @order_ext
+		-- v10.8 End
+
 		-- v10.6 alloc_qty < 0 when partially picked
 		UPDATE	#splits
 		SET		alloc_qty = 0 
@@ -315,6 +324,18 @@ BEGIN
 		WHERE	a.order_no = @order_no
 		AND		a.order_ext = @order_ext
 
+		-- v10.8 Start
+		UPDATE	a
+		SET		qty_to_alloc = a.qty_avail
+		FROM	#so_allocation_detail_view_Detail a
+		JOIN	#splits b
+		ON		a.order_no = b.order_no
+		AND		a.order_ext = b.order_ext
+		AND		a.line_no = b.line_no
+		AND		b.part_type = 'KIT'
+		WHERE	a.order_no = @order_no
+		AND		a.order_ext = @order_ext
+		-- v10.8 End
 
 		-- v10.1 Start
 		IF OBJECT_ID('tempdb..#plw_alloc_by_lot_bin') IS NOT NULL

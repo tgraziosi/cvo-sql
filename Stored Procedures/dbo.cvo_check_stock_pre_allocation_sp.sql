@@ -20,12 +20,13 @@ BEGIN
 			@line_no			int,
 			@part_no			varchar(30),
 			@qty				decimal(20,8),
-			@in_stock		decimal(20,8),
-			@in_stock_ex	decimal(20,8),
-			@alloc_qty		decimal(20,8),
-			@quar_qty		decimal(20,8),
-			@sa_qty			decimal(20,8),
-			@soft_alloc_no	int -- v1.2
+			@in_stock			decimal(20,8),
+			@in_stock_ex		decimal(20,8),
+			@alloc_qty			decimal(20,8),
+			@quar_qty			decimal(20,8),
+			@sa_qty				decimal(20,8),
+			@soft_alloc_no		int, -- v1.2
+			@part_type			varchar(10) -- v1.3
 
 	-- Create working tables 
 	CREATE TABLE #order_hdr (
@@ -41,6 +42,7 @@ BEGIN
 		line_no			int,
 		part_no			varchar(30),
 		qty				decimal(20,8),
+		part_type		varchar(10), -- v1.3
 		no_stock		int)
 
 	 CREATE TABLE #wms_ret ( location  varchar(10),  
@@ -84,11 +86,12 @@ BEGIN
 
 		DELETE #order_det
 
-		INSERT	#order_det (location, line_no, part_no, qty, no_stock)
+		INSERT	#order_det (location, line_no, part_no, qty, part_type, no_stock) -- v1.3
 		SELECT	location,
 				line_no,
 				part_no,
 				ordered,
+				part_type, -- v1.3
 				0
 		FROM	ord_list (NOLOCK)
 		WHERE	order_no = @order_no
@@ -101,13 +104,37 @@ BEGIN
 				@location = location,
 				@line_no = line_no,
 				@part_no = part_no,
-				@qty = qty
+				@qty = qty,
+				@part_type = part_type -- v1.3
 		FROM	#order_det
 		WHERE	line_row_id > @last_line_row_id
 		ORDER BY line_row_id ASC
 
 		WHILE (@@ROWCOUNT <> 0)
 		BEGIN
+
+			-- v1.3 Start
+			IF (@part_type = 'C')
+			BEGIN
+				UPDATE	#order_det  
+				SET		no_stock = 0  
+				WHERE	line_row_id = @line_row_id  
+
+				SET @last_line_row_id = @line_row_id
+		
+				SELECT	TOP 1 @line_row_id = line_row_id,
+						@location = location,
+						@line_no = line_no,
+						@part_no = part_no,
+						@qty = qty,
+						@part_type = part_type -- v1.3
+				FROM	#order_det
+				WHERE	line_row_id > @last_line_row_id
+				ORDER BY line_row_id ASC
+
+				CONTINUE
+			END
+			-- v1.3 End
 
 			SET @in_stock = 0
 			SET @in_stock_ex = 0
@@ -187,7 +214,8 @@ BEGIN
 					@location = location,
 					@line_no = line_no,
 					@part_no = part_no,
-					@qty = qty
+					@qty = qty,
+					@part_type = part_type -- v1.3
 			FROM	#order_det
 			WHERE	line_row_id > @last_line_row_id
 			ORDER BY line_row_id ASC

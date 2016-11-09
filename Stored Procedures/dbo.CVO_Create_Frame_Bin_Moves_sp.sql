@@ -57,6 +57,7 @@ BEGIN
 	AND		a.tran_id > @last_tran_id
 	AND		a.trans_type_no = @order_no
 	AND		a.trans_type_ext = @order_ext
+	AND		c.part_type <> 'C' -- v1.3
 	ORDER BY a.tran_id
 
 	WHILE @@ROWCOUNT <> 0
@@ -147,12 +148,12 @@ BEGIN
 		AND		a.tran_id > @last_tran_id
 		AND		a.trans_type_no = @order_no
 		AND		a.trans_type_ext = @order_ext
+		AND		c.part_type <> 'C' -- v1.3
 		ORDER BY a.tran_id
 
 
 	END
 END
-
 GO
 GRANT EXECUTE ON  [dbo].[CVO_Create_Frame_Bin_Moves_sp] TO [public]
 GO

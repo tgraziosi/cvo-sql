@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -27,6 +26,7 @@ v10.1 CB 05/06/2013 - Issue #1297 - Deal with polarized items
 v10.2 CB 07/06/2013 - Issue #1289 - Frame/case relationship at order entry
 v10.3 CB 05/06/2014 - Fix issue when case has been fully unallocated due to change but does not fully allocate qty
 v10.4 CB 26/01/2016 - #1581 2nd Polarized Option
+v10.5 CB 23/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 */
 CREATE PROCEDURE  [dbo].[CVO_Calculate_qty_to_alloc_eBO_sp]	@order_no	int,
 													@order_ext	int 
@@ -94,7 +94,8 @@ BEGIN
 -- v10.4	CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN @polarized ELSE '' END,
 			CASE WHEN ISNULL(b.add_polarized,'N') = 'Y' THEN fc.polarized_part ELSE '' END, -- v10.4
 			a.ordered, 
-			d.type_code, 0.0,
+			CASE WHEN d.status = 'C' THEN 'KIT' ELSE d.type_code END, -- v10.5
+			0.0,
 			ISNULL(a.create_po_flag,0),
 			ISNULL(a.cust_po,0) -- v10.1
 	FROM	ord_list a (NOLOCK)
@@ -124,7 +125,6 @@ BEGIN
 	AND		order_ext = @order_ext
 	AND		location  = @location
 
-
 	-- Get the allocated quantities
 	UPDATE	#splits
 	SET		alloc_qty = (CASE WHEN a.auto_po = 1 THEN 0 ELSE b.qty_avail - b.qty_picked END)
@@ -135,6 +135,11 @@ BEGIN
 	AND		a.line_no = b.line_no
 	AND		a.part_no = b.part_no
 
+	-- v10.5 Start
+	UPDATE	#splits
+	SET		alloc_qty = quantity
+	WHERE	part_type = 'KIT'
+	-- v10.5 End
 
 	-- Get the quantities for cases, patterns and polarized adjusted for non allocated frames
 	INSERT	#part_splits (part_no, quantity, diff)
@@ -212,6 +217,16 @@ BEGIN
 	AND		a.line_no = b.line_no
 	AND		a.part_no = b.part_no
 
+	-- v10.5 Start
+	UPDATE	a
+	SET		qty_to_alloc = a.qty_avail
+	FROM	#so_allocation_detail_view_Detail a
+	JOIN	#splits b
+	ON		a.order_no = b.order_no
+	AND		a.order_ext = b.order_ext
+	AND		a.line_no = b.line_no
+	AND		b.part_type = 'KIT'
+	-- v10.5 End
 
 	-- Populate the CVO_qty_to_alloc_tbl table
 	INSERT	CVO_qty_to_alloc_tbl (order_no, order_ext, location, from_line_no, line_no, part_no, qty_to_alloc )  

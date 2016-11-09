@@ -11,6 +11,7 @@ GO
 -- v1.5 CB 15/07/2015 - Fix for v1.4
 -- v1.6 CB 03/12/2015 - Fix for BG customer set to regular invoice
 -- v1.7 CB 11/05/2016 - Fix issue with promo discount
+-- v1.8 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 -- requires temp table
 /*
 CREATE TABLE #detail(
@@ -153,6 +154,40 @@ BEGIN
 	WHERE	b.order_no = @order_no
 	AND		b.order_ext = @order_ext
 	-- v1.4 End
+
+	-- v1.8 Start
+	CREATE TABLE #cfkits (
+		kit_part	varchar(30), 
+		line_no		int,
+		part_no		varchar(30),
+		qty			decimal(20,8),
+		is_free		int)
+
+	INSERT #cfkits
+	SELECT	a.part_no,
+			a.line_no,
+			b.part_no,
+			b.shipped,
+			a.is_free
+	FROM	#parts a
+	JOIN	ord_list b (NOLOCK)
+	ON		a.line_no = b.line_no
+	WHERE	b.order_no = @order_no
+	AND		b.order_ext = @order_ext
+	AND		b.part_type = 'C'
+
+	INSERT	#parts
+	SELECT	DISTINCT a.part_no, a.line_no, a.qty, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, a.is_free
+	FROM	#cfkits a
+
+	DELETE	a
+	FROM	#parts a
+	JOIN	#cfkits b
+	ON		a.line_no = b.line_no
+	AND		a.part_no = b.kit_part
+
+	DROP TABLE #cfkits	 
+	-- v1.8 End
 
 	-- Loop through lines and get details
 	SET @rec_key = 0

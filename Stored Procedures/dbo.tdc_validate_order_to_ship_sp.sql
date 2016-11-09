@@ -3,6 +3,7 @@ GO
 SET ANSI_NULLS ON
 GO
 -- v1.0 CB 23/04/2015 - Performance Changes   
+-- v1.1 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 CREATE PROC [dbo].[tdc_validate_order_to_ship_sp]	@stage_no        varchar(11),  
 												@order_no        INT,   
 												@order_ext       INT,  
@@ -26,7 +27,7 @@ BEGIN
 			@last_row_id	int
 	-- v1.0 End
    
-	SELECT @language = ISNULL((SELECT Language FROM tdc_sec (nolock) WHERE userid = (SELECT who FROM #temp_who)), 'us_english')  
+	SELECT @language = ISNULL((SELECT Language FROM tdc_sec (nolock) WHERE userid = (SELECT TOP 1 who FROM #temp_who)), 'us_english') -- v1.1
    
 	SELECT @order_and_ext = CAST(@order_no AS VARCHAR(50))  
 	IF @order_type <> 'T'  
