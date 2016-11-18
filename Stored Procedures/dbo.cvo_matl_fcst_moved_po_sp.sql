@@ -6,24 +6,30 @@ CREATE procedure [dbo].[cvo_matl_fcst_moved_po_sp]  @DateFrom DATETIME  , @DaysT
 
 as
 
--- exec cvo_matl_fcst_moved_po_sp '08/17/2016' 
+-- exec cvo_matl_fcst_moved_po_sp '11/9/2016' 
 
 -- 021815 - tag - only call out items where the shipment is not yet intransit
 -- 030615 -- incorporate new line level packing list setting
 -- 081816 -- tag - fix po date logic
+-- 111816 - tag - fix for when there multiple po changes for the same style with different dates.  pick the latest change.
 
 SET NOCOUNT ON
 
 declare @fromdate datetime, @days int, @bo_thresh int
 --select @fromdate = DATEADD(DAY,DATEDIFF(DAY,0,GETDATE()), -1) -- @DateFrom - yesterday
---select @days = 7 -- @DaysThresh
---select @bo_thresh = -50 -- @BOThresh
+
+--DECLARE @datefrom DATETIME, @daysthresh INT, @bothresh INT
+--SELECT @datefrom = '11/9/2016'
+--select @daysthresh = 7 -- @DaysThresh
+--select @bothresh = -50 -- @BOThresh
 
 select @fromdate = @DateFrom -- yesterday
 select @days =  @DaysThresh
 select @bo_thresh =  @BOThresh
 
 IF(OBJECT_ID('tempdb.dbo.#matlfcst') is not null)  drop table #matlfcst
+
+
   SELECT distinct po_a.date_field_from -- 9/23/2016 add distinct so that po's with multiple line entries don't report.  don't need them
 	  , po_a.date_field_to
 	  , i.category brand
@@ -41,6 +47,7 @@ IF(OBJECT_ID('tempdb.dbo.#matlfcst') is not null)  drop table #matlfcst
   and ( p.expedite_flag = 0 ) -- 021815
   GROUP BY pa.po_no
   having DATEDIFF(dd,MIN(CAST(field_from AS DATETIME)), MIN(CAST(field_to AS DATETIME))) > @Days
+  
   ) AS po_a
   inner join releases r (nolock) on r.po_no = po_a.po_no
   inner join pur_list pl (nolock) on pl.po_no = r.po_no and pl.part_no = r.part_no and pl.line=r.po_line
@@ -50,7 +57,6 @@ IF(OBJECT_ID('tempdb.dbo.#matlfcst') is not null)  drop table #matlfcst
   and type_code in ('frame','sun','bruit')
   and ( pl.plrecd = 0 ) -- 021815
   and r.location = '001' -- 031215 - qualify on location
-
 
 
   -- select datediff(dd, '6/15/2015', '7/15/2015')
@@ -145,19 +151,40 @@ exec cvo_matl_fcst_style_season_sp
 --SELECT @brand, @style
 --SELECT * FROM #mpo
 
+
+IF(OBJECT_ID('tempdb.dbo.#mfcst') is not null)  drop table #mfcst
+
+SELECT date_field_from ,
+       date_field_to ,
+       #matlfcst.brand ,
+       #matlfcst.style ,
+       po_no 
+INTO #mfcst
+FROM #matlfcst 
+JOIN
+(
+SELECT MAX(date_FIEld_to) max_date, brand, style 
+FROM #matlfcst 
+GROUP BY brand, style
+) max_date ON max_date.brand = #matlfcst.brand 
+AND max_date.style = #matlfcst.style 
+AND max_date.max_date = #matlfcst.date_field_to
+
+
 select #mpo.*,
 m.po_no, m.date_field_from date_from, m.date_field_to date_to
 From #mpo
 inner join 
 (
-select distinct #mpo.brand, #mpo.style from #mpo 
-inner join #matlfcst m on m.brand = #mpo.brand and m.style = #mpo.style
+select distinct #mpo.brand, #mpo.style 
+FROM #mpo 
+inner join #mfcst m on m.brand = #mpo.brand and m.style = #mpo.style
 where line_type = 'V' and quantity < @bo_thresh
 and #mpo.bucket between dateadd(mm,datediff(mm, 0, m.date_field_from), 0) and 
 						dateadd(mm,datediff(mm, 0, m.date_field_to), 0)
 ) 
 as x on x.brand = #mpo.brand and x.style = #mpo.style
-left outer join #matlfcst m on m.brand = #mpo.brand and m.style = #mpo.style
+left outer join #mfcst m on m.brand = #mpo.brand and m.style = #mpo.style
 
 
 

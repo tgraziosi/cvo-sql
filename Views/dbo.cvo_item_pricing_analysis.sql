@@ -76,13 +76,14 @@ END END as net_price,
    ELSE CASE WHEN cl.list_price = ol.curr_price THEN ROUND(cl.list_price - (cl.list_price * ol.discount/100),2)
       ELSE ROUND((ol.curr_price - ROUND(ol.curr_price * ol.discount/100,2 * ol.discount/100,2)),2,1) END
 
-END END ) * shipped AS ExtPrice,  
+END END ) * CASE WHEN o.type = 'i' THEN ol.shipped ELSE ol.cr_shipped END AS ExtPrice,  
 
 isnull(co.promo_id,'') promo_id,
 isnull(co.promo_level,'') promo_level,
 o.user_category,
 cl.promo_item, 
 cl.free_frame, 
+o.terms,
 'Posted' as source 
 FROM ord_list ol (NOLOCK)
 INNER JOIN orders o (NOLOCK) ON ol.order_no = o.order_no AND ol.order_ext = o.ext       
@@ -105,7 +106,7 @@ and x.trx_type in (2031,2032)
 AND x.DOC_DESC NOT LIKE 'CONVERTED%' AND x.doc_desc NOT LIKE '%NONSALES%'
 AND x.doc_ctrl_num NOT LIKE 'CB%' AND x.doc_ctrl_num NOT LIKE 'FIN%'
 and x.void_flag = 0 and x.posted_flag = 1
-and inv.type_code in ('frame','sun')
+-- and inv.type_code in ('frame','sun')
 --and CONVERT(DATETIME,DATEADD(D,X.DATE_APPLIED-711858,'1/1/1950'),101) between '10/1/2011' and '10/1/2012'
 --and (co.promo_id is null 
 --	or co.promo_id not in ('don','eag','eor','qop','eos','ff','survey','si','ca','sv','pc'))
@@ -179,13 +180,14 @@ END END as net_price,
    ELSE CASE WHEN cl.list_price = ol.curr_price THEN ROUND(cl.list_price - (cl.list_price * ol.discount/100),2)
       ELSE ROUND((ol.curr_price - ROUND(ol.curr_price * ol.discount/100,2 * ol.discount/100,2)),2,1) END
 
-END END ) * shipped AS ExtPrice,  
+END END ) * CASE WHEN o.type = 'i' THEN ol.shipped ELSE ol.cr_shipped END  AS ExtPrice,  
 
 isnull(co.promo_id,'') promo_id,
 isnull(co.promo_level,'') promo_level,
 o.user_category,
 cl.promo_item, 
 cl.free_frame, 
+o.terms,
 'UnPosted' as source 
 FROM ord_list ol (NOLOCK)
 INNER JOIN orders o (NOLOCK) ON ol.order_no = o.order_no AND ol.order_ext = o.ext       
@@ -208,7 +210,7 @@ and x.trx_type in (2031,2032)
 AND x.DOC_DESC NOT LIKE 'CONVERTED%' AND x.doc_desc NOT LIKE '%NONSALES%'
 AND x.doc_ctrl_num NOT LIKE 'CB%' AND x.doc_ctrl_num NOT LIKE 'FIN%'
 -- and x.void_flag = 0 and x.posted_flag = 1
-and inv.type_code in ('frame','sun')
+-- and inv.type_code in ('frame','sun')
 --and CONVERT(DATETIME,DATEADD(D,X.DATE_APPLIED-711858,'1/1/1950'),101) between '10/1/2011' and '10/1/2012'
 --and (co.promo_id is null 
 --	or co.promo_id not in ('don','eag','eor','qop','eos','ff','survey','si','ca','sv','pc'))
@@ -282,13 +284,14 @@ END END as net_price,
    ELSE CASE WHEN cl.list_price = ol.curr_price THEN ROUND(cl.list_price - (cl.list_price * ol.discount/100),2)
       ELSE ROUND((ol.curr_price - ROUND(ol.curr_price * ol.discount/100,2 * ol.discount/100,2)),2,1) END
 
-END END ) * shipped AS ExtPrice,  
+END END ) * CASE WHEN o.type = 'i' THEN ol.shipped ELSE ol.cr_shipped END  AS ExtPrice,  
 
 isnull(co.promo_id,'') promo_id,
 isnull(co.promo_level,'') promo_level,
 o.user_category,
 cl.promo_item,
 cl.free_frame,
+o.terms,
 'Open' as source 
 FROM ord_list ol (NOLOCK)
 INNER JOIN orders o (NOLOCK) ON ol.order_no = o.order_no AND ol.order_ext = o.ext       
@@ -312,7 +315,7 @@ and ol.status  <'T'
 --AND x.DOC_DESC NOT LIKE 'CONVERTED%' AND x.doc_desc NOT LIKE '%NONSALES%'
 --AND x.doc_ctrl_num NOT LIKE 'CB%' AND x.doc_ctrl_num NOT LIKE 'FIN%'
 --and x.void_flag = 0 and x.posted_flag = 1
-and inv.type_code in ('frame','sun')
+-- and inv.type_code in ('frame','sun')
 
 union all  
 -- History
@@ -361,6 +364,7 @@ isnull(o.user_def_fld9,'') as promo_level,
 o.user_category,
 'X' AS promo_item,
 0 AS free_frame,
+o.terms,
 'Hist' as source
 FROM CVO_ORDERS_ALL_HIST O (NOLOCK)    
 INNER JOIN CVO_ORD_LIST_HIST ol(NOLOCK) ON O.order_no = ol.order_no AND O.ext = ol.order_ext       
@@ -370,11 +374,12 @@ left outer JOIN inv_master inv (NOLOCK) ON OL.part_no = inv.part_no
 left outer JOIN inv_master_add inva (NOLOCK) ON ol.part_no = inva.part_no    
 left outer join part_price pp (nolock) on ol.part_no = pp.part_no   
 where 1=1
-and inv.type_code in ('frame','sun') 
+-- and inv.type_code in ('frame','sun') 
 --and o.date_shipped between '10/1/2011' and '10/1/2012'
 --and (o.user_def_fld3 is null 
 --	or o.user_def_fld3 not in ('don','eag','eor','qop','eos','ff','survey','si','ca','sv','pc'))
 --and user_category not in ('st-sa')
+
 
 
 

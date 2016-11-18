@@ -168,19 +168,19 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
 
 
         INSERT  #p
-        VALUES  ( 'revo', 'launch 1', '11/1/2015', 'REVO' );
+        VALUES  ( 'revo', 'launch 1', '10/1/2015', 'REVO' );
         INSERT  #p
-        VALUES  ( 'revo', 'launch 2', '11/1/2015', 'REVO' );
+        VALUES  ( 'revo', 'launch 2', '10/1/2015', 'REVO' );
         INSERT  #p
-        VALUES  ( 'revo', 'launch 3', '11/1/2015', 'REVO' );
+        VALUES  ( 'revo', 'launch 3', '10/1/2015', 'REVO' );
         INSERT  #p
-        VALUES  ( 'revo', '1', '11/1/2015', 'REVO' );
+        VALUES  ( 'revo', '1', '10/1/2015', 'REVO' );
         INSERT  #p
-        VALUES  ( 'revo', '2', '11/1/2015', 'REVO' );
+        VALUES  ( 'revo', '2', '10/1/2015', 'REVO' );
         INSERT  #p
-        VALUES  ( 'revo', '3', '11/1/2015', 'REVO' );
+        VALUES  ( 'revo', '3', '10/1/2015', 'REVO' );
 		INSERT  #p (PROMO_ID, PROMO_LEVEL, SDATE, PROGRAM)
-		SELECT PROMO_ID, PROMO_LEVEL, '11/1/2015', 'REVO'
+		SELECT PROMO_ID, PROMO_LEVEL, '10/1/2015', 'REVO'
 		FROM CVO_PROMOTIONS WHERE PROMO_ID = 'VE-REVO';
 
 --SELECT * FROM dbo.CVO_promotions
@@ -218,7 +218,7 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
                                  AND #p.promo_level = o.promo_level
         WHERE   1 = 1
                 AND o.date_entered BETWEEN #p.sdate AND @edate
-                AND o.who_entered <> 'backordr' -- 1/18/2016
+                AND o.who_entered <> 'backordr' -- 1/18/2016) -- don't count splits as extra programs
                 AND o.status <> 'V'; -- 110714 - exclude void orders
 
 -- SELECT * FROM #promotrkr AS p
@@ -293,8 +293,9 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
                                                         FROM  cvo_promo_override_audit poa
                                                         WHERE poa.order_no = t.order_no
                                                               AND poa.order_ext = t.ext )
+										AND t.ext = (SELECT MIN(ext) FROM orders o WHERE o.order_no = t.order_no AND o.status <> 'V') 
                                   THEN 1
-                                  ELSE 0
+					              ELSE 0
                              END
         FROM    #promotrkr t;
 
@@ -434,6 +435,7 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
 
 
     END;
+
 
 
 

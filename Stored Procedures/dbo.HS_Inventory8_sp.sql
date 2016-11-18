@@ -610,6 +610,13 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
         WHERE   SpecialtyFit = '1.3'
 		AND GETDATE() < '10/8/2016'; -- per KB - let them show up end of day Friday.
 
+
+-- plug for BCBG Danica, only to go to Centennial and Mexico
+        UPDATE  #Final
+        SET     hide = 1
+        WHERE   Model = 'Danica' AND COLL = 'bcbg'
+		; -- 11/17/2016
+
 -- SELECT * FROM dbo.cvo_hs_inventory_8 AS chi WHERE releasedate = '9/6/2016'
 			   
 -- 8/21/2015 - hide these until JB says to release
@@ -861,6 +868,7 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
 
 
 
