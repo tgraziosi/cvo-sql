@@ -39,6 +39,7 @@ CREATE TABLE #Rtns
 (row_id			int	IDENTITY(1,1),
  order_no		int,
  order_ext		int,
+ Invoice_no		VARCHAR(15),
  cust_code		varchar(8),
  trx_type		varchar(8),
  order_type		varchar(8),
@@ -65,6 +66,7 @@ CREATE INDEX rt3_idx ON #Rtns (cust_code, part_no)					--v2.0
 INSERT INTO #Rtns
 SELECT	l.order_no,
 		l.order_ext,
+		o.invoice_no, -- 11/18/2016 - per GP request
 		o.cust_code,
 		'Invoice' as trx_type,
 		o.user_category as order_type,
@@ -95,6 +97,7 @@ SELECT	l.order_no,
 		i.vendor,
 		'O',
 		c.list_price
+		
 FROM
 	orders o (NOLOCK), ord_list l (NOLOCK)
 	LEFT OUTER JOIN inv_master i (NOLOCK) ON l.part_no = i.part_no				-- v2.0
@@ -112,6 +115,7 @@ AND l.part_no = @sPart_no
 INSERT INTO #Rtns
 SELECT	l.order_no,
 		l.order_ext,
+		o.invoice_no,
 		substring(o.cust_code,1,8),
 		'Invoice' as trx_type,
 		o.user_category as order_type,
@@ -166,6 +170,7 @@ END
 INSERT INTO #Rtns
 SELECT	l.order_no,
 		l.order_ext,
+		o.invoice_no,
 		o.cust_code,
 		'Return' as trx_type,
 		' ' as order_type,
@@ -195,6 +200,7 @@ AND l.part_no = @sPart_no
 INSERT INTO #Rtns
 SELECT	l.order_no,
 		l.order_ext,
+		o.invoice_no,
 		Substring(o.cust_code,1,8),
 		'Return' as trx_type,
 		' ' as order_type,
@@ -244,16 +250,17 @@ END
 --
 If @whereclause > ' '
 BEGIN
-	SELECT @SQL = 'SELECT order_no,order_ext,cust_code,trx_type,order_type,date_shipped,shipped,part_no,price,List_Price,extended_price,YTD_sales,Return_code,pct_returns,location,vendor, x_date_shipped = date_shipped FROM #Rtns '+@whereclause
+	SELECT @SQL = 'SELECT order_no,order_ext,invoice_no,cust_code,trx_type,order_type,date_shipped,shipped,part_no,price,List_Price,extended_price,YTD_sales,Return_code,pct_returns,location,vendor, x_date_shipped = date_shipped FROM #Rtns '+@whereclause
 END
 ELSE
 BEGIN
-	SELECT @SQL = 'SELECT order_no,order_ext,cust_code,trx_type,order_type,date_shipped,shipped,part_no,price,List_Price,extended_price,YTD_sales,Return_code,pct_returns,location,vendor, x_date_shipped = date_shipped FROM #Rtns '
+	SELECT @SQL = 'SELECT order_no,order_ext,invoice_no,cust_code,trx_type,order_type,date_shipped,shipped,part_no,price,List_Price,extended_price,YTD_sales,Return_code,pct_returns,location,vendor, x_date_shipped = date_shipped FROM #Rtns '
 END
 
 EXEC (@SQL)
 --
 --
+
 GO
 GRANT EXECUTE ON  [dbo].[CVO_Returns_vw] TO [public]
 GO

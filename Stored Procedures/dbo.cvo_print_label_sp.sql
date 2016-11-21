@@ -43,9 +43,9 @@ END
   
 DECLARE Input_Prompt_Cursor CURSOR FOR  
 SELECT  format_id, input_prompt_count,   
- ISNULL(input_prompt_select_0,''), ISNULL(input_prompt_select_1,''), ISNULL(input_prompt_select_2,''), ISNULL(input_prompt_select_3,''),   
- ISNULL(input_prompt_select_4,''), ISNULL(input_prompt_select_5,''), ISNULL(input_prompt_select_6,''), ISNULL(input_prompt_select_7,''),   
- ISNULL(input_prompt_select_8,''), ISNULL(input_prompt_select_9,''), input_prompt_result_0, input_prompt_result_1,  
+ input_prompt_select_0, input_prompt_select_1, input_prompt_select_2, input_prompt_select_3,   
+ input_prompt_select_4, input_prompt_select_5, input_prompt_select_6, input_prompt_select_7,   
+ input_prompt_select_8, input_prompt_select_9, input_prompt_result_0, input_prompt_result_1,  
  input_prompt_result_2, input_prompt_result_3, input_prompt_result_4, input_prompt_result_5,   
  input_prompt_result_6, input_prompt_result_7, input_prompt_result_8, input_prompt_result_9  
    FROM tdc_label_format_control (NOLOCK)   
@@ -262,7 +262,6 @@ IF @label_printed > 0
  RETURN 0  
 ELSE  
  RETURN -1  
-
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_print_label_sp] TO [public]

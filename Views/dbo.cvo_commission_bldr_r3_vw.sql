@@ -8,10 +8,11 @@ GO
 -- Author = TG - rewrite of cvo_commission_bldr_vw
 -- 12/2015 - allow for multiple commission rates on an order/invoice
 -- 10/2016 - add AR Only INvoice/Credits
+-- 11/2016 - add installments to show correct category/brand
 
 -- 
 /*
-	SELECT c.*	From cvo_commission_bldr_r2_vw c where order_no = 2935365
+	SELECT c.*	From cvo_commission_bldr_r3_vw c where order_no = 2935365
 		WHERE DateShipped between dbo.adm_get_pltdate_f('10/1/2016') AND dbo.adm_get_pltdate_f('10/31/2016') -- and brand <> 'core' and order_no = 2935365
 */
 
@@ -407,6 +408,7 @@ and x.void_flag <> 1     --v2.0
                              ELSE 0
                         END) ext_comm_sales
           FROM      dbo.cvo_item_pricing_analysis AS ipa (NOLOCK)
+		  
           GROUP BY  CASE WHEN ipa.category IN ( 'REVO', 'BT', 'LS' ) THEN ipa.category
                          ELSE 'CORE'
                     END ,
@@ -518,6 +520,7 @@ and x.void_flag <> 1     --v2.0
                              ELSE 0
                         END) ext_comm_sales
           FROM      dbo.cvo_item_pricing_analysis AS ipa (NOLOCK)
+		  
           GROUP BY  CASE WHEN ipa.category IN ( 'REVO', 'BT', 'LS' ) THEN ipa.category
                          ELSE 'CORE'
                     END ,
