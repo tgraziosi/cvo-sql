@@ -16,9 +16,17 @@ AS
         SET NOCOUNT ON;
 
 --Backup Old File 
-        DROP TABLE CVO_HS_INVENTORY_QTYUPD_OLD;
-        SELECT  *
-        INTO    CVO_HS_INVENTORY_QTYUPD_OLD
+        truncate TABLE CVO_HS_INVENTORY_QTYUPD_OLD;
+        INSERT INTO CVO_HS_INVENTORY_QTYUPD_OLD
+		SELECT sku ,
+               ItemType ,
+               ShelfQty ,
+               WarningLevel ,
+               IsAvailable ,
+               RestockDate ,
+               isSynced ,
+               Diff ,
+               OldShelfQty
         FROM    CVO_HS_INVENTORY_QTYUPD;
 -- select * from CVO_HS_INVENTORY_QTYUPD_OLD
 -- Update Handshake Inventory Qty's
@@ -150,6 +158,7 @@ SELECT * FROM CVO_HS_INVENTORY_QTYUPD where IsAvailable = 1 and shelfQty < 5 ord
 
 -- EXEC HS_Inventory_QtyUpd_SP
     END;
+
 
 
 

@@ -6,7 +6,7 @@ CREATE PROCEDURE [dbo].[cvo_desig_rebate_tracker_sp] @sdate DATETIME, @edate DAT
 AS 
 BEGIN
 
--- exec cvo_desig_rebate_tracker_sp '1/1/2016', '5/1/2016'
+-- exec cvo_desig_rebate_tracker_sp '1/1/2016', '11/20/2016', '40438'
 
 
 -- DECLARE @sdate DATETIME, @edate DATETIME, @today DATETIME, @terr VARCHAR(1024)
@@ -94,10 +94,14 @@ LEFT OUTER JOIN
 (
 SELECT RIGHT(ccdc.customer_code,5) mergecust,
 ccdc.code, ccdc.description, ccdc.start_date,
-SUM(ISNULL(asales,0)) grosssales,
-SUM(ISNULL(anet,0)) netsales, 
+-- 11/21/2016 - exclude exc returns from gross sales
+SUM(ISNULL(sbm.asales,0)) - SUM(ISNULL((CASE WHEN return_code='exc' THEN sbm.areturns ELSE 0 end),0)) grosssales, 
+SUM(ISNULL(sbm.anet,0)) netsales, 
 SUM(CASE WHEN ISNULL(sbm.return_code,'') = '' THEN ISNULL(sbm.areturns,0) ELSE 0 END) rareturns,
-SUM(CASE WHEN ISNULL(yyyymmdd,@edate) >= ISNULL(ccdc.start_date,ISNULL(yyyymmdd,@edate)) THEN ISNULL(asales,0) ELSE 0 end) desig_grosssales,
+  SUM(CASE WHEN ISNULL(yyyymmdd,@edate) >= ISNULL(ccdc.start_date,ISNULL(yyyymmdd,@edate)) THEN ISNULL(asales,0) ELSE 0 end) 
+-- 11/21/2016 - exclude exc returns from gross sales 
+- SUM(CASE WHEN ISNULL(yyyymmdd,@edate) >= ISNULL(ccdc.start_date,ISNULL(yyyymmdd,@edate)) AND sbm.return_code = 'exc' THEN ISNULL(areturns,0) ELSE 0 end) 
+desig_grosssales, 
 SUM(CASE WHEN ISNULL(yyyymmdd,@edate) >= ISNULL(ccdc.start_date,ISNULL(yyyymmdd,@edate)) THEN ISNULL(anet,0) ELSE 0 end) desig_netsales,
 SUM(CASE WHEN ISNULL(yyyymmdd,@edate) >= ISNULL(ccdc.start_date,ISNULL(yyyymmdd,@edate)) AND ISNULL(sbm.return_code,'') = '' THEN ISNULL(sbm.areturns,0) ELSE 0 end) desig_rareturns
 from
@@ -149,6 +153,7 @@ AND t.region IS NOT NULL
 -- SELECT * FROM dbo.cvo_designation_codes AS ccdc
 
 END
+
 
 
 

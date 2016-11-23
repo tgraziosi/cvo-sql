@@ -3,7 +3,7 @@ GO
 SET ANSI_NULLS ON
 GO
 
-create FUNCTION [dbo].[f_cvo_calc_weekly_usage_coll] (@usg_option CHAR(1)= 's', @coll VARCHAR(20) = null)
+CREATE FUNCTION [dbo].[f_cvo_calc_weekly_usage_coll] (@usg_option CHAR(1)= 's', @coll VARCHAR(20) = null)
 	RETURNS @usage TABLE
 	(location VARCHAR(12), part_no VARCHAR(40)
 	, usg_option CHAR(1), asofdate datetime
@@ -110,7 +110,7 @@ select * from dbo.f_cvo_calc_weekly_usage ('O')
                                                           AND o.ext = ol.order_ext
 						INNER JOIN dbo.CVO_orders_all co (NOLOCK) ON co.ext = o.ext 
 														  AND co.order_no = o.order_no
-              WHERE     i.category = @coll
+              WHERE     i.category = CASE WHEN @coll IS NULL THEN i.category ELSE @coll end
 						AND o.status <> 'V'
                         -- AND o.date_entered >= @w52
 						AND (CASE WHEN @usg_option = 's' THEN o.date_shipped ELSE ISNULL(co.allocation_date,o.date_entered) END) BETWEEN @w52 AND @asofdate

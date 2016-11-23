@@ -46,7 +46,7 @@ CASE status_type WHEN '1' THEN 'Active'
     limit_by_home,
     t1.tax_code, 
     ISNULL(t1.resale_num, '') AS ReSaleCert, 
-    t1.url,
+    dbo.cvo_fn_rem_crlf(t1.url) url,
     t1.so_priority_code, 
     ISNULL(t1.ftp, '') AS BG_Acct_#, 
     ISNULL(t3.parent, '') AS 'PARENT/BG', isnull(contact_name,'') Contact_name, 
@@ -62,6 +62,7 @@ FROM dbo.armaster AS t1 WITH (nolock)
 	 LEFT OUTER JOIN CVO_CONTROL..SMUSERS T4 ON rtrim(T1.modified_by_user_name)=cast(T4.USER_ID as varchar(30))
 	 LEFT OUTER JOIN CVO_CONTROL..SMUSERS T5 ON rtrim(T1.added_by_user_name)=cast(T5.USER_ID as varchar(30))
 --WHERE     (t1.address_type = '0')   --7/2/14 EL updated to add ship_to's
+
 
 GO
 GRANT CONTROL ON  [dbo].[CVO_ARMaster_DataView_vw] TO [public]

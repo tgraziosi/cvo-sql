@@ -3,7 +3,7 @@ GO
 SET ANSI_NULLS ON
 GO
 
--- exec cvo_line_sheets_sp 'bcbg'
+-- exec cvo_line_sheets_sp 'op,bt,as'
 
 CREATE procedure [dbo].[cvo_Line_sheets_sp] 
 --@startdate datetime, 
@@ -478,7 +478,7 @@ order by category, type_code, style, pom_date
 -- final select 
 
 select distinct -- get cmi stuff 
---	isnull(i.variant_release_date,ISNULL(i.release_date,'')) release_date,
+    ISNULL(i.variant_release_date,ISNULL(i.release_date,'')) release_date,
 	case when isnull(i.print_flag,'') = '' then 'Unknown' ELSE i.print_flag end as  print_flag,
 	i.web_saleable_flag,
 	null as pom_date,
@@ -558,7 +558,12 @@ select distinct -- get cmi stuff
 	isnull(i.dim_asterisk_1,'') as asterisk_3,
 	isnull(i.dim_asterisk_2,'') as asterisk_4,
 	isnull(i.spare_temple_length,'') spare_temple_length,
-	isnull(i.temple_tip_material,'') as temple_tip_material
+	isnull(i.temple_tip_material,'') as temple_tip_material,
+	PaginationKey = CASE WHEN i.Collection IN ('OP','IZOD','BT','SM') THEN 
+						CASE WHEN i.PrimaryDemographic IN ('women','men')
+						 THEN 'Adult'
+						ELSE 'Kids' END
+					ELSE i.RES_type end
 	, l.source
 
 from cvo_cmi_catalog_view i (nolock)
@@ -572,7 +577,7 @@ and l.source = 'cmi'
 union all
 
 select distinct  -- from Epicor Database
---	isnull(ia.field_26,'') as release_date,
+    isnull(ia.field_26,'') as release_date,
 	'Unknown' as print_flag,
 	--i.upc_code,
 	i.web_saleable_flag,
@@ -658,7 +663,12 @@ select distinct  -- from Epicor Database
 	isnull(l.asterisk_3,'') asterisk_3,
 	isnull(l.asterisk_4,'') asterisk_4,
 	isnull(l.spare_temple_length,'') spare_temple_length,
-	isnull(l.temple_tip_material,'') temple_tip_material
+	isnull(l.temple_tip_material,'') temple_tip_material,
+	PaginationKey = CASE WHEN i.category IN ('OP','IZOD','BT','SM') THEN 
+						CASE WHEN (SELECT TOP (1) description from cvo_gender where kys = ia.category_2) IN ('women','men')
+						 THEN 'Adult'
+						ELSE 'Kids' END
+					ELSE i.type_code end
 	, l.source
 
 -- into #final
@@ -676,6 +686,7 @@ and l.source = 'cvo'
 
    
 END
+
 
 
 

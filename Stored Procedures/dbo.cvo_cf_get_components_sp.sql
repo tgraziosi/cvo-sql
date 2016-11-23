@@ -634,6 +634,28 @@ BEGIN
 				AND		d.void = 'N'
 				AND		e.part_no = @order_part_no
 				AND		f.repl_component IS NULL -- v1.3
+
+				-- v1.8 Start	
+				INSERT	#cvo_cf_process_select (user_spid, location, order_part_type, order_part_no, line_no, orig_row, component_type, orig_component, repl_component, comp_desc, 
+							required_qty, available_qty, attribute, category, style, show_all_styles, all_type, colour, size_code, selected)
+				SELECT	@user_spid, @location, @order_part_type, @order_part_no, @line_no, @orig_row, b.category_3, '',
+						b.part_no, a.description, 0, 0, ISNULL(b.field_32,''), a.category, b.field_2, 1, 1, ISNULL(b.field_3,''), ISNULL(b.field_8,''), 0 -- v1.5
+				FROM	inv_master a (NOLOCK)
+				JOIN	inv_master_add b (NOLOCK)
+				ON		a.part_no = b.part_no
+				JOIN	cvo_alternate_attributes c (NOLOCK)
+				ON		b.field_32 = c.attributes
+				JOIN	category_3 d (NOLOCK)
+				ON		b.category_3 = d.category_code
+				LEFT JOIN #cvo_cf_process_select f -- v1.3
+				ON		a.part_no = f.repl_component -- v1.3
+				WHERE	c.part_no = @order_part_no	
+				AND		a.void = 'N'
+				AND		d.cf_process = 'Y'
+				AND		d.void = 'N'
+				AND		f.repl_component IS NULL -- v1.3
+				-- v1.8 End
+
 			
 				SET @alternate_done = 1
 
@@ -670,6 +692,27 @@ BEGIN
 					AND		d.void = 'N'
 					AND		e.part_no = @order_part_no
 					AND		f.repl_component IS NULL -- v1.3
+			
+					-- v1.8 Start
+					INSERT	#cvo_cf_process_select (user_spid, location, order_part_type, order_part_no, line_no, orig_row, component_type, orig_component, repl_component, comp_desc, 
+								required_qty, available_qty, attribute, category, style, show_all_styles, all_type, colour, size_code, selected)
+					SELECT	@user_spid, @location, @order_part_type, @order_part_no, @line_no, @orig_row, b.category_3, '',
+							b.part_no, a.description, e.qty, 0, ISNULL(b.field_32,''), a.category, b.field_2, 1, 2, ISNULL(b.field_3,''), ISNULL(b.field_8,''), 0 -- v1.5
+					FROM	inv_master a (NOLOCK)
+					JOIN	inv_master_add b (NOLOCK)
+					ON		a.part_no = b.part_no
+					JOIN	cvo_alternate_attributes c (NOLOCK)
+					ON		b.field_32 = c.attributes
+					JOIN	category_3 d (NOLOCK)
+					ON		b.category_3 = d.category_code
+					LEFT JOIN #cvo_cf_process_select f -- v1.3
+					ON		a.part_no = f.repl_component -- v1.3
+					WHERE	c.attribute_key = @attribute
+					AND		a.void = 'N'
+					AND		d.cf_process = 'Y'
+					AND		d.void = 'N'
+					AND		f.repl_component IS NULL -- v1.3
+					-- v1.8 End
 
 					SET @alternate_done = 1
 				END

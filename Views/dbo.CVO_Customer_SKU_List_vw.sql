@@ -6,21 +6,37 @@ GO
 
 CREATE VIEW [dbo].[CVO_Customer_SKU_List_vw]
 AS
-SELECT    TOP (100) PERCENT  t1.category AS Collection, t1.part_no AS ItemCode, t2.field_2 AS Model, t1.Type_code as Type, t1.cmdty_code AS Material, t2.category_2 AS demographic, 
-                      t3.price_a AS ListPrice, CONVERT(varchar, t2.field_26, 101) AS ReleaseDate, t2.field_3 AS Color, LEFT(t2.field_17, 2) + '/' + t2.field_6 + '/' + t2.field_8 AS Size, 
-                      t1.upc_code
-FROM         dbo.inv_master AS t1 WITH (nolock) 
-					INNER JOIN dbo.inv_master_add AS t2 WITH (nolock) ON t1.part_no = t2.part_no 
-					INNER JOIN dbo.part_price AS t3 WITH (nolock) ON t1.part_no = t3.part_no
-					inner join inv_list inv (nolock) on inv.part_no = t1.part_no 
-WHERE      t2.field_26 < GETDATE()+30 AND 
-			inv.location = '001' AND
-			( (t1.type_code IN ('sun', 'frame')) AND (t2.field_28 > GETDATE()) OR
-              (t1.type_code IN ('sun', 'frame')) AND (t2.field_28 IS NULL) )
+    SELECT TOP ( 100 ) PERCENT
+            t1.category AS Collection ,
+            t1.part_no AS ItemCode ,
+            t2.field_2 AS Model ,
+            t1.type_code AS Type ,
+            t1.cmdty_code AS Material ,
+            t2.category_2 AS demographic ,
+            t3.price_a AS ListPrice ,
+            CONVERT(VARCHAR, t2.field_26, 101) AS ReleaseDate ,
+            t2.field_3 AS Color ,
+            LEFT(t2.field_17, 2) + '/' + t2.field_6 + '/' + t2.field_8 AS Size ,
+			ISNULL(t2.field_23,'') AS Sun_Lens_Color, -- 11/21/2016 - add for suns
+            t1.upc_code
+    FROM    dbo.inv_master AS t1 WITH ( NOLOCK )
+            INNER JOIN dbo.inv_master_add AS t2 WITH ( NOLOCK ) ON t1.part_no = t2.part_no
+            INNER JOIN dbo.part_price AS t3 WITH ( NOLOCK ) ON t1.part_no = t3.part_no
+            INNER JOIN inv_list inv ( NOLOCK ) ON inv.part_no = t1.part_no
+    WHERE   t2.field_26 < GETDATE() + 30
+            AND inv.location = '001'
+            AND ( ( t1.type_code IN ( 'sun', 'frame' ) )
+                  AND ( t2.field_28 > GETDATE() )
+                  OR ( t1.type_code IN ( 'sun', 'frame' ) )
+                  AND ( t2.field_28 IS NULL )
+                )
 
 -- tag - 082312 - exclude voided items
-			and t1.void <> 'V'
-ORDER BY Collection, Model, ItemCode
+            AND t1.void <> 'V'
+    ORDER BY Collection ,
+            Model ,
+            ItemCode;
+
 
 GO
 GRANT CONTROL ON  [dbo].[CVO_Customer_SKU_List_vw] TO [public]
