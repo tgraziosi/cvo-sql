@@ -22,7 +22,7 @@ BEGIN
 
 	-- Working Tables
 	CREATE TABLE #cvo_ship_process (
-		row_id			int,
+		row_id			int IDENTITY(1,1), -- v1.1
 		order_no		int,
 		order_ext		int,
 		trx_ctrl_num	varchar(16),
@@ -30,8 +30,9 @@ BEGIN
 		territory		varchar(10))
 		
 	-- Get the records to process
-	INSERT	#cvo_ship_process (row_id, order_no, order_ext, trx_ctrl_num, salesperson, territory)
-	SELECT	row_id, 
+-- v1.1	INSERT	#cvo_ship_process (row_id, order_no, order_ext, trx_ctrl_num, salesperson, territory)
+	INSERT	#cvo_ship_process (order_no, order_ext, trx_ctrl_num, salesperson, territory) -- v1.1
+	SELECT	-- v1.1row_id, 
 			order_no, 
 			order_ext, 
 			'', 
@@ -52,6 +53,25 @@ BEGIN
 	FROM	#cvo_ship_process a
 	JOIN	arinpchg b (NOLOCK)
 	ON		(CAST(a.order_no as varchar(20)) + '-' + CAST(a.order_ext as varchar(10))) = b.order_ctrl_num
+
+	-- v1.1 Start
+	INSERT	#cvo_ship_process (order_no, order_ext, trx_ctrl_num, salesperson, territory)
+	SELECT	a.order_no, a.order_ext, b.trx_ctrl_num, a.salesperson, a.territory
+	FROM	#cvo_ship_process a
+	LEFT JOIN artrx b (NOLOCK)
+	ON		(CAST(a.order_no as varchar(20)) + '-' + CAST(a.order_ext as varchar(10))) = b.order_ctrl_num
+	WHERE	a.trx_ctrl_num <> b.trx_ctrl_num
+
+	INSERT	#cvo_ship_process (order_no, order_ext, trx_ctrl_num, salesperson, territory)
+	SELECT	a.order_no, a.order_ext, b.trx_ctrl_num, a.salesperson, a.territory
+	FROM	#cvo_ship_process a
+	LEFT JOIN arinpchg b (NOLOCK)
+	ON		(CAST(a.order_no as varchar(20)) + '-' + CAST(a.order_ext as varchar(10))) = b.order_ctrl_num
+	WHERE	a.trx_ctrl_num <> b.trx_ctrl_num
+	-- v1.1 End
+
+select * from #cvo_ship_process
+
 
 	-- Update the records
 	SET @last_row_id = 0
