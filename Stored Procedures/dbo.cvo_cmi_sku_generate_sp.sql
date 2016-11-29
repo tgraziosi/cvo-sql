@@ -19,7 +19,7 @@ BEGIN
 -- generate sku's from cmi into epicor
 --  
 -- 
--- exec [cvo_cmi_sku_generate_sp] 'REVO', 'PAXTON', NULL, null, '2/21/2017','N', 1
+-- exec [cvo_cmi_sku_generate_sp] 'et', 'brisbane', NULL, null, '1/24/2017','N', 1
 
 -- exec [cvo_cmi_sku_generate_sp] 'IZOD', '2028', NULL, null, '02/21/2017','N', 1
 
@@ -27,6 +27,7 @@ BEGIN
 -- 6/8/2016 - fixup hang tag and upc parts for retail sku's.  
 -- 10/04/2016 - change logic for sunlenses
 -- 10/5/2016 - COST AND PRICE FOR SUN LENSES
+-- 11/23/2016 - update for patterns so they get into the right account code
 
 SET XACT_ABORT, NOCOUNT ON;
 
@@ -899,7 +900,7 @@ SELECT DISTINCT
         PrimaryDemographic =  CAST(c.PrimaryDemographic AS VARCHAR(15)) ,
         target_age = CAST(c.target_age AS varchar(15)),
         c.eye_shape ,
-        res_type = CASE WHEN pl.part_type IN ( 'bruit', 'pattern' ) THEN pl.part_type
+        res_type = CASE -- WHEN pl.part_type IN ( 'bruit', 'pattern' ) THEN pl.part_type -- 11/23/2016
 						WHEN PL.PART_TYPE IN ('HANGTAG','UPC') THEN 'OTHER'
                         ELSE c.[RES_type]
                    END ,
@@ -1566,7 +1567,9 @@ INSERT  #i
 									) END
 						 , '')  ,
                 category = UPPER(LEFT(c.Collection, 10)) ,
-                type_code = CASE WHEN c.part_type IN ( 'bruit', 'frame', 'frame only', 'pattern' ) THEN LEFT(c.res_type, 10)
+                type_code = CASE WHEN c.part_type IN ('bruit','pattern') THEN c.part_type -- 11/23/2016
+								 -- WHEN c.part_type IN ( 'bruit', 'frame', 'frame only', 'pattern' ) THEN LEFT(c.res_type, 10)
+								 WHEN c.part_type IN ( 'frame', 'frame only') THEN LEFT(c.res_type, 10)
 								 WHEN c.part_type IN ('hangtag','upc') THEN 'OTHER'
                                  ELSE 'PARTS'
                             END ,
@@ -2326,6 +2329,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

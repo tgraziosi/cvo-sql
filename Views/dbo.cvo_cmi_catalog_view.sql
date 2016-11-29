@@ -108,6 +108,8 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	, ISNULL(	CASE WHEN d.dim_release_date='1/1/1900' THEN NULL ELSE d.dim_release_date END, bm.release_date) dim_release_date
 	, bm.model_lead_time
 	, ISNULL(d.dim_lens_color, v.lens_color) lens_color
+	, i.pom_date
+	, i.part_no sku
 
 
 	FROM 
@@ -122,6 +124,8 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 		--AND d.eye_size =  i.eye_size AND v.color = i.colorname
 	
 	WHERE v.isActive = 1
+
+
 
 
 

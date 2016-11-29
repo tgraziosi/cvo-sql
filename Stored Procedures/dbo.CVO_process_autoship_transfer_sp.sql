@@ -19,6 +19,10 @@ Step values:
 3 = Awaiting carton ship
 4 = Complete
 5 = Autoship no longer checked on transfer/transfer void
+select * From cvo_autoship_transfer
+update cvo_autoship_transfer set proc_step = 1, error_no = 0, processed = 0 where xfer_no = 125705
+exec cvo_process_autoship_transfer_sp
+
 */
 CREATE PROC [dbo].[CVO_process_autoship_transfer_sp]
 AS
@@ -181,6 +185,7 @@ BEGIN
 		END
 	END
 END	
+
 
 GO
 GRANT EXECUTE ON  [dbo].[CVO_process_autoship_transfer_sp] TO [public]

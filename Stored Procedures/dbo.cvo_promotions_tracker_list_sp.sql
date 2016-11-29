@@ -2,7 +2,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[cvo_promotions_tracker_Subs_list_sp]
+CREATE PROCEDURE [dbo].[cvo_promotions_tracker_list_sp]
     @group_name VARCHAR(50) ,
     @terr VARCHAR(5000) = NULL
 
@@ -14,7 +14,7 @@ CREATE PROCEDURE [dbo].[cvo_promotions_tracker_Subs_list_sp]
 AS
     BEGIN
 
-	-- exec cvo_promotions_tracker_subs_list_sp 'SalesTeam', null
+	-- exec cvo_promotions_tracker_list_sp 'SalesTeam', null
 
         SET NOCOUNT ON;
         SET ANSI_WARNINGS OFF;
@@ -149,6 +149,8 @@ AS
               wk_Begindate VARCHAR(30) ,
               wk_EndDate VARCHAR(30) ,
               subscription_id INT ,
+			  subs_promo varchar(1024),
+			  subs_promoLevel VARCHAR(1024),
               sdate DATETIME ,
               edate DATETIME
             );
@@ -230,6 +232,8 @@ AS
                                 t.wk_Begindate ,
                                 t.wk_EndDate ,
                                 @seq ,
+								@Promo,
+								@PromoLevel,
                                 @sdate ,
                                 @edate
                         FROM    #temptable AS t;
@@ -299,6 +303,8 @@ AS
                 t.wk_Begindate ,
                 t.wk_EndDate ,
                 t.subscription_id ,
+				t.subs_promo,
+				t.subs_promoLevel,
                 t.sdate ,
                 t.edate
         FROM    #final AS t; 
