@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -84,6 +83,7 @@ BEGIN
 				else 'Op-Ocean Pacific Collection' end
 			when 'PT' then 'Puriti Collection' -- 2/2014
 			when 'RR' then 'Red Raven'	-- 040915
+			WHEN 'SM' THEN 'Steve Madden' -- 120216
 			else '**Undefined**' end
 			
 	  when 'sun' then
@@ -99,6 +99,7 @@ BEGIN
 			when 'OP' then 'Op-Ocean Pacific Sunglass Collection'
 			when 'PT' then 'Puriti Sunglass Collection'
 			WHEN 'REVO' THEN 'REVO Sunglass Collection'
+			WHEN 'SM' THEN 'Steve Madden'
 			else '**Undefined**' end
 	  end,
 	-- E 
@@ -124,6 +125,7 @@ BEGIN
 		when 'PT' then '6435' -- 02/2014
 		when 'RR' then '8212' -- 05/27/2014
 		WHEN 'REVO' THEN '8353' -- 10/16/2015
+		WHEN 'SM' THEN '8506' -- 120216
 	else '**Undefined**' END AS VARCHAR(20)),
 	--  F
 	Status = 'A',
@@ -173,31 +175,30 @@ BEGIN
 	cast(ISNULL(cmi.eye_size,ISNULL(ia.field_17,0)) as VARCHAR(5)) as Eye_Size,
 	-- N
 	--cast(ia.field_19 as int) as A,
-	' ' as A,
-	-- cast(cmi.a_size as int) as A,
+	--' ' as A,
+	cast(ISNULL(cmi.a_size,ISNULL(ia.field_19,0)) as int) as A,
 	-- O
 	--cast(ia.field_20 as int) as B,
-	' ' as B,
-	-- cast(cmi.b_size as int) as B,
+	--' ' as B,
+	cast(ISNULL(cmi.b_size,ISNULL(ia.field_20,0)) as int) as B,
 	-- P
 	--cast(ia.field_21 as int) as ED,
-	' ' as ED,
-	-- cast(cmi.ed_size as int) as ED, 
+	--' ' as ED,
+	cast(ISNULL(cmi.ed_size,ISNULL(ia.field_21,0)) as int) as ED, 
 	-- Q
 	' ' as ED_Angle,
 	-- R
 	-- ia.field_8 as Temple_length,
 	Temple_length = 
-	CAST(
-	CASE WHEN cmi.temple_size IS NULL THEN ISNULL(ia.field_8,'') ELSE cmi.temple_size END AS VARCHAR(10)
+	CAST(ISNULL(cmi.temple_size,ISNULL(ia.field_8,'')) AS VARCHAR(10)
 	),
 	-- S
 	-- ia.field_6 as Bridge_Size,
 	CAST (ISNULL(cmi.dbl_size, ISNULL(ia.field_6,'')) AS VARCHAR(10)) as Bridge_Size,
-
 	-- T
-	-- cmi.dbl_size as DBL,
-	'' as DBL,
+	cast (ISNULL(cmi.dbl_size, ISNULL(ia.field_6,0)) AS DECIMAL) AS DBL,
+	-- '' as DBL,
+	' ' AS STS, --120216 - for proofing version
 	-- U
 	'' as Circumference,
 	-- V
@@ -268,7 +269,7 @@ BEGIN
 	Sun_lens_description = 
 	case when i.type_code = 'sun' 
 		then isnull(ia.field_23,'????')
-		else '' end,
+		else ' ' end,
 	--AI
 	' ' as Trim_type,
 	-- AJ 
@@ -281,6 +282,7 @@ BEGIN
 	' ' as sideshields_type,
 	-- AN
 	' ' as Side_Shields_Description,
+	' ' AS EdgeType, -- 120216
 	-- AO
 	Case_type = 
 	case i.category 
@@ -380,7 +382,8 @@ BEGIN
 	--BI
 	'' as warranty_type,
 	--BJ
-	'' as Warranty_description
+	'' as Warranty_description,
+	'' AS Radii -- 120216
 
 	INTO #framesdatalist
 	from #brand b 
@@ -399,16 +402,13 @@ BEGIN
 	AND ISNULL(ia.field_28,GETDATE()) > '1/1/2010'
 	order by i.part_no
 
-	SELECT * FROM #framesdatalist
+	SELECT *
+	FROM #framesdatalist
 
 	-- tempdb..sp_help #framesdatalist
 
 END
 
-
-
-
-SELECT * FROM dbo.cvo_cmi_catalog_view AS cccv WHERE cccv.upc_code LIKE '886453%' AND cccv.Collection = 'revo'
 GO
 
 

@@ -28,6 +28,7 @@ GO
 -- 9/2/2016 - tweeks for 9/6 release and VEW 2016 - hide all releases, not already APR until 9/9
 -- 9/8/2016 - tweeks for VEW
 -- 10/7/2016 - set up me selldown
+-- 11/30/2016 - include all HSPOP POP items, regardless of release date
 -- =============================================
 
 CREATE PROCEDURE [dbo].[HS_Inventory8_sp]
@@ -296,11 +297,13 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                          ) -- add Lonestar
                     )
                 AND ( I.type_code IN ( 'SUN', 'FRAME' )
-                      OR ISNULL(field_36, '') = 'HSPOP'
+                      OR  'HSPOP' = ISNULL(field_36, '') 
                     )
   -- 6/29/2015 - set to 1 day.  was 11.  have no idea why
+  -- release date quallifications go here
                 AND ( field_26 <= DATEADD(D, 1, @today)
                       OR #apr.sku IS NOT NULL
+					  OR ('hspop' = ISNULL(field_36,'') AND I.type_code = 'POP')  -- include POP regardless of release date as long has HSPOP tag is set - 11/29/2016
 					  OR i.category = 'LS' -- 9/27/2016
                       OR ( field_26 = '4/26/2016'
                            AND category <> 'AS'
@@ -868,6 +871,7 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
 
 
 

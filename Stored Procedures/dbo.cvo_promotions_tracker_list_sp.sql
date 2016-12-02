@@ -164,7 +164,7 @@ AS
             BEGIN
 				
                 SELECT  @Promo = promo_id ,
-                        @PromoLevel = promo_level ,
+                        @PromoLevel = CASE WHEN promo_level='' THEN NULL ELSE promo_level end,
                         @sdate = start_date ,
                         @edate = ISNULL(END_date, GETDATE()),
 						@seq = seq_id
@@ -310,6 +310,7 @@ AS
         FROM    #final AS t; 
 	   
     END;
+
 
 
 
