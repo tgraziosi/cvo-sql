@@ -835,6 +835,7 @@ v1.9	CT	16/09/2014	Issue #1483 - Promo hold reason
 v2.0	CB	26/02/2015  Do no apply promo hold if update is from the release of stock consolidation orders
 v2.1	CB	05/03/2015	Do not apply promo hold if order is a rebill
 v2.2	CB  24/04/2015  If RB is resaved with bg set ensure data is updated in cvo_rb_data
+v2.3	CB	27/10/2016 - #1616 Hold Processing - Moved to order save
 */
 
 CREATE TRIGGER [dbo].[orders_upd_trg] ON [dbo].[orders_all]
@@ -1136,6 +1137,9 @@ BEGIN
 
 	-- v1.8 End
 
+-- v2.3 Start
+/*
+
 	-- START v1.9
 	-- Promo hold reason
 	SET @order_no = 0
@@ -1312,9 +1316,10 @@ BEGIN
 
 	END			
 	-- END v1.9	
+*/
+-- v2.3 End
+
 END
-
-
 GO
 SET QUOTED_IDENTIFIER OFF
 GO

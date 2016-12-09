@@ -14,7 +14,8 @@ BEGIN
 			@last_row_id	int,
 			@order_no		int,
 			@order_ext		int,
-			@rc				int
+			@rc				int,
+			@prior_hold		varchar(10) -- v1.4
 
 	-- WORKING TABLES
 	CREATE TABLE #gst_orders (
@@ -53,17 +54,76 @@ BEGIN
 -- v1.2	AND		c.order_no IS NULL
 		
 		-- Step 1 - Update the hold reason where there is a prior hold
+		-- v1.4 Start
+		CREATE TABLE #next_holds (
+			order_no	int,
+			order_ext	int,
+			hold_reason	varchar(10))
+
+		INSERT	#next_holds (order_no, order_ext, hold_reason)
+		SELECT	a.order_no,
+				a.order_ext,
+				ISNULL(b.hold_reason,'')
+		FROM	#gst_orders a (NOLOCK)
+		LEFT JOIN cvo_next_so_hold_vw b (NOLOCK)
+		ON		a.order_no = b.order_no
+		AND		a.order_ext = b.order_ext
+
 		UPDATE	a
-		SET		hold_reason = b.prior_hold
+		SET		status = CASE WHEN b.hold_reason IN ('PD','CL') THEN 'C'
+						 ELSE 'A' END,
+				hold_reason = b.hold_reason
 		FROM	orders_all a
-		JOIN	#gst_orders b
+		JOIN	#next_holds b				
 		ON		a.order_no = b.order_no
 		AND		a.ext = b.order_ext
-		WHERE	b.prior_hold > ''
+		AND		b.hold_reason > ''
+
+		DELETE  a
+		FROM	cvo_so_holds a
+		JOIN	#next_holds b
+		ON		a.order_no = b.order_no
+		AND		a.order_ext = b.order_ext
+		AND		a.hold_reason = b.hold_reason
+
+		INSERT INTO tdc_log ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+		SELECT	GETDATE() , 'GSH_ALLOC' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' , 'STATUS:N; RELEASE GSH HOLD'
+		FROM	orders_all a (NOLOCK)
+		JOIN	#next_holds b
+		ON		a.order_no = b.order_no
+		AND		a.ext = b.order_ext
+		AND		b.hold_reason > ''
+
+		INSERT INTO tdc_log ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+		SELECT	GETDATE() , 'GSH_ALLOC' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' , 
+				CASE WHEN b.hold_reason IN ('CL','PD') THEN 'STATUS:C/PROMOTE CREDIT HOLD; HOLD REASON: ' ELSE 'STATUS:A/PROMOTE USER HOLD; HOLD REASON: ' END + b.hold_reason
+		FROM	orders_all a (NOLOCK)
+		JOIN	#next_holds b
+		ON		a.order_no = b.order_no
+		AND		a.ext = b.order_ext
+		AND		b.hold_reason > ''
+
+		--UPDATE	a
+		--SET		hold_reason = b.prior_hold
+		--FROM	orders_all a
+		--JOIN	#gst_orders b
+		--ON		a.order_no = b.order_no
+		--AND		a.ext = b.order_ext
+		--WHERE	b.prior_hold > ''
 
 		-- Step 2 - Remove any records where there is a hold value
-		DELETE	#gst_orders
-		WHERE	prior_hold > ''
+		DELETE	a
+		FROM	#gst_orders a
+		JOIN	#next_holds b
+		ON		a.order_no = b.order_no
+		AND		a.order_ext = b.order_ext
+		AND		b.hold_reason > ''
+
+		--DELETE	#gst_orders
+		--WHERE	prior_hold > ''
+
+		DROP TABLE #next_holds
+		-- v1.4 End
 
 		-- Step 3 Run through each order, release the hold and allocate
 		SET @last_row_id = 0
@@ -90,6 +150,14 @@ BEGIN
 			WHERE	order_no = @order_no
 			AND		ext = @order_ext
 			-- v1.1 End			
+
+			-- v1.4 Start
+			INSERT INTO tdc_log ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+			SELECT	GETDATE() , 'GSH_ALLOC' , 'VB' , 'PLW' , 'ORDER UPDATE' , order_no , ext , '' , '' , '' , location , '' , 'STATUS:N; RELEASE GSH HOLD'
+			FROM	orders_all (NOLOCK)
+			WHERE	order_no = @order_no
+			AND		ext = @order_ext
+			-- v1.4 End
 
 			-- v1.3 Start
 			-- Future Allocations

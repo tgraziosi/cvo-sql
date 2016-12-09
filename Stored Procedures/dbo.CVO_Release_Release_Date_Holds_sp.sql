@@ -48,7 +48,7 @@ BEGIN
 		IF (@iRet = 0)
 		BEGIN
 			-- START v1.3
-			IF EXISTS (SELECT 1 FROM dbo.orders_all WHERE order_no = @order_no AND ext = @ext AND back_ord_flag = 1)
+			IF EXISTS (SELECT 1 FROM dbo.orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @ext AND back_ord_flag = 1)
 			BEGIN
 				-- START v1.2
 				EXEC @iRet = dbo.cvo_process_ship_complete_sp @order_no, @ext
@@ -58,22 +58,47 @@ BEGIN
 			-- Doesn't need to be on ship complete hold
 			IF (@iRet = 0)
 			BEGIN
-				SELECT	@hold_reason = ISNULL(prior_hold,'') 
-				FROM	cvo_orders_all (NOLOCK)
+				-- v1.4 Start
+				SET @hold_reason = ''
+
+				SELECT	@hold_reason = hold_reason
+				FROM	cvo_next_so_hold_vw (NOLOCK)
 				WHERE	order_no = @order_no
-				AND		ext = @ext
-		
+				AND		order_ext = @ext
+
+				--SELECT	@hold_reason = ISNULL(prior_hold,'') 
+				--FROM	cvo_orders_all (NOLOCK)
+				--WHERE	order_no = @order_no
+				--AND		ext = @ext
+				-- v1.4 end
+
 				IF (@hold_reason > '')
 				BEGIN
+					-- v1.4 Start
 					UPDATE	orders_all
-					SET		hold_reason = @hold_reason
+					SET		status = CASE WHEN @hold_reason IN ('CL','PD') THEN 'C' ELSE 'A' END,
+							hold_reason = @hold_reason
 					WHERE	order_no = @order_no
 					AND		ext = @ext
 
-					UPDATE	cvo_orders_all
-					SET		prior_hold = ''
+					INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+					SELECT	GETDATE(), SUSER_NAME(), 'BO', 'RELEASE DATE', 'ORDER UPDATE', @order_no, @ext, '', '', '', '', '', 'STATUS:A/PROMOTE USER HOLD; HOLD REASON: ' + @hold_reason		
+
+					DELETE	cvo_so_holds
 					WHERE	order_no = @order_no
-					AND		ext = @ext
+					AND		order_ext = @ext
+					AND		hold_reason = @hold_reason
+
+					--UPDATE	orders_all
+					--SET		hold_reason = @hold_reason
+					--WHERE	order_no = @order_no
+					--AND		ext = @ext
+
+					--UPDATE	cvo_orders_all
+					--SET		prior_hold = ''
+					--WHERE	order_no = @order_no
+					--AND		ext = @ext
+					-- v1.4 End
 				END
 				ELSE
 				BEGIN
@@ -82,23 +107,29 @@ BEGIN
 							status = 'N'
 					WHERE	order_no = @order_no
 					AND		ext = @ext
+					AND		status <> 'N' -- v1.4
 
-					UPDATE	cvo_orders_all
-					SET		prior_hold = ''
-					WHERE	order_no = @order_no
-					AND		ext = @ext
-					AND		prior_hold = 'RD'
+					-- v1.4 Start
+					--UPDATE	cvo_orders_all
+					--SET		prior_hold = ''
+					--WHERE	order_no = @order_no
+					--AND		ext = @ext
+					--AND		prior_hold = 'RD'
+					-- v1.4 End
 
 				END
 			END
-			ELSE
-			BEGIN
+			-- v1.4 Start
+			--ELSE
+			--BEGIN
 				-- Change to ship complete hold
-				UPDATE	orders_all
-				SET		hold_reason = 'SC'
-				WHERE	order_no = @order_no
-				AND		ext = @ext
-			END
+			--	UPDATE	orders_all
+			--	SET		hold_reason = 'SC'
+			--	WHERE	order_no = @order_no
+			--	AND		ext = @ext
+				
+			--END
+			-- v1.4 End
 			-- END v1.2
 
 		END

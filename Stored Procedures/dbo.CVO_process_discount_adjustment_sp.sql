@@ -4,6 +4,7 @@ SET ANSI_NULLS ON
 GO
 /*
 v1.0 CT 01/07/2013 - Created
+v1.1 CB 31/10/2016 - #1616 Hold Processing
 
 */
 CREATE PROCEDURE [dbo].[CVO_process_discount_adjustment_sp]	
@@ -206,13 +207,47 @@ BEGIN
 					IF @status <> 'N'
 					BEGIN
 						-- If already on hold then store the hold reason
-						UPDATE
-							dbo.cvo_orders_all 
-						SET
-							prior_hold = CASE ISNULL(prior_hold,'') WHEN '' THEN 'PROMOHLD' ELSE prior_hold END
+						
+						-- v1.1 Start
+						-- Push existing hold back
+						INSERT	cvo_so_holds
+						SELECT	order_no, ext, ISNULL(hold_reason,''),
+								dbo.f_get_hold_priority(ISNULL(hold_reason,''),''),
+								SUSER_NAME(),
+								GETDATE()
+						FROM	orders_all (NOLOCK)
+						WHERE	order_no = @order_no
+						AND		ext = @ext
+						AND		ISNULL(hold_reason,'') > ''
+
+						--UPDATE
+						--	dbo.cvo_orders_all 
+						--SET
+						--	prior_hold = CASE ISNULL(prior_hold,'') WHEN '' THEN 'PROMOHLD' ELSE prior_hold END
+						--WHERE 
+						--	order_no = @order_no
+						--	AND ext = @ext
+
+						UPDATE	dbo.orders_all
+						SET		[status] = 'A',
+								hold_reason = 'PROMOHLD'
+						WHERE	order_no = @order_no
+						AND		ext = @ext
+
+						INSERT INTO tdc_log ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data )   
+						SELECT GETDATE() , suser_name() , 'BO' , 'DISCADJ' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,  
+						'STATUS:A/USER HOLD; HOLD REASON: PROMOHLD'
+						FROM 
+							dbo.orders_all a (NOLOCK)  
+						JOIN 
+							dbo.cvo_orders_all b (NOLOCK)  
+						ON  
+							a.order_no = b.order_no  
+							AND a.ext = b.ext  
 						WHERE 
-							order_no = @order_no
-							AND ext = @ext
+							a.order_no = @order_no      
+							AND a.ext = @ext 
+						-- v1.1 End
 					END
 					ELSE 
 					BEGIN
@@ -275,15 +310,22 @@ BEGIN
 						a.order_no = @order_no      
 						AND a.ext = @ext 
 
-
 					-- Is there a prior hold?
-					SELECT 
-						@prior_hold = ISNULL(prior_hold,'')
-					FROM 
-						dbo.cvo_orders_all (NOLOCK)
-					WHERE 
-						order_no = @order_no
-						AND ext = @ext
+					-- v1.1 Start
+					SET @prior_hold = ''
+					SELECT	@prior_hold = hold_reason
+					FROM	cvo_next_so_hold_vw (NOLOCK)
+					WHERE	order_no = @order_no
+					AND		order_ext = @ext
+
+					--SELECT 
+					--	@prior_hold = ISNULL(prior_hold,'')
+					--FROM 
+					--	dbo.cvo_orders_all (NOLOCK)
+					--WHERE 
+					--	order_no = @order_no
+					--	AND ext = @ext
+					-- v1.1 End
 
 					IF ISNULL(@prior_hold,'') <> ''
 					BEGIN
@@ -303,8 +345,7 @@ BEGIN
 					WHERE
 						order_no = @order_no
 						AND ext = @ext
-			
-					
+								
 					IF ISNULL(@prior_hold,'') <> ''
 					BEGIN
 
@@ -324,13 +365,20 @@ BEGIN
 							AND a.ext = @ext 
   
 						-- Remove prior hold information
-						UPDATE
-							dbo.cvo_orders_all 
-						SET
-							prior_hold = NULL
-						WHERE 
-							order_no = @order_no
-							AND ext = @ext
+						-- v1.1 Start
+						DELETE	cvo_so_holds
+						WHERE	order_no = @order_no
+						AND		order_ext = @ext
+						AND		hold_reason = @prior_hold
+
+						--UPDATE
+						--	dbo.cvo_orders_all 
+						--SET
+						--	prior_hold = NULL
+						--WHERE 
+						--	order_no = @order_no
+						--	AND ext = @ext
+						-- v1.1 End
 					END
 					
 				END

@@ -11,18 +11,10 @@ CREATE TABLE [dbo].[cvo_brand_units_week_tbl]
 [net_qty] [real] NULL,
 [st_qty] [real] NULL,
 [rx_qty] [real] NULL,
+[ret_qty] [real] NULL,
+[cl_qty] [real] NULL,
 [asofdate] [datetime] NULL
 ) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [idx_brand_units_week] ON [dbo].[cvo_brand_units_week_tbl] ([brand], [MODEL], [wkno]) ON [PRIMARY]
-GO
-GRANT REFERENCES ON  [dbo].[cvo_brand_units_week_tbl] TO [public]
-GO
-GRANT SELECT ON  [dbo].[cvo_brand_units_week_tbl] TO [public]
-GO
-GRANT INSERT ON  [dbo].[cvo_brand_units_week_tbl] TO [public]
-GO
-GRANT DELETE ON  [dbo].[cvo_brand_units_week_tbl] TO [public]
-GO
-GRANT UPDATE ON  [dbo].[cvo_brand_units_week_tbl] TO [public]
 GO

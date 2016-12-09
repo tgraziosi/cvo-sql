@@ -9,10 +9,12 @@ CREATE FUNCTION [dbo].[f_cvo_calc_weekly_usage_coll] (@usg_option CHAR(1)= 's', 
 	, usg_option CHAR(1), asofdate datetime
 	, e4_wu INT, e12_wu INT, e26_wu INT, e52_wu INT
 	, subs_exist int
-	, subs_w4 INT, subs_w12 INT, promo_w4 INT, promo_w12 int
+	, subs_w4 INT, subs_w12 INT, promo_w4 INT, promo_w12 INT
+    , rx_w4 INT, rx_w12 INT -- 12/5/2016
 	)
 
 -- 10/21/2015 - add substitute and promo qtys for material forecast
+-- 12/5/2016 - add rx qty for inv forecast
 -- select * From dbo.f_cvo_calc_weekly_usage ( 'S' ) where part_no like 'ascolo%'
 
 
@@ -56,7 +58,7 @@ select * from dbo.f_cvo_calc_weekly_usage ('O')
 
 -- SELECT @w4, @w12, @w26, @w52
 
-	INSERT @usage (location, part_no,usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12)
+	INSERT @usage (location, part_no,usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12)
     SELECT  location ,
             part_no ,
             @usg_option usg_option ,
@@ -73,16 +75,29 @@ select * from dbo.f_cvo_calc_weekly_usage ('O')
 			subs_w4 =  CAST (SUM(CASE WHEN bucket <= 4 THEN subs_qty ELSE 0 END)  AS INT) ,
 			subs_w12 =  CAST (SUM(CASE WHEN bucket <= 12 THEN subs_qty ELSE 0 END)  AS INT) ,
 			promo_w4 = CAST (SUM(CASE WHEN bucket <= 4 THEN promo_Qty ELSE 0 END)  AS INT) ,
-			promo_w12 = CAST (SUM(CASE WHEN bucket <= 12 THEN promo_qty ELSE 0 END)  AS INT) 
+			promo_w12 = CAST (SUM(CASE WHEN bucket <= 12 THEN promo_qty ELSE 0 END)  AS INT),
+			rx_w4 = CAST (SUM(CASE WHEN bucket <= 4 THEN rx_qty ELSE 0 END) / 4  AS INT),
+			rx_w12 = CAST (SUM(CASE WHEN bucket <= 12 THEN rx_qty ELSE 0 END) / 12 AS INT)
+			
     FROM    ( SELECT    ol.location ,
                         part_no = ol.part_no ,
 						subs_qty = 0, -- ISNULL( subs.quantity, 0) ,
 									
-						promo_qty = CASE WHEN type = 'i' AND ISNULL(promo_id,'') > ''
+						promo_qty = CASE WHEN ISNULL(promo_id,'') > '' 
+									THEN
+									  CASE WHEN type = 'i'
                                            THEN CASE WHEN @usg_option = 's' THEN ISNULL(shipped, 0) ELSE ISNULL(ordered,0) end
                                            ELSE CASE WHEN @usg_option = 's' THEN ISNULL(cr_shipped, 0) ELSE ISNULL(cr_ordered,0) end * -1
-                                      END ,
-                        qty_shipped = CASE WHEN type = 'i'
+                                      END 
+									ELSE 0 end,
+						rx_qty = CASE WHEN ISNULL(o.user_category,'ST') LIKE 'RX%' 
+								 THEN
+									  CASE WHEN type = 'i' 
+										   THEN CASE WHEN @USG_OPTION = 'S' THEN ISNULL(shipped, 0) ELSE ISNULL(ordered,0) END
+                                           ELSE CASE WHEN @USG_OPTION = 'S' THEN ISNULL(CR_SHIPPED, 0 ) ELSE ISNULL(CR_ORDERED,0) END * -1
+									  end
+								 ELSE 0 END,
+						qty_shipped = CASE WHEN type = 'i'
                                            THEN CASE WHEN @usg_option = 's' THEN ISNULL(shipped, 0) ELSE ISNULL(ordered,0) end
                                            ELSE CASE WHEN @usg_option = 's' THEN ISNULL(cr_shipped, 0) ELSE ISNULL(cr_ordered,0) end * -1
                                       END ,
@@ -125,6 +140,7 @@ select * from dbo.f_cvo_calc_weekly_usage ('O')
                             subs_qty = -CAST(quantity AS DECIMAL(20,8)),
 							promo_qty = 0,
 							qty_shipped = 0,
+							rx_qty = 0,
 							bucket = CASE WHEN t.tran_date >= @w4 THEN 4
                                       WHEN t.tran_date >= @w12 THEN 12
                                       WHEN t.tran_date >= @w26 THEN 26
@@ -145,6 +161,7 @@ select * from dbo.f_cvo_calc_weekly_usage ('O')
 							subs_qty = CAST(quantity AS DECIMAL(20,8)),
 							promo_qty = 0,
 							qty_shipped = 0,
+							rx_qty = 0,
 							bucket = CASE WHEN t.tran_date >= @w4 THEN 4
                                       WHEN t.tran_date >= @w12 THEN 12
                                       WHEN t.tran_date >= @w26 THEN 26
@@ -167,6 +184,7 @@ select * from dbo.f_cvo_calc_weekly_usage ('O')
 
 RETURN
 END
+
 
 
 

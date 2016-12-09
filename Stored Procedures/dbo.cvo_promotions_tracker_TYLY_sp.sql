@@ -11,7 +11,7 @@ CREATE PROCEDURE [dbo].[cvo_promotions_tracker_TYLY_sp]
 AS
     BEGIN
 
--- exec cvo_promotions_tracker_tyly_sp '1/1/2016','08/21/2016', '40457', 'bts', null
+-- exec cvo_promotions_tracker_tyly_sp '11/1/2016','12/05/2016', '40454', 'sunps', null
 
         SET NOCOUNT ON;
         SET ANSI_WARNINGS OFF;
@@ -81,23 +81,35 @@ AS
               override_reason VARCHAR(2000) ,
               UC INT ,
               wk_Begindate VARCHAR(30) ,
-              wk_EndDate VARCHAR(30)
+              wk_EndDate VARCHAR(30),
+			  yy INT null
             );
 
-        INSERT  INTO #temptable
+        INSERT  INTO #temptable	(order_no,ext,cust_code,ship_to,ship_to_name,location,cust_po,routing,fob,attention,tax_id,terms,curr_key,salesperson,Territory,
+		region,total_amt_order,total_discount,total_tax,freight,qty_ordered,qty_shipped,total_invoice,invoice_no,
+		doc_ctrl_num,date_invoice,date_entered,date_sch_ship,date_shipped,status,status_desc,who_entered,shipped_flag,hold_reason,orig_no,orig_ext,
+		promo_id,promo_level,order_type,FramesOrdered,FramesShipped,back_ord_flag,Cust_type,return_date,reason,return_amt,return_qty,source,Qual_order,
+		override_reason,UC,wk_Begindate,wk_EndDate)
                 EXEC cvo_promotions_tracker_terr_sp @sdate, @edate, @Terr,
                     @Promo, @PromoLevel;
 
 --                 EXEC cvo_promotions_tracker_terr_sp '1/1/2016','8/22/2016', '50505','aspire','1,3,launch,new,vew'
 --				   EXEC cvo_promotions_tracker_tyly_sp '1/1/2016','8/22/2016', '50505','aspire','1,3,launch,new,vew'
 
--- UPDATE #temptable SET yy = 'TY' WHERE yy = null
+		--SELECT * FROM #temptable AS t
+
+		UPDATE #temptable SET yy = DATEPART(YEAR, @sdate)
 
 		
-        INSERT  INTO #temptable
-                EXEC cvo_promotions_tracker_terr_sp @sdately, @edately, @Terr,
+        INSERT  INTO #temptable (order_no,ext,cust_code,ship_to,ship_to_name,location,cust_po,routing,fob,attention,tax_id,terms,curr_key,salesperson,Territory,
+		region,total_amt_order,total_discount,total_tax,freight,qty_ordered,qty_shipped,total_invoice,invoice_no,
+		doc_ctrl_num,date_invoice,date_entered,date_sch_ship,date_shipped,status,status_desc,who_entered,shipped_flag,hold_reason,orig_no,orig_ext,
+		promo_id,promo_level,order_type,FramesOrdered,FramesShipped,back_ord_flag,Cust_type,return_date,reason,return_amt,return_qty,source,Qual_order,
+		override_reason,UC,wk_Begindate,wk_EndDate)
+                    EXEC cvo_promotions_tracker_terr_sp @sdately, @edately, @Terr,
                     @Promo, @PromoLevel;
--- UPDATE #temptable SET yy = 'LY' WHERE yy = null	
+
+		UPDATE #temptable SET yy = DATEPART(YEAR, @sdately) WHERE yy IS NULL	
 
         SELECT  t.salesperson ,
                 t.Territory ,
@@ -120,12 +132,7 @@ AS
                             Qual_order ,
                             CASE WHEN source = 'E' THEN 1 ELSE 0 END AS order_count ,
                             UC ,
-                            yy = CASE WHEN date_entered >= @sdate 
-                                      THEN DATEPART(YEAR, @sdate)
-                                      WHEN date_entered <= @edately
-                                      THEN DATEPART(YEAR, @sdately)
-                                      ELSE 9999
-                                 END
+                            yy
                   FROM      #temptable
 				  JOIN arsalesp slp ON slp.salesperson_code = #temptable.salesperson
                 ) AS t
@@ -136,9 +143,11 @@ AS
                 t.promo_level ,
                 t.yy;
 
-		-- SELECT * FROM #temptable AS t WHERE t.Territory IN ('30324','70780','30338')
+		-- SELECT * FROM #temptable AS t WHERE t.Territory IN ('40454','70780','30338')
 	   
     END;
+
+
 
 
 

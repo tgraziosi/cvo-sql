@@ -268,6 +268,15 @@ BEGIN
 	WHILE (@@ROWCOUNT <> 0)
 	BEGIN
 
+		-- v1.6 Start
+		SET @prior_hold = ''
+
+		SELECT	@prior_hold = hold_reason
+		FROM	cvo_next_so_hold_vw (NOLOCK)
+		WHERE	order_no = @order_no
+		AND		order_ext = @order_ext
+		-- v1.6 End	
+
 		-- v1.2 Start
 		IF (@prior_hold <> '')
 		BEGIN
@@ -283,12 +292,19 @@ BEGIN
 			WHERE	order_no = @order_no
 			AND		ext = @order_ext
 
-			UPDATE	cvo_orders_all
-			SET		prior_hold = NULL
+			-- v1.6 Start
+			DELETE	cvo_so_holds
 			WHERE	order_no = @order_no
-			AND		ext = @order_ext
-
-			SET @msg = 'STATUS:A/PRIOR HOLD; HOLD REASON:' + @prior_hold
+			AND		order_ext = @order_ext
+			AND		hold_reason = @prior_hold
+		
+			--UPDATE	cvo_orders_all
+			--SET		prior_hold = NULL
+			--WHERE	order_no = @order_no
+			--AND		ext = @order_ext
+			
+			SET @msg = 'STATUS:A/PROMOTE USER HOLD; HOLD REASON:' + @prior_hold
+			-- v1.6 End
 	
 			INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
 			SELECT	GETDATE() , 'FL HOLD RELEASE' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' , @msg

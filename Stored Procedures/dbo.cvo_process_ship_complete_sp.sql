@@ -4,7 +4,8 @@ SET ANSI_NULLS ON
 GO
 -- EXEC dbo.cvo_process_ship_complete_sp 1420112, 0
 CREATE PROC [dbo].[cvo_process_ship_complete_sp] @order_no	int,
-											 @order_ext int
+											 @order_ext int,
+											 @check_only int = 0 -- v1.6
 AS
 BEGIN
 	-- DIRECTIVES
@@ -155,6 +156,14 @@ BEGIN
 			-- Compare - if no stock available then mark the record    
 			IF ((@in_stock - (@alloc_qty + @quar_qty + @sa_qty)) < @qty)   
 			BEGIN    
+				-- v1.6 Start
+				IF (@check_only = 1)
+				BEGIN
+					SELECT -1
+					RETURN -1
+				END 
+				-- v1.6 End				
+
 				-- Return stock no available
 				-- As this is the test at save we only need to find one line that is not available
 				SELECT	@status = status,
@@ -167,10 +176,20 @@ BEGIN
 				BEGIN
 					IF (@hold_reason <> 'SC' )
 					BEGIN
-						UPDATE	cvo_orders_all
-						SET		prior_hold = 'SC' -- v1.1
-						WHERE	order_no = @order_no
-						AND		ext = @order_ext
+						-- v1.6 Start
+						INSERT	cvo_so_holds
+						SELECT	@order_no, @order_ext, 'SC', dbo.f_get_hold_priority('SC',''),
+								SUSER_NAME(), GETDATE()
+
+						--UPDATE	cvo_orders_all
+						--SET		prior_hold = 'SC' -- v1.1
+						--WHERE	order_no = @order_no
+						--AND		ext = @order_ext
+
+						INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+						SELECT	GETDATE(), SUSER_NAME(), 'BO', 'SHIP COMPLETE', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: SC - SHIP COMPLETE'
+						-- v1.6 End
+					
 					END
 					SELECT 0
 					RETURN -1
@@ -178,10 +197,20 @@ BEGIN
 
 				IF (@status IN ('C','H','B'))
 				BEGIN
-					UPDATE	cvo_orders_all
-					SET		prior_hold = 'SC'
-					WHERE	order_no = @order_no
-					AND		ext = @order_ext
+
+					-- v1.6 Start
+					INSERT	cvo_so_holds
+					SELECT	@order_no, @order_ext, 'SC', dbo.f_get_hold_priority('SC',''),
+							SUSER_NAME(), GETDATE()
+
+					--UPDATE	cvo_orders_all
+					--SET		prior_hold = 'SC'
+					--WHERE	order_no = @order_no
+					--AND		ext = @order_ext
+
+					INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+					SELECT	GETDATE(), SUSER_NAME(), 'BO', 'SHIP COMPLETE', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: SC - SHIP COMPLETE'
+					-- v1.6 End
 
 					SELECT 0
 					RETURN -1
@@ -194,6 +223,11 @@ BEGIN
 							hold_reason = 'SC'
 					WHERE	order_no = @order_no
 					AND		ext = @order_ext
+
+					-- v1.6 Start
+					INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+					SELECT	GETDATE(), SUSER_NAME(), 'BO', 'SHIP COMPLETE', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'STATUS:A/SHIP COMPLETE; HOLD REASON: SC'					
+					-- v1.6 End
 
 					SELECT -1
 					RETURN -1

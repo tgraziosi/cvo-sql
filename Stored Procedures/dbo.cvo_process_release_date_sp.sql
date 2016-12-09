@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -80,53 +79,115 @@ BEGIN
 			BEGIN
 				IF (@hold_reason <> 'RD' )
 				BEGIN
-					UPDATE	cvo_orders_all WITH (ROWLOCK)
-					SET		prior_hold = 'RD'
-					WHERE	order_no = @order_no
-					AND		ext = @order_ext
+					-- v1.3 Start
+					INSERT	cvo_so_holds
+					SELECT	@order_no, @order_ext, 'RD', dbo.f_get_hold_priority('RD',''),
+						SUSER_NAME(), GETDATE()
+
+					--UPDATE	cvo_orders_all WITH (ROWLOCK)
+					--SET		prior_hold = 'RD'
+					--WHERE	order_no = @order_no
+					--AND		ext = @order_ext
+
+					INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+					SELECT	GETDATE(), SUSER_NAME(), 'BO', 'RELEASE DATE', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: RD - RELEASE DATE'
+					
 				END
+				-- v1.3 End
+
 				SELECT 0
 				RETURN -1
 			END
 
-				IF (@status IN ('C','H','B'))
-				BEGIN
-					UPDATE	cvo_orders_all WITH (ROWLOCK)
-					SET		prior_hold = 'RD'
-					WHERE	order_no = @order_no
-					AND		ext = @order_ext
+			IF (@status IN ('C','H','B'))
+			BEGIN
 
-					SELECT 0
-					RETURN -1
-				END
+				-- v1.3 Start
+				INSERT	cvo_so_holds
+				SELECT	@order_no, @order_ext, 'RD', dbo.f_get_hold_priority('RD',''),
+					SUSER_NAME(), GETDATE()
 
-				IF (@status = 'N')					
-				BEGIN
-					UPDATE	orders_all WITH (ROWLOCK)
-					SET		status = 'A',
-							hold_reason = 'RD'
-					WHERE	order_no = @order_no
-					AND		ext = @order_ext
+				--UPDATE	cvo_orders_all WITH (ROWLOCK)
+				--SET		prior_hold = 'RD'
+				--WHERE	order_no = @order_no
+				--AND		ext = @order_ext
 
-					SELECT -1
-					RETURN -1
-				END
+				INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+				SELECT	GETDATE(), SUSER_NAME(), 'BO', 'RELEASE DATE', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: RD - RELEASE DATE'
+				-- v1.3 End
+
+				SELECT 0
+				RETURN -1
+			END
+
+			IF (@status = 'N')					
+			BEGIN
+				UPDATE	orders_all WITH (ROWLOCK)
+				SET		status = 'A',
+						hold_reason = 'RD'
+				WHERE	order_no = @order_no
+				AND		ext = @order_ext
+
+				-- v1.3 Start
+				INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+				SELECT	GETDATE(), SUSER_NAME(), 'BO', 'RELEASE DATE', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'STATUS:A/RELEASE DATE; HOLD REASON: RD'					
+				-- v1.3 End
+
+				SELECT -1
+				RETURN -1
+			END
 		END
 		ELSE
 		BEGIN
+			-- v1.3 Start
+			SET @hold_reason = ''
 
-			UPDATE	orders_all WITH (ROWLOCK)
-			SET		status = 'N',
-					hold_reason = ''
+			SELECT	@hold_reason = hold_reason
+			FROM	cvo_next_so_hold_vw (NOLOCK)
 			WHERE	order_no = @order_no
-			AND		ext = @order_ext
-			AND		hold_reason = 'RD'
+			AND		order_ext = @order_ext
 
-			UPDATE	cvo_orders_all WITH (ROWLOCK)
-			SET		prior_hold = ''
-			WHERE	order_no = @order_no
-			AND		ext = @order_ext
-			AND		prior_hold = 'RD'
+			IF (@hold_reason > '')
+			BEGIN
+
+				INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+				SELECT	GETDATE(), SUSER_NAME(), 'BO', 'RELEASE DATE', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'STATUS:N/RELEASE RD USER HOLD; HOLD REASON:'					
+
+				UPDATE	orders_all WITH (ROWLOCK)
+				SET		status = CASE WHEN @hold_reason IN ('CL','PD') THEN 'C' ELSE 'A' END,
+						hold_reason = @hold_reason
+				WHERE	order_no = @order_no
+				AND		ext = @order_ext
+				AND		hold_reason = 'RD'
+
+				DELETE	cvo_so_holds
+				WHERE	order_no = @order_no
+				AND		order_ext = @order_ext
+				AND		hold_reason = @hold_reason
+
+				INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+				SELECT	GETDATE(), SUSER_NAME(), 'BO', 'RELEASE DATE', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'STATUS:A/PROMOTE USER HOLD; HOLD REASON: ' + @hold_reason					
+			
+			END
+			ELSE
+			BEGIN
+				INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+				SELECT	GETDATE(), SUSER_NAME(), 'BO', 'RELEASE DATE', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'STATUS:N/RELEASE RD USER HOLD; HOLD REASON:'					
+
+				UPDATE	orders_all WITH (ROWLOCK)
+				SET		status = 'N',
+						hold_reason = ''
+				WHERE	order_no = @order_no
+				AND		ext = @order_ext
+				AND		hold_reason = 'RD'
+			END
+							
+			--UPDATE	cvo_orders_all WITH (ROWLOCK)
+			--SET		prior_hold = ''
+			--WHERE	order_no = @order_no
+			--AND		ext = @order_ext
+			--AND		prior_hold = 'RD'
+			-- v1.3 End
 
 			SELECT 0
 			RETURN 0

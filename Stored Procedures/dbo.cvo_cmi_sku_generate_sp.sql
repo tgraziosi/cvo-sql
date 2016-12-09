@@ -1584,9 +1584,9 @@ INSERT  #i
 									THEN CAST (0.0125 AS DECIMAL(20, 8))
 								 WHEN C.PART_TYPE = 'pattern' 
 									THEN CAST(0.008 AS DECIMAL(20,8))
-								 WHEN c.part_type IN ( 'demolen') -- 7/5/2016 - from .001 as per IC
+								 WHEN c.part_type IN ( 'demolen','temple-tip') -- 7/5/2016 - from .001 as per IC
 									THEN CAST (0.005 AS DECIMAL(20, 8))
-                                 WHEN c.part_type IN ( 'temple-tip' ,'bridge','hangtag', 'upc')
+                                 WHEN c.part_type IN ( 'bridge','hangtag', 'upc')
 									THEN CAST (0.001 AS DECIMAL(20, 8))
                                  ELSE CAST(0.0001 AS DECIMAL(20, 8)) -- must be non-zero value
                             END ,
@@ -2329,6 +2329,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

@@ -10,6 +10,8 @@ AS
 
 SET NOCOUNT ON;
 
+-- drop table cvo_brand_units_week_tbl
+
 IF ( OBJECT_ID('dbo.cvo_brand_units_week_tbl') IS NULL )
     BEGIN
         CREATE TABLE dbo.cvo_brand_units_week_tbl
@@ -25,6 +27,8 @@ IF ( OBJECT_ID('dbo.cvo_brand_units_week_tbl') IS NULL )
               net_qty FLOAT(8) ,
               st_qty FLOAT(8) ,
               rx_qty FLOAT(8),
+			  ret_qty FLOAT(8),
+			  cl_qty FLOAT(8),
 			  asofdate datetime
             );
 		CREATE INDEX idx_brand_units_week 
@@ -40,7 +44,9 @@ MIN(yyyymmdd) first_brand_sale,
 ar.customer_code + CASE WHEN car.door = 1 THEN '-'+ar.ship_to_code ELSE '' END AS customer,
 SUM(qnet) net_qty, 
 SUM(CASE WHEN sbm.user_category NOT LIKE 'rx%' THEN qnet ELSE 0 END) st_qty, 
-SUM(CASE WHEN sbm.user_category LIKE 'rx%' THEN qnet ELSE 0 END) rx_qty
+SUM(CASE WHEN sbm.user_category LIKE 'rx%' THEN qnet ELSE 0 END) rx_qty,
+SUM(CASE WHEN sbm.return_code <> 'exc' THEN qreturns ELSE 0 END) ret_qty,
+SUM(CASE WHEN sbm.iscl=1 THEN qnet ELSE 0 END) cl_qty
 FROM cvo_sbm_details sbm
 JOIN dbo.CVO_armaster_all AS car ON car.ship_to = sbm.ship_to AND car.customer_code = sbm.customer
 JOIN ARMASTER AR ON AR.customer_code = car.customer_code AND AR.ship_to_code = car.ship_to
@@ -69,6 +75,8 @@ INSERT INTO dbo.cvo_brand_units_week_tbl
           net_qty ,
           st_qty ,
           rx_qty ,
+		  ret_qty, 
+		  cl_qty,
           asofdate
         )
 SELECT cte.brand ,
@@ -88,6 +96,8 @@ SELECT cte.brand ,
        SUM(cte.net_qty) net_qty ,
        SUM(cte.st_qty) st_qty ,
        SUM(cte.rx_qty) rx_qty ,
+	   SUM(cte.ret_qty) ret_qty,
+	   SUM(cte.cl_qty) cl_qty,
 	   GETDATE()
 
 	   FROM cte
@@ -99,6 +109,8 @@ SELECT cte.brand ,
 			+RIGHT('00'+CAST(DATEPART(week,cte.first_brand_sale) AS VARCHAR(2)),2) AS INT)
   
 	   ORDER BY cte.brand, cte.MODEL, wkno
+
+
 
 
 GO

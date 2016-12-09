@@ -17,6 +17,7 @@ CREATE PROCEDURE [dbo].[tdc_order_after_save_wrap]
 --	v3.7	CT 25/10/2012	After autoshipping rep orders, mark soft alloc records as processed
 --  v3.8	CB 26/07/2013	Call to ship rep orders should exclude rebill orders 
 --	v3.9	CT 29/01/2014	Issue #1413 - Remove logic to set COLLECT for 3rd party carrier
+--  v4.0	CB 27/10/2016 - #1616 Hold Processing
 
 
 DECLARE @rc int 
@@ -24,7 +25,10 @@ DECLARE @rc int
 -- v3.4 START
 SET @rc = 0
 
-IF NOT EXISTS(SELECT 1 FROM dbo.CVO_Orders_all WHERE order_no = @order_no AND ext = @ext AND ISNULL(prior_hold,'') = 'NA')
+-- v4.0 Start
+--IF NOT EXISTS(SELECT 1 FROM dbo.CVO_Orders_all WHERE order_no = @order_no AND ext = @ext AND ISNULL(prior_hold,'') = 'NA')
+IF NOT EXISTS(SELECT 1 FROM dbo.cvo_so_holds (NOLOCK) WHERE order_no = @order_no AND order_ext = @ext AND hold_reason = 'NA')
+-- v4.0 End
 BEGIN
      
     

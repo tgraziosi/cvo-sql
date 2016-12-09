@@ -22,14 +22,14 @@ CREATE procedure [dbo].[cvo_inv_fcst_r2_sp]
 , @debug INT = 0
 --
 /*
- exec cvo_inv_fcst_sp
+ exec cvo_inv_fcst_r2_sp
  @startrank = '12/23/2013',
- @asofdate = '10/1/2016', 
- @endrel = '10/01/2016', 
+ @asofdate = '12/1/2016', 
+ @endrel = '12/01/2016', 
  @usedrp = 1, 
  @current = 1, 
- @collection = 'as', 
- @style = 'artistic', 
+ @collection = 'bcbg', 
+ @style = 'camilla', 
  @specfit = '*all*',
  @usg_option = 'o',
  @debug = 0, -- debug
@@ -306,7 +306,8 @@ CREATE TABLE #usage
 ( location VARCHAR(12), part_no VARCHAR(40)
 , usg_option CHAR(1), asofdate datetime
 , e4_wu INT, e12_wu INT, e26_wu INT, e52_wu INT
-, subs_w4 INT, subs_w12 INT, promo_w4 INT, promo_w12 int
+, subs_w4 INT, subs_w12 INT, promo_w4 INT, promo_w12 INT
+, rx_w4 INT, rx_w12 INT -- 12/5/2016
 )
 
 -- 10/24/2016 - switch over to usage by collection for performance
@@ -316,8 +317,8 @@ SELECT @co = MIN(coll) FROM #coll AS c
 WHILE @co IS NOT NULL
 BEGIN
 	INSERT INTO #usage 
-	(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12)
-	select location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12
+	(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12)
+	select location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12
 	from dbo.f_cvo_calc_weekly_usage_COLL (@usg_option, @CO)
 	SELECT @CO = MIN(COLL) FROM #COLL WHERE COLL > @co
 END
@@ -331,13 +332,13 @@ i.type_code,
 isnull(ia.field_28,'1/1/1900') pom_date,
 ia.field_26 rel_date,
 datediff(m,ia.field_26, isnull(s.yyyymmdd,@asofdate)) as rel_month, 
-sum(case when isnull(s.yyyymmdd,@asofdate) < dateadd(mm,18,ia.field_26)
+sum(case when isnull(s.yyyymmdd,@asofdate) < dateadd(mm,12,ia.field_26)
 		 then isnull(qsales,0)- isnull(qreturns,0) else 0 end) yr1_net_qty,
 sum(case when isnull(s.yyyymmdd,@asofdate) < @asofdate 
 		and datediff(m,ia.field_26,isnull(s.yyyymmdd,@asofdate)) <= 12 
 		then isnull(qsales,0) - isnull(qreturns,0) else 0 end) yr1_net_qty_b4_asof,
 sum(case when isnull(s.yyyymmdd,@asofdate) < @asofdate 
-		and datediff(m,ia.field_26,isnull(s.yyyymmdd,@asofdate)) > 12 
+		and datediff(m,ia.field_26,isnull(s.yyyymmdd,@asofdate)) BETWEEN 12 AND 24 
 		then isnull(qsales,0) - isnull(qreturns,0) else 0 end) yr2_net_qty_b4_asof,
 sum(isnull(qsales,0)) as sales_qty,
 sum(isnull(qreturns,0)) as ret_qty
@@ -445,10 +446,10 @@ IF @debug = 1 SELECT ' cte ', * From #cte -- where style = '185' order by style,
  ,min(cte.pom_date) pom_date
  ,min(cte.rel_date) rel_date
  ,max(rel_month) mth_since_rel
- ,case when max(rel_month) between 13 and 18  then 6 - (max(rel_month) - 12) 
+ ,case when max(rel_month) between 13 and 24  then 12 - (max(rel_month) - 12) 
 	   WHEN max(rel_month) <= 12 then 12 else 0 end mths_left_y2
  ,case when max(rel_month) > 12 then 0 else 12 - max(rel_month) end mths_left_y1
- ,dateadd(mm, 18 - max(rel_month), @asofdate) yr2_end_date
+ ,dateadd(mm, 24 - max(rel_month), @asofdate) yr2_end_date
  ,dateadd(mm, 12 - max(rel_month), @asofdate) yr1_end_date
  ,inv_rank = case when  MAX(cte.type_code) = 'sun' then ''
 				  when  min(cte.rel_date) < @startrank  then ''   
@@ -472,7 +473,7 @@ IF @debug = 1 SELECT ' cte ', * From #cte -- where style = '185' order by style,
   isnull((select top 1 m24 from #inv_rank r where cte.brand = r.collection and 
   sum(case when isnull(cte.rel_month,0) <=3 then isnull(cte.sales_qty,0) else 0 end) > r.m3
   order by r.collection asc, r.m3 desc), 0)
-  - sum(case when rel_month between 13 and 18 then sales_qty else 0 end) 
+  - sum(case when rel_month between 13 and 24 then sales_qty else 0 end) 
   end
  ,sales_y1tg = case when min(cte.rel_date) < @startrank or max(cte.type_code) = 'sun' then 0 else
   isnull((select top 1 m12 from #inv_rank r where cte.brand = r.collection and 
@@ -487,6 +488,8 @@ IF @debug = 1 SELECT ' cte ', * From #cte -- where style = '185' order by style,
 , ISNULL(drp.s_e52_wu,0) s_e52_wu
 , ISNULL(drp.s_promo_w4,0) s_promo_w4
 , ISNULL(drp.s_promo_w12,0) s_promo_w12
+, ISNULL(drp.s_rx_w4,0) s_rx_w4
+, ISNULL(drp.s_rx_w12,0) s_rx_w12
  
 into #style -- tally up style level information
 from #cte cte
@@ -498,6 +501,7 @@ i.category collection,
 ia.field_2 style, 
 sum(ISNULL(e4_wu,0)) s_e4_wu, sum(ISNULL(e12_wu,0)) s_e12_wu, sum(ISNULL(e52_wu,0)) s_e52_wu
 , SUM(ISNULL(promo_w4,0)) s_promo_w4, SUM(ISNULL(promo_w12,0)) s_promo_w12
+, SUM(ISNULL(rx_w4,0)) s_rx_w4, SUM(ISNULL(rx_w12,0)) s_rx_w12
 from inv_master i (NOLOCK)
 LEFT OUTER JOIN #usage drp (nolock) ON i.part_no = drp.part_no
 INNER JOIN inv_master_add ia (NOLOCK) ON ia.part_no = i.part_no
@@ -506,7 +510,7 @@ group by i.category, ia.field_2
 ) as drp
 on drp.collection = cte.brand and drp.style = cte.style 
 
-group by cte.brand, cte.style, drp.s_e4_wu, drp.s_e12_wu, drp.s_e52_wu, drp.s_promo_w4, drp.s_promo_w12
+group by cte.brand, cte.style, drp.s_e4_wu, drp.s_e12_wu, drp.s_e52_wu, drp.s_promo_w4, drp.s_promo_w12, drp.s_rx_w4, drp.s_rx_w12
 order by cte.brand, inv_rank, cte.style
 
 -- select * from #style where style = '185'
@@ -557,11 +561,17 @@ select s.brand
 , isnull(s.s_e52_wu,0) s_e52_wu
 , isnull(s.s_promo_w4,0) s_promo_w4
 , ISNULL(s.s_promo_w12,0) s_promo_w12
+, isnull(s.s_rx_w4,0) s_rx_w4
+, ISNULL(s.s_rx_w12,0) s_rx_w12
+
 , isnull(drp.p_e4_wu,0) p_e4_wu
 , isnull(drp.p_e12_wu,0) p_e12_wu
 , isnull(drp.p_e52_wu,0) p_e52_wu
 , ISNULL(drp.p_subs_w4,0) p_subs_w4
 , ISNULL(drp.p_subs_w12,0) p_subs_w12
+, ISNULL(drp.p_rx_w4,0) p_rx_w4
+, ISNULL(drp.p_rx_w12,0) p_rx_w12
+
 , s_mth_usg = round(( case when mth_since_rel <= 3 then isnull(s_e4_wu,0)*52/12
 	else isnull(s_e12_wu,0)*52/12 end ) ,0,1)
 , p_mth_usg = round((case when mth_since_rel <= 3 then isnull(p_e4_wu,0)*52/12
@@ -570,8 +580,8 @@ select s.brand
 	else isnull(s_e12_wu,0)*52/12 end ) * mult) ,0,1)
 , p_mth_usg_mult = round(((case when mth_since_rel <= 3 then isnull(p_e4_wu,0)*52/12
 	else isnull(p_e12_wu,0)*52/12 end ) * mult) ,0,1) 
-, pct_of_style = round((case when isnull(s_e12_wu,0) <> 0	
-							 then isnull(p_e12_wu,0)/isnull(s_e12_wu,0) else 0 end),4)
+, pct_of_style = round((case when isnull(CAST(s_e12_wu AS DECIMAL),0.00) <> 0.00	
+							 then isnull(CAST(p_e12_wu AS DECIMAL),0.00)/isnull(CAST(s_e12_wu AS DECIMAL),0) else 0.00 end),4)
 , first_po = isnull((select top 1 quantity From releases 
 	where part_no = i.part_no and location = @loc and part_type = 'p' and status = 'c' 
 	order by release_date),0)
@@ -594,6 +604,7 @@ left outer join
 (select -- drp info by part
 drp.part_no, sum(e4_wu) p_e4_wu, sum(e12_wu) p_e12_wu, sum(e52_wu) p_e52_wu
 , SUM(drp.subs_w4) p_subs_w4, SUM(drp.subs_w12) p_subs_w12
+, SUM(drp.rx_w4) p_rx_w4, SUM(drp.rx_w12) p_rx_w12
 from #usage drp (nolock)
 where drp.location = @loc
 group by drp.part_no 
@@ -642,11 +653,17 @@ IF @debug = 1  SELECT 'after future_releases removed', * FROM #t AS t
 
 -- figure out pct of first purchase
 ;with x as 
-(select distinct brand, style, part_no, first_po, 
+(select distinct 
+SKU.brand, sku.style, sku.part_no, sku.first_po, 
 style_first_po = (select sum(isnull(t.first_po,0)) 
-	from (select distinct part_no, first_po from #t 
-		  where #t.style = sku.style and #t.brand = sku.brand) as t)
-from #t sku)
+	from (select distinct #T.part_no, first_po from #t 
+		  JOIN inv_master i ON i.part_no = #t.part_no
+		  where #t.style = sku.style and #t.brand = sku.brand
+		  AND i.type_code <> 'PARTS'
+		  ) as t)
+from #t sku
+JOIN inv_master i ON i.part_no = sku.part_no
+WHERE i.type_code <> 'PARTS')
 update #t set 
 pct_first_po = 
 	round((case when isnull(x.style_first_po,0.00) = 0.00 then 0.00
@@ -706,6 +723,7 @@ select distinct mth_demand_src AS LINE_TYPE,
 bucket = dateadd(m,#t.sort_seq-1, @asofdate),
 QOH = 0,
 atp = 0,
+reserve_qty = 0,
 ROUND(#t.mth_demand_mult,0,1) as quantity,
 #t.mult,
 #t.s_mult,
@@ -725,6 +743,7 @@ select 'DRP' AS LINE_TYPE,
 bucket = dateadd(m,#t.sort_seq-1, @asofdate),
 QOH = 0,
 atp = 0, 
+reserve_qty = 0,
 quantity = round(#dmd_mult.mult * #dmd_mult.s_mult * (case when datediff(mm,ia.field_26, @asofdate) > 3 then isnull(p_e12_wu,0)*52/12 else isnull(p_e4_wu,0)*52/12 end),0,1),
 #t.mult,
 #t.s_mult,
@@ -750,6 +769,7 @@ select --
 , bucket = dateadd(m,#t.sort_seq-1, @asofdate)
 ,QOH = 0
 ,atp = 0
+,reserve_qty = 0
 ,round(SUM(ISNULL(R.quantity,0))-SUM(ISNULL(R.received,0)),1) quantity, 
 #t.mult,
 --CASE	 WHEN MONTH(r.inhouse_date) < MONTH(@asofdate) AND YEAR(r.inhouse_date) <= YEAR(@asofdate) THEN 1
@@ -794,6 +814,7 @@ select --
 , bucket = dateadd(m,#t.sort_seq-1, @asofdate)
 , QOH = 0
 , atp = 0
+, reserve_qty = 0
 ,round(sum(isnull(R.qsales,0)-ISNULL(r.qreturns,0)),0,1) quantity, 
 #t.mult,
 #t.s_mult,
@@ -825,6 +846,7 @@ select --
 ,bucket = dateadd(m,#t.sort_seq-1, @asofdate)
 ,QOH = 0
 , atp = 0
+, reserve_qty = 0
 ,round(sum(isnull(Rr.open_qty,0)),0,1) quantity, 
 #t.mult,
 #t.s_mult,
@@ -878,7 +900,7 @@ group by inv.category, i.field_2, #t.part_no, rr.x_month, #t.mult, #t.s_mult, #t
 -- 11/19/14 - Change INV line calculation to consume the demand line using the greater of fct/drp or sls as the demand line
 -- 7/20/15 - add avail to promise
 
-declare @inv int, @last_inv int, @INV_AVL INT, @fct int, @drp int, @sls int, @po INT, @ord INT, @atp int
+declare @inv int, @last_inv int, @INV_AVL INT, @fct int, @drp int, @sls int, @po INT, @ord INT, @atp INT, @reserve_inv int
 
 create index idx_f on #SKU (sku asc)
 
@@ -889,6 +911,7 @@ select @sku = min(sku) from #SKU
 	SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) - 
 		   CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
 		   , @atp = ISNULL(qty_avl,0)
+		   , @reserve_inv = ISNULL(cia.ReserveQty,0) -- 12/5/2016
 	from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku and cia.location = @loc
 
 
@@ -909,13 +932,16 @@ BEGIN
 
 	IF @debug = 1 
 		BEGIN
-		 SELECT @sku, @last_inv, @atp
+		 SELECT @sku, @last_inv, @atp, @reserve_inv
 		 SELECT * FROM dbo.cvo_item_avail_vw AS iav WHERE iav.part_no = @sku AND iav.location = @loc
 		END
         
 
 	update #SKU set qoh = isnull(@last_inv,0)
-					, atp = ISNULL(@atp,0)  where sku = @sku
+					, atp = ISNULL(@atp,0)
+					, reserve_qty = ISNULL(@reserve_inv,0)
+					  where sku = @sku
+
 	WHILE @SORT_SEQ < 12
 	BEGIN
 		SELECT @INV_AVL = @INV_AVL - 
@@ -938,6 +964,7 @@ BEGIN
 		,bucket = DATEADD(m, @sort_seq, @asofdate)
 		,QOH = isnull(@LAST_INV,0)
 		, atp = ISNULL(@atp,0)
+		, reserve_qty = ISNULL(@reserve_inv,0)
 		,QUANTITY = isnull(@INV_AVL ,0)
 		,mult = #t.mult
 		, s_mult = #t.s_mult
@@ -956,6 +983,7 @@ BEGIN
 	SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) - 
 		   CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
 		   , @atp = ISNULL(qty_avl,0)
+		   , @reserve_inv = ISNULL(cia.ReserveQty,0)
 	from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku and cia.location = @loc
 	select @sort_seq = 0
 	SELECT @INV_AVL = @LAST_INV
@@ -1012,6 +1040,7 @@ select distinct
 ,#sku.bucket
 ,#sku.qoh
 ,#sku.atp
+,#sku.reserve_qty
 ,#sku.quantity
 ,#sku.mult
 ,#sku.s_mult
@@ -1048,7 +1077,11 @@ CASE WHEN #style.pom_date IS NULL OR #style.pom_date = '1/1/1900' THEN r.ORDER_T
 	WHEN  #style.pom_date < r.ORDER_THRU_DATE THEN #style.pom_date
 	ELSE r.order_thru_date END AS ORDER_THRU_DATE,
 r.TIER, -- 7/8/2016
-i.type_code p_type_code -- res type of sku, not style - 11/1/2016
+i.type_code p_type_code, -- res type of sku, not style - 11/1/2016
+#t.s_rx_w4, -- 12/5/2016
+#t.s_rx_w12,
+#t.p_rx_w4,
+#t.p_rx_w12
 
 from #SKU 
 
@@ -1083,6 +1116,8 @@ cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
 
 
 end
+
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_inv_fcst_r2_sp] TO [public]

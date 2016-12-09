@@ -174,7 +174,7 @@ WHERE  1=1
 AND ar.customer_code = ISNULL(@cust,ar.customer_code)
 AND o.tot_ord_freight = 0
 AND o.status = 't' 
-AND o.freight_allow_type NOT IN ('collect','thrdprty')
+AND ISNULL(o.freight_allow_type,'') NOT IN ('collect','thrdprty')
 AND o.date_entered BETWEEN @startdate AND @enddate
 
 GROUP BY ar.customer_code ,
@@ -375,6 +375,7 @@ SELECT cust_code =
  JOIN armaster ar ON ar.customer_code = sc.cust_code AND ar.ship_to_code = sc.ship_to
 
  -- select * From cvo_cust_benefit_scorecard_Tbl where cust_code = '043105'
+
 
 
 

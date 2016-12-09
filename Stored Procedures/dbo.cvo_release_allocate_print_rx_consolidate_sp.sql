@@ -125,10 +125,19 @@ BEGIN
 		IF (@status = 'A')
 		BEGIN
 				-- Check if the order has a prior hold
-				SELECT	@prior_hold = ISNULL(prior_hold,'') 
-				FROM	cvo_orders_all (NOLOCK)
+				-- v1.4 Start
+				SET @prior_hold = ''
+
+				SELECT	@prior_hold = hold_reason
+				FROM	cvo_next_so_hold_vw (NOLOCK)
 				WHERE	order_no = @order_no
-				AND		ext = @order_ext
+				AND		order_ext = @order_ext				
+
+				--SELECT	@prior_hold = ISNULL(prior_hold,'') 
+				--FROM	cvo_orders_all (NOLOCK)
+				--WHERE	order_no = @order_no
+				--AND		ext = @order_ext
+				-- v1.4 End
 		
 				-- If prior hold set then release RXC hold and set it to the prior hold
 				IF (@prior_hold > '')
@@ -137,11 +146,18 @@ BEGIN
 					SET		hold_reason = @prior_hold
 					WHERE	order_no = @order_no
 					AND		ext = @order_ext
-
-					UPDATE	cvo_orders_all
-					SET		prior_hold = ''
+				
+					-- v1.4 Start
+					DELETE	cvo_so_holds
 					WHERE	order_no = @order_no
-					AND		ext = @order_ext
+					AND		order_ext = @order_ext
+					AND		hold_reason = @prior_hold
+
+					--UPDATE	cvo_orders_all
+					--SET		prior_hold = ''
+					--WHERE	order_no = @order_no
+					--AND		ext = @order_ext
+					-- v1.4 End
 
 					INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
 					SELECT	GETDATE() , 'RX_CONSOLIDATE' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
@@ -152,7 +168,7 @@ BEGIN
 
 					INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
 					SELECT	GETDATE() , 'RX_CONSOLIDATE' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
-							'STATUS:A/USER HOLD; HOLD REASON:' + @prior_hold
+							'STATUS:A/PROMOTE USER HOLD; HOLD REASON:' + @prior_hold -- v1.4
 					FROM	orders_all a (NOLOCK)
 					WHERE	a.order_no = @order_no
 					AND		a.ext = @order_ext
@@ -443,7 +459,7 @@ BEGIN
 				BEGIN
 					-- UnAllocate any item that did allocate
 					EXEC CVO_UnAllocate_sp @order_no, @order_ext, 0, 'RX_CONSOLIDATE'
-
+	
 					-- Set the order on hold
 					UPDATE	orders_all WITH (ROWLOCK)
 					SET		status = 'A',
@@ -463,7 +479,7 @@ BEGIN
 					-- Insert a tdc_log record for the order going on hold
 					INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
 					SELECT	GETDATE() , 'RX_CONSOLIDATE' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
-							'STATUS:A; HOLD REASON: SC'
+							'STATUS:A/SHIP COMPLETE; HOLD REASON: SC' -- v1.4
 					FROM	orders_all a (NOLOCK)
 					WHERE	a.order_no = @order_no
 					AND		a.ext = @order_ext		

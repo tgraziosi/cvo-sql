@@ -32,6 +32,7 @@ v1.14 CB 25/01/2016 - Add missing column
 v1.15 CB 26/01/2016 - #1581 2nd Polarized Option
 v1.16 CB 23/05/2016 - Ensure contract is not null
 v1.17 CB 20/06/2016 - Issue #1602 - Must Go Today flag
+v1.18 CB 31/10/2016 - #1616 Hold Processing
 
 
 
@@ -97,7 +98,19 @@ BEGIN
 	BEGIN  
 		RETURN -1  
 	END  
-  
+
+	-- v1.18 Start
+	INSERT	cvo_so_holds (order_no, order_ext, hold_reason, hold_priority, hold_user, hold_date)
+	SELECT	order_no, @new_order_ext, hold_reason, hold_priority, hold_user, hold_date
+	FROM	cvo_so_holds (NOLOCK)
+	WHERE	order_no = @order_no
+	AND		order_ext = @order_ext
+
+	DELETE	cvo_so_holds
+	WHERE	order_no = @order_no
+	AND		order_ext = @order_ext
+	-- v1.18 End  
+
 	-- v1.8 Start
 	SELECT	@cust_code = cust_code
 	FROM	orders_all (NOLOCK)

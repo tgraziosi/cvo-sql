@@ -51,6 +51,7 @@ CREATE PROCEDURE [dbo].[cvo_matl_fcst_style_season_sp]
 -- 10/20/2015 - add seasonality multiplier, promo and substitute flagging
 -- 7/15/2016 - calc starting inventory with allocations if usage is on orders as allocations are already in the demand number. If on shipments, then net out allocations.
 -- 8/22/2016 - have to use the core spread
+-- 120516 - FIX % OF STYLE CALCULATION - INTEGER TO DECIMAL
 AS
     BEGIN
 
@@ -768,9 +769,9 @@ end
                                                 ELSE ISNULL(p_e12_wu, 0) * 52
                                                      / 12
                                            END ) * mult ), 0, 1) ,
-                pct_of_style = ROUND(( CASE WHEN ISNULL(s_e12_wu, 0) <> 0
-                                            THEN ISNULL(p_e12_wu, 0)
-                                                 / ISNULL(s_e12_wu, 0)
+                pct_of_style = ROUND(( CASE WHEN ISNULL(CAST(s_e12_wu AS DECIMAL), 0.00) <> 0.00
+                                            THEN ISNULL(CAST(p_e12_wu AS DECIMAL), 0.00)
+                                                 / ISNULL(CAST(s_e12_wu AS DECIMAL), 0)
                                             ELSE 0
                                        END ), 4) ,
                 first_po = ISNULL(( SELECT TOP 1
@@ -882,8 +883,8 @@ end
                      )
             UPDATE  #t
             SET     #t.p_sales_m1_3 = x.p_sales_m1_3 ,
-                    #t.pct_sales_style_m1_3 = ROUND(x.p_sales_m1_3
-                                                    / ISNULL(s.[Sales M1-3], 1),
+                    #t.pct_sales_style_m1_3 = ROUND(CAST(x.p_sales_m1_3 AS FLOAT)
+                                                    / ISNULL(CAST(s.[Sales M1-3] AS FLOAT), 1),
                                                     4)
             FROM    #t
                     INNER JOIN x ON #t.part_no = x.part_no
@@ -1489,6 +1490,7 @@ GROUP BY                            i.category ,
 
 
     END;
+
 
 
 

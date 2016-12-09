@@ -52,7 +52,6 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-
 /*
 Name:		cvo_orders_all_ins_trg		
 Type:		Trigger
@@ -66,136 +65,97 @@ v1.0	CT	13/04/2011	Original Version
 v1.1	CT	12/05/2011	Don't update commission if it has already been set (Credit Returns copied from a Sales Order)
 v1.2	CT	24/05/2011	Fixed bug in calculating commission 
 v1.3	CT	16/09/2014	Issue #1483 - Promo hold reason
+v1.4	CB	31/10/2016 - #1616 Hold Processing
 */
 
 CREATE TRIGGER [dbo].[cvo_orders_all_ins_trg] ON [dbo].[CVO_orders_all]
-    FOR INSERT
+FOR INSERT
 AS
-    BEGIN
-        DECLARE @order_no INT ,
-            @ext INT ,
-            @commission DECIMAL(5, 2) ,
+BEGIN
+	DECLARE @order_no		INT,
+            @ext			INT,
+            @commission		DECIMAL(5,2),
 			-- START v1.3
-            @hold_reason VARCHAR(10) ,
-            @location VARCHAR(10) ,
-            @data VARCHAR(7500) ,
-            @hold_desc VARCHAR(40) ,
-            @order_type VARCHAR(10) ,
-            @promo_id VARCHAR(20) ,
-            @promo_level VARCHAR(30);
+            @hold_reason	VARCHAR(10),
+            @location		VARCHAR(10),
+            @data			VARCHAR(7500),
+            @hold_desc		VARCHAR(40),
+            @order_type		VARCHAR(10),
+            @promo_id		VARCHAR(20),
+            @promo_level	VARCHAR(30)
 			-- END v1.3
 
-        SET @order_no = 0;
+    SET @order_no = 0
 		
 	-- Get the order to action
-        WHILE 1 = 1
-            BEGIN
-	
-                SELECT TOP 1
-                        @order_no = order_no
-                FROM    inserted
-                WHERE   order_no > @order_no
-                ORDER BY order_no;
+    WHILE 1 = 1
+    BEGIN
+		SELECT	TOP 1 @order_no = order_no
+        FROM    inserted
+		WHERE   order_no > @order_no
+        ORDER BY order_no
 
-                IF @@RowCount = 0
-                    BREAK;
+        IF @@RowCount = 0
+			BREAK
 
 		-- Loop through order extensions
-                SET @ext = -1;
-                WHILE 1 = 1
-                    BEGIN
+        SET @ext = -1
+        
+		WHILE 1 = 1
+        BEGIN
 		
-                        SELECT TOP 1
-                                @ext = ext
-                        FROM    inserted
-                        WHERE   order_no = @order_no
-                                AND ext > @ext
-                        ORDER BY ext;
+			SELECT	TOP 1 @ext = ext
+			FROM    inserted
+			WHERE   order_no = @order_no
+            AND		ext > @ext
+			ORDER BY ext
 
-                        IF @@RowCount = 0
-                            BREAK;
+			IF @@RowCount = 0
+				BREAK
 		
 			-- START v1.1
-                        IF NOT EXISTS ( SELECT  1
-                                        FROM    dbo.orders_all (NOLOCK)
-                                        WHERE   order_no = @order_no
-                                                AND ext = @ext
-                                                AND type = 'C'
-                                                AND orig_no <> 0 ) -- v1.2
-                            BEGIN
-                                SELECT  @commission = dbo.f_get_order_commission(@order_no,
-                                                              @ext); 
+            IF NOT EXISTS ( SELECT 1 FROM dbo.orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @ext AND type = 'C' AND orig_no <> 0 ) -- v1.2
+            BEGIN
+				SELECT  @commission = dbo.f_get_order_commission(@order_no, @ext)
 
-                                UPDATE  CVO_orders_all
-                                SET     commission_pct = ISNULL(@commission, 0)
-                                WHERE   order_no = @order_no
-                                        AND ext = @ext;
-                            END;
+				UPDATE  CVO_orders_all
+                SET     commission_pct = ISNULL(@commission, 0)
+                WHERE   order_no = @order_no
+                AND ext = @ext
+            END
 			-- END v1.1
-
 			
 			-- tag -- 1/5/16 - check if we need CH WTY note
-                        UPDATE  co
-                        SET     co.invoice_note = CASE WHEN ISNULL(co.invoice_note,
-                                                              '') = ''
-                                                       THEN 'Cole Haan frames are for replacement purposes.'
-                                                       ELSE ISNULL(co.invoice_note,
-                                                              '') + CHAR(13)
-                                                            + CHAR(10)
-                                                            + 'Cole Haan frames are for replacement purposes.'
-                                                  END
-                        FROM    dbo.CVO_orders_all AS co
-                                JOIN dbo.orders AS o ( NOLOCK ) ON o.order_no = co.order_no
-                                                              AND o.ext = co.ext
-                        WHERE   co.order_no = @order_no
-                                AND co.ext = @ext
-                                AND o.type = 'I'
-                                AND o.user_category LIKE 'RX%'
-                                AND EXISTS ( SELECT 1
-                                             FROM   ord_list OL ( NOLOCK )
-                                                    JOIN inv_master i ( NOLOCK ) ON i.part_no = OL.part_no
-                                             WHERE  OL.order_no = @order_no
-                                                    AND OL.order_ext = @ext
-                                                    AND i.category = 'CH'
-                                                    AND i.type_code IN (
-                                                    'frame', 'sun' ) )
-                                AND CHARINDEX('Cole Haan frames are for replacement purposes',
-                                              ISNULL(co.invoice_note, '')) = 0;
+            UPDATE  co
+            SET     co.invoice_note = CASE WHEN ISNULL(co.invoice_note, '') = ''
+                                          THEN 'Cole Haan frames are for replacement purposes.'
+                                          ELSE ISNULL(co.invoice_note, '') + CHAR(13) + CHAR(10) + 'Cole Haan frames are for replacement purposes.' END
+            FROM    dbo.CVO_orders_all AS co
+            JOIN	dbo.orders AS o ( NOLOCK ) 
+			ON		o.order_no = co.order_no
+            AND		o.ext = co.ext
+            WHERE   co.order_no = @order_no
+            AND		co.ext = @ext
+            AND		o.type = 'I'
+            AND		o.user_category LIKE 'RX%'
+            AND		EXISTS ( SELECT 1 FROM ord_list OL ( NOLOCK ) JOIN inv_master i ( NOLOCK ) ON i.part_no = OL.part_no WHERE  OL.order_no = @order_no
+								AND OL.order_ext = @ext AND i.category = 'CH' AND i.type_code IN ('frame', 'sun' ))
+                                AND CHARINDEX('Cole Haan frames are for replacement purposes', ISNULL(co.invoice_note, '')) = 0
 					
+			-- check must go today value and add to log table if needed.
 
-						-- check must go today value and add to log table if needed.
+			INSERT	cvo_mgt_tbl (order_no, ext, mgt_date)
+			SELECT	co.order_no, co.ext, GETDATE()
+			FROM	cvo_orders_all co 
+			WHERE	co.order_no = @order_no AND co.ext = @ext
+			AND		co.must_go_today = 1
 
-						INSERT cvo_mgt_tbl (order_no, ext, mgt_date)
-							SELECT co.order_no, co.ext, GETDATE()
-							FROM cvo_orders_all co WHERE co.order_no = @order_no AND co.ext = @ext
-							AND co.must_go_today = 1
-
-					---- 2/2/16 - add note for online special offer
-	    --               UPDATE  co
-     --                   SET     co.invoice_note = CASE WHEN ISNULL(co.invoice_note,
-     --                                                         '') = ''
-     --                                                  THEN 'Place an order online during the month of February and receive FREE shipping! Visit www.cvoptical.com for details!'
-     --                                                  ELSE ISNULL(co.invoice_note,
-     --                                                         '') + CHAR(13)
-     --                                                       + CHAR(10)
-     --                                                       + 'Place an order online during the month of February and receive FREE shipping! Visit www.cvoptical.com for details!'
-     --                                             END
-     --                   FROM    dbo.CVO_orders_all AS co
-     --                           JOIN dbo.orders AS o ( NOLOCK ) ON o.order_no = co.order_no
-     --                                                         AND o.ext = co.ext
-     --                   WHERE   co.order_no = @order_no
-     --                           AND co.ext = @ext
-     --                           AND o.type = 'I'
-     --                           AND o.date_entered BETWEEN '2/1/2016' AND '3/1/2016'
-     --                           AND CHARINDEX('Place an order online during the month of February',
-     --                                         ISNULL(co.invoice_note, '')) = 0
-					--			AND 255 >= LEN(ISNULL(co.invoice_note,'')) + 116;
-
-		
-                    END;
-
-            END;		
+		END
+	END		
 	
+	-- v1.4 Start
+	/*
+
 	-- START v1.3
 	-- Promo hold reason
         SET @order_no = 0;
@@ -300,11 +260,10 @@ AS
 
             END;			
 	-- END v1.3	
+	*/
+	-- v1.4 End
 
-
-    END;
-
-
+    END
 GO
 SET QUOTED_IDENTIFIER ON
 GO

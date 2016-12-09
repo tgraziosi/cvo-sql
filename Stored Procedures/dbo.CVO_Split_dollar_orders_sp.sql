@@ -51,7 +51,9 @@ BEGIN
 			@consumed_price	decimal(20,8), -- v10.3
 			@debug			int,
 			@ca_ext			int, -- v11.2
-			@ca_line		int -- v11.2
+			@ca_line		int, -- v11.2
+			@status			char(1), -- v12.5
+			@hold_reason	varchar(10) -- v12.5
 
 	-- Set flag
 	SET @debug = 0 -- Set to 0 to switch off before delivery
@@ -918,8 +920,12 @@ BEGIN
 		replaced varchar(1) NULL DEFAULT ('N'),
 		new1 varchar(1) NULL DEFAULT ('N'),
 		part_no_original varchar(30) NULL,
-		row_id int IDENTITY(1,1) NOT NULL
-) 
+		row_id int IDENTITY(1,1) NOT NULL) 
+
+	-- v12.5 Start
+	SELECT * INTO #cvo_so_holds FROM cvo_so_holds WHERE 1 = 2
+	-- v12.5 End
+
 	-- Populate the temp tables
 	SET	@last_new_ext = 0
 
@@ -936,6 +942,24 @@ BEGIN
 		-- Set flag
 		SET	@has_split = 1
 
+		-- v12.5 Start
+		SELECT	@hold_reason = hold_reason
+		FROM	orders_all (NOLOCK)
+		WHERE	order_no = @order_no
+		AND		ext = @order_ext
+
+		IF (@hold_reason = '')
+			SET @status = 'N'
+
+		IF (@hold_reason > '')
+		BEGIN
+			IF (@hold_reason IN ('CL','PD'))
+				SET @status = 'C'
+			ELSE
+				SET @status = 'A'
+		END
+		-- v12.5
+
 		-- orders_all
 		INSERT INTO #orders_all  (order_no,ext,cust_code,ship_to,req_ship_date,sch_ship_date,date_shipped,date_entered,cust_po,who_entered,status,attention,phone,terms,routing,special_instr,
 											invoice_date,total_invoice,total_amt_order,salesperson,tax_id,tax_perc,invoice_no,fob,freight,printed,discount,label_no,cancel_date,new,ship_to_name,
@@ -948,13 +972,15 @@ BEGIN
 											sold_to_addr3,sold_to_addr4,sold_to_addr5,sold_to_addr6,user_code,user_def_fld1,user_def_fld2,user_def_fld3,user_def_fld4,user_def_fld5,user_def_fld6,
 											user_def_fld7,user_def_fld8,user_def_fld9,user_def_fld10,user_def_fld11,user_def_fld12,eprocurement_ind,sold_to,sopick_ctrl_num,organization_id,
 											last_picked_dt,internal_so_ind,ship_to_country_cd,sold_to_city,sold_to_state,sold_to_zip,sold_to_country_cd,tax_valid_ind,addr_valid_ind)
-		SELECT	@order_no, @new_ext, cust_code,ship_to,req_ship_date,sch_ship_date,date_shipped,date_entered,cust_po,who_entered,'N',attention,phone,terms,routing,special_instr,
+		SELECT	@order_no, @new_ext, cust_code,ship_to,req_ship_date,sch_ship_date,date_shipped,date_entered,cust_po,who_entered,@status, -- v12.5
+				attention,phone,terms,routing,special_instr,
 				invoice_date,total_invoice,total_amt_order,salesperson,tax_id,tax_perc,invoice_no,fob,freight,'N',discount,label_no,cancel_date,new,ship_to_name,
 				ship_to_add_1,ship_to_add_2,ship_to_add_3,ship_to_add_4,ship_to_add_5,ship_to_city,ship_to_state,ship_to_zip,ship_to_country,ship_to_region,cash_flag,type,back_ord_flag,
 				freight_allow_pct,route_code,route_no,date_printed,date_transfered,cr_invoice_no,who_picked,note,void,void_who,void_date,changed,remit_key,forwarder_key,freight_to,
 				sales_comm,freight_allow_type,cust_dfpa,location,total_tax,total_discount,f_note,invoice_edi,edi_batch,post_edi_date,blanket,gross_sales,load_no,
 				curr_key,curr_type,curr_factor,bill_to_key,oper_factor,tot_ord_tax,tot_ord_disc,tot_ord_freight,posting_code,rate_type_home,rate_type_oper,
-				reference_code,hold_reason,dest_zone_code,orig_no,orig_ext,tot_tax_incl,process_ctrl_num,batch_code,tot_ord_incl,barcode_status,multiple_flag,
+				reference_code,@hold_reason, -- v12.5
+				dest_zone_code,orig_no,orig_ext,tot_tax_incl,process_ctrl_num,batch_code,tot_ord_incl,barcode_status,multiple_flag,
 				so_priority_code,FO_order_no,blanket_amt,user_priority,user_category,from_date,to_date,consolidate_flag,proc_inv_no,sold_to_addr1,sold_to_addr2,
 				sold_to_addr3,sold_to_addr4,sold_to_addr5,sold_to_addr6,user_code,user_def_fld1,user_def_fld2,user_def_fld3,user_def_fld4,user_def_fld5,user_def_fld6,
 				user_def_fld7,user_def_fld8,user_def_fld9,user_def_fld10,user_def_fld11,user_def_fld12,eprocurement_ind,sold_to,sopick_ctrl_num,organization_id,
@@ -962,6 +988,15 @@ BEGIN
 		FROM	orders_all (NOLOCK)
 		WHERE	order_no = @order_no
 		AND		ext = @order_ext
+
+		-- v12.5 Start
+		INSERT	#cvo_so_holds (order_no, order_ext, hold_reason, hold_priority, hold_user, hold_date)
+		SELECT	@order_no, @new_ext, hold_reason, hold_priority, hold_user, hold_date
+		FROM	cvo_so_holds (NOLOCK)
+		WHERE	order_no = @order_no
+		AND		order_ext = @order_ext
+		-- v12.5 End
+
 
 		-- cvo_orders_all
 		INSERT INTO #CVO_orders_all(order_no,ext,add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,
@@ -979,7 +1014,8 @@ BEGIN
 									oper_price,display_line,std_direct_dolrs,std_ovhd_dolrs,std_util_dolrs,reference_code,contract,agreement_id,ship_to,service_agreement_flag,
 									inv_available_flag,create_po_flag,load_group_no,return_code,user_count,cust_po,organization_id,picked_dt,who_picked_id,printed_dt,who_unpicked_id,
 									unpicked_dt)
-		SELECT	@order_no, @new_ext, a.line_no,a.location,a.part_no,a.description,a.time_entered,b.quantity,a.shipped,a.price,a.price_type,a.note,'N',a.cost,a.who_entered,a.sales_comm,
+		SELECT	@order_no, @new_ext, a.line_no,a.location,a.part_no,a.description,a.time_entered,b.quantity,a.shipped,a.price,a.price_type,a.note,@status, -- v12.5
+									a.cost,a.who_entered,a.sales_comm,
 									a.temp_price,a.temp_type,a.cr_ordered,a.cr_shipped,a.discount,a.uom,a.conv_factor,a.void,a.void_who,a.void_date,a.std_cost,a.cubic_feet,a.printed,a.lb_tracking,a.labor,a.direct_dolrs,
 									a.ovhd_dolrs,a.util_dolrs,a.taxable,a.weight_ea,a.qc_flag,a.reason_code,a.qc_no,a.rejected,a.part_type,a.orig_part_no,a.back_ord_flag,a.gl_rev_acct,a.total_tax,a.tax_code,a.curr_price,
 									a.oper_price,a.display_line,a.std_direct_dolrs,a.std_ovhd_dolrs,a.std_util_dolrs,a.reference_code,a.contract,a.agreement_id,a.ship_to,a.service_agreement_flag,
@@ -1002,7 +1038,8 @@ BEGIN
 									oper_price,display_line,std_direct_dolrs,std_ovhd_dolrs,std_util_dolrs,reference_code,contract,agreement_id,ship_to,service_agreement_flag,
 									inv_available_flag,create_po_flag,load_group_no,return_code,user_count,cust_po,organization_id,picked_dt,who_picked_id,printed_dt,who_unpicked_id,
 									unpicked_dt)
-		SELECT	@order_no, @new_ext, a.line_no,a.location,a.part_no,a.description,a.time_entered,b.quantity,a.shipped,a.price,a.price_type,a.note,'N',a.cost,a.who_entered,a.sales_comm,
+		SELECT	@order_no, @new_ext, a.line_no,a.location,a.part_no,a.description,a.time_entered,b.quantity,a.shipped,a.price,a.price_type,a.note,@status, -- v12.5
+									a.cost,a.who_entered,a.sales_comm,
 									a.temp_price,a.temp_type,a.cr_ordered,a.cr_shipped,a.discount,a.uom,a.conv_factor,a.void,a.void_who,a.void_date,a.std_cost,a.cubic_feet,a.printed,a.lb_tracking,a.labor,a.direct_dolrs,
 									a.ovhd_dolrs,a.util_dolrs,a.taxable,a.weight_ea,a.qc_flag,a.reason_code,a.qc_no,a.rejected,a.part_type,a.orig_part_no,a.back_ord_flag,a.gl_rev_acct,a.total_tax,a.tax_code,a.curr_price,
 									a.oper_price,a.display_line,a.std_direct_dolrs,a.std_ovhd_dolrs,a.std_util_dolrs,a.reference_code,a.contract,a.agreement_id,a.ship_to,a.service_agreement_flag,
@@ -1052,7 +1089,8 @@ BEGIN
 		-- ord_list_kit
 		INSERT INTO #ord_list_kit (order_no,order_ext,line_no,location,part_no,part_type,ordered,shipped,status,lb_tracking,cr_ordered,cr_shipped,uom,conv_factor,
 											cost,labor,direct_dolrs,ovhd_dolrs,util_dolrs,note,qty_per,qc_flag,qc_no,description)
-		SELECT	@order_no, @new_ext, a.line_no, a.location,a.part_no,a.part_type,b.quantity,a.shipped,'N',a.lb_tracking,a.cr_ordered,a.cr_shipped,a.uom,conv_factor,
+		SELECT	@order_no, @new_ext, a.line_no, a.location,a.part_no,a.part_type,b.quantity,a.shipped,@status, -- v12.5
+					a.lb_tracking,a.cr_ordered,a.cr_shipped,a.uom,conv_factor,
 					a.cost,a.labor,a.direct_dolrs,a.ovhd_dolrs,a.util_dolrs,a.note,a.qty_per,a.qc_flag,a.qc_no,a.description
 		FROM	ord_list_kit a (NOLOCK)
 		JOIN	#splits b
@@ -1177,12 +1215,29 @@ BEGIN
 			RETURN
 		END
 
+		-- v12.5 Start
+		INSERT	cvo_so_holds (order_no, order_ext, hold_reason, hold_priority, hold_user, hold_date)
+		SELECT	order_no, order_ext, hold_reason, hold_priority, hold_user, hold_date
+		FROM	#cvo_so_holds (NOLOCK)
+		-- v12.5 End
+
+
 		-- v10.1 Start
 		INSERT INTO tdc_log ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
-		SELECT	GETDATE() , @user_id , 'BO' , 'ADM' , 'ORDER CREATION' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
-				'STATUS:N/SPLIT ORDER'
+		SELECT	GETDATE() , @user_id , 'BO' , 'SALES ORDER' , 'ORDER CREATION' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
+				'STATUS:N/SPLIT DOLLAR ORDER'
 		FROM	#orders_all a (NOLOCK)
 		-- v10.1 End
+
+		-- v12.5 Start
+		IF (@status <> 'N')
+		BEGIN
+			INSERT INTO tdc_log ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+			SELECT	GETDATE() , @user_id , 'BO' , 'SALES ORDER' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
+					CASE WHEN @status = 'C' THEN 'STATUS:C/CREDIT HOLD; HOLD REASON: ' WHEN @status = 'A' THEN 'STATUS:A/USER HOLD; HOLD REASON: ' END + @hold_reason
+			FROM	#orders_all a (NOLOCK)
+		END
+		-- v12.5 End
 
 		-- cvo_orders_all
 		INSERT INTO CVO_orders_all(order_no,ext,add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,
@@ -1524,6 +1579,7 @@ BEGIN
 	DROP TABLE #ord_list_kit
 	DROP TABLE #cvo_ord_list_kit
 	DROP TABLE #case_adjust -- v11.2
+	DROP TABLE #cvo_so_holds -- v12.5
 
 END
 GO

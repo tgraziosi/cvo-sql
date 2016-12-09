@@ -119,10 +119,18 @@ BEGIN
 		BEGIN
 			IF NOT (LEFT(@prior_hold,5) = 'PROMO') 
 			BEGIN
-				UPDATE	cvo_orders_all
-				SET		prior_hold = 'STC'
-				WHERE	order_no = @order_no
-				AND		ext = @order_ext
+				-- v1.4 Start
+				INSERT	cvo_so_holds
+				SELECT	@order_no, @order_ext, 'STC', dbo.f_get_hold_priority('STC',''), SUSER_NAME(), GETDATE()
+
+				INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+				SELECT	GETDATE(), SUSER_NAME(), 'BO', 'STC RESET', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: STC'
+
+				--UPDATE	cvo_orders_all
+				--SET		prior_hold = 'STC'
+				--WHERE	order_no = @order_no
+				--AND		ext = @order_ext
+				-- v1.4 End
 			END
 		END
 		ELSE IF (@status = 'A')
@@ -130,10 +138,18 @@ BEGIN
 			-- v1.3 Start
 			IF (@hold_reason > '' AND @hold_reason <> 'STC')
 			BEGIN
-				UPDATE	cvo_orders_all
-				SET		prior_hold = 'STC'
-				WHERE	order_no = @order_no
-				AND		ext = @order_ext
+				-- v1.4 Start
+				INSERT	cvo_so_holds
+				SELECT	@order_no, @order_ext, 'STC', dbo.f_get_hold_priority('STC',''), SUSER_NAME(), GETDATE()
+
+				INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+				SELECT	GETDATE(), SUSER_NAME(), 'BO', 'STC RESET', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: STC'
+
+				--UPDATE	cvo_orders_all
+				--SET		prior_hold = 'STC'
+				--WHERE	order_no = @order_no
+				--AND		ext = @order_ext
+				-- v1.4 End
 			END
 --			IF ((@hold_reason = 'H') OR (LEFT(@hold_reason,5) = 'PROMO') OR @hold_reason = 'FL') -- v1.2
 --			BEGIN
@@ -170,6 +186,12 @@ BEGIN
 					hold_reason = 'STC'
 			WHERE	order_no = @order_no
 			AND		ext = @order_ext
+
+			-- v1.4 Start
+			INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+			SELECT	GETDATE(), SUSER_NAME(), 'BO', 'STC RESET', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'STATUS: A/STOCK CONSOLIDATION; HOLD REASON: STC'
+			-- v1.4 End
+
 		END
 
 		UPDATE	orders_all

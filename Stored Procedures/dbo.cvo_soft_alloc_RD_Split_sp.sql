@@ -165,12 +165,23 @@ BEGIN
 		RETURN
 	END
 	-- v1.1 End
-	
+
+	-- v1.9 Start	
 	-- v1.7 Start
-	SELECT	@ord_lines = COUNT(1) 
-	FROM	ord_list (NOLOCK)
-	WHERE	order_no = @order_no
-	AND		order_ext = @order_ext
+--	SELECT	@ord_lines = COUNT(1) 
+--	FROM	ord_list (NOLOCK)
+--	WHERE	order_no = @order_no
+--	AND		order_ext = @order_ext
+
+	SELECT	@ord_lines = COUNT(1)
+	FROM	ord_list a (NOLOCK)
+	JOIN	inv_master b (NOLOCK)
+	ON		a.part_no = b.part_no
+	WHERE	a.order_no = @order_no
+	AND		a.order_ext = @order_ext
+	AND		b.type_code IN ('FRAME','SUN')
+	-- v1.9 End
+
 
 	SELECT	@kit_lines = COUNT(1) 
 	FROM	cvo_ord_list_kit (NOLOCK)
@@ -193,18 +204,37 @@ BEGIN
 
 		IF (@status = 'A' AND @hold_reason <> 'RD')
 		BEGIN
-			UPDATE	cvo_orders_all
-			SET		prior_hold = @hold_reason
-			WHERE	order_no = @order_no
-			AND		ext = @order_ext
+			-- v1.8 Start
+			INSERT	cvo_so_holds
+			SELECT	@order_no, @order_ext, @hold_reason, dbo.f_get_hold_priority(@hold_reason,''), SUSER_NAME(), GETDATE()
+
+
+			INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+			SELECT	GETDATE(), SUSER_NAME(), 'BO', 'RD UPDATE', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: ' + @hold_reason
+
+			--UPDATE	cvo_orders_all
+			--SET		prior_hold = @hold_reason
+			--WHERE	order_no = @order_no
+			--AND		ext = @order_ext
+			-- v1.8 End
 		END
 
 		IF (@status = 'C')
 		BEGIN
-			UPDATE	cvo_orders_all
-			SET		prior_hold = 'RD'
-			WHERE	order_no = @order_no
-			AND		ext = @order_ext
+
+			-- v1.8 Start
+			INSERT	cvo_so_holds
+			SELECT	@order_no, @order_ext, 'RD', dbo.f_get_hold_priority('RD',''), SUSER_NAME(), GETDATE()
+
+
+			INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+			SELECT	GETDATE(), SUSER_NAME(), 'BO', 'RD UPDATE', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: RD'
+
+			--UPDATE	cvo_orders_all
+			--SET		prior_hold = 'RD'
+			--WHERE	order_no = @order_no
+			--AND		ext = @order_ext
+			-- v1.8 End
 		END
 		ELSE
 		BEGIN
@@ -213,6 +243,11 @@ BEGIN
 					hold_reason = 'RD'
 			WHERE	order_no = @order_no
 			AND		ext = @order_ext
+	
+			-- v1.8 Start
+			INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+			SELECT	GETDATE(), SUSER_NAME(), 'BO', 'RD UPDATE', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'STATUS:A/RELEASE DATE; HOLD REASON : RD'
+			-- v1.8 End
 		END
 
 		RETURN
@@ -576,30 +611,81 @@ BEGIN
 				EXEC dbo.cvo_debit_promo_apply_credit_for_splits_sp @order_no, @last_split
 			END
 
+
+			INSERT INTO tdc_log ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+			SELECT	GETDATE() , a.who_entered , 'BO' , 'RD SPLIT' , 'ORDER CREATION' , a.order_no , @split_number , '' , '' , '' , a.location , '' ,
+					'STATUS:N' -- v1.7
+			FROM	orders_all a (NOLOCK)
+			WHERE	a.order_no = @order_no 
+			AND		a.ext = @order_ext 
+
 			-- v1.7 Start
 			SET @prior_hold = NULL
 			IF (@status = 'A' AND @hold_reason <> 'RD')
 			BEGIN
 				IF (@hold_reason = 'H')
 				BEGIN
-					SET @prior_hold = 'RD'					
+					-- v1.8 Start
+					INSERT	cvo_so_holds
+					SELECT	@order_no, @split_number, 'RD', dbo.f_get_hold_priority('RD',''), SUSER_NAME(), GETDATE()
+
+					INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+					SELECT	GETDATE(), SUSER_NAME(), 'BO', 'RD SPLIT', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: RD'
+
+					--SET @prior_hold = 'RD'					
+					-- v1.8 End
 				END
 				ELSE
 				BEGIN
-					SET @prior_hold = @hold_reason
+					-- v1.8 Start
+					INSERT	cvo_so_holds
+					SELECT	@order_no, @split_number, @hold_reason, dbo.f_get_hold_priority(@hold_reason,''), SUSER_NAME(), GETDATE()
+
+					INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+					SELECT	GETDATE(), SUSER_NAME(), 'BO', 'RD SPLIT', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: ' + @hold_reason					
+					
+					-- SET @prior_hold = @hold_reason
+					-- v1.8 End
 					SET @hold_reason = 'RD'
 				END
 			END
 			IF (@status = 'C')
 			BEGIN
-				SET @prior_hold = 'RD'					
+				-- v1.8 Start
+				INSERT	cvo_so_holds
+				SELECT	@order_no, @split_number, 'RD', dbo.f_get_hold_priority('RD',''), SUSER_NAME(), GETDATE()
+
+				INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+				SELECT	GETDATE(), SUSER_NAME(), 'BO', 'RD SPLIT', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: RD'
+
+				--SET @prior_hold = 'RD'					
+				-- v1.8 End
 			END
 
 			IF (ISNULL(@hold_reason,'') = '')
 				SET @hold_reason = 'RD'
 
 			IF (@status = 'N')
+			BEGIN
+				-- v1.8 Start
+				SET @prior_hold = ''
+				SELECT	@prior_hold = hold_reason
+				FROM	orders_all (NOLOCK)
+				WHERE	order_no = @order_no
+				AND		ext = @order_ext
+
+				IF (@prior_hold > '' AND @prior_hold <> 'RD')
+				BEGIN
+					INSERT	cvo_so_holds
+					SELECT	@order_no, @split_number, @prior_hold, dbo.f_get_hold_priority(@prior_hold,''), SUSER_NAME(), GETDATE()
+
+					INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+					SELECT	GETDATE(), SUSER_NAME(), 'BO', 'RD SPLIT', 'ORDER UPDATE', @order_no, @split_number, '', '', '', '', '', 'ADD HOLD: ' + @hold_reason						
+				END
 				SET @status = 'A'
+				SET @hold_reason = 'RD'
+			END
+			-- v1.8 End
 			-- v1.7 End
 
 			INSERT INTO orders_all  (order_no,ext,cust_code,ship_to,req_ship_date,sch_ship_date,date_shipped,date_entered,cust_po,who_entered,status,attention,phone,terms,routing,special_instr,
@@ -630,6 +716,14 @@ BEGIN
 			WHERE	order_no = @order_no
 			AND		ext = @order_ext
 
+			INSERT INTO tdc_log ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+			SELECT	GETDATE() , a.who_entered , 'BO' , 'RD SPLIT' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
+					CASE WHEN @status = 'A' THEN 'STATUS:A/' + @hold_reason + ' SPLIT ORDER' WHEN @status = 'C' THEN 'STATUS:C/' + @hold_reason + ' CREDIT HOLD SPLIT ORDER' END -- v1.7
+			FROM	orders_all a (NOLOCK)
+			WHERE	a.order_no = @order_no 
+			AND		a.ext = @split_number 
+
+
 			-- cvo_orders_all
 			INSERT INTO CVO_orders_all(order_no,ext,add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,
 										commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, st_consolidate, upsell_flag, must_go_today) -- v1.6
@@ -640,13 +734,6 @@ BEGIN
 			FROM	cvo_orders_all (NOLOCK)
 			WHERE	order_no = @order_no
 			AND		ext = @order_ext
-
-			INSERT INTO tdc_log ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
-			SELECT	GETDATE() , a.who_entered , 'BO' , 'ADM' , 'ORDER CREATION' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
-					CASE WHEN @status = 'A' THEN 'STATUS:A/' + @hold_reason + ' SPLIT ORDER' WHEN @status = 'C' THEN 'STATUS:C/' + @hold_reason + ' CREDIT HOLD SPLIT ORDER' END -- v1.7
-			FROM	orders_all a (NOLOCK)
-			WHERE	a.order_no = @order_no 
-			AND		a.ext = @split_number 
 
 			-- Soft Allocation hdr
 			UPDATE	dbo.cvo_soft_alloc_next_no

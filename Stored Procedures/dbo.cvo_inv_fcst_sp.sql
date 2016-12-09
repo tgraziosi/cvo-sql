@@ -55,6 +55,7 @@ CREATE procedure [dbo].[cvo_inv_fcst_sp]
 -- 10/6/2015 - PO lines - make the outer range < not <= to avoid 13th bucket on report
 -- 10/20/2015 - add seasonality multiplier, promo and substitute flagging
 -- 07/15/2016 - calc starting inventory with allocations if usage is on orders, and without if usage is on shipments.
+-- 12/5/2016 - FIXED PCT_OF_STYLE CALCULATION  - CHANGE TO DECIMAL
 	
 as 
 begin
@@ -305,7 +306,8 @@ CREATE TABLE #usage
 ( location VARCHAR(12), part_no VARCHAR(40)
 , usg_option CHAR(1), asofdate datetime
 , e4_wu INT, e12_wu INT, e26_wu INT, e52_wu INT
-, subs_w4 INT, subs_w12 INT, promo_w4 INT, promo_w12 int
+, subs_w4 INT, subs_w12 INT, promo_w4 INT, promo_w12 INT
+, rx_w4 INT, rx_w12 int
 )
 
 -- 10/24/2016 - switch over to usage by collection for performance
@@ -315,8 +317,8 @@ SELECT @co = MIN(coll) FROM #coll AS c
 WHILE @co IS NOT NULL
 BEGIN
 	INSERT INTO #usage 
-	(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12)
-	select location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12
+	(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12)
+	select location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12
 	from dbo.f_cvo_calc_weekly_usage_COLL (@usg_option, @CO)
 	SELECT @CO = MIN(COLL) FROM #COLL WHERE COLL > @co
 END
@@ -569,8 +571,8 @@ select s.brand
 	else isnull(s_e12_wu,0)*52/12 end ) * mult) ,0,1)
 , p_mth_usg_mult = round(((case when mth_since_rel <= 3 then isnull(p_e4_wu,0)*52/12
 	else isnull(p_e12_wu,0)*52/12 end ) * mult) ,0,1) 
-, pct_of_style = round((case when isnull(s_e12_wu,0) <> 0	
-							 then isnull(p_e12_wu,0)/isnull(s_e12_wu,0) else 0 end),4)
+, pct_of_style = round((case when isnull(CAST(s_e12_wu AS DECIMAL),0.00) <> 0.00	
+							 then isnull(CAST(p_e12_wu AS DECIMAL),0)/isnull(CAST(s_e12_wu AS DECIMAL),0) else 0 end),4)
 , first_po = isnull((select top 1 quantity From releases 
 	where part_no = i.part_no and location = @loc and part_type = 'p' and status = 'c' 
 	order by release_date),0)
@@ -1082,6 +1084,9 @@ cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
 
 
 end
+
+
+
 
 
 

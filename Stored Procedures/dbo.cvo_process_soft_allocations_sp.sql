@@ -208,11 +208,18 @@ BEGIN
 	WHERE	status = 'A'
 	AND		hold_reason = 'H'
 
+	-- v7.4 Start
+	--INSERT	#exclusions (order_no, order_ext)
+	--SELECT	order_no,
+	--		ext
+	--FROM	cvo_orders_all (NOLOCK)
+	--WHERE	ISNULL(prior_hold,'') = 'NA'
+
 	INSERT	#exclusions (order_no, order_ext)
-	SELECT	order_no,
-			ext
-	FROM	cvo_orders_all (NOLOCK)
-	WHERE	ISNULL(prior_hold,'') = 'NA'
+	SELECT	order_no, order_ext
+	FROM	cvo_so_holds (NOLOCK)
+	WHERE	hold_reason = 'NA'
+	-- v7.4 End
 
 	-- 4. -- v2.1 & v2.2
 	INSERT	#exclusions (order_no, order_ext)
@@ -295,14 +302,24 @@ BEGIN
 	-- v5.3 End
 
 	-- v6.7 Start
+	-- v7.4 Start
+	--INSERT	#exclusions (order_no, order_ext)
+	--SELECT	a.order_no,
+	--		a.ext
+	--FROM	cvo_orders_all a (NOLOCK)
+	--LEFT JOIN cvo_alloc_hold_values_tbl b (NOLOCK)
+	--ON		a.prior_hold = b.hold_code
+	--WHERE	b.hold_code IS NULL
+	--AND		ISNULL(a.prior_hold,'') > ''
+
 	INSERT	#exclusions (order_no, order_ext)
 	SELECT	a.order_no,
-			a.ext
-	FROM	cvo_orders_all a (NOLOCK)
+			a.order_ext
+	FROM	cvo_so_holds a (NOLOCK)
 	LEFT JOIN cvo_alloc_hold_values_tbl b (NOLOCK)
-	ON		a.prior_hold = b.hold_code
+	ON		a.hold_reason = b.hold_code
 	WHERE	b.hold_code IS NULL
-	AND		ISNULL(a.prior_hold,'') > ''
+	-- v7.4 End
 	-- v6.7 End
 
 	-- Future Allocations - Update the status on the soft allocations where the future allocation is now due
@@ -1092,15 +1109,28 @@ BEGIN
 					AND		ext = @order_ext
 
 					-- v5.7 Start
-					UPDATE	a
-					SET		prior_hold = 'SC'
-					FROM	cvo_orders_all a WITH (ROWLOCK)
-					JOIN	orders_all b (NOLOCK)
-					ON		a.order_no = b.order_no
-					AND		a.ext = b.ext
-					WHERE	a.order_no = @order_no
-					AND		a.ext = @order_ext
-					AND		b.back_ord_flag = 1
+					-- v7.4 Start
+					INSERT	cvo_so_holds
+					SELECT	order_no, ext, 'SC', dbo.f_get_hold_priority('SC',''),
+							SUSER_NAME(), GETDATE()
+					FROM	orders_all (NOLOCK)
+					WHERE	order_no = @order_no
+					AND		ext = @order_ext
+					AND		back_ord_flag = 1
+
+					INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+					SELECT	GETDATE(), 'AUTO_ALLOC' , 'VB' , 'PLW', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: SC - SHIP COMPLETE'
+
+					--UPDATE	a
+					--SET		prior_hold = 'SC'
+					--FROM	cvo_orders_all a WITH (ROWLOCK)
+					--JOIN	orders_all b (NOLOCK)
+					--ON		a.order_no = b.order_no
+					--AND		a.ext = b.ext
+					--WHERE	a.order_no = @order_no
+					--AND		a.ext = @order_ext
+					--AND		b.back_ord_flag = 1
+					-- v7.4 End
 					-- v5.7 End
 
 					-- Reset the soft allocation
@@ -1666,10 +1696,20 @@ BEGIN
 
 					IF (ISNULL(@hold_reason,'') <> '')
 					BEGIN
-						UPDATE	cvo_orders_all
-						SET		prior_hold = 'STC'
-						WHERE	order_no = @order_no
-						AND		ext = @order_ext
+						-- v7.4 Start
+						INSERT	cvo_so_holds
+						SELECT	@order_no, @order_ext, 'STC', dbo.f_get_hold_priority('STC',''),
+								'AUTO_ALLOC', GETDATE()
+
+						--UPDATE	cvo_orders_all
+						--SET		prior_hold = 'STC'
+						--WHERE	order_no = @order_no
+						--AND		ext = @order_ext
+					
+						INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+						SELECT	GETDATE(), 'AUTO_ALLOC', 'VB', 'PLW', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: STC - STOCK CONSOLIDATION'						
+						-- v7.4 End
+
 					END
 					ELSE
 					BEGIN
@@ -1677,7 +1717,12 @@ BEGIN
 						SET		status = 'A',
 								hold_reason = 'STC'
 						WHERE	order_no = @order_no
-						AND		ext = @order_ext					
+						AND		ext = @order_ext	
+
+						-- v7.4 Start
+						INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+						SELECT	GETDATE(), 'AUTO_ALLOC', 'VB', 'PLW', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'STATUS:A; HOLD REASAON: STC - STOCK CONSOLIDATION'						
+						-- v7.4 End				
 					END					
 				END
 			

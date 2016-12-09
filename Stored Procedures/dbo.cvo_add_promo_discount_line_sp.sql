@@ -6,6 +6,7 @@ GO
 -- v1.0 CB 20/04/2016 - #1584 - Add discount amount
 -- v1.1 CB 09/05/2016 - Need to add cvo_ord_list record
 -- v1.2 CB 16/05/2016 - Add acct code from config
+-- v1.3 CB 28/10/2016 - #1616 Hold Processing
 -- EXEC dbo.cvo_add_promo_discount_line_sp 1421198, 0
 
 CREATE PROC [dbo].[cvo_add_promo_discount_line_sp]	@order_no		int,
@@ -72,8 +73,16 @@ BEGIN
 		WHERE	order_no = @order_no
 		AND		ext = @order_ext
 
-		IF (@hold_reason = 'PROMOHLD' OR @prior_hold = 'PROMOHLD')
+		-- v1.3 Start
+		IF (@hold_reason = 'PROMOHLD')
+			RETURN 
+
+		IF EXISTS (SELECT 1 FROM cvo_so_holds (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext AND hold_reason = 'PROMOHLD')
 			RETURN
+
+--		IF (@hold_reason = 'PROMOHLD' OR @prior_hold = 'PROMOHLD')
+--			RETURN
+		-- v1.3 End
 
 		IF EXISTS (SELECT 1 FROM ord_list (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext AND part_no = 'PROMOTION DISCOUNT')
 		BEGIN
