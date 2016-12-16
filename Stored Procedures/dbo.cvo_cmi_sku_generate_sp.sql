@@ -28,6 +28,7 @@ BEGIN
 -- 10/04/2016 - change logic for sunlenses
 -- 10/5/2016 - COST AND PRICE FOR SUN LENSES
 -- 11/23/2016 - update for patterns so they get into the right account code
+-- 12/16/2016 - fix description for pattern parts.  was saying frame, not pattern
 
 SET XACT_ABORT, NOCOUNT ON;
 
@@ -1499,7 +1500,8 @@ INSERT  #i
                                         + LTRIM(RTRIM(c.model)) + ' '
 										+ CASE WHEN @tpr = 1 THEN LEFT(ISNULL(IA.FIELD_3,0),2) ELSE '' END
                                         + CASE WHEN RIGHT(IA.PART_NO,2) = 'DG' THEN 'DRILLING GUIDE'
-											ELSE LTRIM(RTRIM(c.res_type)) END
+											ELSE LTRIM(RTRIM(CASE WHEN c.part_type = 'pattern' -- 12/16/2016
+															 THEN c.part_type ELSE c.res_type end)) END
                                    WHEN c.part_type = 'front'
                                    THEN c.Collection + ' ' + c.model + ' '
                                         + UPPER(ia.field_3) + ' '
@@ -2329,6 +2331,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

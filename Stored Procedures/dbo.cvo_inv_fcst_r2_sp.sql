@@ -56,6 +56,7 @@ CREATE procedure [dbo].[cvo_inv_fcst_r2_sp]
 -- 10/6/2015 - PO lines - make the outer range < not <= to avoid 13th bucket on report
 -- 10/20/2015 - add seasonality multiplier, promo and substitute flagging
 -- 07/15/2016 - calc starting inventory with allocations if usage is on orders, and without if usage is on shipments.
+-- 12/2016 - misc updates to add additional info like pricing shape materials
 	
 as 
 begin
@@ -1081,7 +1082,9 @@ i.type_code p_type_code, -- res type of sku, not style - 11/1/2016
 #t.s_rx_w4, -- 12/5/2016
 #t.s_rx_w12,
 #t.p_rx_w4,
-#t.p_rx_w12
+#t.p_rx_w12,
+specs.price,
+specs.frame_type
 
 from #SKU 
 
@@ -1092,22 +1095,34 @@ inner join #t on #t.part_no = #sku.sku and #t.mm = #sku.mm
 	and #t.mult = #sku.mult and #t.sort_seq = #sku.sort_seq
 inner join
 (
-select i.category brand, ia.field_2 style, 
-i.vendor,
-max(type_code) type_code, 
-max(category_2) gender,
-max(i.cmdty_code) material,
-max(isnull(ia.category_1,'')) watch,
-(select top 1 moq_info from cvo_vendor_moq where vendor_code = i.vendor) moq,
-MAX(ISNULL(ia.field_32,'')) sf,
-MIN(ISNULL(ia.field_26,'1/1/1900')) rel_date
-
-from inv_master i (nolock)
-INNER join inv_master_add ia (NOLOCK) ON ia.part_no = i.part_no 
-where 1=1
-and i.type_code in ('frame','sun','bruit') and i.void = 'n'
-AND ISNULL(ia.field_32,'') <> 'SpecialOrd'
-group by i.category, ia.field_2, i.vendor
+SELECT  i.category brand ,
+        ia.field_2 style ,
+        i.vendor ,
+        MAX(type_code) type_code ,
+        MAX(category_2) gender ,
+        -- MAX(i.cmdty_code) material ,
+		MAX(ISNULL(ia.field_10,i.cmdty_code)) material, -- 12/12/2016
+		MAX(ISNULL(ia.field_11,'UNKNOWN')) frame_type,
+        MAX(ISNULL(ia.category_1, '')) watch ,
+        ( SELECT TOP 1
+                    MOQ_info
+          FROM      cvo_Vendor_MOQ
+          WHERE     Vendor_Code = i.vendor
+        ) moq ,
+        MAX(ISNULL(ia.field_32, '')) sf ,
+        MIN(ISNULL(ia.field_26, '1/1/1900')) rel_date,
+		pp.price_a price
+FROM    inv_master i ( NOLOCK )
+        INNER JOIN inv_master_add ia ( NOLOCK ) ON ia.part_no = i.part_no
+		INNER JOIN part_price pp (NOLOCK) ON pp.part_no = i.part_no
+WHERE   1 = 1
+        AND i.type_code IN ( 'frame', 'sun', 'bruit' )
+        AND i.void = 'n'
+        AND ISNULL(ia.field_32, '') <> 'SpecialOrd'
+GROUP BY i.category ,
+        ia.field_2 ,
+        i.vendor,
+		pp.price_a
 ) as specs
 on specs.brand = #style.brand and specs.style = #style.style
 
@@ -1116,6 +1131,7 @@ cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
 
 
 end
+
 
 
 
