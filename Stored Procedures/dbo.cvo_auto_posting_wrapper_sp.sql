@@ -9,10 +9,10 @@ GO
 -- v1.5 CB 14/08/2014 - Check and correct curr_price / oper_price
 -- v1.6 CB 17/04/2015 - Add #temp_who table for dealing WMS errors 
 -- v1.7 CB 17/04/2015 - Add validation for lot_bin_ship error
+-- tag - 042115 - add info for # errors for ending email
 -- v1.8 CB 29/04/2015 - Fix for v1.7 - Could be multiple bins in lot bin ship
 -- v1.9 TG 11/11/2015 - add check for null value for discount in cvo_ord_list
-
--- tag - 042115 - add info for # errors for ending email
+-- v2.0 TG 12/20/2016 - add check on lb_tracking and kit_flag for DCF
 /* 
 BEGIN TRAN
 select status, * from orders_all where order_no = 1420450
@@ -202,7 +202,9 @@ BEGIN
 				FROM	ord_list (NOLOCK)
 				WHERE	order_no = @order_no
 				AND		order_ext = @order_ext
+				-- 12/20/2016 - DCF - v2.0
 				AND		part_type = 'P'
+				AND		lb_tracking = 'Y' 
 
 				SELECT	@ship_shipped = SUM(a.qty)
 				FROM	lot_bin_ship a (NOLOCK)
@@ -210,6 +212,9 @@ BEGIN
 				ON		a.part_no = b.part_no
 				WHERE	a.tran_no = @order_no
 				AND		a.tran_ext = @order_ext
+				-- 12/20/2016 - DCF - v2.0
+				AND		b.lb_tracking = 'Y' 
+				AND		a.kit_flag = 'N'
 
 				IF (@ord_shipped <> @ship_shipped) -- v1.8 End
 				BEGIN
@@ -309,4 +314,5 @@ BEGIN
    , @body = @body  
 
 END
+
 GO

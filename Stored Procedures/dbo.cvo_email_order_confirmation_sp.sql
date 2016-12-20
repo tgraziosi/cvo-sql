@@ -31,7 +31,11 @@ BEGIN
 	-- 10/7/2016 - tag - don't send email for rebills
 	IF EXISTS (SELECT 1 FROM orders (nolock) WHERE order_no = @order_no AND ext = @order_ext AND RIGHT(orders.user_category,2) IN ('RB','TB'))
 		RETURN
-        
+
+	-- 12/16/2016 - suppress emails for reloading sunps orders today only
+	--IF EXISTS (SELECT 1 FROM cvo_orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @order_ext AND promo_id = 'sunps')
+	--	RETURN
+                
 	-- v1.1 Start
 	IF (@cons_no = 0) -- From SOE
 	BEGIN
@@ -265,6 +269,8 @@ BEGIN
 	-- v1.1 End
 
 END
+
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_email_order_confirmation_sp] TO [public]
