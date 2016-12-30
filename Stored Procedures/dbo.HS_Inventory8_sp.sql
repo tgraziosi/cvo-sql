@@ -8,7 +8,7 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT * FROM dbo.cvo_hs_inventory_8 where collection = 'ME'  shelfqty = 2000  where MASTERSKU like 'IZ600%'
+-- SELECT * FROM dbo.cvo_hs_inventory_8 where coll = 'bt'  and [category:2] = 'blutech readers' 
 -- DROP TABLE dbo.cvo_hs_inventory_8
 -- 		
 -- 072814 - tag - 1) add special values, 2) performance updates
@@ -29,6 +29,7 @@ GO
 -- 9/8/2016 - tweeks for VEW
 -- 10/7/2016 - set up me selldown
 -- 11/30/2016 - include all HSPOP POP items, regardless of release date
+-- 12/22/2016 - BT READERS
 -- =============================================
 
 CREATE PROCEDURE [dbo].[HS_Inventory8_sp]
@@ -200,6 +201,9 @@ AS
                 [CATEGORY:2] = CASE WHEN I.category IN ( 'izod', 'izx' )
                                     THEN 'IZOD' 
 					-- WHEN ia.field_32 = 'lastchance' THEN '' 
+									WHEN i.category = 'BT' AND IA.CATEGORY_2 LIKE '%ADULT%'
+										 AND (RIGHT(I.part_no,2) = 'f1' OR i.type_code = 'lens') 
+									THEN 'BLUTECH READERS' -- 12/22/2016
                                     ELSE CAT.description
                                END ,
                 ISNULL(field_3, '') AS Color ,
@@ -298,6 +302,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                     )
                 AND ( I.type_code IN ( 'SUN', 'FRAME' )
                       OR  'HSPOP' = ISNULL(field_36, '') 
+					  OR i.type_code = 'lens' AND ISNULL(ia.field_2,'') LIKE 'bt reader lens%' -- 12/22/2016
                     )
   -- 6/29/2015 - set to 1 day.  was 11.  have no idea why
   -- release date quallifications go here
@@ -310,7 +315,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                          )
                     ); -- vee 2016
   
--- select * From #data1 where sku = 'bcviabla5515'
+-- select * From #data1 where coll = 'bt'
 
 
         CREATE INDEX idx_data1 ON #Data1 ( sku );
@@ -318,6 +323,66 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
         CREATE NONCLUSTERED INDEX idx_new_mastersku
         ON dbo.#Data1 (New) INCLUDE (mastersku);
 
+
+---- add BT lens sku combos for the Reader Program to #data1
+
+--;WITH ms AS 
+--(SELECT DISTINCT d.* FROM #data1 d
+--JOIN inv_master_add i ON i.part_no = d.sku
+--WHERE coll = 'bt' AND ISNULL(pomdate,'') = '' 
+--AND (([category:1] IN ('frame') AND sku LIKE '%f1' AND i.category_2 LIKE '%adult%') )
+--)
+--INSERT INTO #data1
+--	SELECT distinct -- ms.sku,
+--	lenses.part_no+'-'+ms.mastersku sku,
+--	ms.mastersku ,
+--	ms.name ,
+--	-- ms.unitPrice ,
+--	lenses.base_price unitPrice,
+--	ms.minQty ,
+--	ms.multQty ,
+--	ms.manufacturer ,
+--	-- ms.barcode ,
+--	lenses.upc_code barcode,
+--	-- ms.longDesc ,
+--	lenses.description longDesc,
+--	-- ms.variantdescription ,
+--	lenses.description variantdescription,
+--	ms.imageURLs ,
+--	-- ms.[category:1] ,
+--	lenses.type [category:1],
+--	ms.[CATEGORY:2] ,
+--	lenses.color AS  Color ,
+--	lenses.eye_size AS Size ,
+--	ms.[|] ,
+--	ms.COLL ,
+--	ms.Model ,
+--	ms.POMDate ,
+--	ms.ReleaseDate,
+--	ms.Status ,
+--	ms.GENDER ,
+--	ms.SpecialtyFit ,
+--	ms.APR ,
+--	ms.New ,
+--	ms.SUNPS ,
+--	ms.CostCo ,
+--	ms.POM ,
+--	ms.Kit ,
+--	ms.shelfqty ,
+--	ms.ShelfQty2 ,
+--	ms.NextPODueDate ,
+--	ms.NextPOOnOrder ,
+--	ms.drp_usg ,
+--	-- ms.qty_avl ,
+--	999 AS qty_avl,
+--   	-- ms.New_shelfqty
+--	999 AS New_shelfqty
+--  FROM ms
+--CROSS JOIN 
+--cvo_items_vw lenses
+--WHERE lenses.type = 'lens' AND lenses.style like 'bt reader lens%'
+
+---- end 12/20/2016 for BT Readers
 
         UPDATE  #Data1
         SET     name = 'IZOD CLEAR DISPLAY FRAME KIT' ,
@@ -356,7 +421,16 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
         SET     longDesc = REPLACE(longDesc, '"', '') ,
                 name = REPLACE(name, '"', '') ,
                 variantdescription = REPLACE(variantdescription, '"', ''); 
-    
+
+		-- FIXUP FOR BT READERS
+
+		UPDATE d 
+		SET mastersku = mastersku + CASE WHEN [category:1] = 'frame' THEN 'R' WHEN [category:1] = 'lens' THEN RIGHT(sku,3) ELSE '' END,
+		[category:1] = 'FRAME'
+		FROM #Data1 d
+		WHERE [CATEGORY:2] = 'BLUTECH READERS';
+
+		
 -- PULL ALL SPECS for STYLE together
         IF ( OBJECT_ID('tempdb.dbo.#Spec') IS NOT NULL )
             DROP TABLE #Spec;
@@ -633,9 +707,11 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
 
         DELETE  FROM #Final
         WHERE   (RIGHT(sku, 2) = 'F1'
-                AND [CATEGORY:2] IN ( 'revo', 'BLUTECH', 'aspire' )
+                AND [CATEGORY:2] IN ( 'revo', 'aspire','blutech' )
 				)
-				OR sku = 'ascolocustom';
+				OR 
+					sku = 'ascolocustom'
+				;
 
 -- DELETE FROM #final WHERE [category:2] = 'revo' AND Model NOT IN ('windspeed','huddie')
 
@@ -691,9 +767,9 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                     )
                 ON  [PRIMARY]; 
 		
-                CREATE INDEX idx_inv7 ON cvo_hs_inventory_8 ( Manufacturer, mastersku, sku );
+                CREATE INDEX idx_inv_btr ON cvo_hs_inventory_8 ( Manufacturer, mastersku, sku );
 
-                CREATE NONCLUSTERED INDEX idx_hs_inv_part_no ON dbo.cvo_hs_inventory_8
+                CREATE NONCLUSTERED INDEX idx_hs_inv_part_no_btr ON dbo.cvo_hs_inventory_8
                 (sku ASC)
                 INCLUDE (mastersku) 
                 WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, 
@@ -871,6 +947,8 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
+
 
 
 

@@ -19,7 +19,7 @@ BEGIN
 -- generate sku's from cmi into epicor
 --  
 -- 
--- exec [cvo_cmi_sku_generate_sp] 'et', 'brisbane', NULL, null, '1/24/2017','N', 1
+-- exec [cvo_cmi_sku_generate_sp] 'cvo', 'c6050g', NULL, null, '1/24/2017','N', 1
 
 -- exec [cvo_cmi_sku_generate_sp] 'IZOD', '2028', NULL, null, '02/21/2017','N', 1
 
@@ -29,6 +29,7 @@ BEGIN
 -- 10/5/2016 - COST AND PRICE FOR SUN LENSES
 -- 11/23/2016 - update for patterns so they get into the right account code
 -- 12/16/2016 - fix description for pattern parts.  was saying frame, not pattern
+-- 12/30/2016 - Fix up for Black colorname
 
 SET XACT_ABORT, NOCOUNT ON;
 
@@ -138,10 +139,12 @@ SELECT part_no ,
        cmi.lens_color,
 	   short_color_name = UPPER( CASE WHEN LEFT(cmi.ColorName,3) = 'GRE' THEN -- handle the GREY/GREEN dilemma
 								 CASE when cmi.ColorGroupCode = 'GRY' THEN 'GRE' -- Grey
-									WHEN cmi.colorgroupcode = 'GRN' THEN 'GRN' 
-									ELSE LEFT(colorname,3) END
+									  WHEN cmi.colorgroupcode = 'GRN' THEN 'GRN' 
+									  ELSE LEFT(colorname,3) END
 									WHEN cmi.frame_category = '3-piece rimless' THEN LEFT( SUBSTRING(cmi.colorname,CHARINDEX(' ',cmi.colorname,1)+1,LEN(cmi.colorname)) , 3 )
-		    ELSE LEFT(colorname,3) END ) -- 1/26/2016	 
+									WHEN LEFT(cmi.colorname,3) = 'BLA' AND cmi.ColorGroupCode = 'MUL' THEN cmi.ColorGroupCode
+									ELSE LEFT(colorname,3) 
+									END ) -- 1/26/2016	 
 	  , ISNULL(cmi.frame_only,0) frame_only
 	  , cmi.dim_lens_cost
 	  , ISNULL(cmi.pattern_text,'') pattern_text -- 03/25/2016
@@ -2331,6 +2334,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

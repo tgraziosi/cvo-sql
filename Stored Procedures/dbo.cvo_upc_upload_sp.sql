@@ -15,22 +15,26 @@ BEGIN
 
 /*
 
-EXEC CVO_UPC_UPLOAD_SP '012-MIDO','012', -1, 'WRITEOFF', 0
+TRUNCATE TABLE CVO_UPC_UPLOAD
+
+INSERT dbo.cvo_upc_upload
+        ( upc_code, qty )
+SELECT part_no, SUM(qty) qty
+ FROM dbo.lot_bin_stock AS lbs
+WHERE location = '775-TATE'
+GROUP BY lbs.part_no
+
+EXEC CVO_UPC_UPLOAD_SP '775-TATE','775', -1, 'WRITEOFF', 0
+
 EXEC CVO_UPC_UPLOAD_SP '001','RR REFURB', 1, 'WRITEOFF', 0
 
-TRUNCATE TABLE CVO_UPC_UPLOAD
+
 SELECT * fROM CVO_UPC_UPLOAD
 
 select * From tdc_bin_master where location = '012-MIDO'
 
 SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 
-INSERT dbo.cvo_upc_upload
-        ( upc_code, qty )
-SELECT part_no, SUM(qty) qty
- FROM dbo.lot_bin_stock AS lbs
-WHERE location = '300 - MART'
-GROUP BY lbs.part_no
 
 */
 	DECLARE	@row_id			int,

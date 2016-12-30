@@ -28,11 +28,11 @@ CREATE procedure [dbo].[cvo_inv_fcst_r2_sp]
  @endrel = '12/01/2016', 
  @usedrp = 1, 
  @current = 1, 
- @collection = 'bcbg', 
- @style = 'camilla', 
+ @collection = 'cvo', 
+ @style = 'adam ii', 
  @specfit = '*all*',
  @usg_option = 'o',
- @debug = 0, -- debug
+ @debug = 1, -- debug
  @location = '001'
 
  select * From cvo_ifp_rank
@@ -309,6 +309,8 @@ CREATE TABLE #usage
 , e4_wu INT, e12_wu INT, e26_wu INT, e52_wu INT
 , subs_w4 INT, subs_w12 INT, promo_w4 INT, promo_w12 INT
 , rx_w4 INT, rx_w12 INT -- 12/5/2016
+, ret_w4 int, ret_w12 int
+, wty_w4 int, wty_w12 int
 )
 
 -- 10/24/2016 - switch over to usage by collection for performance
@@ -318,8 +320,10 @@ SELECT @co = MIN(coll) FROM #coll AS c
 WHILE @co IS NOT NULL
 BEGIN
 	INSERT INTO #usage 
-	(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12)
-	select location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12
+	(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12,
+	ret_w4, ret_w12, wty_w4, wty_w12)
+	select location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12,
+	ret_w4, ret_w12, wty_w4, wty_w12
 	from dbo.f_cvo_calc_weekly_usage_COLL (@usg_option, @CO)
 	SELECT @CO = MIN(COLL) FROM #COLL WHERE COLL > @co
 END
@@ -491,6 +495,11 @@ IF @debug = 1 SELECT ' cte ', * From #cte -- where style = '185' order by style,
 , ISNULL(drp.s_promo_w12,0) s_promo_w12
 , ISNULL(drp.s_rx_w4,0) s_rx_w4
 , ISNULL(drp.s_rx_w12,0) s_rx_w12
+, ISNULL(drp.s_ret_w4,0) s_ret_w4
+, ISNULL(drp.s_ret_w12,0) s_ret_w12
+, ISNULL(drp.s_wty_w4,0) s_wty_w4
+, ISNULL(drp.s_wty_w12,0) s_wty_w12
+
  
 into #style -- tally up style level information
 from #cte cte
@@ -503,6 +512,8 @@ ia.field_2 style,
 sum(ISNULL(e4_wu,0)) s_e4_wu, sum(ISNULL(e12_wu,0)) s_e12_wu, sum(ISNULL(e52_wu,0)) s_e52_wu
 , SUM(ISNULL(promo_w4,0)) s_promo_w4, SUM(ISNULL(promo_w12,0)) s_promo_w12
 , SUM(ISNULL(rx_w4,0)) s_rx_w4, SUM(ISNULL(rx_w12,0)) s_rx_w12
+, SUM(ISNULL(ret_w4,0)) s_ret_w4, SUM(ISNULL(ret_w12,0)) s_ret_w12
+, SUM(ISNULL(wty_w4,0)) s_wty_w4, SUM(ISNULL(wty_w12,0)) s_wty_w12
 from inv_master i (NOLOCK)
 LEFT OUTER JOIN #usage drp (nolock) ON i.part_no = drp.part_no
 INNER JOIN inv_master_add ia (NOLOCK) ON ia.part_no = i.part_no
@@ -512,6 +523,8 @@ group by i.category, ia.field_2
 on drp.collection = cte.brand and drp.style = cte.style 
 
 group by cte.brand, cte.style, drp.s_e4_wu, drp.s_e12_wu, drp.s_e52_wu, drp.s_promo_w4, drp.s_promo_w12, drp.s_rx_w4, drp.s_rx_w12
+, drp.s_ret_w4, drp.s_ret_w12
+, drp.s_wty_w4, drp.s_wty_w12
 order by cte.brand, inv_rank, cte.style
 
 -- select * from #style where style = '185'
@@ -564,6 +577,11 @@ select s.brand
 , ISNULL(s.s_promo_w12,0) s_promo_w12
 , isnull(s.s_rx_w4,0) s_rx_w4
 , ISNULL(s.s_rx_w12,0) s_rx_w12
+, isnull(s.s_ret_w4,0) s_ret_w4
+, ISNULL(s.s_ret_w12,0) s_ret_w12
+, isnull(s.s_wty_w4,0) s_wty_w4
+, ISNULL(s.s_wty_w12,0) s_wty_w12
+
 
 , isnull(drp.p_e4_wu,0) p_e4_wu
 , isnull(drp.p_e12_wu,0) p_e12_wu
@@ -572,6 +590,10 @@ select s.brand
 , ISNULL(drp.p_subs_w12,0) p_subs_w12
 , ISNULL(drp.p_rx_w4,0) p_rx_w4
 , ISNULL(drp.p_rx_w12,0) p_rx_w12
+, ISNULL(drp.p_ret_w4,0) p_ret_w4
+, ISNULL(drp.p_ret_w12,0) p_ret_w12
+, ISNULL(drp.p_wty_w4,0) p_wty_w4
+, ISNULL(drp.p_wty_w12,0) p_wty_w12
 
 , s_mth_usg = round(( case when mth_since_rel <= 3 then isnull(s_e4_wu,0)*52/12
 	else isnull(s_e12_wu,0)*52/12 end ) ,0,1)
@@ -603,9 +625,12 @@ inner join #style s on s.brand = i.category and s.style = ia.field_2
 and ia.field_26 >= @startdate
 left outer join
 (select -- drp info by part
-drp.part_no, sum(e4_wu) p_e4_wu, sum(e12_wu) p_e12_wu, sum(e52_wu) p_e52_wu
-, SUM(drp.subs_w4) p_subs_w4, SUM(drp.subs_w12) p_subs_w12
-, SUM(drp.rx_w4) p_rx_w4, SUM(drp.rx_w12) p_rx_w12
+drp.part_no, sum(ISNULL(e4_wu,0)) p_e4_wu, sum(ISNULL(e12_wu,0)) p_e12_wu, sum(ISNULL(e52_wu,0)) p_e52_wu
+, SUM(ISNULL(drp.subs_w4,0)) p_subs_w4, SUM(ISNULL(drp.subs_w12,0)) p_subs_w12
+, SUM(ISNULL(drp.rx_w4,0)) p_rx_w4, SUM(ISNULL(drp.rx_w12,0)) p_rx_w12
+, SUM(ISNULL(drp.ret_w4,0)) p_ret_w4, SUM(ISNULL(drp.ret_w12,0)) p_ret_w12
+, SUM(ISNULL(drp.wty_w4,0)) p_wty_w4, SUM(ISNULL(drp.wty_w12,0)) p_wty_w12
+
 from #usage drp (nolock)
 where drp.location = @loc
 group by drp.part_no 
@@ -931,11 +956,11 @@ select @ord = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type =
 while @sku is not null 
 BEGIN
 
-	IF @debug = 1 
-		BEGIN
-		 SELECT @sku, @last_inv, @atp, @reserve_inv
-		 SELECT * FROM dbo.cvo_item_avail_vw AS iav WHERE iav.part_no = @sku AND iav.location = @loc
-		END
+	--IF @debug = 1 
+	--	BEGIN
+	--	 SELECT @sku, @last_inv, @atp, @reserve_inv
+	--	 SELECT * FROM dbo.cvo_item_avail_vw AS iav WHERE iav.part_no = @sku AND iav.location = @loc
+	--	END
         
 
 	update #SKU set qoh = isnull(@last_inv,0)
@@ -1083,6 +1108,14 @@ i.type_code p_type_code, -- res type of sku, not style - 11/1/2016
 #t.s_rx_w12,
 #t.p_rx_w4,
 #t.p_rx_w12,
+#t.s_Ret_w4,
+#t.s_ret_w12,
+#t.p_ret_w4,
+#t.p_ret_w12,
+#t.s_wty_w4,
+#t.s_wty_w12,
+#t.p_wty_w4,
+#t.p_wty_w12,
 specs.price,
 specs.frame_type
 
@@ -1111,7 +1144,7 @@ SELECT  i.category brand ,
         ) moq ,
         MAX(ISNULL(ia.field_32, '')) sf ,
         MIN(ISNULL(ia.field_26, '1/1/1900')) rel_date,
-		pp.price_a price
+		MAX(pp.price_a) price
 FROM    inv_master i ( NOLOCK )
         INNER JOIN inv_master_add ia ( NOLOCK ) ON ia.part_no = i.part_no
 		INNER JOIN part_price pp (NOLOCK) ON pp.part_no = i.part_no
@@ -1120,9 +1153,8 @@ WHERE   1 = 1
         AND i.void = 'n'
         AND ISNULL(ia.field_32, '') <> 'SpecialOrd'
 GROUP BY i.category ,
-        ia.field_2 ,
-        i.vendor,
-		pp.price_a
+         ia.field_2 ,
+         i.vendor
 ) as specs
 on specs.brand = #style.brand and specs.style = #style.style
 
@@ -1131,6 +1163,10 @@ cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
 
 
 end
+
+
+
+
 
 
 

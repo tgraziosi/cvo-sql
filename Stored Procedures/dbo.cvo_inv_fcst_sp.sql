@@ -307,7 +307,9 @@ CREATE TABLE #usage
 , usg_option CHAR(1), asofdate datetime
 , e4_wu INT, e12_wu INT, e26_wu INT, e52_wu INT
 , subs_w4 INT, subs_w12 INT, promo_w4 INT, promo_w12 INT
-, rx_w4 INT, rx_w12 int
+, rx_w4 INT, rx_w12 INT
+, ret_w4 INT, ret_w12 INT
+, wty_w4 int, wty_w12 int
 )
 
 -- 10/24/2016 - switch over to usage by collection for performance
@@ -317,8 +319,10 @@ SELECT @co = MIN(coll) FROM #coll AS c
 WHILE @co IS NOT NULL
 BEGIN
 	INSERT INTO #usage 
-	(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12)
-	select location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12
+	(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12,
+	ret_w4, ret_w12, wty_w4, wty_w12)
+	select location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12,
+	ret_w4, ret_w12, wty_w4, wty_w12
 	from dbo.f_cvo_calc_weekly_usage_COLL (@usg_option, @CO)
 	SELECT @CO = MIN(COLL) FROM #COLL WHERE COLL > @co
 END
@@ -1084,6 +1088,7 @@ cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
 
 
 end
+
 
 
 
