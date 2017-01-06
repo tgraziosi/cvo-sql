@@ -4,7 +4,9 @@ SET ANSI_NULLS ON
 GO
 CREATE PROCEDURE [dbo].[cvo_promo_incentive_tracker_2016_sp]
     @terr VARCHAR(1024) = NULL ,
-    @debug INT = 0
+    @debug INT = 0,
+	@ytdstartty DATETIME = null,
+    @ytdendty DATETIME = null
 AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
 
 
@@ -14,8 +16,9 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
 
 
 
-        DECLARE @ytdstartty DATETIME ,
-            @ytdendty DATETIME;
+        --DECLARE @ytdstartty DATETIME ,
+        --    @ytdendty DATETIME;
+		IF @ytdstartty IS NULL OR @ytdendty IS null
         SELECT  @ytdstartty = BeginDate ,
                 @ytdendty = EndDate
 -- SELECT *
@@ -23,8 +26,7 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
         WHERE   Period = 'year to date';
 
 		
-        DECLARE @edate DATETIME , @sdate DATETIME, 
-            @cutoffdate DATETIME; -- , @terr VARCHAR(1024)
+        DECLARE @edate DATETIME , @sdate DATETIME, @cutoffdate DATETIME; -- , @terr VARCHAR(1024)
         SELECT  @cutoffdate = '12/31/2016 23:59' , @sdate= '10/1/2015', 
                 @edate = @ytdendty; -- '12/31/2016 23:59'; --,  @terr = NULL
 
@@ -435,6 +437,7 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
 
 
     END;
+
 
 
 

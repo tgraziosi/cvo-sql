@@ -14,6 +14,7 @@ CREATE PROCEDURE [dbo].[HS_Inventory_QtyUpd_SP]
 AS
     BEGIN
         SET NOCOUNT ON;
+		SET ANSI_WARNINGS OFF;
 
 --Backup Old File 
         truncate TABLE CVO_HS_INVENTORY_QTYUPD_OLD;
@@ -37,8 +38,9 @@ AS
                 sku ,
                 'variant' AS ItemType , 
 -- don't allow negative stock qty's - 030615
-                CASE WHEN qty_avl < 0
-                          OR t1.COLL = 'ch' THEN 0
+                CASE WHEN coll = 'SM' AND '1/23/2017' > GETDATE() ---- 1/4/2017 - fudge SM inventory levels until released
+				THEN 2000
+				WHEN qty_avl < 0 OR t1.COLL = 'ch' THEN 0
                      ELSE qty_avl
                 END AS ShelfQty ,
                 CASE WHEN [category:1] IN ( 'EOS', 'EOR', 'QOP', 'RED' )
@@ -79,7 +81,8 @@ AS
                           AND t1.ShelfQty <> 2000
                         )
 -- OR t1.[category:2]='revo' -- 061016 - show real inventory
-                        OR ISNULL(t3.field_30, '') = 'Y' ); -- kits 061016
+                        OR ISNULL(t3.field_30, '') = 'Y'  -- kits 061016
+						); 
 
         DROP TABLE CVO_HS_INVENTORY_QTYUPD;
         SELECT  T1.sku ,
@@ -158,6 +161,8 @@ SELECT * FROM CVO_HS_INVENTORY_QTYUPD where IsAvailable = 1 and shelfQty < 5 ord
 
 -- EXEC HS_Inventory_QtyUpd_SP
     END;
+
+
 
 
 

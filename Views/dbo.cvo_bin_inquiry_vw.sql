@@ -6,7 +6,7 @@ GO
 
 
 
--- select * from cvo_bin_inquiry_vw where location = '001'
+-- select * from cvo_bin_inquiry_vw where location = '001' and is_assigned = 'yes' and group_code in ('highbay','pickarea')
 
 CREATE VIEW [dbo].[cvo_bin_inquiry_vw]
 AS
@@ -76,6 +76,7 @@ AS
             AND l.part_no IS NULL
             AND l.bin_no IS NULL;
     
+
 
 
 

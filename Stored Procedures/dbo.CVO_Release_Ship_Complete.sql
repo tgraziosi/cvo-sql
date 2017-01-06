@@ -26,6 +26,7 @@ BEGIN
 	FROM	dbo.orders_all (NOLOCK)
 	WHERE	status = 'A'
 	AND		hold_reason = 'SC'
+	AND order_no <>  2983893 -- exclude this order for today 010517
 	ORDER BY order_no, ext
 	
 	-- Run through all the ship complete hold orders
@@ -97,7 +98,16 @@ BEGIN
 				--SET		prior_hold = ''
 				--WHERE	order_no = @order_no
 				--AND		ext = @ext
+			END -- v1.4 Start
+			ELSE
+			BEGIN
+				UPDATE	orders_all
+				SET		hold_reason = '',
+						status = 'N'
+				WHERE	order_no = @order_no
+				AND		ext = @ext
 			END
+			-- v1.4 End
 			/*
 				ELSE
 				BEGIN

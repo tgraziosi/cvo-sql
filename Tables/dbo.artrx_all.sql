@@ -201,13 +201,13 @@ CREATE NONCLUSTERED INDEX [cvo_artrx_all_ind_9] ON [dbo].[artrx_all] ([order_ctr
 GO
 CREATE NONCLUSTERED INDEX [artrx_all_ind_10] ON [dbo].[artrx_all] ([process_group_num]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [artrx_ind_trx] ON [dbo].[artrx_all] ([trx_ctrl_num]) INCLUDE ([date_required], [amt_paid_to_date], [amt_net], [amt_on_acct]) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [artrx_ind_trx] ON [dbo].[artrx_all] ([trx_ctrl_num]) INCLUDE ([amt_net], [amt_on_acct], [amt_paid_to_date], [date_required]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [artrx_ind_trx_paid_doc_due] ON [dbo].[artrx_all] ([trx_type], [paid_flag], [doc_ctrl_num], [date_due]) INCLUDE ([order_ctrl_num], [customer_code]) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [artrx_ind_trx_paid_doc_due] ON [dbo].[artrx_all] ([trx_type], [paid_flag], [doc_ctrl_num], [date_due]) INCLUDE ([customer_code], [order_ctrl_num]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [artrx_all_ind_12_042413] ON [dbo].[artrx_all] ([void_flag], [posted_flag], [trx_type]) INCLUDE ([ship_to_code], [terms_code], [date_applied], [trx_ctrl_num], [doc_desc], [customer_code], [doc_ctrl_num]) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [artrx_all_ind_12_042413] ON [dbo].[artrx_all] ([void_flag], [posted_flag], [trx_type]) INCLUDE ([customer_code], [date_applied], [doc_ctrl_num], [doc_desc], [ship_to_code], [terms_code], [trx_ctrl_num]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [idx_void_trx_date] ON [dbo].[artrx_all] ([void_flag], [trx_type], [date_applied]) INCLUDE ([doc_desc], [doc_ctrl_num], [trx_ctrl_num]) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [idx_void_trx_date] ON [dbo].[artrx_all] ([void_flag], [trx_type], [date_applied]) INCLUDE ([customer_code], [doc_ctrl_num], [doc_desc], [salesperson_code], [ship_to_code], [terms_code], [trx_ctrl_num]) ON [PRIMARY]
 GO
 GRANT SELECT ON  [dbo].[artrx_all] TO [public]
 GO

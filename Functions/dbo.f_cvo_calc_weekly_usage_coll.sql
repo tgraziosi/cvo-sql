@@ -35,7 +35,10 @@ RETURNS @usage TABLE
 
 -- 10/21/2015 - add substitute and promo qtys for material forecast
 -- 12/5/2016 - add rx qty for inv forecast
+-- 1/5/2017 - for credits use the date_entered only not the allocation date
+
 -- select * From dbo.f_cvo_calc_weekly_usage_COLL ( 'O', 'cvo' ) where part_no like 'CVCLI%'
+
 AS
     BEGIN
 
@@ -212,25 +215,30 @@ select * from dbo.f_cvo_calc_weekly_usage ('O')
                                                               0)
                                                             END * -1
                                                   END ,
+									-- 1/5/2017 - for credits use the date_entered not the allocation date
                                     bucket = CASE WHEN CASE WHEN @usg_option = 'S'
                                                             THEN o.date_shipped
-                                                            ELSE ISNULL(co.allocation_date,
-                                                              o.date_entered)
+                                                            ELSE CASE WHEN o.type = 'I' THEN
+																ISNULL(co.allocation_date,o.date_entered)
+																ELSE o.date_entered end
                                                        END >= @w4 THEN 4
                                                   WHEN CASE WHEN @usg_option = 'S'
                                                             THEN o.date_shipped
-                                                            ELSE ISNULL(co.allocation_date,
-                                                              o.date_entered)
+                                                            ELSE CASE WHEN o.type = 'I' THEN
+																ISNULL(co.allocation_date,o.date_entered)
+																ELSE o.date_entered end
                                                        END >= @w12 THEN 12
                                                   WHEN CASE WHEN @usg_option = 'S'
                                                             THEN o.date_shipped
-                                                            ELSE ISNULL(co.allocation_date,
-                                                              o.date_entered)
+                                                            ELSE CASE WHEN o.type = 'I' THEN
+																ISNULL(co.allocation_date,o.date_entered)
+																ELSE o.date_entered end
                                                        END >= @w26 THEN 26
                                                   WHEN CASE WHEN @usg_option = 'S'
                                                             THEN o.date_shipped
-                                                            ELSE ISNULL(co.allocation_date,
-                                                              o.date_entered)
+                                                            ELSE CASE WHEN o.type = 'I' THEN
+																ISNULL(co.allocation_date,o.date_entered)
+																ELSE o.date_entered end
                                                        END >= @w52 THEN 52
                                                   ELSE 99
                                              END
@@ -356,6 +364,7 @@ select * from dbo.f_cvo_calc_weekly_usage ('O')
 
         RETURN;
     END;
+
 
 
 

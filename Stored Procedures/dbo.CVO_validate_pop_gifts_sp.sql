@@ -5,6 +5,7 @@ GO
 
 -- v1.0 CB 11/11/2015 - #1576 - POP should not allocate on there own when frames are on the order and do not allocate
 -- v1.1 CB 21/06/2016 - If there are no frames on the order then allow the POP to allocate
+-- v1.2 CB 06/01/2016 - DCF - Check for kit part
 
 CREATE PROC [dbo].[CVO_validate_pop_gifts_sp]	@order_no  int = 0,  
 											@order_ext int = 0 
@@ -28,7 +29,8 @@ BEGIN
 			BEGIN
 				IF NOT EXISTS (SELECT 1 FROM #so_allocation_detail_view_Detail a (NOLOCK) JOIN inv_master b (NOLOCK) ON a.part_no = b.part_no
 					WHERE a.order_no = @order_no AND a.order_ext = @order_ext AND b.type_code IN (SELECT * FROM fs_cParsing (@frame))
-					AND a.qty_to_alloc > 0) 	
+					AND a.qty_to_alloc > 0) -- v1.2 Start
+					AND NOT EXISTS (SELECT 1 FROM ord_list (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext AND part_type = 'C') -- v1.2 End	
 				BEGIN
 					-- v1.1 Start
 					IF EXISTS (SELECT 1 FROM ord_list a (NOLOCK) JOIN inv_master b (NOLOCK) ON a.part_no = b.part_no
@@ -83,7 +85,8 @@ BEGIN
 				BEGIN
 					IF NOT EXISTS (SELECT 1 FROM #so_allocation_detail_view a (NOLOCK) JOIN inv_master b (NOLOCK) ON a.part_no = b.part_no
 						WHERE a.order_no = @order_no AND a.order_ext = @order_ext AND b.type_code IN (SELECT * FROM fs_cParsing (@frame))
-						AND a.qty_to_alloc > 0) 	
+						AND a.qty_to_alloc > 0) -- v1.2 Start
+						AND NOT EXISTS (SELECT 1 FROM ord_list (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext AND part_type = 'C') -- v1.2 End		
 					BEGIN
 						-- v1.1 Start
 						IF EXISTS (SELECT 1 FROM ord_list a (NOLOCK) JOIN inv_master b (NOLOCK) ON a.part_no = b.part_no
