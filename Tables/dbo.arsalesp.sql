@@ -46,9 +46,33 @@ CREATE TRIGGER [dbo].[arsalesp_u_trg] ON [dbo].[arsalesp]
 FOR UPDATE
 AS
 
+-- add commission change to audit log
+
+INSERT CVOARMasterAudit 
+	(field_name
+	, field_from
+	, field_to
+	, customer_code
+	, movement_flag
+	, audit_date
+	, user_id) 
+SELECT distinct 'slp commission'
+	, cast (d.commission as varchar(20))
+	, cast (i.commission as varchar(20))
+	, i.salesperson_code
+	, 2 -- change
+	, getdate()
+	, SUSER_SNAME() 
+	from inserted i 
+	INNER JOIN deleted d ON 
+	i.salesperson_code = d.salesperson_code
+	where isnull(d.commission,0)<>isnull(i.commission,0)
+
+
 DECLARE @salesperson_code	varchar(8),
 		@i_territory_code	varchar(8),
 		@d_territory_code	varchar(8)
+
 
 SET @salesperson_code = ''
 WHILE 1=1
@@ -86,27 +110,7 @@ BEGIN
 END
 
 
--- add commission change to audit log
 
-INSERT CVOARMasterAudit 
-	(field_name
-	, field_from
-	, field_to
-	, customer_code
-	, movement_flag
-	, audit_date
-	, user_id) 
-SELECT distinct 'slp commission'
-	, cast (d.commission as varchar(20))
-	, cast (i.commission as varchar(20))
-	, i.salesperson_code
-	, 2 -- change
-	, getdate()
-	, SUSER_SNAME() 
-	from inserted i 
-	INNER JOIN deleted d ON 
-	i.salesperson_code = d.salesperson_code
-	where isnull(d.commission,0)<>isnull(i.commission,0)
 GO
 CREATE NONCLUSTERED INDEX [arsalesp_ind_3] ON [dbo].[arsalesp] ([addr_sort1]) ON [PRIMARY]
 GO

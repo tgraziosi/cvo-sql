@@ -15,7 +15,7 @@ CREATE PROCEDURE [dbo].[cvo_promotions_tracker_tyly_flex_sp]
 AS
     BEGIN
 
--- exec cvo_promotions_tracker_tyly_flex_sp '11/1/2016','12/14/2016', '11/1/2015','10/13/2015',  '40454', 'sunps', 'op'
+-- exec cvo_promotions_tracker_tyly_flex_sp '11/1/2016','01/30/2017', '11/1/2015','10/31/2016',  null , 'sunps', '1,2,3,NEW'
 
         SET NOCOUNT ON;
         SET ANSI_WARNINGS OFF;
@@ -147,9 +147,10 @@ AS
                 t.promo_level ,
                 t.yy;
 
-		-- SELECT * FROM #temptable AS t WHERE t.Territory IN ('40454','70780','30338')
+		-- SELECT * FROM #temptable AS t -- WHERE t.Territory IN ('40454','70780','30338')
 	   
     END;
+
 
 
 

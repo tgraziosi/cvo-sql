@@ -12,3 +12,5 @@ CREATE TABLE [dbo].[cvo_commission_promo_values]
 [line_type] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [idx_commiss_promo_t_r_m] ON [dbo].[cvo_commission_promo_values] ([territory], [rep_code], [recorded_month]) ON [PRIMARY]
+GO

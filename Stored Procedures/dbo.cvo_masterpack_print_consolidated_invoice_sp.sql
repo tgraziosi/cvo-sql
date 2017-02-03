@@ -35,6 +35,7 @@ GO
 -- v11.6 CB 03/12/2015 - Fix for BG customer set to regular invoice
 -- v11.7 CB 24/05/2016 - Fix code for pulling back promo name
 -- v11.8 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
+-- v11.9 CB 12/01/2017 - Recalc tax and totals
 
 */
 
@@ -136,7 +137,9 @@ BEGIN
 	DECLARE @is_credit SMALLINT -- v11.0
 
 	DECLARE @is_free SMALLINT, -- v11.2
-			@inv_option varchar(8) -- v11.4
+			@inv_option varchar(8), -- v11.4
+			@row_id		int, -- v11.9
+			@last_row_id int -- v11.9
 
 	-- v10.2 Start
 	CREATE TABLE #part_type (
@@ -153,6 +156,44 @@ BEGIN
 	FROM	part_type (NOLOCK)
 	WHERE	kys NOT IN ('FRAME','SUN')
 	-- v10.2 End
+
+	-- v11.9 Start
+	CREATE TABLE #orders_to_process_recalc (
+		row_id		int IDENTITY(1,1),
+		order_no	int,
+		order_ext	int)
+
+	INSERT	#orders_to_process_recalc (order_no, order_ext)
+	SELECT	order_no, order_ext
+	FROM	dbo.cvo_masterpack_consolidation_det (NOLOCK)
+	WHERE	consolidation_no = @consolidation_no
+
+	SET @last_row_id = 0
+
+	SELECT	TOP 1 @row_id = row_id,
+			@order_no = order_no,
+			@order_ext = order_ext
+	FROM	#orders_to_process_recalc
+	WHERE	row_id > @last_row_id
+	ORDER BY row_id ASC
+
+	WHILE (@@ROWCOUNT <> 0)
+	BEGIN
+		EXEC dbo.fs_calculate_oetax_wrap @order_no, @order_ext, 0, 1 
+		EXEC dbo.fs_updordtots @order_no, @order_ext	
+
+		SET @last_row_id = @row_id
+
+		SELECT	TOP 1 @row_id = row_id,
+				@order_no = order_no,
+				@order_ext = order_ext
+		FROM	#orders_to_process_recalc
+		WHERE	row_id > @last_row_id
+		ORDER BY row_id ASC
+	END
+	
+	DROP TABLE #orders_to_process_recalc
+	-- v11.9 End
 
 
 	-- Get an order from the consolidation set, so we can pull back order header details

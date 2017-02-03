@@ -2,8 +2,6 @@ SET QUOTED_IDENTIFIER OFF
 GO
 SET ANSI_NULLS ON
 GO
-
-
 CREATE PROC [dbo].[gltcappost_sp] 	@batch_ctrl_num	varchar(16),
  				@debug_level 	smallint = 0,
  				@trx_type    smallint = 0
@@ -70,7 +68,7 @@ BEGIN
 				STR(remote_state,4) + ":" +
 				STR(remote_error,4) + ":" +
 				ISNULL(batch_code, " ")+":" +
-				STR(remote_doc_id,11)
+				STR(remote_doc_id,20)
 		    FROM	#gltcpost_work
         END 
 
@@ -146,7 +144,7 @@ BEGIN
 				STR(remote_state,4) + ":" +
 				STR(remote_error,4) + ":" +
 				ISNULL(batch_code, " ")+":" +
-				STR(remote_doc_id,11)
+				STR(remote_doc_id,20)
 		    FROM	#gltcpost_work
         END 
 
@@ -174,6 +172,7 @@ BEGIN
 	
 	
 END
+
 GO
 GRANT EXECUTE ON  [dbo].[gltcappost_sp] TO [public]
 GO

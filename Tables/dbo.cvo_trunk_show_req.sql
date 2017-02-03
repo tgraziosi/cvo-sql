@@ -34,7 +34,8 @@ CREATE TABLE [dbo].[cvo_trunk_show_req]
 [sc_contacted] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [rtn_tracking] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [received] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[credit_memo] [varchar] (100) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[credit_memo] [varchar] (100) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[rep_email] [varchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_trunk__rep_e__1BE45256] DEFAULT (NULL)
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_trunk_show_req] ADD CONSTRAINT [PK__cvo_trunk_show_r__3AB84FD0] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

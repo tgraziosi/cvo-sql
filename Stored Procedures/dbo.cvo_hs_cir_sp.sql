@@ -48,6 +48,10 @@ begin
 	ORDER BY ListItem
 END
 
+-- 1/10/2107 - remove bob bassett for HS troubleshooting
+DELETE FROM #territory WHERE territory = '30310'
+
+
 IF(OBJECT_ID('dbo.cvo_hs_cir_tbl') is null)  
 begin
 CREATE TABLE [dbo].[cvo_hs_cir_tbl](
@@ -235,6 +239,7 @@ WHERE NOT EXISTS  (SELECT 1 FROM #cir WHERE
 				AND #cir.ship_to = chct.ship_to)
 
 END
+
 
 
 

@@ -12,7 +12,8 @@ CREATE TABLE [dbo].[cvo_svc_config]
 [signature] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [aspire_content] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [ch_content] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[sunps_content] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[sunps_content] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[me_content] [nvarchar] (max) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_svc_config] ADD CONSTRAINT [PK__cvo_svc_config__6CEA05D8] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

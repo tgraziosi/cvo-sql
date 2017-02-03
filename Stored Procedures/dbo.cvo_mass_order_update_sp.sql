@@ -10,9 +10,10 @@ set nocount on
 
 exec cvo_mass_order_update_sp
 
-select co.allocation_date, i.* From cvo_interim_order_updates i
+select co.promo_id, o.status, o.sch_ship_date, co.allocation_date, i.* From cvo_interim_order_updates i
 join cvo_orders_all co on i.order_no = co.order_no
-where date_time between '12/21/2015' and '12/22/2015'
+join orders o on o.order_no = co.order_no and o.ext = co.ext
+where date_time > '1/13/2017'
  order by date_time desc
  where proc_flag is null
 
@@ -40,7 +41,7 @@ DECLARE
 @note					varchar(255) ,
 @special_instr			varchar(255) 
 
-declare @allocation_date datetime, @last_id int, @today datetime
+declare @allocation_date datetime, @last_id int, @today DATETIME, @order_sch_shp_date datetime
 
 set @today = dateadd(dd,datediff(dd,0,getdate()), 0)
 
@@ -64,9 +65,13 @@ begin
 	@terms_code = terms
 	from cvo_interim_order_updates where id = @last_id
 
+	SELECT @order_sch_shp_date = sch_ship_date FROM orders o WHERE o.order_no = @order_no AND o.ext = @order_ext
+
 	if ( isnull(@sch_ship_date,@today) < @today or 
-	     isnull(@allocation_date,@today) < @today or
-	     isnull(@sch_ship_date,@today) < isnull(@allocation_date,@today) )
+	     isnull(@allocation_date,@today) < @today OR
+         -- 1/20/2017 - if only changing the allocation date check the ship date on the order instead
+	     isnull(@sch_ship_date,@order_sch_shp_date) < isnull(@allocation_date,@today) )
+
 	insert into #log (ret,err_msg) values (-1,'Invalid ship or allocation date update')
 	else
 	BEGIN
@@ -124,18 +129,21 @@ select @userid = min(userid) from cvo_interim_order_updates where proc_flag = -1
 
 while @userid is not null
  begin
-	 select @user_email = email_address from cvo_user_email where userid = @userid
+	 select @user_email = ISNULL(email_address,'') from cvo_user_email where userid = @userid
 	 set @message = 
 	 'select order_no, order_ext, err_msg
 	 from cvo.dbo.cvo_interim_order_updates where proc_flag = -1
 	 and userid = '''+@userid+''''
 	 
+--	 SELECT @user_email, @message, @userid
+
+
 	 if isnull(@user_email,'')<>'' 
 	 EXEC msdb.dbo.sp_send_dbmail @recipients=@user_email,
 	 @subject = 'CVO Mass Sales Order Update - error notification',
 	 @body = 'Mass Order updates encountered errors. View attachment to see the details.',
 	 @query = @message,
-	 @query_result_width = 600,
+	 @query_result_width = 6000,
 	 @profile_name='WMS_1',
 	 @attach_query_result_as_file = 1
 	 
@@ -148,6 +156,8 @@ while @userid is not null
 
  end -- while @userid is not null
  
+
+
 
 GO
 

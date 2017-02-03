@@ -6,6 +6,9 @@ GO
 CREATE PROC [dbo].[CVO_Release_Ship_Complete]
 AS
 BEGIN
+	
+	SET ANSI_WARNINGS OFF
+    
 	-- Declarations
 	DECLARE	@order_no		int,
 			@ext			int,
@@ -26,7 +29,7 @@ BEGIN
 	FROM	dbo.orders_all (NOLOCK)
 	WHERE	status = 'A'
 	AND		hold_reason = 'SC'
-	AND order_no <>  2983893 -- exclude this order for today 010517
+	AND		order_no <> '2983893'
 	ORDER BY order_no, ext
 	
 	-- Run through all the ship complete hold orders
@@ -146,6 +149,8 @@ BEGIN
 
 	RETURN
 END
+
+
 GO
 GRANT EXECUTE ON  [dbo].[CVO_Release_Ship_Complete] TO [public]
 GO

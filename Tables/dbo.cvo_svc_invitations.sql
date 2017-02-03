@@ -28,7 +28,7 @@ CREATE TABLE [dbo].[cvo_svc_invitations]
 [cst_eor] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__cst_e__5704E65A] DEFAULT ((0)),
 [cst_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__cst_s__57F90A93] DEFAULT ((1)),
 [cst_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__cst_o__58ED2ECC] DEFAULT ((1)),
-[note] [char] (12) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[note] [varchar] (80) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [ship_to] [char] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [suns_sp] [smallint] NULL CONSTRAINT [DF__cvo_svc_i__suns___40AC5C3E] DEFAULT ((0)),
 [suns_sp_show] [smallint] NULL CONSTRAINT [DF__cvo_svc_i__suns___41A08077] DEFAULT ((1)),
@@ -47,6 +47,19 @@ CREATE TABLE [dbo].[cvo_svc_invitations]
 [chs_order] [int] NULL,
 [sunps] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__sunps__765DC7EC] DEFAULT ('0'),
 [sunps_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__sunps__7751EC25] DEFAULT ('0'),
-[sunps_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__sunps__7846105E] DEFAULT ('0')
+[sunps_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__sunps__7846105E] DEFAULT ('0'),
+[sunps_new] [int] NULL,
+[sunps_new_show] [int] NULL,
+[sunps_new_order] [int] NULL,
+[incr] [tinyint] NULL CONSTRAINT [DF__cvo_svc_in__incr__62ABD4FA] DEFAULT ('1'),
+[list_no] [int] NULL,
+[isRead] [int] NULL CONSTRAINT [DF__cvo_svc_i__isRea__00072DB7] DEFAULT ('0'),
+[isOpened] [int] NULL CONSTRAINT [DF__cvo_svc_i__isOpe__00FB51F0] DEFAULT ('0'),
+[readDate] [datetime] NULL,
+[openedDate] [datetime] NULL,
+[response] [varchar] (3) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[me] [tinyint] NULL CONSTRAINT [DF__cvo_svc_invi__me__3D9A4BDC] DEFAULT ('0'),
+[me_show] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__me_sh__3E8E7015] DEFAULT ('1'),
+[me_order] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__me_or__3F82944E] DEFAULT ('1')
 ) ON [PRIMARY]
 GO

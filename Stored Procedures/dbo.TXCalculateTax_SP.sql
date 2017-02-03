@@ -3,6 +3,7 @@ GO
 SET ANSI_NULLS ON
 GO
 -- v1.0 CB 16/06/2014 - Performance  
+-- v1.1 CB 16/01/2017 - Overflow Issue
   
 CREATE PROC [dbo].[TXCalculateTax_SP] @debug int = 0, @distr_call int = 0  
 AS  
@@ -142,7 +143,7 @@ create index Txc1 on #TXcents(cents_code,row_id)
   amtDisc float,    
   amtExemption float,    
   amtTax float,  
-  remoteDocId int  
+  remoteDocId bigint  -- v1.1
  )  
   
  CREATE INDEX #TTO_1 on #TXTaxOutput( control_number )  

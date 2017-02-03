@@ -2,8 +2,6 @@ SET QUOTED_IDENTIFIER OFF
 GO
 SET ANSI_NULLS ON
 GO
-
-
 CREATE PROC [dbo].[gltcpost_error_sp] 	@batch_ctrl_num	varchar(16),
  				@debug_level 	smallint = 0
 
@@ -15,11 +13,8 @@ DECLARE
 BEGIN
 
         select @tax_connect_flag = tax_connect_flag from arco 
-
-	IF ( @debug_level > 1 ) SELECT CONVERT(char,getdate(),109) + "  " + "tmp/gltcposterr.sp" + " -- ENTRY: "
-
-	
-	IF ( @debug_level > 1 ) SELECT CONVERT(char,getdate(),109) + "  " + "tmp/gltcposterr.sp" + " Insert records not posted  "
+        
+        IF ( @debug_level > 1 ) SELECT CONVERT(char,getdate(),109) + "  " + "tmp/gltcposterr.sp" + " Insert records not posted  "
 	
 	IF ( @debug_level > 1 )
 	BEGIN
@@ -30,7 +25,7 @@ BEGIN
 			STR(remote_state,4) + ":" +
 			STR(remote_error,4) + ":" +
 			ISNULL(batch_code, " ")+":" +
-			STR(remote_doc_id,11)
+			STR(remote_doc_id,20)
 	    FROM	#gltcpost_work
 	END
 	
@@ -64,7 +59,6 @@ BEGIN
 	WHERE	gltc.remote_error > 0
 	AND 	gltc.trx_ctrl_num = arin.trx_ctrl_num
 	AND	arin.batch_code = @batch_ctrl_num
-
 
 
         IF @tax_connect_flag = 0
@@ -122,9 +116,10 @@ BEGIN
        			STR(remote_state,4) + ":" +
        			STR(remote_error,4) + ":" +
        			ISNULL(batch_code, " ")+":" +
-       			STR(remote_doc_id,11)
+       			STR(remote_doc_id,20)
        	    FROM	#gltcpost_work
 	END
+
 
 END
 GO

@@ -1,8 +1,7 @@
-SET QUOTED_IDENTIFIER OFF
+SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-
 
 CREATE procedure [dbo].[TXavataxlink_upd_sp] @trx_ctrl_num varchar(16), @trx_type int, 
 @upd_mode varchar(10), @err_msg varchar(255) output, @debug int = 0
@@ -22,7 +21,7 @@ DECLARE @retVal 	INT,
   @l_company_id 	int,
   @l_requesttimeout 	int,
   @result_code 		int,
-  @docId 		int,
+  @docId 		bigint,
   @docState 		int,
   @cancelCode 		int
 
@@ -159,6 +158,7 @@ Exit_Bad:
 
 Exit_Good:
 	RETURN @retVal
+
 GO
 GRANT EXECUTE ON  [dbo].[TXavataxlink_upd_sp] TO [public]
 GO

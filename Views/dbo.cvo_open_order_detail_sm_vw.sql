@@ -3,17 +3,6 @@ GO
 SET ANSI_NULLS ON
 GO
 
-
-
-
-
-
-
-
-
-
-
-
 /*
 -- for backorder summary support
 select * From cvo_open_order_detail_vw where location = '001' 
@@ -24,7 +13,8 @@ select * from cvo_soft_alloc_det where order_no = 1835492
 */
 
 
-CREATE view [dbo].[cvo_open_order_detail_vw] as
+CREATE view [dbo].[cvo_open_order_detail_sm_vw] AS
+
 -- Open Order Details by SKU and availability
 -- CVO - Tine Graziosi - 5/2012
 -- v1.1 - tag - 062512 - added pom date and next po due date
@@ -60,7 +50,6 @@ cast(o.ext as varchar(2)) ext,
 ol.line_no,
 -- o.user_def_fld4 hs_order,
 o.user_category,
-o.hold_reason,
 --hold_reason = case when o.hold_reason <> '' then o.hold_reason
 --					when p.hold_reason <> '' then p.hold_reason 
 --					else o.hold_reason end,
@@ -78,6 +67,8 @@ o.date_entered,
 o.sch_ship_date, 
 -- line_no, 
 ol.ordered-ol.shipped open_ord_qty,
+ordered,
+shipped,
 
 isnull( (select sum(qty) from tdc_soft_alloc_tbl (nolock)
 	where order_no = o.order_no and order_ext = o.ext 
@@ -90,6 +81,8 @@ and sof.line_no = ol.line_no and sof.part_no = ol.part_no), 0) sa_qty_avail,
 isnull((select sum(bo_stock) from cvo_get_soft_alloc_stock_vw sof (nolock)
 where sof.order_no = ol.order_no and sof.order_ext = ol.order_ext
 and sof.line_no = ol.line_no and sof.part_no = ol.part_no ), 0) sa_qty_notavail,
+
+--ISNULL(HA.QTY,0) ha_qty,
     
 
 /*  - 062712 - tag - as per KM request (81)
@@ -112,6 +105,7 @@ case when datediff(d,o.sch_ship_date,getdate()) < 0 then 'Future'
 end as DaysOverDue,
 o.who_entered,
 o.status, -- 10/23/2012 - for ssrs
+o.hold_reason,
 -- 0 = ALLOW BACK ORDER, 1 = SC, 2 = ALLOW PARTIAL
 case when o.back_ord_flag = 0 then 'AB'
     when o.back_ord_flag = 1 then 'SC'
@@ -121,10 +115,9 @@ case when o.back_ord_flag = 0 then 'AB'
 (ol.ordered-ol.shipped) * ROUND(ol.curr_price - (ol.curr_price * (ol.discount / 100)),2) as net_amt,
 -- v1.7 - 101513
 so_priority_code
-, co.promo_id, co.promo_level, p.hold_reason p_hold_reason
+, co.promo_id, co.promo_level, p.hold_reason promo_hold_reason
 , co.allocation_date
 , co.add_pattern -- 1/18/2017 - for Lilian - on size patterns for some styles
-, ol.ordered
 
 From  ord_list ol (nolock)
  inner join orders o (nolock) on  ol.order_no = o.order_no and ol.order_ext = o.ext 
@@ -132,10 +125,23 @@ From  ord_list ol (nolock)
  inner join inv_master i (nolock) on i.part_no = ol.part_no
  inner join inv_master_add ia (nolock) on ia.part_no = ol.part_no
  left outer join cvo_promotions p (nolock) on p.promo_id = co.promo_id and p.promo_level = co.promo_level
+ --LEFT OUTER JOIN
+ --(SELECT tsat.order_no ,
+ --        tsat.order_ext ,
+ --        tsat.line_no ,
+ --        tsat.part_no ,
+ --        SUM(tsat.qty) QTY 
+	--	 FROM dbo.tdc_soft_alloc_tbl AS tsat
+	--	 GROUP BY tsat.order_no ,
+ --                 tsat.order_ext ,
+ --                 tsat.line_no ,
+ --                 tsat.part_no
+ --) HA ON HA.order_no = co.order_no AND HA.order_ext = ol.order_ext AND HA.line_no = ol.line_no AND HA.part_no = ol.part_no
 where 1=1
 -- cvo_item_avail_vw cia (nolock)
 and ol.status < 'R' 
-and ol.ordered > ol.shipped
+-- and ol.ordered > ol.shipped
+AND i.category = 'sm'
 
 -- and ol.part_no = cia.part_no AND ol.location = cia.location
 
@@ -145,32 +151,14 @@ and ol.ordered > ol.shipped
 --order_no = ol.order_no and order_ext = ol.order_ext and line_no = ol.line_no)
 --and cia.style = 'portia'
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 GO
-GRANT REFERENCES ON  [dbo].[cvo_open_order_detail_vw] TO [public]
+GRANT REFERENCES ON  [dbo].[cvo_open_order_detail_sm_vw] TO [public]
 GO
-GRANT SELECT ON  [dbo].[cvo_open_order_detail_vw] TO [public]
+GRANT SELECT ON  [dbo].[cvo_open_order_detail_sm_vw] TO [public]
 GO
-GRANT INSERT ON  [dbo].[cvo_open_order_detail_vw] TO [public]
+GRANT INSERT ON  [dbo].[cvo_open_order_detail_sm_vw] TO [public]
 GO
-GRANT DELETE ON  [dbo].[cvo_open_order_detail_vw] TO [public]
+GRANT DELETE ON  [dbo].[cvo_open_order_detail_sm_vw] TO [public]
 GO
-GRANT UPDATE ON  [dbo].[cvo_open_order_detail_vw] TO [public]
+GRANT UPDATE ON  [dbo].[cvo_open_order_detail_sm_vw] TO [public]
 GO

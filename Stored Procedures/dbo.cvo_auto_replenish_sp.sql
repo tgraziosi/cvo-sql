@@ -197,11 +197,13 @@ INSERT INTO dbo.cvo_replenish_schedule
           userid ,
           schedule_date
         )
-SELECT  replen_id, to_bin, part_no, 0, isforced, '889',  'Auto-Replen', GETDATE()
+SELECT  replen_id, to_bin, part_no, 0, isforced, '721',  'Auto-Replen', GETDATE()
 FROM #rep_bin_move_detail 
 
 -- SELECT * FROM dbo.cvo_replenish_schedule AS rs
 END
+
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_auto_replenish_sp] TO [public]

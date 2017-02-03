@@ -4,6 +4,7 @@ SET ANSI_NULLS ON
 GO
 
 -- v1.0 CT 28/06/2013 - Issue #863 - calulcate tax for Discount Adjustment Credit Memo
+-- v1.1 CB 16/01/2016 - Overflow issue
 /* DECLARE @calc_tax DECIMAL(20,8), @err int 
 	EXEC cvo_calculate_tax_sp 'NOTAX', 'USD','010125',1,'001',100, @calc_tax OUTPUT, @err OUTPUT
 	SELECT @calc_tax, @err  
@@ -69,7 +70,7 @@ BEGIN
 	  amtDisc float,  
 	  amtExemption float,  
 	  amtTax float,  
-	  remoteDocId int  
+	  remoteDocId bigint -- v1.1  
 	)  
 	create index #TTO_1 on #TXTaxOutput( control_number )  
   

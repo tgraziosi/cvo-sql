@@ -18,7 +18,7 @@ CREATE TABLE [dbo].[gltcerror]
 [totalamount] [float] NOT NULL,
 [taxamount] [float] NOT NULL,
 [date_doc] [int] NOT NULL,
-[remote_doc_id] [int] NOT NULL,
+[remote_doc_id] [bigint] NULL,
 [doc_ctrl_num] [varchar] (16) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL
 ) ON [PRIMARY]
 GO

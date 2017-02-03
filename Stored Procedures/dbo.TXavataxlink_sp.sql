@@ -3,6 +3,7 @@ GO
 SET ANSI_NULLS ON
 GO
 -- v1.0 CB 16/06/2014 - Performance  
+-- v1.1 CB 16/01/2017 - Overflow issue
   
 CREATE procedure [dbo].[TXavataxlink_sp]   @docType varchar(16), @err_msg varchar(255) output, @debug int = 0  
 as   
@@ -526,7 +527,7 @@ begin
       set amtDisc = case when @return_type = 'get_TotalDiscount' then convert(decimal(20,8),@retString) else amtDisc end,  
    amtExemption = case when @return_type = 'get_TotalExemption' then convert(decimal(20,8),@retString) else amtExemption end,  
    amtTax = case when @return_type = 'get_TotalTax' then convert(decimal(20,8),@retString) else amtTax end,  
-   remoteDocId = case when @return_type = 'get_DocId' then convert(int,@retString) else remoteDocId end  
+   remoteDocId = case when @return_type = 'get_DocId' then convert(bigint,@retString) else remoteDocId end  -- v1.1
       where control_number = @h_doccode   
   
     if @return_type = 'get_TaxLinesCount'    

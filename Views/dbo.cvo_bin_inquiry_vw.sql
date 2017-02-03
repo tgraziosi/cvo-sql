@@ -3,9 +3,6 @@ GO
 SET ANSI_NULLS ON
 GO
 
-
-
-
 -- select * from cvo_bin_inquiry_vw where location = '001' and is_assigned = 'yes' and group_code in ('highbay','pickarea')
 
 CREATE VIEW [dbo].[cvo_bin_inquiry_vw]
@@ -29,6 +26,7 @@ AS
                     * b.qty ), 2) AS ext_cost ,
 			CASE WHEN ISNULL(pb.bin_no,'N') = 'N' THEN 'No' ELSE 'Yes' END AS Is_Assigned,
             ISNULL(pb.[primary], 'N') primary_bin ,
+			bm.maximum_level, -- 1/18/2017 - per KM request
             bm.last_modified_date ,
             bm.modified_by
     FROM    lot_bin_stock b ( NOLOCK )
@@ -61,6 +59,7 @@ AS
             0 AS ext_cost ,
 			CASE WHEN ISNULL(s.bin_no,'N') = 'N' THEN 'No' ELSE 'Yes' END AS Is_Assigned,
             s.[primary] ,
+			m.maximum_level,
             m.last_modified_date ,
             m.modified_by
     FROM    tdc_bin_part_qty s ( NOLOCK )
@@ -76,6 +75,7 @@ AS
             AND l.part_no IS NULL
             AND l.bin_no IS NULL;
     
+
 
 
 

@@ -48,7 +48,7 @@ AS
         SET @today = DATEADD(dd, DATEDIFF(dd, 0, GETDATE()), 0);
         SET @location = '001';
         SET @CH = '9/1/2015'; -- START OF CH SELL-DOWN PERIOD
-		SET @ME = '12/31/2099'; -- START OF me SELL-DOWN PERIOD - 10/7 - on hold per JK
+		SET @ME = '01/31/2017'; -- START OF me SELL-DOWN PERIOD - 10/7 - on hold per JK
 		-- SET @ME = '10/06/2016'; -- START OF me SELL-DOWN PERIOD
 
         IF ( OBJECT_ID('tempdb.dbo.#EOS') IS NOT NULL )
@@ -936,6 +936,16 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
         SET     [category:1] = 'CH RETURNS'
         WHERE   [category:1] = 'COLE HAAN'; 
 
+		UPDATE  dbo.cvo_hs_inventory_8
+        SET     Manufacturer = 'CLEARVISION',
+				[category:2] = 'POP'
+		WHERE   [Manufacturer] = 'POP'
+		AND		[category:1] = 'ME SELL-DOWN'; 
+
+		UPDATE dbo.cvo_hs_inventory_8
+		SET hide = 1 
+		WHERE ShelfQty <= 0
+		AND [category:1] = 'ME SELL-DOWN';
 
     END;
 
@@ -947,6 +957,10 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
+
+
+
 
 
 

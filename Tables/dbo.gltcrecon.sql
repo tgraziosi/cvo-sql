@@ -6,7 +6,7 @@ CREATE TABLE [dbo].[gltcrecon]
 [doc_ctrl_num] [varchar] (16) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [app_id] [int] NOT NULL,
 [posted_flag] [smallint] NOT NULL,
-[remote_doc_id] [int] NOT NULL,
+[remote_doc_id] [bigint] NULL,
 [remote_state] [smallint] NOT NULL,
 [reconciled_flag] [smallint] NOT NULL,
 [amt_gross] [float] NOT NULL,
