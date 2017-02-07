@@ -4,7 +4,7 @@ SET ANSI_NULLS ON
 GO
 CREATE PROCEDURE [dbo].[cvo_commission_statement_sp]
     @FiscalPeriod VARCHAR(10)
-AS -- exec cvo_commission_statement_sp '10/2016'
+AS -- exec cvo_commission_statement_sp '12/2016'
 
     SET NOCOUNT ON;
 
@@ -176,8 +176,8 @@ AS -- exec cvo_commission_statement_sp '10/2016'
 											 -- closeouts
                               FROM      dbo.cvo_commission_promo_values AS cpv
 
-                              WHERE     RIGHT(cpv.recorded_month, 4) = @year
-                                        AND cpv.line_type = 'Close Out Adj'
+                              WHERE   cpv.line_type = 'Close Out Adj'
+									  AND RIGHT(cpv.recorded_month, 4) = @year
 							  GROUP BY cpv.rep_code ,
 									   LEFT(cpv.recorded_month,2)
                               HAVING    SUM(ISNULL(incentive_amount, 0)) > 0
@@ -281,15 +281,14 @@ AS -- exec cvo_commission_statement_sp '10/2016'
                                             comments
                                   FROM      dbo.cvo_commission_promo_values
                                   WHERE     line_type = 'General'
-                                            AND recorded_month = 'Note'
+                                            --AND recorded_month = 'Note'
                                 ) general ON #mm.salesperson = general.rep_code
                 LEFT OUTER JOIN ( SELECT    rep_code ,
                                             LEFT(recorded_month, 2) month_num ,
                                             SUM(ISNULL(incentive_amount, 0)) spec_pay
                                   FROM      dbo.cvo_commission_promo_values
                                   WHERE     line_type = 'special payment'
-                                            AND @year = CAST(RIGHT(recorded_month,
-                                                              4) AS INT)
+                                            AND @year = CAST(RIGHT(recorded_month,4) AS INT)
                                   GROUP BY  LEFT(recorded_month, 2) ,
                                             rep_code
                                 ) spec_pay ON #mm.salesperson = spec_pay.rep_code
@@ -298,6 +297,7 @@ AS -- exec cvo_commission_statement_sp '10/2016'
 
 
     END;
+
 
 
 

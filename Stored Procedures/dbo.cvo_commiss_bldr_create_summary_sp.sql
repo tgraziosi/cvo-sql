@@ -175,23 +175,21 @@ from
 	) promo_details ON (promo_details.rep_code = a.salesperson OR promo_details.rep_code = r.salesperson_name)
 		LEFT OUTER JOIN -- other additions nformation
     (SELECT ccpv.rep_code , 
-		STUFF(( SELECT DISTINCT '; ' + ccpv2.comments 
+		STUFF(( SELECT DISTINCT '; ' + ISNULL(ccpv2.comments ,'')
 				FROM dbo.cvo_commission_promo_values AS ccpv2
 				WHERE ccpv2.rep_code = ccpv.rep_code 
 				AND ccpv2.recorded_month = @fp
 				AND ccpv2.rep_code = ISNULL(@slp,ccpv2.rep_code)
 				AND ISNULL(ccpv2.line_type,'') LIKE '%adj 3%'
-				AND ccpv2.incentive_amount > 0
+				AND ISNULL(ccpv2.incentive_amount,0) > 0
 				FOR XML PATH ('')
 				), 1, 1, '') addition_details
-				, SUM(ccpv.incentive_amount) addition_sum
+				, SUM(ISNULL(ccpv.incentive_amount,0)) addition_sum
         FROM dbo.cvo_commission_promo_values AS ccpv
 		WHERE ccpv.recorded_month = @fp 
 		AND ccpv.rep_code = ISNULL(@slp, ccpv.rep_code)
-		AND ccpv.incentive_amount > 0 
+		AND ISNULL(ccpv.incentive_amount,0) > 0 
 		AND ISNULL(ccpv.line_type,'') LIKE '%adj 3%'
-			
-					
 		GROUP BY ccpv.rep_code
 	) addition_details ON addition_details.rep_code = a.salesperson OR addition_details.rep_code = r.salesperson_name
 		LEFT OUTER JOIN -- other deductions information
@@ -228,7 +226,9 @@ UPDATE d SET
 		FROM dbo.cvo_commission_summary_work_tbl d
 		WHERE d.report_month = @fp
 		AND d.salesperson = ISNULL(@slp, d.salesperson)
--- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt
+
+-- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt where report_month = '09/2016'
+
 
 
 

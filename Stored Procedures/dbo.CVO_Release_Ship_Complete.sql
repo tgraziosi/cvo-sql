@@ -29,7 +29,7 @@ BEGIN
 	FROM	dbo.orders_all (NOLOCK)
 	WHERE	status = 'A'
 	AND		hold_reason = 'SC'
-	AND		order_no <> '2983893'
+	AND		order_no NOT IN (2983893, 2956346)
 	ORDER BY order_no, ext
 	
 	-- Run through all the ship complete hold orders
@@ -149,6 +149,7 @@ BEGIN
 
 	RETURN
 END
+
 
 
 GO

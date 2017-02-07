@@ -46,14 +46,18 @@ BEGIN
 	  AND status_type = 1
 	  AND NOT EXISTS(SELECT 1 FROM #allterr WHERE #allterr.customer_code = ISNULL(employee_code,'') )
 
+	  -- 2/3/2017 - updated territory list
+
 	  UPDATE #allterr SET AllTerr = allterr + ',I-Sales'
 	  WHERE allterr LIKE '%20226%' 
 		 OR allterr LIKE '%30311%' 
-		 OR allterr LIKE '%30312%' 
+		 OR allterr LIKE '%30314%'
+		 OR allterr LIKE '%30324%'  
 		 OR allterr LIKE '%30338%' 
 		 OR allterr LIKE '%50506%' 
 		 OR allterr LIKE '%50510%' 
-		 OR allterr LIKE '%50534%' 
+		 OR allterr LIKE '%50534%'
+		 OR allterr LIKE '%70780%' 
 
 	  -- SELECT * FROM #allterr
 
@@ -233,6 +237,7 @@ SELECT h.id ,
 
 
 END
+
 
 
 
