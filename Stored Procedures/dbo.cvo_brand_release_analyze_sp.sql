@@ -2,7 +2,8 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[cvo_brand_release_analyze_sp] (@coll VARCHAR(10) = NULL, @rel_start DATETIME, @rel_end datetime)
+CREATE PROCEDURE [dbo].[cvo_brand_release_analyze_sp] 
+	(@coll VARCHAR(10) = NULL, @rel_start DATETIME, @rel_end DATETIME, @wk1 INT = null, @wk2 INT = null)
 
 AS 
 
@@ -10,12 +11,17 @@ AS
 
 SET NOCOUNT ON;
 
+IF @wk1 IS NULL SET @wk1 = 6
+IF @wk2 IS NULL SET @wk2 = 10
+
 ;WITH 
 cte AS 
 (SELECT i.category brand, IA.FIELD_2 MODEL, MIN(ia.field_26) rel_date,
 i.type_code,
 MIN(yyyymmdd) first_brand_sale,
 ar.customer_code + CASE WHEN car.door = 1 THEN '-'+ar.ship_to_code ELSE '' END AS customer,
+CASE WHEN DATEDIFF(WEEK,ia.field_26,yyyymmdd) <= @wk1 THEN ar.customer_code + CASE WHEN car.door = 1 THEN '-'+ar.ship_to_code ELSE '' END ELSE '' END AS customerwk1,
+CASE WHEN DATEDIFF(WEEK,ia.field_26,yyyymmdd) <= @wk2 THEN ar.customer_code + CASE WHEN car.door = 1 THEN '-'+ar.ship_to_code ELSE '' END ELSE '' END AS customerwk2,
 SUM(qnet) net_qty, 
 SUM(CASE WHEN sbm.user_category NOT LIKE 'rx%' THEN qsales ELSE 0 END) st_qty, 
 SUM(CASE WHEN sbm.user_category LIKE 'rx%' THEN qsales ELSE 0 END) rx_qty,
@@ -34,9 +40,25 @@ AND sbm.yyyymmdd >= @rel_start
 AND i.category = CASE WHEN @coll IS NULL THEN i.category ELSE @coll end
 AND i.type_code IN ('frame','sun')
 AND ISNULL(ia.field_32,'') NOT IN ('hvc','retail','specialord')
-GROUP BY ar.customer_code + CASE WHEN car.door = 1 THEN '-'+ar.ship_to_code ELSE '' END ,
-         i.category ,
-         ia.field_2 ,
+GROUP BY ar.customer_code + CASE WHEN car.door = 1 THEN '-' + ar.ship_to_code
+         ELSE ''
+         END ,
+         CASE WHEN DATEDIFF(WEEK, ia.field_26, yyyymmdd) <= @wk1
+         THEN ar.customer_code + CASE WHEN car.door = 1
+         THEN '-' + ar.ship_to_code
+         ELSE ''
+         END
+         ELSE ''
+         END ,
+         CASE WHEN DATEDIFF(WEEK, ia.field_26, yyyymmdd) <= @wk2
+         THEN ar.customer_code + CASE WHEN car.door = 1
+         THEN '-' + ar.ship_to_code
+         ELSE ''
+         END
+         ELSE ''
+         END,
+		 i.category,
+		 ia.field_2,
 		 i.type_code
 ),
 rel AS 
@@ -70,6 +92,8 @@ SELECT CONVERT(DATETIME,MIN(cte.rel_date),110) rel_date,
 	   cte.type_code ,
 	   rel.rel_cnt num_releases,
 	   COUNT(DISTINCT cte.customer) num_cust,
+	   COUNT(DISTINCT cte.customerwk1) num_cust_wk1,
+	   COUNT(DISTINCT cte.customerwk2) num_cust_wk2,
        SUM(cte.net_qty) net_qty ,
        SUM(cte.st_qty) st_qty ,
        SUM(cte.rx_qty) rx_qty ,
@@ -105,5 +129,6 @@ SELECT CONVERT(DATETIME,MIN(cte.rel_date),110) rel_date,
                 rel.Material ,
                 rel.PrimaryDemographic ,
                 rel.Frame_type
+
 
 GO

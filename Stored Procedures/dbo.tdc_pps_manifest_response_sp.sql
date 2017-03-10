@@ -5,6 +5,7 @@ GO
 -- v1.0 CB 05/08/2014 - Issue #572 - Masterpack - Polarized Labs - Do not update the tracking number of the underlying carton for ship via lab  
 -- v1.1 CB 19/06/2014 - Fix issue with tracking number not written back to masterpack table - Seems to be std bug and remove v1.0
 -- v1.2 CB 15/07/2014 - If -PL orders then update carton and masterpack seperately
+-- v1.3 CB 30/12/2016	#1605 Change 'PL' to RX-RV'
 CREATE PROCEDURE [dbo].[tdc_pps_manifest_response_sp]  
  @is_freighting  char(1), --FREIGHT/UNFREIGHT FLAG  
  @carton_no  int,  
@@ -315,7 +316,8 @@ BEGIN
 	AND		a.order_ext = b.ext
 	WHERE	a.carton_no = @carton_no
 	AND		ISNULL(b.sold_to,'') > ''
-	AND		RIGHT(b.user_category,2) = 'PL'
+	AND		b.user_category = 'RX-RV' -- v1.3
+-- v1.3	AND		RIGHT(b.user_category,2) = 'PL'
 
 	IF @pl_order > 0
 	BEGIN

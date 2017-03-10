@@ -19,7 +19,7 @@ BEGIN
 -- generate sku's from cmi into epicor
 --  
 -- 
--- exec [cvo_cmi_sku_generate_sp] 'cvo', 'c6050g', NULL, null, '1/24/2017','N', 1
+-- exec [cvo_cmi_sku_generate_sp] 'op', '843', NULL, null, '1/24/2017','N', 1
 
 -- exec [cvo_cmi_sku_generate_sp] 'IZOD', '2028', NULL, null, '02/21/2017','N', 1
 
@@ -81,7 +81,8 @@ SELECT part_no ,
        ColorGroupCode ,
        UPPER(ColorName) colorname ,
 	   -- handle dual usage in epicor for field_32 (attribute) from cmi fit and special program
-       CASE WHEN ISNULL(specialty_fit,'') > '' AND ISNULL(cmi.special_program,'') > '' THEN cmi.specialty_fit
+	   -- 'regular fit' doesn't count - 3/9/2017
+       CASE WHEN ISNULL(specialty_fit,'Regular Fit') <> 'Regular Fit' AND ISNULL(cmi.special_program,'') > '' THEN cmi.specialty_fit
 			WHEN ISNULL(cmi.special_program,'') >  '' THEN special_program
 			ELSE ISNULL(specialty_fit,'') END AS specialty_fit ,
        web_saleable_flag ,
@@ -2334,6 +2335,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

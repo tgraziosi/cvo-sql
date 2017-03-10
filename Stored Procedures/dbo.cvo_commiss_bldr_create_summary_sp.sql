@@ -220,7 +220,7 @@ from
 
 
 UPDATE d SET 
-		total_earnings = comm_amt + incentive + ISNULL(other_additions,0) + ISNULL(d.promo_sum,0) + ISNULL(reduction,0),
+		total_earnings = comm_amt + incentive + ISNULL(other_additions,0) + ISNULL(d.promo_sum,0), -- remove 2/14 per MB -- + ISNULL(reduction,0),
 		net_pay = comm_amt + incentive + ISNULL(other_additions,0) + ISNULL(d.promo_sum,0) + ISNULL(reduction,0) 
 				  + total_draw + prior_month_bal
 		FROM dbo.cvo_commission_summary_work_tbl d
@@ -228,6 +228,7 @@ UPDATE d SET
 		AND d.salesperson = ISNULL(@slp, d.salesperson)
 
 -- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt where report_month = '09/2016'
+
 
 
 

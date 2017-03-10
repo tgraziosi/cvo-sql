@@ -8,6 +8,7 @@ GO
 -- v3.3 CB 17/06/2014	Remove code for global ship to as this is only done at masterpack level
 -- v3.4 CB 04/07/2014	Change to v3.3 - Check if PL order
 -- v3.5 CT 18/02/2015	Issue #1534 - For cartons containing multiple orders which belong to a masterpack consolidation, send first order number
+-- v3.6 CB 30/12/2016	#1605 Change 'PL' to RX-RV'
 
 -- CREATE TABLE #tdc_temp_manifest_string  (Pos INT NOT NULL, FieldValue VARCHAR(255) NULL, FieldName VARCHAR(255) NULL) 
 
@@ -54,7 +55,6 @@ BEGIN
  RETURN -1    
 END    
     
-SELECT @operator = REPLACE(@operator,'cvoptical\','')
     
 ---------------------------------------------------------------------------------------------    
 -- Find out if there are multiple orders per carton    
@@ -1733,7 +1733,8 @@ BEGIN
 END    
 
 -- v3.4 Start
-IF NOT EXISTS (SELECT 1 FROM orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @order_ext AND RIGHT(user_category,2) = 'PL')
+-- v3.6 IF NOT EXISTS (SELECT 1 FROM orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @order_ext AND RIGHT(user_category,2) = 'PL')
+IF NOT EXISTS (SELECT 1 FROM orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @order_ext AND user_category = 'RX-RV') -- v3.6
 BEGIN
 
 	-- v3.3

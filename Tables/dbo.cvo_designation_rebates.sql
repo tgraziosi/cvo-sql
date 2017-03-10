@@ -16,7 +16,8 @@ CREATE TABLE [dbo].[cvo_designation_rebates]
 [COOPOvr] [decimal] (20, 8) NULL,
 [member_cnt] [int] NULL,
 [date_entered] [datetime] NULL,
-[who_entered] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[who_entered] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[buying_group] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_designation_rebates] ADD CONSTRAINT [PK__cvo_designation___74A690F1] PRIMARY KEY CLUSTERED  ([RowID]) ON [PRIMARY]

@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -13,6 +12,9 @@ BEGIN
 
 	-- Declarations
 -- v1.2	DECLARE	@polarized		varchar(10)
+	DECLARE @line_no		int, -- v1.3
+			@pol_line		int, -- v1.3
+			@pol_part		varchar(30) -- v1.3
 
 	-- Init
 -- v1.2	SET @polarized = [dbo].[CVO_get_ResType_PartType_fn] ('DEF_RES_TYPE_POLARIZED') 
@@ -175,6 +177,39 @@ BEGIN
 		WHERE	a.has_pattern = 0
 		AND		a.part_type NOT IN ('FRAME','SUN')
 
+		-- v1.3 Start
+		SET @line_no = 0
+
+		SELECT	@line_no = MIN(line_no)
+		FROM	#splits
+		WHERE	has_polarized = 1
+		AND		line_no > @line_no
+
+		WHILE (@line_no <> 0)
+		BEGIN
+
+			SELECT	@pol_part = polarized_part
+			FROM	#splits
+			WHERE	line_no = @line_no
+
+			SELECT	@pol_line = MIN(line_no)
+			FROM	#splits
+			WHERE	part_no = @pol_part
+			AND		line_no > @line_no
+
+			INSERT	#cvo_ord_list(order_no, order_ext, line_no, add_case, add_pattern, from_line_no, is_case, is_pattern, add_polarized, is_polarized, is_pop_gif)
+			SELECT	a.order_no, a.order_ext, a.line_no, 'N', 'N', @line_no, 0, 0, 'N', 
+					CASE WHEN (a.part_type = 'PARTS' AND a.part_no IN (SELECT part_no FROM cvo_polarized_vw)) THEN 1 ELSE 0 END, 0 
+			FROM	#splits a
+			WHERE	line_no = @pol_line
+
+			SELECT	@line_no = MIN(line_no)
+			FROM	#splits
+			WHERE	has_polarized = 1
+			AND		line_no > @line_no
+		END
+
+/*
 		-- Insert lines that are polarized and are related
 		INSERT	#cvo_ord_list(order_no, order_ext, line_no, add_case, add_pattern, from_line_no, is_case, is_pattern, add_polarized, is_polarized, is_pop_gif)
 		SELECT	a.order_no, a.order_ext, a.line_no, 'N', 'N', 
@@ -187,6 +222,8 @@ BEGIN
 		AND		a.part_no = b.polarized_part
 		WHERE	a.has_polarized = 0
 		AND		a.part_type NOT IN ('FRAME','SUN')
+-- v1.3 End
+*/
 	END
 
 END

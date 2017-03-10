@@ -942,10 +942,11 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 		WHERE   [Manufacturer] = 'POP'
 		AND		[category:1] = 'ME SELL-DOWN'; 
 
-		UPDATE dbo.cvo_hs_inventory_8
-		SET hide = 1 
-		WHERE ShelfQty <= 0
-		AND [category:1] = 'ME SELL-DOWN';
+		-- 2/10/2017 - show everything to allow for returns
+		--UPDATE dbo.cvo_hs_inventory_8
+		--SET hide = 1 
+		--WHERE ShelfQty <= 0
+		--AND [category:1] = 'ME SELL-DOWN';
 
     END;
 
@@ -957,6 +958,7 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
 
 
 

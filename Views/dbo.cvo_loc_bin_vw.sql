@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -35,8 +34,8 @@ SELECT TOP 1000 location ,
        maximum_level
 	   
 	    FROM tdc_bin_master
-		WHERE((LOCATION = '001' AND BIN_NO = 'RR REFURB') OR location IN ('999','008'))
-		AND group_code NOT IN ( 'pickarea','highbay','overflow','rdock')
+		WHERE((LOCATION = '001' AND BIN_NO IN ('RR REFURB')) OR location IN ('999','008'))
+		AND group_code NOT IN ('highbay','overflow','rdock')
 		AND status = 'a'
 /*UNION ALL 
 SELECT TOP 1000 location ,
@@ -67,6 +66,8 @@ SELECT TOP 1000 location ,
 		AND bin_no NOT LIKE 'p04%'
 
 */
+
+
 
 
 

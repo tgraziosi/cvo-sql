@@ -143,10 +143,10 @@ AS
             t.lead_time ,
             t.type_code ,
 			t.p_type_code ,
-			CASE when GENDER like 'Female-%' then replace(gender,'Female','F')
+			UPPER(CASE when GENDER like 'Female-%' then replace(gender,'Female','F')
 		when gender like 'Male-%' then replace(gender,'Male','M')
 		when gender like 'Unisex-%' then replace(gender,'Unisex','U')
-		else isnull(gender,'') end as Gender,
+		else isnull(gender,'') END) as Gender,
             -- t.gender ,
             t.material ,
 			t.frame_type,
@@ -240,6 +240,7 @@ AS
 			)
 
 			;
+
 
 
 GO

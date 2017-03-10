@@ -10,6 +10,7 @@ GO
 -- v1.5 CB 11/09/2015 - #1514 - Add user
 -- v1.6 CB 29/09/2015 - #1570 - Add promo to release user hold
 -- v1.7 CB 23/05/2016 - Fixed hold reason desc not showing
+-- v1.8 CB 29/12/2016 - #1618 - Allow release of underlying promo holds
 
 -- EXEC fs_csv_hold '035192','C','%'
 -- EXEC fs_csv_hold '038318','C','**CHILD**'
@@ -27,7 +28,8 @@ create table #thold ( order_no int, order_ext int, cust_code varchar(10),
 		      curr_factor decimal(20,8), printed char(1),
 		      status char(1), reason varchar(10) null, blanket char(1),		-- mls 5/18/00 SCR 22908
 		      multiple char(1) --) 						-- skk 5/19/00 mshipto						
-			  ,user_hold varchar(10), user_hold_desc varchar(40)) -- v1.0
+			  ,user_hold varchar(10), user_hold_desc varchar(40), -- v1.0
+			  p_sub_hold char(1) NULL) -- v1.8
 
 create index #t1 on #thold (cust_code, ship_to_name, order_no, order_ext)		-- mls 9/25/03 SCR 31931
 
@@ -62,7 +64,7 @@ if @stat = 'A' begin
 			ship_to, ship_to_name, salesperson, who_entered, 
 			date_entered, curr_factor, printed, o.status, hold_reason, blanket,
 			multiple_flag								-- skk 05/19/00 mshipto
-			,'','' -- v1.0
+			,'','',''
 		FROM    orders_entry_vw o (nolock), adm_cust c (nolock), cvo_orders_all cvo (NOLOCK)
 		WHERE   o.status = 'A' and cust_code like @cust and
 					o.cust_code = c.customer_code and
@@ -73,22 +75,71 @@ if @stat = 'A' begin
 				AND cvo.promo_id like @promo_id
 				AND cvo.promo_level like @promo_level
 				AND o.who_entered in (SELECT who_entered FROM #hold_user) -- v1.5
+		
+		-- v1.8 Start
+		INSERT  #thold
+		SELECT  o.order_no, o.ext, o.cust_code, null, 0, 0,
+				o.ship_to, o.ship_to_name, o.salesperson, o.who_entered, 
+				o.date_entered, o.curr_factor, o.printed, o.status, ho.hold_reason, o.blanket,
+				o.multiple_flag								-- skk 05/19/00 mshipto
+				,'','', 'Y'
+		FROM    orders_entry_vw o (NOLOCK), adm_cust c (nolock), cvo_orders_all cvo (NOLOCK), cvo_promotions pro (NOLOCK), cvo_so_holds ho (NOLOCK)
+		WHERE   o.status = 'A' and cust_code like @cust and
+				o.cust_code = c.customer_code and
+				(@reason = '%' or ho.hold_reason like @reason)
+		AND		o.[type] = 'I' -- v1.2
+		AND		o.order_no = cvo.order_no
+		AND		o.ext = cvo.ext
+		AND		cvo.promo_id = pro.promo_id
+		AND		cvo.promo_level = pro.promo_level
+		AND		cvo.promo_id like @promo_id
+		AND		cvo.promo_level like @promo_level
+		AND		o.order_no = ho.order_no
+		AND		o.ext = ho.order_ext
+		AND		pro.hold_reason = ho.hold_reason
+		AND		o.hold_reason = 'PROMOHLD'
+		AND		o.who_entered in (SELECT who_entered FROM #hold_user) -- v1.5
+		-- v1.8 End
 
 	END
 	ELSE -- v1.6 End
 	BEGIN
 		INSERT  #thold
 		SELECT  order_no, ext, cust_code, null, 0, 0,
-			ship_to, ship_to_name, salesperson, who_entered, 
-			date_entered, curr_factor, printed, o.status, hold_reason, blanket,
-			multiple_flag								-- skk 05/19/00 mshipto
-			,'','' -- v1.0
+				ship_to, ship_to_name, salesperson, who_entered, 
+				date_entered, curr_factor, printed, o.status, hold_reason, blanket,
+				multiple_flag								-- skk 05/19/00 mshipto
+				,'','',''
 		FROM    orders_entry_vw o (nolock), adm_cust c (nolock)
 		WHERE   o.status = 'A' and cust_code like @cust and
-					o.cust_code = c.customer_code and
-			(@reason = '%' or hold_reason like @reason)
-				AND o.[type] = 'I' -- v1.2
-				AND o.who_entered in (SELECT who_entered FROM #hold_user) -- v1.5
+				o.cust_code = c.customer_code and
+				(@reason = '%' or hold_reason like @reason)
+		AND		o.[type] = 'I' -- v1.2
+		AND		o.who_entered in (SELECT who_entered FROM #hold_user) -- v1.5
+
+		-- v1.8 Start
+		INSERT  #thold
+		SELECT  o.order_no, o.ext, o.cust_code, null, 0, 0,
+				o.ship_to, o.ship_to_name, o.salesperson, o.who_entered, 
+				o.date_entered, o.curr_factor, o.printed, o.status, ho.hold_reason, o.blanket,
+				o.multiple_flag								-- skk 05/19/00 mshipto
+				,'','','Y'
+		FROM    orders_entry_vw o (nolock), adm_cust c (nolock), cvo_orders_all cvo (NOLOCK), cvo_promotions pro (NOLOCK), cvo_so_holds ho (NOLOCK)
+		WHERE   o.status = 'A' and cust_code like @cust and
+				o.cust_code = c.customer_code and
+				(@reason = '%' or ho.hold_reason like @reason)
+		AND		o.[type] = 'I' -- v1.2
+		AND		o.order_no = cvo.order_no
+		AND		o.ext = cvo.ext
+		AND		cvo.promo_id = pro.promo_id
+		AND		cvo.promo_level = pro.promo_level
+		AND		o.order_no = ho.order_no
+		AND		o.ext = ho.order_ext
+		AND		pro.hold_reason = ho.hold_reason
+		AND		o.hold_reason = 'PROMOHLD'
+		AND o.who_entered in (SELECT who_entered FROM #hold_user) -- v1.5
+		-- v1.8 End
+
 	END
 end
 
@@ -98,11 +149,12 @@ if @stat = 'C' begin
 		ship_to, ship_to_name, salesperson, who_entered, 
 		date_entered, curr_factor, printed, o.status, '', blanket, 
 		multiple_flag								-- skk 05/19/00 mshipto
-		, hold_reason, '' -- v1.0
+		, hold_reason, '','' -- v1.0 v1.8
 	FROM    orders_entry_vw o (nolock), adm_cust c (nolock)
 	WHERE   (o.status between 'B' and 'C') and 
                 o.cust_code = c.customer_code and
 		cust_code like @cust			-- mls 9/25/03 SCR 31931
+
 
 	-- v1.3 Start
 	IF (@reason = '**CHILD**')
@@ -118,7 +170,7 @@ if @stat = 'C' begin
 		SELECT  order_no, ext, cust_code, null, 0, 0,
 				ship_to, ship_to_name, salesperson, who_entered, 
 				date_entered, curr_factor, printed, o.status, '', blanket, 
-				multiple_flag, hold_reason, '' -- v1.0
+				multiple_flag, hold_reason, '', '' -- v1.0 v1.8
 		FROM    orders_entry_vw o (NOLOCK)
 		JOIN	adm_cust c (NOLOCK)
 		ON		o.cust_code = c.customer_code
@@ -137,7 +189,7 @@ if @stat = 'P' begin
 		ship_to, ship_to_name, salesperson, who_entered, 
 		date_entered, curr_factor, printed, o.status, '', blanket, 
 		multiple_flag								-- skk 05/19/00 mshipto
-		,'','' -- v1.0
+		,'','', '' -- v1.0 v1.8
 	FROM    orders_entry_vw o (nolock), adm_cust c (nolock)
 	WHERE   (o.status between 'B' and 'H') and 
                 o.cust_code = c.customer_code and
@@ -169,7 +221,7 @@ SET    total_order_cost=isnull( (select sum( ordered * ((i.std_cost+i.std_direct
 
 -- v1.0
 UPDATE	#thold
-SET		user_hold_desc = b.hold_reason
+SET		user_hold_desc = CASE WHEN a.p_sub_hold = 'Y' THEN 'Promo: ' + b.hold_reason ELSE b.hold_reason END -- v1.8
 FROM	#thold a
 JOIN	adm_oehold b (NOLOCK)
 on		a.reason = b.hold_code -- v1.7
@@ -193,7 +245,8 @@ select  order_no, order_ext, cust_code,
 	who_entered, date_entered,
 	curr_factor, printed,
 	status, reason, blanket, multiple,						-- skk 05/19/00 mshipto
-	@cust, @stat, @reason, user_hold_desc
+	@cust, @stat, @reason, user_hold_desc, 
+	p_sub_hold -- v1.8
 from #thold
 order by cust_code, ship_to_name, order_no, order_ext
 

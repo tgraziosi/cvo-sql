@@ -37,7 +37,7 @@ RETURNS @usage TABLE
 -- 12/5/2016 - add rx qty for inv forecast
 -- 1/5/2017 - for credits use the date_entered only not the allocation date
 
--- select * From dbo.f_cvo_calc_weekly_usage_COLL ( 'O', 'cvo' ) where part_no like 'CVCLI%'
+-- select * From dbo.f_cvo_calc_weekly_usage_COLL ( 'O', 'bcbg' ) where part_no like 'CVCLI%'
 
 AS
     BEGIN
@@ -49,7 +49,7 @@ Weekly Usage FOR Demand Planning
 	Based on Shipments
 	Based on Orders
 
-select * from dbo.f_cvo_calc_weekly_usage ('O')
+select * from dbo.f_cvo_calc_weekly_usage_coll ('O', null)
 
 -- 10/1/2015 - credits don't have an allocation date.  use date entered instead
 

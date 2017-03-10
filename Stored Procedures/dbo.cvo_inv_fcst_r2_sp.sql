@@ -24,8 +24,8 @@ CREATE procedure [dbo].[cvo_inv_fcst_r2_sp]
 /*
  exec cvo_inv_fcst_r2_sp
  @startrank = '12/23/2013',
- @asofdate = '12/1/2016', 
- @endrel = '12/01/2016', 
+ @asofdate = '02/01/2017', 
+ @endrel = '02/01/2017', 
  @usedrp = 1, 
  @current = 1, 
  @collection = 'cvo', 
@@ -229,37 +229,6 @@ m3 float,
 m12 float,
 m24 float)
 
---insert into #inv_rank values ('BCBG','A','2500','7900','3500')
---insert into #inv_rank values ('BCBG','B','1500','4700','1200')
---insert into #inv_rank values ('BCBG','C','1','2300','300')
---insert into #inv_rank values ('CH','A','900','3100','1500')
---insert into #inv_rank values ('CH','B','700','2200','800')
---insert into #inv_rank values ('CH','C','1','1300','500')
---insert into #inv_rank values ('CVO','A','1100','3800','1900')
---insert into #inv_rank values ('CVO','B','700','2600','900')
---insert into #inv_rank values ('CVO','C','1','1800','500')
---insert into #inv_rank values ('ET','A','2000','6300','3200')
---insert into #inv_rank values ('ET','B','1500','4500','1100')
---insert into #inv_rank values ('ET','C','1','2400','1000')
---insert into #inv_rank values ('IZOD','A','1200','4400','1900')
---insert into #inv_rank values ('IZOD','B','800','2800','600')
---insert into #inv_rank values ('IZOD','C','1','1200','300')
---insert into #inv_rank values ('IZX','A','1000','3700','1600')
---insert into #inv_rank values ('IZX','B','700','2300','1200')
---insert into #inv_rank values ('IZX','C','1','1300','500')
---insert into #inv_rank values ('JC','A','1100','4000','1600')
---insert into #inv_rank values ('JC','B','800','3000','1200')
---insert into #inv_rank values ('JC','C','1','1800','500')
---insert into #inv_rank values ('JMC','A','2000','7500','2800')
---insert into #inv_rank values ('JMC','B','1200','3900','1600')
---insert into #inv_rank values ('JMC','C','1','2600','800')
---insert into #inv_rank values ('ME','A','2000','5900','2800')
---insert into #inv_rank values ('ME','B','1200','3900','1600')
---insert into #inv_rank values ('ME','C','1','1300','300')
---insert into #inv_rank values ('OP','A','1400','4300','2000')
---insert into #inv_rank values ('OP','B','1100','4000','1900')
---insert into #inv_rank values ('OP','C','1','2200','800')
-
 -- year 2 updates - only for styles with full 2 years history
 insert into #inv_rank values ('BCBG','A','2500','7900','3900')
 insert into #inv_rank values ('BCBG','B','1500','4700','1400')
@@ -373,49 +342,7 @@ and isnull(s.return_code,'') = ''
 and isnull(s.iscl,0) = 0 -- no closeouts
 and isnull(s.location,@loc) = @loc
 
---and s.yyyymmdd >= dateadd(mm,-18,@asofdate) -- look back 18 months
---and s.customer not in ('045733','019482','045217') -- stanton and insight and costco
---and s.return_code = ''
---and s.iscl = 0 -- no closeouts
---and s.location = @loc
-
 group by ia.field_26, ia.field_28, i.category, ia.field_2, i.part_no, i.type_code, yyyymmdd -- end cte
-
--- look for future release items within the list of styles
-
---INSERT INTO #sls_det
---        ( brand ,
---          style ,
---          part_no ,
---          type_code ,
---		  pom_date,
---          rel_date,
---		  rel_month     )
-
---SELECT i.category brand,
---ia.field_2 style,
---i.part_no,
---i.type_code,
---ISNULL(ia.field_28,'1/1/1900') pom_date,
---ia.field_26 rel_date,
---DATEDIFF(m, ia.field_26, @asofdate) AS rel_month
-
---FROM 
---(SELECT DISTINCT brand,
---style, 
---type_code,
---rel_date
---FROM #sls_det) sls_det
---JOIN inv_master i ON i.category = sls_det.brand
---JOIN inv_master_add ia ON ia.part_no = i.part_no
---WHERE sls_det.style = ia.field_2 AND sls_det.type_code = i.type_code
---AND ISNULL(ia.field_26,@asofdate) > sls_det.rel_date
---AND NOT EXISTS (SELECT 1 FROM #sls_det WHERE #sls_det.part_no = i.part_no)
---and i.void = 'N'
---AND EXISTS (SELECT 1 FROM #sf WHERE #sf.sf = ISNULL(ia.field_32,''))
-
---IF @debug = 1 select distinct part_no, rel_date From #sls_det -- where part_no like 'jm185%'
-
 
 select 
 #sls_det.brand,
@@ -788,21 +715,12 @@ select --
 'PO' as line_type
 ,#t.part_no sku
 ,#t.mm
---,bucket = case when MONTH(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) <= MONTH(@asofdate) 
---				AND YEAR(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) <= YEAR(@asofdate)
---		  THEN @asofdate -- if the po line is past due
---		  else DATEADD(m,DATEDIFF(m,0,r.inhouse_date), 0) END
 , bucket = dateadd(m,#t.sort_seq-1, @asofdate)
 ,QOH = 0
 ,atp = 0
 ,reserve_qty = 0
 ,round(SUM(ISNULL(R.quantity,0))-SUM(ISNULL(R.received,0)),1) quantity, 
 #t.mult,
---CASE	 WHEN MONTH(r.inhouse_date) < MONTH(@asofdate) AND YEAR(r.inhouse_date) <= YEAR(@asofdate) THEN 1
---		 when month(r.inhouse_date) < month(@asofdate) AND YEAR(r.inhouse_date) > YEAR(@asofdate)
---			then month(r.inhouse_date) - MONTH(@ASOFDATE) + 13
---		 ELSE month(r.inhouse_date) - MONTH(@ASOFDATE) + 1 
---		 END  as sort_seq
 #t.s_mult,
 #t.sort_seq
 From #t 
@@ -810,9 +728,6 @@ inner join inv_master_add i (nolock) on i.part_no = #t.part_no
 inner join inv_master inv (nolock) on inv.part_no = i.part_no
 left outer join releases r (nolock) on #t.part_no = r.part_no AND r.location = @loc
 where 1=1
--- AND r.inhouse_date <= @pomdate 
---and  #t.mm = case when month(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) < month(@asofdate)
---					and YEAR(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) < YEAR(@asofdate)
 and  #t.mm = case when DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < @asofdate
 	 THEN month(@asofdate) 
 	 ELSE month(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) end
@@ -1163,6 +1078,7 @@ cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
 
 
 end
+
 
 
 

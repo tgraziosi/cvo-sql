@@ -66,7 +66,7 @@ BEGIN
 		END
 
 		-- Set email subject and body text
-		SET @subject_line = 'Copy Invoice - ' + @doc_ctrl_num + '.'
+		SET @subject_line = 'Invoice Copy - ' + @doc_ctrl_num + '.'
 
 		SET @body_text = 'Hello! <BR><BR>'
 		SET @body_text = @body_text + 'Attached is a copy of your invoice as requested. <BR><BR>'

@@ -37,7 +37,8 @@ CREATE TABLE [dbo].[cvo_cmi_dimensions]
 [dim_asterisk_2] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [dim_lens_cost] [float] NULL,
 [dim_frame_only_cost] [float] NULL,
-[dim_lens_color] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[dim_lens_color] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[dim_print_flag] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_cmi_dimensions] ADD CONSTRAINT [PK__cvo_cmi_dimensio__1BC65536] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

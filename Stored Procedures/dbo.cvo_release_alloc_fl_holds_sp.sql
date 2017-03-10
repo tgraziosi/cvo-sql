@@ -25,7 +25,10 @@ BEGIN
 			@sa_qty			decimal(20,8), -- v1.4
 			@new_soft_alloc_no int, -- v1.4
 			@location		varchar(10), -- v1.4
-			@release_only	int -- v1.5
+			@release_only	int, -- v1.5
+			@prec_avail		varchar(30), -- v1.7
+			@perc			decimal(20,8), -- v1.8
+			@prec_avail_str varchar(50) -- v1.9
 
 	-- WORKING TABLES
 	CREATE TABLE #fl_orders (
@@ -86,6 +89,7 @@ BEGIN
 	AND		a.hold_reason = 'FL'
 -- v1.2	AND		ISNULL(b.prior_hold,'') = ''
 	AND		a.order_no > 1420973
+	AND		a.order_no = 1421711
 	ORDER BY a.order_no, a.ext	
 
 	-- v1.5 Start 
@@ -186,6 +190,19 @@ BEGIN
 		END
 		ELSE -- v1.3 Start
 		BEGIN
+			-- v1.7 Start
+			SET @prec_avail = '100' -- v1.9
+			SELECT	@prec_avail = CAST(CAST(perc_available as int) as varchar(10))
+			FROM	#exclusions
+			WHERE	order_no = @order_no 
+			AND		order_ext = @order_ext
+
+			IF (@prec_avail IS NULL) 
+				SET @prec_avail_str = '' -- v1.9
+			ELSE
+				SET @prec_avail_str = '; %AVL: ' + @prec_avail -- v1.9
+			-- v1.7 End
+
 			IF EXISTS (SELECT 1 FROM #exclusions WHERE order_no = @order_no AND order_ext = @order_ext AND perc_available >= @fill_rate
 						AND perc_available < 100 AND @ship_complete = 1) 
 			BEGIN
@@ -195,7 +212,7 @@ BEGIN
 
 				INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
 				SELECT	GETDATE() , 'FL HOLD RELEASE' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
-						'STATUS:N/RELEASE FL USER HOLD; HOLD REASON:' 
+						'STATUS:N/RELEASE FL USER HOLD; HOLD REASON:' + @prec_avail_str -- v1.7 v1.9
 				FROM	orders_all a (NOLOCK)
 				WHERE	a.order_no = @order_no
 				AND		a.ext = @order_ext
@@ -280,9 +297,22 @@ BEGIN
 		-- v1.2 Start
 		IF (@prior_hold <> '')
 		BEGIN
+			-- v1.7 Start
+			SET @prec_avail = '100' -- v1.9
+			SELECT	@prec_avail = CAST(CAST(perc_available as int) as varchar(10)),
+					@perc = perc_available -- v1.8
+			FROM	#exclusions
+			WHERE	order_no = @order_no 
+			AND		order_ext = @order_ext
+			IF (@prec_avail IS NULL) 
+				SET @prec_avail_str = '' -- v1.9
+			ELSE
+				SET @prec_avail_str = '; %AVL: ' + @prec_avail -- v1.9
+			-- v1.7 End
+
 			INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
 			SELECT	GETDATE() , 'FL HOLD RELEASE' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
-					'STATUS:N/RELEASE FL USER HOLD; HOLD REASON:' 
+					'STATUS:N/RELEASE FL USER HOLD; HOLD REASON:' + @prec_avail_str -- v1.7 v1.9
 			FROM	orders_all a (NOLOCK)
 			WHERE	a.order_no = @order_no
 			AND		a.ext = @order_ext
@@ -316,6 +346,9 @@ BEGIN
 			SET		process = -4
 			WHERE	row_id = @row_id
 
+			EXEC dbo.cvo_fl_holds_snapshot_sp @order_no, @order_ext, @perc
+
+
 			SET @last_row_id = @row_id
 
 			SELECT	TOP 1 @row_id = row_id,
@@ -337,14 +370,29 @@ BEGIN
 		WHERE	order_no = @order_no
 		AND		ext = @order_ext
 
+		-- v1.7 Start
+		SET @prec_avail = '100' -- v1.9
+		SELECT	@prec_avail = CAST(CAST(perc_available as int) as varchar(10)),
+				@perc = perc_available -- v1.8
+		FROM	#exclusions
+		WHERE	order_no = @order_no 
+		AND		order_ext = @order_ext
+		IF (@prec_avail IS NULL) 
+			SET @prec_avail_str = '' -- v1.9
+		ELSE
+			SET @prec_avail_str = '; %AVL: ' + @prec_avail -- v1.9
+		-- v1.7 End
+
 		-- v1.1 Start
 		INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
 		SELECT	GETDATE() , 'FL HOLD RELEASE' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
-				'STATUS:N/RELEASE FL USER HOLD; HOLD REASON:' 
+				'STATUS:N/RELEASE FL USER HOLD; HOLD REASON:' + @prec_avail_str -- v1.7 v1.9
 		FROM	orders_all a (NOLOCK)
 		WHERE	a.order_no = @order_no
 		AND		a.ext = @order_ext
 		-- v1.1 End
+
+		EXEC dbo.cvo_fl_holds_snapshot_sp @order_no, @order_ext, @perc
 
 		IF EXISTS(SELECT 1 FROM dbo.cvo_soft_alloc_hdr a (NOLOCK) JOIN cvo_orders_all b (NOLOCK) ON a.order_no = b.order_no AND a.order_ext = b.ext
 						WHERE a.order_no = @order_no AND a.order_ext = @order_ext AND b.allocation_date > getdate() AND a.status = -3)

@@ -4,7 +4,7 @@ SET ANSI_NULLS ON
 GO
 CREATE PROCEDURE [dbo].[cvo_commission_statement_sp]
     @FiscalPeriod VARCHAR(10)
-AS -- exec cvo_commission_statement_sp '12/2016'
+AS -- exec cvo_commission_statement_sp '02/2017'
 
     SET NOCOUNT ON;
 
@@ -43,6 +43,10 @@ AS -- exec cvo_commission_statement_sp '12/2016'
               salesperson_name VARCHAR(50) ,
               territory VARCHAR(5) ,
               region VARCHAR(5) ,
+			  hiredate DATETIME,
+			  termdate DATETIME,
+			  status_Type INT,
+			  rep_type INT,
               mm VARCHAR(2)
             );
 
@@ -56,25 +60,36 @@ AS -- exec cvo_commission_statement_sp '12/2016'
                           salesperson_name ,
                           territory ,
                           region ,
+						  hiredate,
+						  termdate,
+						  status_Type,
+						  rep_type,
                           mm
                         )
                         SELECT DISTINCT
                                 salesperson ,
-                                salesperson_name ,
+                                sp.salesperson_name ,
                                 ccswt.territory ,
                                 dbo.calculate_region_fn(ccswt.territory) region ,
+								ISNULL(dbo.adm_format_pltdate_f(sp.date_hired),'1/1/1900') hiredate,
+								ISNULL(dbo.adm_format_pltdate_f(sp.date_terminated),'12/31/2099') termdate,
+								sp.status_type,
+								sp.salesperson_type,
                                 RIGHT('00' + CAST(@i AS VARCHAR(2)), 2) mm
-                        FROM    dbo.cvo_commission_summary_work_tbl AS ccswt;
+                        FROM    dbo.cvo_commission_summary_work_tbl AS ccswt
+						JOIN arsalesp sp ON ccswt.salesperson = sp.salesperson_code 
+						;
                 SELECT  @i = @i + 1;
             END;
 
         SELECT  ty.id ,
                 #mm.salesperson ,
                 #mm.salesperson_name ,
-                ty.hiredate ,
+                #mm.hiredate ,
+				#mm.termdate ,
                 ISNULL(ty.amount, 0) amount ,
                 ISNULL(ty.comm_amt, 0) comm_amt ,
-                ISNULL(ty.draw_amount, 0) draw_amount ,
+                ISNULL(ty.draw_amount, 0.00) draw_amount ,
                 ty.draw_weeks ,
                 ISNULL(ty.commission, 0) commission ,
                 ISNULL(ty.incentivePC, 0) incentivePC ,
@@ -93,8 +108,10 @@ AS -- exec cvo_commission_statement_sp '12/2016'
 
                 reduction1 = reductionrsn1.reduction1 ,
                 reductionrsn1 = reductionrsn1.reductionrsn1 ,
-                ISNULL(ty.rep_type, 0) rep_type ,
-                ISNULL(ty.status_type, 0) status_type ,
+                -- iSNULL(ty.rep_type, 0) rep_type ,
+                -- ISNULL(ty.status_type, 0) status_type ,
+				#mm.rep_type,
+				#mm.status_Type,
                 #mm.territory territory ,
                 #mm.region region ,
                 ISNULL(ty.total_earnings, 0) total_earnings ,
@@ -116,7 +133,6 @@ AS -- exec cvo_commission_statement_sp '12/2016'
         FROM    #mm
                 LEFT OUTER JOIN ( SELECT    id ,
                                             salesperson ,
-                                            hiredate ,
                                             amount ,
                                             comm_amt ,
                                             draw_amount ,
@@ -128,8 +144,6 @@ AS -- exec cvo_commission_statement_sp '12/2016'
                                             reduction ,
                                             addition_rsn ,
                                             reduction_rsn ,
-                                            rep_type ,
-                                            status_type ,
                                             territory ,
                                             region ,
                                             total_earnings ,
@@ -198,6 +212,7 @@ AS -- exec cvo_commission_statement_sp '12/2016'
                               HAVING    SUM(ISNULL(incentive_amount, 0)) > 0
                             ) addition2 ON #mm.salesperson = addition2.rep_code
 										AND  #mm.mm = addition2.month_num 
+
 				 LEFT OUTER JOIN ( SELECT	cpv.rep_code, 
 											LEFT(cpv.recorded_month,2) month_num,
 											SUM(ISNULL(incentive_amount, 0)) addition3,
@@ -212,6 +227,7 @@ AS -- exec cvo_commission_statement_sp '12/2016'
                               HAVING    SUM(ISNULL(incentive_amount, 0)) > 0
                             ) addition3 ON #mm.salesperson = addition3.rep_code
 										AND  #mm.mm = addition3.month_num 
+
                 LEFT OUTER JOIN ( SELECT DISTINCT
                                             c.rep_code ,
                                             LEFT(c.recorded_month, 2) month_num ,
@@ -230,9 +246,8 @@ AS -- exec cvo_commission_statement_sp '12/2016'
                                                               'Adj/Additional Adj 2' )
                                                               AND ISNULL(ccpv2.incentive_amount,
                                                               0) > 0
-                                                              AND LEFT(ccpv2.recorded_month,
-                                                              2) = LEFT(c.recorded_month,
-                                                              2)
+                                                              AND LEFT(ccpv2.recorded_month,2) = LEFT(c.recorded_month, 2)
+															  AND @year = RIGHT(ccpv2.recorded_month,4) -- 2/10
                                                           FOR
                                                             XML
                                                               PATH('')
@@ -243,25 +258,20 @@ AS -- exec cvo_commission_statement_sp '12/2016'
                                             AND c.recorded_month <= @FiscalPeriod
                                 ) additionalrsn2 ON #mm.salesperson = additionalrsn2.rep_code
                                                     AND #mm.mm = additionalrsn2.month_num
+
                 LEFT OUTER JOIN ( SELECT DISTINCT
                                             c.rep_code ,
                                             LEFT(c.recorded_month, 2) month_num ,
-                                            ISNULL(c.incentive_amount, 0) reduction1 ,
-                                            REPLACE(STUFF(( SELECT DISTINCT
-                                                              '; '
-                                                              + ISNULL(ccpv2.comments,
-                                                              '')
+											SUM(ISNULL(c.incentive_amount,0)) reduction1,
+                                            REPLACE(STUFF(( SELECT DISTINCT '; ' + ISNULL(ccpv2.comments, '')
                                                             FROM
-                                                              dbo.cvo_commission_promo_values
-                                                              AS ccpv2
+                                                              dbo.cvo_commission_promo_values AS ccpv2
                                                             WHERE
                                                               c.rep_code = ccpv2.rep_code
-                                                              AND ccpv2.recorded_month = @FiscalPeriod
-                                                              AND ISNULL(ccpv2.line_type,
-                                                              '') IN (
-                                                              'Manual Reduction' )
-                                                              AND ISNULL(ccpv2.incentive_amount,
-                                                              0) <= 0
+                                                              AND ISNULL(ccpv2.line_type, '') IN ( 'manual reduction' )
+                                                              AND ISNULL(ccpv2.incentive_amount, 0) < 0
+                                                              AND LEFT(ccpv2.recorded_month,2) = LEFT(c.recorded_month, 2)
+															  AND @year = RIGHT(ccpv2.recorded_month,4) -- 2/10
                                                           FOR
                                                             XML
                                                               PATH('')
@@ -269,13 +279,14 @@ AS -- exec cvo_commission_statement_sp '12/2016'
                                                     '&amp;', '&') reductionrsn1
                                   FROM      dbo.cvo_commission_promo_values AS c
                                   WHERE     CAST(RIGHT(c.recorded_month, 4) AS INT) = @year
-                                            AND LEFT(c.recorded_month, 2) <= LEFT(@FiscalPeriod,
-                                                              2)
-                                            AND ISNULL(c.incentive_amount, 0) < 0
-                                            AND c.line_type IN (
-                                            'manual reduction' )
+                                            AND c.recorded_month <= @FiscalPeriod
+											AND ISNULL(c.line_type, '') IN ( 'manual reduction' )
+								  GROUP BY LEFT(c.recorded_month, 2) ,
+                                           c.rep_code 
                                 ) reductionrsn1 ON #mm.salesperson = reductionrsn1.rep_code
-                                                   AND #mm.mm = reductionrsn1.month_num
+                                                    AND #mm.mm = reductionrsn1.month_num
+
+
                 LEFT OUTER JOIN ( SELECT DISTINCT
                                             rep_code ,
                                             comments
@@ -297,10 +308,6 @@ AS -- exec cvo_commission_statement_sp '12/2016'
 
 
     END;
-
-
-
-
 
 
 GO

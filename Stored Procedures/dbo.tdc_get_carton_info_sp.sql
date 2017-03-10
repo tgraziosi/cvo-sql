@@ -3,6 +3,7 @@ GO
 SET ANSI_NULLS ON
 GO
 -- v1.0 CB 08/05/2014 - Issue #572 - Masterpack - Polarized Labs    
+-- v1.1 CB 30/12/2016	#1605 Change 'PL' to RX-RV'
 CREATE PROCEDURE [dbo].[tdc_get_carton_info_sp]	@tran_code  char(1),    
 											@tran_no  int,    
 											@tran_ext  int    
@@ -27,7 +28,8 @@ BEGIN
 	AND		c.order_ext = d.ext
 	WHERE   c.order_no = @tran_no AND order_ext = @tran_ext 
 	AND		ISNULL(d.sold_to,'') > ''
-	AND		RIGHT(d.user_category,2) = 'PL'     
+	AND		d.user_category = 'RX-RV' -- v1.1     
+-- v1.1	AND		RIGHT(d.user_category,2) = 'PL'     
   
 END    
 ELSE IF @TRAN_CODE = 'X' --Transfers    

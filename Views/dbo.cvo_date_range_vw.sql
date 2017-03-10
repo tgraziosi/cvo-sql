@@ -142,11 +142,11 @@ select
 --	Convert(varchar(100),'This Calendar Quarter to Date') as [Period]
 --	,DATEADD(qq, DATEDIFF(q,0,GETDATE()),0) as BeginDate
 --	,convert(datetime,datediff(dd,0,getdate())) as EndDate
---union all
---select 
---	Convert(varchar(100),'Last Calendar Quarter') as [Period]
---	,DATEADD(qq, DATEDIFF(q,2,GETDATE())-1,0) as BeginDate
---	,DATEADD(qq, DATEDIFF(q,2,GETDATE()),0)-1 as EndDate
+union all
+select 
+	Convert(varchar(100),'Last Quarter') as [Period]
+	,DATEADD(qq, DATEDIFF(q,2,GETDATE())-1,0) as BeginDate
+	,DATEADD(qq, DATEDIFF(q,2,GETDATE()),0)-1 as EndDate
 --union all
 --select 
 --	Convert(varchar(100),'Last Calendar Quarter to Date') as [Period]
@@ -172,6 +172,7 @@ select
 --	Convert(varchar(100),'Next Year to Date') as [Period]
 --	,Convert(datetime,'1/1/' + cast(YEAR(GETDATE())+1 as varchar(4))) as BeginDate
 --	,Convert(datetime,cast(MONTH(GETDATE()) as varchar(2)) + '/' + cast(DAY(GETDATE()) as varchar(2)) + '/' + cast(YEAR(GETDATE())+1 as varchar(4)))  as EndDate
+
 
 
 

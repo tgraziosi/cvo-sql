@@ -13,14 +13,15 @@ GO
 -- 
 /*
 	SELECT c.*	From cvo_commission_bldr_r2_vw c 
-		WHERE DateShipped between dbo.adm_get_pltdate_f('09/1/2016') AND dbo.adm_get_pltdate_f('09/30/2016') 
+		WHERE DateShipped between dbo.adm_get_pltdate_f('02/1/2017') AND dbo.adm_get_pltdate_f('02/28/2017') 
+		and territory = 50532
 		
-	exec cvo_commission_bldr_r3_sp null, '09/01/2016', '09/30/2016'
+	exec cvo_commission_bldr_r3_sp '50532', '02/01/2017','02/28/2017'
 */
 
 -- order_no = 2645156
 -- 46 sec 26052 rec
--- exec cvo_commission_bldr_r3_sp null, '10/01/2016', '10/31/2016'
+-- exec cvo_commission_bldr_r3_sp '40454,50505', '01/01/2017', '01/31/2017'
 -- 34 sec 26053 rec
  
 --ALTER VIEW [dbo].[cvo_commission_bldr_r3_vw]
@@ -31,6 +32,8 @@ CREATE PROCEDURE [dbo].[cvo_commission_bldr_r3_sp]
     @sdate DATETIME ,
     @edate DATETIME
 AS 
+
+	SET NOCOUNT ON;
 
 --DECLARE @terr VARCHAR(1024) ,  @sdate DATETIME, @edate DATETIME
 --SELECT @terr = NULL, @sdate = '10/1/2016', @edate = '10/31/2016'
@@ -190,9 +193,9 @@ AS
                                  THEN ipa.category
                                  ELSE 'CORE'
                             END ,
-                    SUM(ipa.ExtPrice) ext_net_sales ,
+                    SUM(ROUND(ipa.ExtPrice,2)) ext_net_sales ,
                     SUM(CASE WHEN ISNULL(ipa.no_commission, '') <> 1
-                             THEN ipa.ExtPrice
+                             THEN ROUND(ipa.ExtPrice,2)
                              ELSE 0
                         END) ext_comm_sales
             FROM    dbo.cvo_item_pricing_analysis AS ipa ( NOLOCK )
@@ -494,17 +497,17 @@ AS
                     CASE WHEN x.trx_type = 2031 THEN 'Inv'
                          ELSE 'Crd'
                     END AS type ,
-                    Net_Sales = clv.ext_net_sales * ISNULL(ai.installment_prc
+                    Net_Sales = ROUND(clv.ext_net_sales * ISNULL(ai.installment_prc
                                                            / 100, 1)
                     * CASE WHEN x.trx_type = 2031 THEN 1
                            ELSE -1
-                      END ,
+                      END , 2),
                     brand = ISNULL(clv.brand, 'CORE') ,
-                    Amount = ISNULL(clv.ext_comm_sales, 0)
+                    Amount = ROUND(ISNULL(clv.ext_comm_sales, 0)
                     * ISNULL(ai.installment_prc / 100, 1)
                     * CASE WHEN x.trx_type = 2031 THEN 1
                            ELSE -1
-                      END , -- Issue #982
+                      END, 2) , -- Issue #982
                     [Comm%] = CASE WHEN clv.brand <> ( 'CORE' )
                                    THEN dbo.f_get_order_commission_brand(o.order_no,
                                                               o.ext, clv.brand)
@@ -602,16 +605,17 @@ AS
                     CASE WHEN x.trx_type = 2031 THEN 'Inv'
                          ELSE 'Crd'
                     END AS type ,
-                    clv.ext_net_sales * ISNULL(ai.installment_prc / 100, 1)
+                    ROUND(clv.ext_net_sales * ISNULL(ai.installment_prc / 100, 1)
                     * CASE WHEN x.trx_type = 2031 THEN 1
                            ELSE -1
-                      END AS Net_Sales ,
+                      END , 2) AS Net_Sales ,
                     brand = ISNULL(clv.brand, 'CORE') ,
-                    ISNULL(clv.ext_comm_sales, 0) * ISNULL(ai.installment_prc
+                    ROUND( ISNULL(clv.ext_comm_sales, 0) * ISNULL(ai.installment_prc
                                                            / 100, 1)
                     * CASE WHEN x.trx_type = 2031 THEN 1
                            ELSE -1
-                      END AS Amount , -- Issue #982 
+                      END ,2)
+					  AS Amount , -- Issue #982 
                     [Comm%] = CASE WHEN clv.brand <> ( 'CORE' )
                                    THEN dbo.f_get_order_commission_brand(o.order_no,
                                                               o.ext, clv.brand)
@@ -689,6 +693,121 @@ AS
                     AND x.terms_code LIKE 'INS%';
 
 
+INSERT  INTO #report
+-- ARPOSTED SPECIAL DEBIT PROMO CREDITS
+SELECT  o.salesperson ,
+        o.ship_to_region territory ,
+        ar.customer_code cust_code ,
+        '' AS Ship_to ,
+        ar.address_name Name ,
+        dp.order_no ,
+        dp.ext ,
+        SUBSTRING(art.doc_ctrl_num, 4, 8) Invoice_no ,
+        art.date_applied AS InvoiceDate  --**--**--**
+        ,
+        art.date_applied AS DateShipped  --**--**--**
+        ,
+        o.user_category OrderType ,
+        dh.debit_promo_id promo_id ,
+        dh.debit_promo_level promo_level ,
+        'Crd' AS Type ,
+        SUM(dp.credit_amount) * -1 AS Net_sales ,
+		brand = 'CORE',
+		SUM(dp.credit_amount) * -1 AS Amount ,
+		[Comm%] = CASE WHEN o2.commission_pct IS NULL
+             THEN CASE t3.escalated_commissions
+                    WHEN 1 THEN t3.commission
+                    ELSE ( SELECT   commission_pct
+                           FROM     cvo_comm_pclass (NOLOCK) XX
+                                    JOIN armaster (NOLOCK) YY ON XX.price_code = YY.price_code
+                                                              AND YY.customer_code = ar.customer_code
+                                                              AND YY.address_type = 0
+                         )
+                  END
+             ELSE o2.commission_pct
+        END  ,
+		[Comm$] = 
+        CASE art.trx_type
+          WHEN 2031
+          THEN ( ( ISNULL(clv.extended_total, 0) )
+                 * ( ( CASE WHEN o2.commission_pct IS NULL
+                            THEN -- Issue #982  
+                                 CASE t3.escalated_commissions
+                                   WHEN 1 THEN t3.commission
+                                   ELSE ( SELECT    commission_pct
+                                          FROM      cvo_comm_pclass (NOLOCK) XX
+                                                    JOIN armaster (NOLOCK) YY ON XX.price_code = YY.price_code
+                                                              AND YY.customer_code = ar.customer_code
+                                                              AND YY.address_type = 0
+                                        )
+                                 END
+                            ELSE o2.commission_pct
+                       END ) / 100 ) )
+          ELSE ( ( ISNULL(clv.extended_total, 0) ) * -1 )
+               * ( ( CASE WHEN o2.commission_pct IS NULL
+                          THEN  -- Issue #982
+                               CASE t3.escalated_commissions
+                                 WHEN 1 THEN t3.commission
+                                 ELSE ( SELECT  commission_pct
+                                        FROM    cvo_comm_pclass (NOLOCK) XX
+                                                JOIN armaster (NOLOCK) YY ON XX.price_code = YY.price_code
+                                                              AND YY.customer_code = ar.customer_code
+                                                              AND YY.address_type = 0
+                                      )
+                               END
+                          ELSE o2.commission_pct
+                     END ) / 100 )
+        END  ,
+        'Posted' AS Loc ,
+        salesperson_name ,
+        ISNULL(CONVERT(VARCHAR, date_of_hire, 101), '') AS HireDate ,
+        draw_amount
+FROM    CVO_debit_promo_customer_det dp
+        JOIN CVO_orders_all o2 ON dp.order_no = o2.order_no
+                                  AND dp.ext = o2.ext
+        INNER JOIN ord_list ol ON ol.order_no = dp.order_no
+                                  AND ol.order_ext = dp.ext
+                                  AND ol.line_no = dp.line_no
+        INNER JOIN CVO_ord_list col ON col.order_no = dp.order_no
+                                       AND col.order_ext = dp.ext
+                                       AND col.line_no = dp.line_no
+        INNER JOIN orders o ON o.order_no = ol.order_no
+                               AND o.ext = ol.order_ext
+        INNER JOIN armaster ar ON ar.customer_code = o.cust_code
+                                  AND ar.ship_to_code = o.ship_to
+        INNER JOIN #territory AS t ON t.territory = ar.territory_code
+		INNER JOIN inv_master i ON i.part_no = ol.part_no
+        INNER JOIN inv_master_add ia ON ia.part_no = ol.part_no
+        LEFT OUTER JOIN artrxcdt arx ON dp.trx_ctrl_num = arx.trx_ctrl_num
+        JOIN artrx art ON arx.doc_ctrl_num = art.doc_ctrl_num
+        LEFT JOIN arsalesp (NOLOCK) t3 ON art.salesperson_code = t3.salesperson_code
+        INNER JOIN CVO_debit_promo_customer_hdr dh ON dh.hdr_rec_id = dp.hdr_rec_id
+        JOIN dbo.cvo_commission_line_sum_vw clv ON art.trx_ctrl_num = clv.trx_ctrl_num -- Issue #982
+WHERE   arx.gl_rev_acct LIKE '4530%'
+        AND ARX.date_applied BETWEEN @sdateJ AND @edateJ
+
+GROUP BY o.salesperson ,
+        o.ship_to_region ,
+        ar.customer_code ,
+        ar.address_name ,
+        dp.order_no ,
+        dp.ext ,
+        art.doc_ctrl_num ,
+        art.date_applied ,
+        o.user_category ,
+        o2.commission_pct ,
+        t3.escalated_commissions ,
+        t3.commission ,
+        art.trx_type ,
+        clv.extended_total ,
+        t3.salesperson_name ,
+        t3.date_of_hire ,
+        t3.draw_amount ,
+        dh.debit_promo_id ,
+        dh.debit_promo_level
+		;      
+
+
     SELECT  r.Salesperson ,
             r.Territory ,
             r.Cust_code ,
@@ -713,6 +832,10 @@ AS
             r.HireDate ,
             r.draw_amount
     FROM    #report AS r;
+
+
+
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_commission_bldr_r3_sp] TO [public]

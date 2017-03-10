@@ -424,7 +424,7 @@ BEGIN
 		WHERE	order_no = @i_order_no 
 		AND		order_ext = @i_order_ext 
 		AND		line_no = @i_line_no 
-		AND		(part_type = 'C' OR part_type = 'P') --AMENDEZ, 06/03/2010, 68668-FOC-001 Custom Frame Build  
+		AND		(part_type = 'C' OR part_type = 'P' OR part_type = 'N') --AMENDEZ, 06/03/2010, 68668-FOC-001 Custom Frame Build  v1.1 Add part_type N
   
 		IF (@ol_status IS NULL)  
 		BEGIN  

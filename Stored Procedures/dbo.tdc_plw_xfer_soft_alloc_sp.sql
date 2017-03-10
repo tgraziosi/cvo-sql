@@ -8,7 +8,8 @@ GO
 -- v1.3 CT 14/11/2012 - If we are auto-allocating, don't include excluded bins
 -- v1.4 CT 29/11/2012 - Call routine to update autopack table for autopack transfers
 -- v1.5 CT 11/06/2013 - If this is called by the Backorder Processing job, then only allocate the relevant lines/qtys
--- v1.6 CB 26/08/2016 - Sort order wronf way around
+-- v1.6 CB 26/08/2016 - Sort order wrong way around
+-- v1.7 CB 03/02/2017 - Remove v1.6
   
 CREATE PROCEDURE [dbo].[tdc_plw_xfer_soft_alloc_sp]  
   @user_id        varchar(50),  
@@ -497,14 +498,13 @@ BEGIN
 				-- If qty is over fence value then pick from highbay, then bulk then forward pick, if not reverse the order
 				IF @needed_qty_for_part_line_no >= @ALLOC_QTY_FENCE_QTY 
 				BEGIN
-					-- v1.6 SET @xfer_order_by = LEFT(@lbs_order_by,9) + ' bt.bin_sort ASC, ' + RIGHT(@lbs_order_by,LEN(@lbs_order_by) - 9)
-					SET @xfer_order_by = LEFT(@lbs_order_by,9) + ' bt.bin_sort DESC, ' + RIGHT(@lbs_order_by,LEN(@lbs_order_by) - 9) -- v1.6
+					SET @xfer_order_by = LEFT(@lbs_order_by,9) + ' bt.bin_sort ASC, ' + RIGHT(@lbs_order_by,LEN(@lbs_order_by) - 9)
+-- v1.7					SET @xfer_order_by = LEFT(@lbs_order_by,9) + ' bt.bin_sort DESC, ' + RIGHT(@lbs_order_by,LEN(@lbs_order_by) - 9) -- v1.6
 				END
 				ELSE
 				BEGIN
-					-- v1.6 
 					SET @xfer_order_by = LEFT(@lbs_order_by,9) + ' bt.bin_sort DESC, ' + RIGHT(@lbs_order_by,LEN(@lbs_order_by) - 9)
-					-- tag SET @xfer_order_by = LEFT(@lbs_order_by,9) + ' bt.bin_sort ASC, ' + RIGHT(@lbs_order_by,LEN(@lbs_order_by) - 9) -- v1.6
+-- v1.7					SET @xfer_order_by = LEFT(@lbs_order_by,9) + ' bt.bin_sort DESC, ' + RIGHT(@lbs_order_by,LEN(@lbs_order_by) - 9) -- v1.6
 				END
 		
 	

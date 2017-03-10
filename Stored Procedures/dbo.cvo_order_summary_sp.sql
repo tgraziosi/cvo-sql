@@ -25,7 +25,8 @@ GO
 -- v2.9 CB 14/03/2014 - Issue #1456 - Pass in optional part number for availability check
 -- v3.0 CB 16/06/2014 - Performance
 -- v3.1 CB 20/03/2015 - Performance Changes  
--- v3.2 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames  
+-- v3.2 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
+-- v3.3 CB 09/02/2017 - #1620 - Recheck fill rate and ship comlete  
 
 -- Implement Soft Allocation
 -- CVO-CF-3
@@ -39,7 +40,8 @@ CREATE PROC [dbo].[cvo_order_summary_sp]	@soft_alloc_no	int,
 										@order_no		int,
 										@order_ext		int,
 										@onload			smallint,
-										@part_no_in		varchar(30) = NULL -- v2.9
+										@part_no_in		varchar(30) = NULL, -- v2.9
+										@fill_rate_out	decimal(20,8) = 0 OUTPUT -- v3.3
 AS
 BEGIN
 	-- Declarations
@@ -650,6 +652,14 @@ BEGIN
 		-- v2.0 Start
 		IF NOT EXISTS (SELECT 1 FROM @returndata WHERE type_code IN ('FRAME','SUN'))
 		BEGIN
+			-- v3.3 Start
+			IF (@fill_rate_out = -1)
+			BEGIN
+				SET @fill_rate_out = 100 
+				RETURN
+			END
+			-- v3.3 End
+
 			SELECT	type_code + ' x ' +  LTRIM(STR(SUM(quantity))) + CASE WHEN (SUM(avail_quantity) < SUM(quantity)) THEN ' (' +  LTRIM(STR(SUM(quantity) - SUM(avail_quantity))) + ' unavailable)' ELSE '' END
 			FROM	@returndata
 			GROUP BY type_code
@@ -658,6 +668,7 @@ BEGIN
 			UNION  
 			SELECT 'UNAVAILABLE_PARTS=' + ISNULL(@unavailable_parts,'') 
 			-- END v2.7
+
 		END
 		ELSE
 		BEGIN		
@@ -672,6 +683,14 @@ BEGIN
 				type_code IN ('FRAME','SUN')
 			-- END v1.6
 			-- END v1.5
+
+			-- v3.3 Start
+			IF (@fill_rate_out = -1)
+			BEGIN
+				SET @fill_rate_out = @fill_rate
+				RETURN
+			END
+			-- v3.3 End
 
 			-- return the summary data
 			SELECT	type_code + ' x ' +  LTRIM(STR(SUM(quantity))) + CASE WHEN (SUM(avail_quantity) < SUM(quantity)) THEN ' (' +  LTRIM(STR(SUM(quantity) - SUM(avail_quantity))) + ' unavailable)' ELSE '' END
@@ -688,6 +707,14 @@ BEGIN
 	END
 	ELSE
 	BEGIN
+		-- v3.3 Start
+		IF (@fill_rate_out = -1)
+		BEGIN
+			SET @fill_rate_out = 100 
+			RETURN
+		END
+		-- v3.3 End
+
 		SELECT	type_code + ' x ' +  LTRIM(STR(SUM(quantity))) 
 		FROM	@returndata
 		GROUP BY type_code

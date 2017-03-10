@@ -10,6 +10,7 @@ GO
 -- 022015 - OP ok's sales to Ecuador and El Salvador
 -- 123015 - Add Bermuda ME and Guatemala ET as ok to sell
 -- 093016 - add customer name per BL request
+-- 021617 - ADD REVO AND sm 
 -- =============================================
 CREATE PROCEDURE [dbo].[SSRS_BrandDoNotSellToCountry_sp]
     @DateFrom DATETIME ,
@@ -52,7 +53,15 @@ AS
         WHERE   t1.status <> 'v'
                 AND t1.type = 'i'
 -- default list ('CH','ET','IZOD','IZX','OP','JMC','ME')
-                AND ( ( ship_to_country_cd IN ( 'CF', 'ZA' )
+-- UPDATE FOR REVO AND SM - 2/16/17
+
+				AND ( ( CATEGORY IN ('SM') AND t1.ship_to_country_cd NOT IN (
+				'AS','AR','CA','CL','CN','CZ','FR','DE','GR','GU','IN','IT','JP','KW','MX','MA',
+				'NL','AN','MP','PE','PT','PR','RO','SK','SE','TW','TT','TR','GB','US','VI'))
+				OR (category IN ('REVO') AND T1.ship_to_country_cd NOT IN 
+				('AS','GU','MP','PR','US','VI'))
+				OR 
+				(ship_to_country_cd IN ( 'CF', 'ZA' )
                         AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
                                           'ME' )
                       )  --africa
@@ -348,6 +357,7 @@ AS
         FROM    #LIST;
 
     END;
+
 
 
 

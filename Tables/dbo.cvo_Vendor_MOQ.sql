@@ -1,7 +1,8 @@
 CREATE TABLE [dbo].[cvo_Vendor_MOQ]
 (
 [Vendor_Code] [varchar] (12) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[MOQ_info] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[MOQ_info] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[defective_pct] [float] NULL
 ) ON [PRIMARY]
 GO
 GRANT REFERENCES ON  [dbo].[cvo_Vendor_MOQ] TO [public]

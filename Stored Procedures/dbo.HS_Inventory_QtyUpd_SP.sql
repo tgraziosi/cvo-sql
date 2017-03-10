@@ -43,7 +43,7 @@ AS
 				WHEN qty_avl < 0 OR t1.COLL = 'ch' THEN 0
                      ELSE qty_avl
                 END AS ShelfQty ,
-                CASE WHEN [category:1] IN ( 'EOS', 'EOR', 'QOP', 'RED' )
+                CASE WHEN [category:1] IN ( 'EOS', 'EOR', 'QOP', 'RED','ME SELL-DOWN' ) -- 2/10/2017
                      THEN 0 
 -- 8/26/2015
 	 -- 10/23/15 - remove per hk -- WHEN [CATEGORY:1] = 'CH SELL-DOWN' THEN 10
@@ -161,6 +161,7 @@ SELECT * FROM CVO_HS_INVENTORY_QTYUPD where IsAvailable = 1 and shelfQty < 5 ord
 
 -- EXEC HS_Inventory_QtyUpd_SP
     END;
+
 
 
 

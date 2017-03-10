@@ -5,12 +5,12 @@ CREATE TABLE [dbo].[cvo_expo_appointments]
 [user_login] [varchar] (24) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [created_by] [varchar] (24) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [territory] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[region] [char] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[region] [varchar] (6) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [appt_start] [datetime] NULL,
 [appt_end] [datetime] NULL,
-[appt_duration] [char] (4) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[appt_duration] [varchar] (6) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [account_no] [varchar] (12) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[hs_order_no] [char] (12) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[hs_order_no] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [customer_contact] [varchar] (120) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [customer_email] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [location] [varchar] (80) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
@@ -28,7 +28,9 @@ CREATE TABLE [dbo].[cvo_expo_appointments]
 [expo_id] [int] NULL,
 [requested_by] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [notes] [varchar] (max) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[isNotified] [tinyint] NULL CONSTRAINT [DF__cvo_expo___isNot__1D61BB1D] DEFAULT ((0))
+[isNotified] [tinyint] NULL CONSTRAINT [DF__cvo_expo___isNot__1D61BB1D] DEFAULT ((0)),
+[cancel_date] [datetime] NULL,
+[action_user] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_expo_appointments] ADD CONSTRAINT [PK__cvo_expo_appoint__5D3B7DB9] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

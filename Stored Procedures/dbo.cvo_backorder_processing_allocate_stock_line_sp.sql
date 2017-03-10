@@ -9,6 +9,7 @@ GO
 -- v1.3 CT 24/07/2013 - Issue #695 - Fix bin_no field in #ringfenced table
 -- v1.4 CT 06/09/2013 - Issue #695 - Fix to_bin_no field in #ringfenced table
 -- v1.5 CT 29/11/2013 - Issue #1406 - As stock is no longer ringfenced check what stock is available before allocating 
+-- v1.6 CB 28/02/2017 - Issue #1576 - Check if only POP allocated in which case unallocate
 
 */
 
@@ -676,6 +677,21 @@ BEGIN
 		IF @case_allocated = 0
 		BEGIN
 			EXEC dbo.tdc_order_after_save @order_no, @ext
+
+			-- v1.6 Start
+			IF EXISTS (SELECT 1 FROM tdc_soft_alloc_tbl (NOLOCK) WHERE order_no = @order_no AND order_ext = @ext)
+			BEGIN
+				IF NOT EXISTS (SELECT 1 FROM tdc_soft_alloc_tbl a (NOLOCK) JOIN inv_master b (NOLOCK) ON a.part_no = b.part_no
+					WHERE a.order_no = @order_no AND a.order_ext = @ext AND b.type_code IN ('FRAME','SUN'))
+				BEGIN
+					IF EXISTS (SELECT 1 FROM tdc_soft_alloc_tbl a (NOLOCK) JOIN inv_master b (NOLOCK) ON a.part_no = b.part_no
+						WHERE a.order_no = @order_no AND a.order_ext = @ext AND b.type_code = 'POP')
+					BEGIN
+						EXEC dbo.cvo_UnAllocate_sp	@order_no, @ext, 1, 'backorder', 0
+					END
+				END
+			END
+			-- v1.6 End
 		END
 		ELSE
 		BEGIN

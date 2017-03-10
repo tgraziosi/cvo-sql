@@ -6,7 +6,7 @@ CREATE TABLE [dbo].[cvo_commission_summary_work_tbl]
 [hiredate] [smalldatetime] NULL,
 [amount] [numeric] (12, 2) NULL,
 [comm_amt] [numeric] (12, 2) NULL,
-[draw_amount] [int] NULL,
+[draw_amount] [numeric] (12, 2) NULL,
 [commission] [numeric] (8, 2) NULL,
 [incentivePC] [tinyint] NULL,
 [incentive] [numeric] (18, 2) NULL,
@@ -30,4 +30,14 @@ CREATE TABLE [dbo].[cvo_commission_summary_work_tbl]
 ) ON [PRIMARY]
 GO
 CREATE CLUSTERED INDEX [pk_commis_summary_tbl] ON [dbo].[cvo_commission_summary_work_tbl] ([salesperson], [territory], [report_month]) ON [PRIMARY]
+GO
+GRANT REFERENCES ON  [dbo].[cvo_commission_summary_work_tbl] TO [public]
+GO
+GRANT SELECT ON  [dbo].[cvo_commission_summary_work_tbl] TO [public]
+GO
+GRANT INSERT ON  [dbo].[cvo_commission_summary_work_tbl] TO [public]
+GO
+GRANT DELETE ON  [dbo].[cvo_commission_summary_work_tbl] TO [public]
+GO
+GRANT UPDATE ON  [dbo].[cvo_commission_summary_work_tbl] TO [public]
 GO

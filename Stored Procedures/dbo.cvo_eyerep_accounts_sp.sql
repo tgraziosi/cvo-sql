@@ -413,12 +413,13 @@ FROM    cvo_inv_master_r2_vw i
 		LEFT OUTER JOIN DBO.f_cvo_calc_weekly_usage('O') AS fccwu ON fccwu.location = @LOCATION AND fccwu.part_no = i.part_no
 
 WHERE   1 = 1
-		AND i.collection NOT IN ('corp','fp')
-		AND i.specialty_fit NOT IN ( 'HVC', 'RETAIL', 'COSTCO','SpecialOrd', 'btconvert' ) 
-		AND (i.release_date <= DATEADD(D, 1, @today)
-			  OR #apr.sku IS NOT NULL
-              OR i.Collection = 'LS')
-		AND  (i.Collection NOT IN ('REVO','BT') AND RIGHT(i.part_no,2) <> 'F1')
+		--AND i.collection NOT IN ('corp','fp')
+		--AND i.specialty_fit NOT IN ( 'HVC', 'RETAIL', 'COSTCO','SpecialOrd', 'btconvert' ) 
+		--AND (i.release_date <= DATEADD(D, 1, @today)
+		--	  OR #apr.sku IS NOT NULL
+        --      OR i.Collection = 'LS')
+		-- AND  (i.Collection NOT IN ('REVO','BT') AND RIGHT(i.part_no,2) <> 'F1')
+		AND EXISTS (SELECT 1 FROM dbo.cvo_hs_inventory_8 AS hi WHERE hi.sku = i.part_no) -- 3/1/2017
 		;
 
 UPDATE dbo.cvo_eyerep_inv_tbl SET avail_date = '' WHERE avail_date = '19000101';
@@ -463,9 +464,10 @@ TRUNCATE TABLE dbo.cvo_eyerep_invcol_tbl
 
 INSERT dbo.cvo_eyerep_invcol_tbl
         ( collection_id, collection_name )
-SELECT DISTINCT kys, description  
+SELECT kys, description  
 FROM dbo.category AS c 
 WHERE ISNULL(c.void,'N') = 'N'
+AND EXISTS (SELECT 1 FROM dbo.cvo_eyerep_inv_tbl AS eit WHERE eit.collection_id = c.kys)
 
 -- Order types
 
@@ -861,6 +863,7 @@ and ol.ordered > (ol.shipped + isnull(e.qty,0))
 -- and o.sch_ship_date < @today
 and ol.part_type = 'p'
 AND o.who_entered = 'backordr'
+
 
 
 

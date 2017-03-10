@@ -537,6 +537,18 @@ BEGIN
 	EXEC dbo.cvo_add_promo_discount_line_sp	@order_no, @order_ext
 	-- v3.6 End
 
+	-- v3.8 Start
+	DELETE	a
+	FROM	cvo_ord_list a
+	LEFT JOIN ord_list b (NOLOCK)
+	ON		a.order_no = b.order_no
+	AND		a.order_ext = b.order_ext
+	AND		a.line_no = b.line_no
+	WHERE	a.order_no = @order_no
+	AND		a.order_ext = @order_ext
+	AND		b.line_no IS NULL
+	-- v3.8 End
+
 END
 GO
 
