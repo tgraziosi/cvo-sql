@@ -6,7 +6,7 @@ GO
 -- Create Data for Frames Data SmartSubmit Template ver. 8/11/2009
 -- Author: Tine Graziosi for ClearVision 
 -- 2/4/2013
--- exec cvo_frames_data_extract_sp '9/15/2015', 'revo'
+-- exec cvo_frames_data_extract_sp '1/1/1900', NULL
 -- 4/2015 - update for CMI
 -- 10/15 - update to pull from epicor if not in cmi - (revo support)
 -- =============================================
@@ -26,7 +26,78 @@ BEGIN
 	SET ANSI_WARNINGS OFF;
 
 	--DECLARE @RELEASEDATE DATETIME, @BRAND VARCHAR(1000)
-	--SELECT @RELEASEDATE = '1/1/1900', @BRAND = 'revo'
+	--SELECT @RELEASEDATE = '1/1/1900', @BRAND = 'bcbg'
+
+	IF(OBJECT_ID('tempdb.dbo.#framesdatalist') IS NOT NULL) DROP TABLE #framesdatalist
+
+	CREATE TABLE #framesdatalist
+    (
+      UPC VARCHAR(13) ,
+      Frame_SKU VARCHAR(30) ,
+      Frame_Name VARCHAR(40) ,
+      Designer_collection VARCHAR(36) ,
+      Brand_id VARCHAR(20) ,
+      Status VARCHAR(1) ,
+      Product_Group_type VARCHAR(13) ,
+      Frame_Color_Group VARCHAR(10) ,
+      Frame_Color_Description VARCHAR(40) ,
+      Frame_color_code VARCHAR(1) ,
+      Lens_color_code VARCHAR(1) ,
+      LENS_COLOR_DESCRIPTION VARCHAR(1) ,
+      Eye_Size VARCHAR(5) ,
+      A INT ,
+      B INT ,
+      ED INT ,
+      ED_Angle VARCHAR(1) ,
+      Temple_length VARCHAR(10) ,
+      Bridge_Size VARCHAR(10) ,
+      DBL DECIMAL(18, 0) ,
+      STS VARCHAR(1) ,
+      Circumference VARCHAR(1) ,
+      Gender VARCHAR(6) ,
+      Age_type VARCHAR(5) ,
+      Material_type VARCHAR(8) ,
+      Material_description VARCHAR(1) ,
+      Precious_Metal_type VARCHAR(1) ,
+      Precious_Metal_description VARCHAR(1) ,
+      Country_of_Origin VARCHAR(11) ,
+      Temple_type VARCHAR(5) ,
+      Temple_Description VARCHAR(1) ,
+      Bridge_type VARCHAR(20) ,
+      Bridge_Description VARCHAR(1) ,
+      Sunglass_Lens_type VARCHAR(20) ,
+      Sun_lens_description VARCHAR(20) ,
+      Trim_type VARCHAR(1) ,
+      Trim_description VARCHAR(1) ,
+      clip_sun_glass_type VARCHAR(1) ,
+      Clip_sunglass_description VARCHAR(1) ,
+      sideshields_type VARCHAR(1) ,
+      Side_Shields_Description VARCHAR(1) ,
+      EdgeType VARCHAR(1) ,
+      Case_type VARCHAR(19) ,
+      Case_Type_Description VARCHAR(1) ,
+      Hinge_type VARCHAR(13) ,
+      Rim_Type VARCHAR(255) ,
+      Frame_Shape VARCHAR(40) ,
+      Month_Introduced INT ,
+      Year_Introduced INT ,
+      Complete_Price DECIMAL(8, 2) ,
+      Front_price DECIMAL(8, 2) ,
+      Temple_pair_price VARCHAR(1) ,
+      Temple_price DECIMAL(8, 2) ,
+      Price_Description VARCHAR(1) ,
+      Features VARCHAR(1) ,
+      Frame_PD_type VARCHAR(1) ,
+      Frame_pd_description VARCHAR(1) ,
+      lens_vision_type VARCHAR(1) ,
+      lens_vision_description VARCHAR(1) ,
+      pattern_name VARCHAR(1) ,
+      rx_type VARCHAR(1) ,
+      rx_description VARCHAR(1) ,
+      warranty_type VARCHAR(1) ,
+      Warranty_description VARCHAR(1) ,
+      Radii VARCHAR(1)
+    );
 
 	IF(OBJECT_ID('tempdb.dbo.#brand') IS NOT NULL) DROP TABLE #brand
 
@@ -42,6 +113,7 @@ BEGIN
 		SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@brand)
 	end
 
+	-- INSERT INTO #framesdatalist
 	select 
 	-- TOP 100 percent
 	--A
@@ -192,6 +264,7 @@ BEGIN
 	Temple_length = 
 	CAST(ISNULL(cmi.temple_size,ISNULL(ia.field_8,'')) AS VARCHAR(10)
 	),
+	--	Temple_length = CAST( ISNULL((CASE WHEN ISNULL(CMI.temple_SIZE,0) = 0 THEN ISNULL(IA.FIELD_8,'') END), '')  AS VARCHAR(10)),
 	-- S
 	-- ia.field_6 as Bridge_Size,
 	CAST (ISNULL(cmi.dbl_size, ISNULL(ia.field_6,'')) AS VARCHAR(10)) as Bridge_Size,
@@ -385,7 +458,7 @@ BEGIN
 	'' as Warranty_description,
 	'' AS Radii -- 120216
 
-	INTO #framesdatalist
+	-- INTO #framesdatalist
 	from #brand b 
 	inner join inv_master i (nolock) on b.brand = i.category
 	inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
@@ -402,12 +475,16 @@ BEGIN
 	AND ISNULL(ia.field_28,GETDATE()) > '1/1/2010'
 	order by i.part_no
 
-	SELECT *
-	FROM #framesdatalist
+	--SELECT *
+	--FROM #framesdatalist
 
 	-- tempdb..sp_help #framesdatalist
 
 END
+
+
+
+
 
 GO
 

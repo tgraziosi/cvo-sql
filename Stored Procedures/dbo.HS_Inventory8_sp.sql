@@ -8,7 +8,7 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT * FROM dbo.cvo_hs_inventory_8 where coll = 'bt'  and [category:2] = 'blutech readers' 
+-- SELECT * FROM dbo.cvo_hs_inventory_8 where coll = 'un'  and [category:2] = 'blutech readers' 
 -- DROP TABLE dbo.cvo_hs_inventory_8
 -- 		
 -- 072814 - tag - 1) add special values, 2) performance updates
@@ -30,6 +30,7 @@ GO
 -- 10/7/2016 - set up me selldown
 -- 11/30/2016 - include all HSPOP POP items, regardless of release date
 -- 12/22/2016 - BT READERS
+-- 3/13/2017 = add ME unlmtd collection to me selldown
 -- =============================================
 
 CREATE PROCEDURE [dbo].[HS_Inventory8_sp]
@@ -44,12 +45,14 @@ AS
         DECLARE @today DATETIME ,
             @location VARCHAR(10) ,
             @CH DATETIME,
-			@ME datetime;
+			@ME DATETIME,
+			@UN datetime;
         SET @today = DATEADD(dd, DATEDIFF(dd, 0, GETDATE()), 0);
         SET @location = '001';
         SET @CH = '9/1/2015'; -- START OF CH SELL-DOWN PERIOD
 		SET @ME = '01/31/2017'; -- START OF me SELL-DOWN PERIOD - 10/7 - on hold per JK
 		-- SET @ME = '10/06/2016'; -- START OF me SELL-DOWN PERIOD
+		SET @un = '12/31/2016';
 
         IF ( OBJECT_ID('tempdb.dbo.#EOS') IS NOT NULL )
             DROP TABLE #EOS;
@@ -78,6 +81,11 @@ AS
         DELETE  FROM #EOS
         WHERE   Brand = 'me'
                 AND @today >= @ME;
+
+-- 3/13/2017
+        DELETE  FROM #EOS
+        WHERE   Brand = 'UN'
+                AND @today >= @UN;
 
 -- SELECT * FROM #EOS where part_no like 'izCL%'  
 
@@ -170,6 +178,7 @@ AS
                 '' AS imageURLs ,
                 [category:1] = CASE WHEN I.part_no = 'OPZSUNSKIT' THEN 'SUN'
 									WHEN @today >= @me AND i.category = 'me' THEN 'ME SELL-DOWN' -- 10/6/2016
+									WHEN @today >= @UN AND i.category = 'UN' THEN 'ME SELL-DOWN' -- 10/6/2016
                                     WHEN I.type_code IN ( 'OTHER', 'POP' )
                                     THEN 'POP'
 	 -- 1/11/2016
@@ -238,14 +247,14 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                      THEN 'Tween'
                      ELSE ''
                 END GENDER ,
-                CASE WHEN field_32 = 'none' /*OR ia.field_2 IN ('gelato','popsicle','sherbet')*/
+                CASE WHEN field_32 IN ('none','hvc') /*OR ia.field_2 IN ('gelato','popsicle','sherbet')*/
                      THEN ''
                      ELSE ISNULL(field_32, '')
                 END AS SpecialtyFit ,
                 CASE WHEN ( #apr.sku IS NOT NULL ) THEN 'Y'
                      ELSE ''
                 END AS APR ,
-                CASE WHEN I.category IN ('ch','ME') THEN ''
+                CASE WHEN I.category IN ('ch','ME','un') THEN ''
                      WHEN field_26 > DATEADD(MONTH, -6, @today) THEN 'New'
                      ELSE ''
                 END AS New ,
@@ -299,6 +308,10 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                       OR ( category IN ( 'RR' )
                            AND GETDATE() >= '12/29/2015'
                          ) -- add Lonestar
+					  OR (category IN ('un') -- 3/13/2017
+							AND i.type_code = 'FRAME'
+							AND GETDATE() >= @UN
+						)
                     )
                 AND ( I.type_code IN ( 'SUN', 'FRAME' )
                       OR  'HSPOP' = ISNULL(field_36, '') 
@@ -958,6 +971,7 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 --SELECT distinct manufacturer, [category:1] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
 
 
 

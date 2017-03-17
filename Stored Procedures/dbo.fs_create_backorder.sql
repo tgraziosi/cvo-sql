@@ -68,7 +68,8 @@ SET NOCOUNT ON
 -- v11.9 CB 21/08/2015 - Issue #1563 - Upsell flag
 -- v12.0 CB 26/01/2016 - #1581 2nd Polarized Option
 -- v12.1 CB 20/06/2016 - Issue #1602 - Must Go Today flag
--- v12.1.1 TG 07/12/2016 - default mgt flag to 0 (no) when creating bo per KM
+-- v12.2 CB 12/07/2016 - Issue #1602 - Default Must Go Today flag to zero for backorders
+-- v12.3 CB 06/03/2017 - For backorders clean out the freight_allow_type ifthe carrier is not 3rd party
   
 exec @err = fs_updordtots @ordno, @ordext  
  if @@error != 0  
@@ -161,6 +162,14 @@ END
   
 -- START v3.2
 SET @freight_allow_type = NULL
+
+-- v12.3 Start
+IF (LEFT(@carrier,1) <> '3')
+BEGIN
+	SET @freight_allow_type = ''
+END
+-- v12.3 End
+
 IF EXISTS(SELECT 1 FROM dbo.cvo_armaster_all (NOLOCK) WHERE customer_code = @cust_code AND address_type = 0 AND ISNULL(freight_charge,1) = 2)
 BEGIN
 	SET @freight_allow_type = 'FRTOVRID'
@@ -254,7 +263,7 @@ INSERT orders_all ( order_no, ext,  cust_code, ship_to,
     order_no,  ext,  add_case, add_pattern, promo_id, promo_level, free_shipping,
 		split_order, flag_print, buying_group, allocation_date,  commission_pct, stage_hold,prior_hold, invoice_note, commission_override, email_address, st_consolidate, upsell_flag, must_go_today) -- v1.2 + v10.2 v11.4 v11.5 v11.6 v11.9 v12.1
  SELECT order_no, @ext, add_case, add_pattern, promo_id, promo_level, free_shipping,
-		split_order, flag_print, dbo.f_cvo_get_buying_group(@cust_code,GETDATE()), allocation_date,  commission_pct, stage_hold, prior_hold, invoice_note, commission_override, email_address, 0, upsell_flag, 0 --must_go_today -- v1.2 + v10.2 + v11.2 v11.4 v11.5 v11.6 v11.7 v11.9 v12.1 v12.1.1
+		split_order, flag_print, dbo.f_cvo_get_buying_group(@cust_code,GETDATE()), allocation_date,  commission_pct, stage_hold, prior_hold, invoice_note, commission_override, email_address, 0, upsell_flag, 0 -- v1.2 + v10.2 + v11.2 v11.4 v11.5 v11.6 v11.7 v11.9 v12.1 v12.2
  FROM CVO_orders_all  
  WHERE order_no=@ordno and ext=@ordext  
  if @@error != 0  

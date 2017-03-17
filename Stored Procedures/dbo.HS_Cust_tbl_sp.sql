@@ -47,17 +47,13 @@ BEGIN
 	  AND NOT EXISTS(SELECT 1 FROM #allterr WHERE #allterr.customer_code = ISNULL(employee_code,'') )
 
 	  -- 2/3/2017 - updated territory list
+	  -- 3/16/2017 - new list per email
 
 	  UPDATE #allterr SET AllTerr = allterr + ',I-Sales'
-	  WHERE allterr LIKE '%20226%' 
-		 OR allterr LIKE '%30311%' 
-		 OR allterr LIKE '%30314%'
-		 OR allterr LIKE '%30324%'  
-		 OR allterr LIKE '%30338%' 
-		 OR allterr LIKE '%50506%' 
-		 OR allterr LIKE '%50510%' 
-		 OR allterr LIKE '%50534%'
-		 OR allterr LIKE '%70780%' 
+	  WHERE allterr LIKE '%50534%'
+		 OR customer_code = '052931'
+		 OR customer_code = '053318'
+		 OR customer_code = '014910'
 
 	  -- SELECT * FROM #allterr
 
@@ -237,6 +233,7 @@ SELECT h.id ,
 
 
 END
+
 
 
 

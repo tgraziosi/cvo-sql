@@ -2,12 +2,22 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-create view [dbo].[cvo_sc_report_schedule_vw] 
-as 
-select distinct x.territory_code, x.salesperson_code, x.user_name, x.security_code, x.email_address, slp.salesperson_type from cvo_territoryxref x
-left outer join arsalesp slp on x.territory_code = slp.territory_code
-where (x.salesperson_code not in ('internal','ss'))
-and slp.status_type = 1
+
+CREATE VIEW [dbo].[cvo_sc_report_schedule_vw]
+AS
+    SELECT DISTINCT
+            x.territory_code ,
+            x.Salesperson_code ,
+            x.User_name ,
+            x.security_code ,
+            x.email_address ,
+            slp.salesperson_type
+    FROM    CVO_TerritoryXref x
+            JOIN arsalesp slp ON x.territory_code = slp.territory_code
+    WHERE   ( x.Salesperson_code NOT IN ( 'internal', 'ss' ) )
+            AND 1 = ISNULL(slp.status_type,0)
+			AND x.Status = 1 ;
+
 GO
 GRANT REFERENCES ON  [dbo].[cvo_sc_report_schedule_vw] TO [public]
 GO
