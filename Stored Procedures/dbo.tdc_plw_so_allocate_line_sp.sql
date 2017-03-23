@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -19,6 +18,7 @@ GO
 -- v2.3 CB 27/06/2013 - Issue #1330 - If lines are deleted from an order and the order is then manually allocated in PWB then soft alloc is never processed
 -- v2.4 CB 11/02/2015 - Issue #  - Check shipped qty when allocating
 -- v2.5 CB 26/01/2016 - #1581 2nd Polarized Option
+-- v2.6 CB 04/10/2016 - #1606 - Direct Putaway & Fast Track Cart
 
 CREATE PROC [dbo].[tdc_plw_so_allocate_line_sp]            
  @user_id   varchar(50),             
@@ -86,6 +86,17 @@ DECLARE @dist_cust_pick  char(1),
  DECLARE @row_id		int,
 		 @last_row_id	int
  -- v1.8 End 
+
+-- v2.6 Start
+DECLARE @fasttrack int
+
+SET @fasttrack = 0
+IF (@bin_group = 'FASTTRACK')
+BEGIN
+	SET @bin_group = 'PICKAREA'
+	SET @fasttrack = 1
+END
+-- v2.6 End
      
 -- Make sure the order has not been voided            
 IF EXISTS(SELECT * FROM orders (NOLOCK) WHERE order_no = @order_no AND ext = @order_ext AND status > 'Q') return            
@@ -707,7 +718,7 @@ BEGIN
 --END   SED009 -- AutoAllocation         
       
 		IF @bin_group <> '[ALL]'            
-		BEGIN            
+		BEGIN 	           
 			SELECT @lb_cursor_clause = @lb_cursor_clause + ' AND bm.group_code = ''' + @bin_group + ''''             
 		END            
 	            
@@ -717,7 +728,17 @@ BEGIN
 		BEGIN            
 			SELECT @lb_cursor_clause = @lb_cursor_clause + ' AND bm.usage_type_code = ' + @bin_type            
 			SET @lbs_order_by = ''            
-		END            
+		END   
+
+		-- v2.6 Start
+		IF (@fasttrack = 0)
+		BEGIN
+			SELECT @lb_cursor_clause = @lb_cursor_clause + ' AND LEFT(bm.bin_no,4) <> ''ZZZ-'''             
+		END         
+		ELSE
+		BEGIN
+			SELECT @lb_cursor_clause = @lb_cursor_clause + ' AND LEFT(bm.bin_no,4) = ''ZZZ-'''             
+		END         
     END
 	ELSE	
 	BEGIN

@@ -141,7 +141,7 @@ CREATE NONCLUSTERED INDEX [tdc_bin_udef_e_idx1] ON [dbo].[tdc_bin_master] ([loca
 GO
 CREATE NONCLUSTERED INDEX [tdc_bin_master_idx4_100413] ON [dbo].[tdc_bin_master] ([location], [group_code], [usage_type_code]) INCLUDE ([bin_no]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [tdc_bin_usage_idx1] ON [dbo].[tdc_bin_master] ([location], [usage_type_code], [bin_no]) INCLUDE ([group_code]) WITH (ALLOW_PAGE_LOCKS=OFF) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [tdc_bin_usage_idx1] ON [dbo].[tdc_bin_master] ([location], [status], [usage_type_code], [bin_no]) INCLUDE ([group_code]) WITH (ALLOW_PAGE_LOCKS=OFF) ON [PRIMARY]
 GO
 GRANT SELECT ON  [dbo].[tdc_bin_master] TO [public]
 GO

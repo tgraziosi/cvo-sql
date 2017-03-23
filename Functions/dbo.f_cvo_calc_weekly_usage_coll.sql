@@ -23,6 +23,7 @@ RETURNS @usage TABLE
       subs_w12 INT ,
       promo_w4 INT ,
       promo_w12 INT ,
+
       rx_w4 INT ,
       rx_w12 INT -- 12/5/2016
       ,
@@ -30,7 +31,11 @@ RETURNS @usage TABLE
       ret_w12 INT -- 12/28/2016 - for new SbS
       ,
       wty_w4 INT ,
-      wty_w12 INT -- 12/28/2016 - for new SbS
+      wty_w12 INT, -- 12/28/2016 - for new SbS
+
+	-- 032017 - show gross rx% not net
+	  gross_w4 INT,
+	  gross_w12 INT
 	)
 
 -- 10/21/2015 - add substitute and promo qtys for material forecast
@@ -96,7 +101,9 @@ select * from dbo.f_cvo_calc_weekly_usage_coll ('O', null)
                   ret_w4 ,
                   ret_w12 ,
                   wty_w4 ,
-                  wty_w12
+                  wty_w12,
+				  gross_w4,
+				  gross_w12
                 )
                 SELECT  location ,
                         part_no ,
@@ -153,6 +160,11 @@ select * from dbo.f_cvo_calc_weekly_usage_coll ('O', null)
                                            END) AS INT) ,
                         wty_w12 = CAST (SUM(CASE WHEN bucket <= 12 THEN wty_Qty
                                                  ELSE 0
+                                            END) AS INT),
+						gross_w4 = CAST (SUM(CASE WHEN bucket <= 4 THEN gross_Qty ELSE 0
+                                           END) AS INT) ,
+                        gross_w12 = CAST (SUM(CASE WHEN bucket <= 12 THEN gross_Qty
+                                                 ELSE 0
                                             END) AS INT)
                 FROM    ( SELECT    ol.location ,
                                     part_no = ol.part_no ,
@@ -177,9 +189,8 @@ select * from dbo.f_cvo_calc_weekly_usage_coll ('O', null)
                                                           END
                                                      ELSE 0
                                                 END ,
-                                    rx_qty = CASE WHEN ISNULL(o.user_category,
-                                                              'ST') LIKE 'RX%'
-                                                  THEN CASE WHEN type = 'i'
+												-- rx qty is based on sales only, no returns -- 032017
+                                    rx_qty = CASE WHEN ISNULL(o.user_category,'ST') LIKE 'RX%' AND type = 'i'
                                                             THEN CASE
                                                               WHEN @usg_option = 'S'
                                                               THEN ISNULL(shipped,
@@ -187,15 +198,7 @@ select * from dbo.f_cvo_calc_weekly_usage_coll ('O', null)
                                                               ELSE ISNULL(ordered,
                                                               0)
                                                               END
-                                                            ELSE CASE
-                                                              WHEN @usg_option = 'S'
-                                                              THEN ISNULL(cr_shipped,
-                                                              0)
-                                                              ELSE ISNULL(cr_ordered,
-                                                              0)
-                                                              END * -1
-                                                       END
-                                                  ELSE 0
+                                                        ELSE 0
                                              END ,
                                     ret_qty = 0 ,
                                     wty_Qty = 0 ,
@@ -215,7 +218,17 @@ select * from dbo.f_cvo_calc_weekly_usage_coll ('O', null)
                                                               0)
                                                             END * -1
                                                   END ,
-									-- 1/5/2017 - for credits use the date_entered not the allocation date
+				                     gross_qty =   CASE WHEN type = 'i'
+                                                       THEN CASE
+                                                              WHEN @usg_option = 's'
+                                                              THEN ISNULL(shipped,
+                                                              0)
+                                                              ELSE ISNULL(ordered,
+                                                              0)
+                                                            END
+                                                       ELSE 0 
+													end,
+									 -- 1/5/2017 - for credits use the date_entered not the allocation date
                                     bucket = CASE WHEN CASE WHEN @usg_option = 'S'
                                                             THEN o.date_shipped
                                                             ELSE CASE WHEN o.type = 'I' THEN
@@ -278,6 +291,7 @@ select * from dbo.f_cvo_calc_weekly_usage_coll ('O', null)
                                     ret_Qty = 0 ,
                                     wty_qty = 0 ,
 									qty_shipped = 0 ,
+									gross_qty = 0,
                                     bucket = CASE WHEN t.tran_date >= @w4
                                                   THEN 4
                                                   WHEN t.tran_date >= @w12
@@ -305,6 +319,7 @@ select * from dbo.f_cvo_calc_weekly_usage_coll ('O', null)
                                     ret_qty = 0 ,
                                     wty_qty = 0 ,
 								    qty_shipped = 0 ,
+									gross_qty = 0,
                                     bucket = CASE WHEN t.tran_date >= @w4
                                                   THEN 4
                                                   WHEN t.tran_date >= @w12
@@ -338,6 +353,7 @@ select * from dbo.f_cvo_calc_weekly_usage_coll ('O', null)
                                                        ELSE 0
                                                   END) ,
 								    qty_shipped = 0 ,
+									gross_qty = 0,
                                     bucket = CASE WHEN s.yyyymmdd >= @w4
                                                   THEN 4
                                                   WHEN s.yyyymmdd >= @w12

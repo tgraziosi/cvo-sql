@@ -15,7 +15,7 @@ Calls:
 Called by:   WMS74 -- Allocation Screen
 Copyright:   Epicor Software 2010.  All rights reserved.  
 declare @qty decimal(20,8)
-exec @qty = CVO_CheckAvailabilityInBinGroup_sp 'jm031bro5017','001','pickarea'
+exec @qty = CVO_CheckAvailabilityInBinGroup_sp 'TESTBLA5002','001','HIGHBAY'
 select @qty
 
 -- v1.0 CB 29/03/2011 - 18.RDOCK Inventory - Exclude specified bins
@@ -23,10 +23,13 @@ select @qty
 -- v1.2 CB 24/04/2013 - access table directly rather than using function
 -- v1.3 CB 07/10/2013	Issue #1385 - non alloc bin qty must exclude what has been allocated
 -- v1.4 CB 30/10/2013 - When checking allocated stock in non alloc bins then need to use the bin group
+-- v1.5 CB 03/10/2016 - #1606 - Direct Putaway & Fast Track Cart
 
 */
 
-CREATE PROCEDURE  [dbo].[CVO_CheckAvailabilityInBinGroup_sp]   @part_no VARCHAR(30), @location VARCHAR(10), @bin_group VARCHAR(30), @from_pb INT = 0 AS
+CREATE PROCEDURE  [dbo].[CVO_CheckAvailabilityInBinGroup_sp]   @part_no VARCHAR(30), @location VARCHAR(10), @bin_group VARCHAR(30), @from_pb INT = 0,
+															@fasttrack int = 0 -- v1.5
+AS
 BEGIN
 	SET NOCOUNT ON
 
@@ -49,7 +52,7 @@ BEGIN
 
 	--Using core stored procedure to get alloc and quarantine ( tdc_get_alloc_qntd_sp )
 	INSERT INTO #tbl_AvailableQtyLocation (location, part_no, allocated_amt, quarantined_amt, apptype )
-	EXEC CVO_tdc_get_alloc_qntd_sp @location, @part_no, @bin_group
+	EXEC CVO_tdc_get_alloc_qntd_sp @location, @part_no, @bin_group, @fasttrack -- v1.5
 
 --	v1.3 Start	
 /*
@@ -68,16 +71,34 @@ BEGIN
 	AND		c.bin_no IS NULL -- v1.2
 -- v1.2	AND		a.bin_no NOT IN (select bins FROM dbo.f_get_excluded_bins(0) WHERE part_no = @part_no) -- v1.0
 */
-
-	SELECT	@in_stock = 	SUM(a.qty) 
-	FROM	lot_bin_stock a (NOLOCK) 
-	JOIN	tdc_bin_master b (NOLOCK) 
-	ON		a.location = b.location 
-	AND		a.bin_no = b.bin_no	
-	WHERE	a.part_no  = @part_no 
-	AND		a.location = @location 
-	AND		b.group_code = @bin_group 
-	AND		b.usage_type_code IN ('OPEN','REPLENISH') -- v1.2
+	-- v1.5 Start
+	IF (@fasttrack = 0)
+	BEGIN
+		SELECT	@in_stock = 	SUM(a.qty) 
+		FROM	lot_bin_stock a (NOLOCK) 
+		JOIN	tdc_bin_master b (NOLOCK) 
+		ON		a.location = b.location 
+		AND		a.bin_no = b.bin_no	
+		WHERE	a.part_no  = @part_no 
+		AND		a.location = @location 
+		AND		b.group_code = @bin_group 
+		AND		b.usage_type_code IN ('OPEN','REPLENISH') -- v1.2
+		AND		LEFT(a.bin_no,4) <> 'ZZZ-' -- v1.5
+	END
+	ELSE
+	BEGIN
+		SELECT	@in_stock = 	SUM(a.qty) 
+		FROM	lot_bin_stock a (NOLOCK) 
+		JOIN	tdc_bin_master b (NOLOCK) 
+		ON		a.location = b.location 
+		AND		a.bin_no = b.bin_no	
+		WHERE	a.part_no  = @part_no 
+		AND		a.location = @location 
+		AND		b.group_code = @bin_group 
+		AND		b.usage_type_code IN ('OPEN','REPLENISH') -- v1.2
+		AND		LEFT(a.bin_no,4) = 'ZZZ-' -- v1.5
+	END
+	-- v1.5 End
 
 	SELECT	@non_alloc = SUM(a.qty) - ISNULL(SUM(b.qty),0.0)   
 	FROM	dbo.cvo_lot_bin_stock_exclusions a (NOLOCK)

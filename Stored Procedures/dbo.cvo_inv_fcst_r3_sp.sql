@@ -2,13 +2,14 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE procedure [dbo].[cvo_inv_fcst_r2_sp] 
+CREATE procedure [dbo].[cvo_inv_fcst_r3_sp] 
+
 -- re-write for y1 figures not pulling enough history to properly generate
-@startrank datetime, 
+-- 3/21/2017 - pull out the ranking features; clean up; multi-location reporting; RA %
+
 @asofdate datetime, 
 @location VARCHAR(10),
 @endrel DATETIME = null, -- ending release date
-@UseDrp int = 1, 
 @current int = 1,
 @collection varchar(1000) = null,
 @Style varchar(8000) = NULL,
@@ -23,14 +24,13 @@ CREATE procedure [dbo].[cvo_inv_fcst_r2_sp]
 , @debug INT = 0
 --
 /*
- exec cvo_inv_fcst_r2_sp
- @startrank = '12/23/2013',
+ exec cvo_inv_fcst_r3_sp
+
  @asofdate = '03/01/2017', 
  @endrel = '03/01/2017', 
- @usedrp = 1, 
  @current = 1, 
- @collection = 'bcbg', 
- @style = 'esmee', 
+ @collection = 'cvo', 
+ @style = 'adam ii', 
  @specfit = '*all*',
  @usg_option = 'o',
  @debug = 1, -- debug
@@ -46,7 +46,6 @@ CREATE procedure [dbo].[cvo_inv_fcst_r2_sp]
 -- 1/9/2015 - update sales PCT for demand multipliers per BL schedule
 -- 2/11/2015 - fix po line not picking up po's for suns
 
--- @usedrp - 0 = no, use FCT; 1 = use drp for all
 -- @current - 0 = show all, 1 = current only (no POMs)
 -- 12/3/14 - tag - fix pom styles/skus
 -- 6/17/15 - fix sku's doubling up because of release dates
@@ -69,9 +68,8 @@ SET ANSI_WARNINGS OFF
 
 declare @startdate datetime, @enddate datetime, @pomdate datetime
 /* for testing
---, @startrank datetime
+
 --, @asofdate datetime
---, @usedrp int
 --, @current int
 */
 
@@ -84,7 +82,7 @@ set @enddate = ISNULL(@endrel, @asofdate)
 
 
 declare @coll_list varchar(1000), @style_list varchar(8000), @sf VARCHAR(1000), @gndr VARCHAR(1000), @type_code VARCHAR(1000),
-		@s_start INT, @s_end INT, @s_mult DECIMAL(20,8)
+		@s_start INT, @s_end INT, @s_mult DECIMAL(20,8), @sku VARCHAR(40)
 
 select @coll_list = @collection, @style_list = @style, @SF = @SpecFit, @gndr = @gender, @type_code = @ResType
 	 , @s_start = ISNULL(@Season_start,1), @s_end = ISNULL(@Season_end,12), @S_mult = ISNULL(@Season_mult,1)
@@ -161,11 +159,11 @@ END
 --select * from #style_list
 --select @style_list
 
-IF ISNULL(@debug,0) = 1
-BEGIN
-	SELECT @specfit
-	SELECT * FROM #sf
-end
+--IF ISNULL(@debug,0) = 1
+--BEGIN
+--	SELECT @specfit
+--	SELECT * FROM #sf
+--end
 
 declare @loc varchar(10)
 --select @loc = '001'
@@ -202,20 +200,6 @@ CASE when mm < month(@asofdate) then mm - MONTH(@ASOFDATE) + 13
 
 declare @sort_seq int, @base_pct FLOAT, @flatten decimal(20,8)
 
-/*
-select @sort_seq = 3
-while @sort_seq <= 15
-begin
- select @base_pct = avg(pct_sales) from #dmd_mult where sort_seq between @sort_seq - 2 and @sort_seq
- update #dmd_mult set mult = 1+((pct_sales-@base_pct)/@base_pct)
-		where sort_seq = @sort_seq - 2
- -- each months' multiplier s/b the average of the prior 3 months
- select @sort_seq = @sort_seq + 1
-end
-*/
-
---IF @SPREAD = 'CORE'
---BEGIN
 	set @base_pct = (select avg(pct_sales) from #dmd_mult where sort_seq in (10,11,12)/*(11,12,1)*/ ) -- last 3 months sales %
 	-- the multiplier s/b the average of the 3 months prior to the asofdate
 
@@ -235,46 +219,6 @@ end
 --END
 
 -- select * From #dmd_mult
-
-IF(OBJECT_ID('tempdb.dbo.#inv_rank') is not null)  drop table #inv_rank
-create table #inv_rank
-(collection varchar(10),
-inv_Rank varchar(1),
-m3 float,
-m12 float,
-m24 float)
-
--- year 2 updates - only for styles with full 2 years history
-insert into #inv_rank values ('BCBG','A','2500','7900','3900')
-insert into #inv_rank values ('BCBG','B','1500','4700','1400')
-insert into #inv_rank values ('BCBG','C','1','2300','500')
-insert into #inv_rank values ('CH','A','900','3100','1600')
-insert into #inv_rank values ('CH','B','700','2200','900')
-insert into #inv_rank values ('CH','C','1','1300','400')
-insert into #inv_rank values ('CVO','A','1100','3800','2000')
-insert into #inv_rank values ('CVO','B','700','2600','1500')
-insert into #inv_rank values ('CVO','C','1','1800','500')
-insert into #inv_rank values ('ET','A','2000','6300','3100')
-insert into #inv_rank values ('ET','B','1500','4500','1100')
-insert into #inv_rank values ('ET','C','1','2400','700')
-insert into #inv_rank values ('IZOD','A','1200','4400','3400')
-insert into #inv_rank values ('IZOD','B','800','2800','1900')
-insert into #inv_rank values ('IZOD','C','1','1200','300')
-insert into #inv_rank values ('IZX','A','1000','3700','2700')
-insert into #inv_rank values ('IZX','B','700','2300','1200')
-insert into #inv_rank values ('IZX','C','1','1300','400')
-insert into #inv_rank values ('JC','A','1100','4000','2400')
-insert into #inv_rank values ('JC','B','800','3000','1700')
-insert into #inv_rank values ('JC','C','1','1800','500')
-insert into #inv_rank values ('JMC','A','2000','7500','4900')
-insert into #inv_rank values ('JMC','B','1200','3900','1400')
-insert into #inv_rank values ('JMC','C','1','2600','900')
-insert into #inv_rank values ('ME','A','2000','5900','2800')
-insert into #inv_rank values ('ME','B','1200','3900','1200')
-insert into #inv_rank values ('ME','C','1','1300','600')
-insert into #inv_rank values ('OP','A','1400','4300','2100')
-insert into #inv_rank values ('OP','B','1100','4000','2300')
-insert into #inv_rank values ('OP','C','1','2200','1000')
 
 IF(OBJECT_ID('tempdb.dbo.#sls_det') is not null)  drop table #sls_det
 IF(OBJECT_ID('tempdb.dbo.#cte') is not null)  drop table #cte
@@ -340,21 +284,15 @@ inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
 inner join #coll on #coll.coll = i.category
 inner join #style_list on #style_list.style = ia.field_2
 INNER JOIN #type t ON t.type_code = i.type_code
--- inner join #sf on #sf.sf = ia.field_32
 LEFT outer join cvo_sbm_details s (nolock) on s.part_no = i.part_no
 left outer join armaster a (nolock) on a.customer_code = s.customer and a.ship_to_code = s.ship_to
 where 
 1=1
--- i.type_code in ('FRAME','sun','BRUIT','PARTS') -- 11/1/16 - ADD PARTS
--- and ia.field_26 between @startdate and @enddate
 and ia.field_26 >= @startdate
--- and isnull(ia.field_28, @pomdate) >= @pomdate
--- 10/22/2015 - and i.category not in ('rr','un')
 and i.void = 'N'
 AND EXISTS (SELECT 1 FROM #sf WHERE #sf.sf = ISNULL(ia.field_32,''))
 AND EXISTS (SELECT 1 FROM #gender WHERE #gender.gender = ISNULL(ia.category_2,''))
 
--- 11/18/2016 - and isnull(s.yyyymmdd,@asofdate) >= dateadd(mm,-18,@asofdate) -- look back 18 months
 and isnull(s.customer,'') not in ('045733','019482','045217') -- stanton and insight and costco
 and isnull(s.return_code,'') = ''
 and isnull(s.iscl,0) = 0 -- no closeouts
@@ -384,53 +322,15 @@ GROUP BY	t.Collection , t.model
 HAVING COUNT(t.part_no) = COUNT(t.pom_date) -- fully pom'd style
 ) AS tt ON tt.brand = #sls_det.brand AND tt.style = #sls_det.style
 group BY #sls_det.brand, #sls_det.style, #sls_det.rel_month, tt.style_pom
--- must have 3 or mor months of activity to be included
--- having max(rel_month) >=3
 
 IF @debug = 1 SELECT ' cte ', * From #cte -- where style = '185' order by style, rel_month
 
 -- Create style summary list
--- 11/20/2014 - include suns, but don't rank them ... yet
 
  select cte.brand, cte.style , '' as part_no
  ,min(cte.pom_date) pom_date
  ,min(cte.rel_date) rel_date
  ,max(rel_month) mth_since_rel
- ,case when max(rel_month) between 13 and 24  then 12 - (max(rel_month) - 12) 
-	   WHEN max(rel_month) <= 12 then 12 else 0 end mths_left_y2
- ,case when max(rel_month) > 12 then 0 else 12 - max(rel_month) end mths_left_y1
- ,dateadd(mm, 24 - max(rel_month), @asofdate) yr2_end_date
- ,dateadd(mm, 12 - max(rel_month), @asofdate) yr1_end_date
- ,inv_rank = case when  MAX(cte.type_code) = 'sun' then ''
-				  when  min(cte.rel_date) < @startrank  then ''   
-				  when  min(cte.rel_date) > dateadd(mm,-3,@asofdate) then 'N' 
-				  else 
-  isnull((select top 1 inv_rank  from #inv_rank r where cte.brand = r.collection and 
-  sum(case when isnull(cte.rel_month,0) <= 3 then isnull(cte.sales_qty,0) else 0 end) > r.m3
-  order by r.collection asc, r.m3 desc), '')
-  end
- ,rank_24m_sales = case when min(cte.rel_date) < @startrank or MAX(cte.type_code) = 'sun' then 0 else
-  isnull((select top 1 m24  from #inv_rank r where cte.brand = r.collection and 
-  sum(case when isnull(cte.rel_month,0) <=3 then isnull(cte.sales_qty,0) else 0 end) > r.m3
-  order by r.collection asc, r.m3 desc), 0)
-  end
- ,rank_12m_sales = case when min(cte.rel_date) < @startrank or max(cte.type_code) = 'sun' then 0 else
-  isnull((select top 1 m12  from #inv_rank r where cte.brand = r.collection and 
-  sum(case when isnull(cte.rel_month,0) <=3 then isnull(cte.sales_qty,0) else 0 end) > r.m3
-  order by r.collection asc, r.m3 desc), 0)
-  end
- ,sales_y2tg = case when min(cte.rel_date) < @startrank or max(cte.type_code) = 'sun' then 0 else 
-  isnull((select top 1 m24 from #inv_rank r where cte.brand = r.collection and 
-  sum(case when isnull(cte.rel_month,0) <=3 then isnull(cte.sales_qty,0) else 0 end) > r.m3
-  order by r.collection asc, r.m3 desc), 0)
-  - sum(case when rel_month between 13 and 24 then sales_qty else 0 end) 
-  end
- ,sales_y1tg = case when min(cte.rel_date) < @startrank or max(cte.type_code) = 'sun' then 0 else
-  isnull((select top 1 m12 from #inv_rank r where cte.brand = r.collection and 
-  sum(case when isnull(cte.rel_month,0) <=3 then isnull(cte.sales_qty,0) else 0 end) > r.m3
-  order by r.collection asc, r.m3 desc), 0)
-  - sum(case when rel_month <=12 then sales_qty else 0 end) 
-  end
 ,sum(case when rel_month <=3 then sales_qty else 0 end) [Sales M1-3] 
 ,sum(case when rel_month <=12 then sales_qty else 0 end) [Sales M1-12]
 , ISNULL(drp.s_e4_wu,0) s_e4_wu 
@@ -474,27 +374,13 @@ group by cte.brand, cte.style, drp.s_e4_wu, drp.s_e12_wu, drp.s_e52_wu, drp.s_pr
 , drp.s_ret_w4, drp.s_ret_w12
 , drp.s_wty_w4, drp.s_wty_w12
 , drp.s_gross_w4, drp.s_gross_w12
-order by cte.brand, inv_rank, cte.style
+order by cte.brand, cte.style
 
 -- select * from #style where style = '185'
 
 -- Check for current styles
 
 IF @debug = 1 SELECT * FROM #style
-
--- 8/31/2015 - don't do this yet
-
---if @current = 1 -- if reporting current styles/skus only remove any pom styles pom'd before the as of date (12/3/2014)
---begin
---	delete from #style where ( pom_date <> '1/1/1900' and pom_date < @asofdate )
---end
-
-update #style set inv_rank = 'N', 
-rank_24m_sales = 0, rank_12m_sales = 0, sales_y1tg = 0, sales_y2tg = 0
-where mth_since_rel < 3 or inv_rank = 'N'
-
-update #style set rank_24m_sales = 0, rank_12m_sales = 0, sales_y1tg = 0, sales_y2tg = 0
-where inv_rank = ''
 
 -- select * From #style where style = 'clarissa'
 
@@ -506,19 +392,6 @@ select s.brand
 , s.rel_date
 , s.pom_date
 , s.mth_since_rel
-, s.mths_left_y2
-, s.mths_left_y1
-, s.yr2_end_date
-, s.yr1_end_date
-, s.inv_rank
-, s.rank_24m_sales
-, s.rank_12m_sales
-, case when s.sales_y2tg >0 then s.sales_y2tg else 0 end as sales_y2tg
-, case when s.sales_y1tg > 0 then s.sales_y1tg else 0 end as sales_y1tg
-, round(case when mths_left_y2 = 0 then 0 else
-   (case when s.sales_y2tg < 0 then 0 else s.sales_y2tg end)/mths_left_Y2 end,0,1) as sales_y2tg_per_month
-, round(case when mths_left_y1 = 0 then 0 else
-   (case when s.sales_y1tg < 0 then 0 else s.sales_y1tg end)/mths_left_y1 end,0,1) as sales_y1tg_per_month
 , isnull(s.s_e4_wu,0) s_e4_wu
 , isnull(s.s_e12_wu,0) s_e12_wu
 , isnull(s.s_e52_wu,0) s_e52_wu
@@ -532,8 +405,6 @@ select s.brand
 , ISNULL(s.s_wty_w12,0) s_wty_w12
 , isnull(s.s_gross_w4,0) s_gross_w4
 , ISNULL(s.s_gross_w12,0) s_gross_w12
-
-
 
 , isnull(drp.p_e4_wu,0) p_e4_wu
 , isnull(drp.p_e12_wu,0) p_e12_wu
@@ -681,32 +552,6 @@ inner join #style s on s.brand = #t.brand and s.style = #t.style
 where isnull(s.[sales m1-3],0) <> 0
 -- select * From #t
 
-
--- Figure out forecast line
-
-declare @sku varchar(40), @mths_y1 int, @mths_y2 int
-
-set @sku = (select min(part_no) from #t where inv_rank  IN ('A','B','C'))
-while @sku is not null 
-  begin
-	select @mths_y1 = mths_left_y1, @mths_y2 = mths_left_y2 from #t where part_no = @sku
-
-	if (@mths_y1 > 0) 
-		update #T set mth_demand_src = 'FCT', mth_demand_mult = case when mths_left_y1 <= 0 then 0 else
-		s_mult * mult * (sales_y1tg * pct_of_style)/mths_left_y1 end
-		where sort_seq <= mths_left_y1 and mth_demand_mult is null and part_no = @sku
-	if (@mths_y2 > 0) 
-		update #T set mth_demand_src = 'FCT', mth_demand_mult = case when mths_left_y2 <= 0 then 0 else
-		s_mult * mult * (sales_y2tg * pct_of_style)/mths_left_y2 end
-		where mth_demand_mult is null and sort_seq + @mths_y1 <= mths_left_y2 + @mths_y1 and part_no = @sku
-	update #t set mth_demand_src = 'FCT', mth_demand_mult = 
-		s_mult * mult * (case when mth_since_rel > 3 then isnull(p_e12_wu,0)*52/12 else isnull(p_e4_wu,0)*52/12 end)
-		 where /* mth_since_rel > 18 and */ mth_demand_mult is null and part_no = @sku
-	
-    set @sku = (select min(part_no) From #t where part_no > @sku and inv_rank IN ('A','B','C'))
-end
-
--- select * from #t
 
 select distinct mth_demand_src AS LINE_TYPE, 
 #t.part_no sku,
@@ -880,7 +725,7 @@ group by inv.category, i.field_2, #t.part_no, rr.x_month, #t.mult, #t.s_mult, #t
 -- 11/19/14 - Change INV line calculation to consume the demand line using the greater of fct/drp or sls as the demand line
 -- 7/20/15 - add avail to promise
 
-declare @inv int, @last_inv int, @INV_AVL INT, @fct int, @drp int, @sls int, @po INT, @ord INT, @atp INT, @reserve_inv int
+declare @inv int, @last_inv int, @INV_AVL INT, @drp int, @sls int, @po INT, @ord INT, @atp INT, @reserve_inv int
 
 create index idx_f on #SKU (sku asc)
 
@@ -898,7 +743,6 @@ select @sku = min(sku) from #SKU
 
 select @sort_seq = 0
 SELECT @INV_AVL = @LAST_INV
-select @fct = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'fct' and sort_seq = @sort_seq + 1
 select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq+ 1
 select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq+ 1
 select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq+ 1
@@ -924,13 +768,8 @@ BEGIN
 
 	WHILE @SORT_SEQ < 12
 	BEGIN
-		SELECT @INV_AVL = @INV_AVL - 
-		-- add option to run inventory line against forecast or drp
-		(case when exists (select 1 from #sku where sku = @sku and line_type = 'FCT') and @usedrp = 0 then
-			case when @fct < @sls then @sls else @fct end
-		ELSE
-		    case when @drp < @sls then @sls else @drp end
-		END) 
+		SELECT @INV_AVL = @INV_AVL 
+		- case when @drp < @sls then @sls else @drp end
 		-- add back sales after the as of date (consume the demand line)
 		+ isnull(@sls, 0)
 		+ isnull(@po, 0)
@@ -952,7 +791,6 @@ BEGIN
 		FROM #T WHERE #T.PART_NO = @SKU AND SORT_SEQ = @SORT_SEQ + 1
 
 		SELECT @SORT_SEQ = @SORT_SEQ + 1
-		select @fct = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'fct' and sort_seq = @sort_seq + 1
 		select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq + 1
 		select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq + 1
 		select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq + 1
@@ -967,7 +805,6 @@ BEGIN
 	from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku and cia.location = @loc
 	select @sort_seq = 0
 	SELECT @INV_AVL = @LAST_INV
-	select @fct = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'fct' and sort_seq = @sort_seq + 1
 	select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq + 1
 	select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq + 1
 	select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq + 1
@@ -993,13 +830,6 @@ select distinct
 	--	and model = ia.field_2)
 ,case when #style.pom_date = '1/1/1900' then null else #style.pom_date end as pom_date
 ,#style.mth_since_rel
-,#style.mths_left_y2
-,#style.mths_left_y1
-,#style.inv_rank
-,#style.rank_24m_sales
-,#style.rank_12m_sales
-,#style.sales_y2tg
-,#style.sales_y1tg
 ,#style.[Sales m1-3] s_sales_m1_3
 ,#style.[Sales m1-12] s_sales_m1_12
 ,#style.s_e4_wu
@@ -1038,10 +868,6 @@ select distinct
 ,#t.s_mth_usg
 ,#t.p_mth_usg
 ,#t.s_mth_usg_mult
-,#t.sales_y2tg_per_month
-,#t.sales_y1tg_per_month
-,#t.sales_y2tg p_sales_y2tg
-,#t.sales_y1tg p_sales_y1tg
 , p_po_qty_y1 = 
 case when #sku.line_type = 'V' and #sku.sort_seq = 1 then
 isnull((select sum(qty_ordered)  
@@ -1131,6 +957,5 @@ end
 
 
 
-GO
-GRANT EXECUTE ON  [dbo].[cvo_inv_fcst_r2_sp] TO [public]
+
 GO

@@ -768,6 +768,8 @@ CREATE NONCLUSTERED INDEX [CVO_orders_all_bg_032814] ON [dbo].[CVO_orders_all] (
 GO
 CREATE UNIQUE CLUSTERED INDEX [ord1] ON [dbo].[CVO_orders_all] ([order_no], [ext]) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [coa_promo_idx] ON [dbo].[CVO_orders_all] ([promo_id]) INCLUDE ([ext], [order_no], [promo_level]) ON [PRIMARY]
+GO
 CREATE NONCLUSTERED INDEX [coa_ra1_idx] ON [dbo].[CVO_orders_all] ([ra1]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [coa_ra2_idx] ON [dbo].[CVO_orders_all] ([ra2]) ON [PRIMARY]

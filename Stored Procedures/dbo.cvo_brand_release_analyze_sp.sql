@@ -17,6 +17,7 @@ IF @wk2 IS NULL SET @wk2 = 10
 ;WITH 
 cte AS 
 (SELECT i.category brand, IA.FIELD_2 MODEL, MIN(ia.field_26) rel_date,
+MAX(ISNULL(ia.field_28, '12/31/2999')) pom_date,
 i.type_code,
 MIN(yyyymmdd) first_brand_sale,
 ar.customer_code + CASE WHEN car.door = 1 THEN '-'+ar.ship_to_code ELSE '' END AS customer,
@@ -87,6 +88,7 @@ rel AS
 --SELECT DISTINCT field_26, part_no FROM inv_master_add WHERE field_2 = 'free'
 
 SELECT CONVERT(DATETIME,MIN(cte.rel_date),110) rel_date,
+	   CONVERT(DATETIME,max(cte.pom_date),110) pom_date,
 	   cte.brand ,
        cte.MODEL ,
 	   cte.type_code ,
@@ -129,6 +131,7 @@ SELECT CONVERT(DATETIME,MIN(cte.rel_date),110) rel_date,
                 rel.Material ,
                 rel.PrimaryDemographic ,
                 rel.Frame_type
+
 
 
 GO

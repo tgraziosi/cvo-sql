@@ -3,16 +3,10 @@ GO
 SET ANSI_NULLS ON
 GO
 
-CREATE PROC [dbo].[cvo_direct_putaway_sp]	@receipt_no int,
-										@po_no varchar(20),
-										@po_line int,
-										@location varchar(10),
-										@part_no varchar(30),
-										@bin_no	varchar(12),
-										@qty decimal(20,8),
-										@lot varchar(25),
-										@release_date datetime,
-										@tran_id int OUTPUT
+CREATE PROC [dbo].[cvo_direct_putaway_alter_sp]	@receipt_no int,
+											@location varchar(10),
+											@part_no varchar(30),
+											@qty_diff decimal(20,8)
 AS
 BEGIN
 	-- DIRECTIVES
@@ -33,12 +27,19 @@ BEGIN
 			@consumed_qty	decimal(20,8),
 			@icount			int,
 			@ft_qty			decimal(20,8),
-			@ft_qty2		decimal(20,8), -- v1.3
-			@sa_qty			decimal(20,8), -- v2.5
-			@repl_qty		decimal(20,8), -- v2.5
-			@non_alloc		decimal(20,8), -- v2.5
-			@available		decimal(20,8), -- v2.5
-			@repl_non_sa	decimal(20,8) -- v2.5
+			@ft_qty2		decimal(20,8),
+			@po_no			varchar(20),
+			@po_line		int,
+			@bin_no			varchar(12),
+			@qty			decimal(20,8),
+			@lot			varchar(25),
+			@release_date	datetime,
+			@tran_id		int,
+			@sa_qty			decimal(20,8), -- v1.6
+			@repl_qty		decimal(20,8), -- v1.6
+			@non_alloc		decimal(20,8), -- v1.6
+			@available		decimal(20,8), -- v1.6
+			@repl_non_sa	decimal(20,8) -- v1.6
 
 
 	-- WORKING TABLES
@@ -57,21 +58,12 @@ BEGIN
 		qty			decimal(20,8))
 
 	--PROCESSING
-	IF NOT EXISTS (SELECT 1 FROM tdc_bin_master (NOLOCK) WHERE location = @location AND bin_no = @bin_no AND usage_type_code = 'RECEIPT')
-	BEGIN
-		DROP TABLE #cvo_putaways
-		DROP TABLE #cvo_committed
-		RETURN 0
-	END
-
 	-- Get config setting for fast track threshold
 	SELECT @FT_threshold = value_str FROM tdc_config (NOLOCK) WHERE [function] = 'FT_CART_THRESHOLD'
 	IF (@FT_threshold IS NULL)
 		SET @FT_threshold = 10
 
-	-- v1.4 Start
 	-- Get Fast Track Bin List (where stock exists)
-	-- v1.8 Start
 	IF NOT EXISTS (SELECT 1 FROM inv_master (NOLOCK) WHERE part_no = @part_no AND type_code = 'CASE')
 	BEGIN
 		INSERT	#cvo_putaways (bin_type, bin_no, qty, fill_qty, pick_qty, put_qty, putaway_qty)
@@ -117,7 +109,6 @@ BEGIN
 			END
 		END
 	END
-	-- v1.8 End	
 
 	-- Get Reserve Bin List
 	INSERT	#cvo_putaways (bin_type, bin_no, qty, fill_qty, pick_qty, put_qty, putaway_qty)
@@ -163,19 +154,6 @@ BEGIN
 	AND		b.status = 'A'
 	ORDER BY a.seq_no ASC
 
---	INSERT	#cvo_putaways (bin_type, bin_no, qty, fill_qty, pick_qty, put_qty, putaway_qty)
---	SELECT	4, a.bin_no, 0, a.min_qty, 0, 0, 0
---	FROM	CVO_bin_replenishment_tbl a (NOLOCK)
---	JOIN	tdc_bin_master b (NOLOCK)
---	ON		a.bin_no = b.bin_no
---	WHERE	b.location = @location
---	AND		a.part_no = @part_no
---	AND		b.group_code = 'HIGHBAY'
---	AND		b.usage_type_code IN ('OPEN','REPLENISH')
---	AND		b.status = 'A'
-	-- v1.6 End
-
-	-- v1.1 Start
 	-- Get Bulk Bin List
 	INSERT	#cvo_putaways (bin_type, bin_no, qty, fill_qty, pick_qty, put_qty, putaway_qty)
 	SELECT	5, a.bin_no, 0, a.qty, 0, 0, 0
@@ -205,46 +183,20 @@ BEGIN
 		AND		b.usage_type_code IN ('OPEN','REPLENISH')
 		AND		b.status = 'A'
 
--- v2.0 Start
+-- v1.1 Start
 --		IF (@@ROWCOUNT = 0) -- No bulk bins contain the part so add an empty one
 --		BEGIN
 --			INSERT	#cvo_putaways (bin_type, bin_no, qty, fill_qty, pick_qty, put_qty, putaway_qty)	
 --			SELECT	5, '', 0, 0, 0, 0, 0
 --		END
--- v2.0 End
+-- v1.1 End
 
 	END
-	-- v1.1 End
 
 	INSERT	#cvo_putaways (bin_type, bin_no, qty, fill_qty, pick_qty, put_qty, putaway_qty)	
 	SELECT	6, '', 0, 0, 0, 0, 0
 
-
-	-- Update the commited quantities due to be picked
-	-- Picks
--- v1.7 Start
-/*
-	TRUNCATE TABLE #cvo_committed
-
-	INSERT	#cvo_committed
-	SELECT	a.bin_no, SUM(a.qty_to_process)
-	FROM	tdc_pick_queue a (NOLOCK)
-	JOIN	#cvo_putaways b
-	ON		a.bin_no = b.bin_no
-	WHERE	a.location = @location
-	AND		a.part_no = @part_no
-	AND		a.trans LIKE '%PICK'
-	GROUP BY a.bin_no	
-
-	UPDATE	a
-	SET		pick_qty = b.qty
-	FROM	#cvo_putaways a
-	JOIN	#cvo_committed b
-	ON		a.bin_no = b.bin_no
-*/
--- v1.7 End
-
--- v2.3 Start
+-- v1.4 Start
 	-- Bin Moves Out
 	TRUNCATE TABLE #cvo_committed
 
@@ -282,7 +234,7 @@ BEGIN
 	FROM	#cvo_putaways a
 	JOIN	#cvo_committed b
 	ON		a.bin_no = b.bin_no
--- v2.3 End
+-- v1.4 End
 
 	-- Puts
 	TRUNCATE TABLE #cvo_committed
@@ -294,6 +246,7 @@ BEGIN
 	ON		a.next_op = b.bin_no -- v1.1
 	WHERE	a.location = @location
 	AND		a.part_no = @part_no
+	AND		a.tran_receipt_no <> @receipt_no
 	GROUP BY a.next_op
 
 	UPDATE	a
@@ -315,7 +268,7 @@ BEGIN
 	SET @use_FT = 0
 	SET @alloc_qty = 0
 
-	-- v2.5 Start
+	-- v1.6 Start
 	CREATE TABLE #t1 (location varchar(10), part_no varchar(30), allocated_amt decimal(20,8), 
 		quarantined_amt decimal(20,8), sce_version varchar(10), sa_qty decimal(20,8)) 
 
@@ -391,14 +344,14 @@ BEGIN
 --	AND		a.part_no = @part_no
 --	AND		a.status < 'R'
 --	AND		(b.order_type = 'S' OR b.order_type IS NULL)
-	-- v2.5 End
+	-- v1.6 End
+
 
 	SET @ft_qty = 0
 	SELECT	@ft_qty = SUM(qty)
 	FROM	#cvo_putaways
-	WHERE	bin_type = 1 -- v1.4
+	WHERE	bin_type = 1 
 
-	-- v1.3 Start
 	SET @ft_qty2 = 0
 	SELECT	@ft_qty2 = SUM(qty_to_process)
 	FROM	tdc_put_queue (NOLOCK)
@@ -410,7 +363,6 @@ BEGIN
 		SET @ft_qty2 = 0
 
 	SET @ft_qty = @ft_qty + @ft_qty2
-	-- v1.3 End
 
 	IF (@alloc_qty IS NULL)
 		SET @alloc_qty = 0
@@ -441,34 +393,31 @@ BEGIN
 		END
 	END
 
-	-- v1.1 Start
 	DELETE	#cvo_putaways
 	WHERE	(fill_qty - put_qty) <= 0
-	AND		bin_type NOT IN (1,6) -- v1.3 <> 5 -- v1.2 -- v1.4 v1.9 v2.0
-	AND		fill_qty <> 0 -- v2.2
-	-- v1.1 End
+	AND		bin_type NOT IN (1,6) -- v1.1
+	AND		fill_qty <> 0 -- v1.3
 
-	-- v1.5 Start
 	DELETE	#cvo_putaways
 	WHERE	(fill_qty - qty) <= 0
-	AND		bin_type NOT IN (1,6) -- v1.9 v2.0
-	AND		fill_qty <> 0 -- v2.2
-	-- v1.5 End
+	AND		bin_type NOT IN (1,6) -- v1.1
+	AND		fill_qty <> 0 -- v1.3
 
-	-- v1.9 Start
 	DELETE	#cvo_putaways
 	WHERE	((fill_qty - qty) - put_qty) <= 0
-	AND		bin_type NOT IN (1,6) -- v2.0
-	AND		fill_qty <> 0 -- v2.2
-	-- v1.9 End
+	AND		bin_type NOT IN (1,6) -- v1.1
+	AND		fill_qty <> 0 -- v1.3
 
-	SET @qty_remaining = @qty
-	-- v1.4 Start
+	SELECT	@qty = SUM(qty_to_process)
+	FROM	tdc_put_queue (NOLOCK)
+	WHERE	tran_receipt_no = @receipt_no
+
+	SET @qty_remaining = @qty + @qty_diff
+
 	IF (@use_FT = 1)
 		SET @bin_type = 1
 	ELSE
 		SET @bin_type = 2
-	-- v1.4 End
 
 	WHILE (@qty_remaining > 0)
 	BEGIN
@@ -484,11 +433,11 @@ BEGIN
 			SELECT	@fill_qty = (((fill_qty + pick_qty) - put_qty) - qty)
 			FROM	#cvo_putaways
 			WHERE	row_id = @row_id
-			
+
 			IF (@fill_qty <= @qty_remaining)
 			BEGIN 
 				IF (@fill_qty <= 0)
-				BEGIN -- v2.4 Start
+				BEGIN -- v1.5 Start
 					IF (@bin_type = 6) -- v1.4
 					BEGIN
 						SET @new_qty = @qty_remaining
@@ -514,12 +463,7 @@ BEGIN
 							SET @new_qty = @fill_qty
 							SET @qty_remaining = @qty_remaining - @fill_qty
 						END
-					END -- v2.4 End
-				END
-				ELSE
-				BEGIN
-					SET @new_qty = @fill_qty
-					SET @qty_remaining = @qty_remaining - @fill_qty
+					END -- v1.5 End
 				END
 			END
 			ELSE
@@ -527,7 +471,7 @@ BEGIN
 				SET @new_qty = @qty_remaining
 				SET @qty_remaining = 0
 			END
-			
+
 			UPDATE	#cvo_putaways
 			SET		putaway_qty = @new_qty
 			WHERE	row_id = @row_id
@@ -536,9 +480,6 @@ BEGIN
 
 		SET @bin_type = @bin_type + 1
 		
-		-- v1.4 IF (@bin_type = 3 AND @use_FT = 0)
-		-- v1.4 	SET @bin_type = @bin_type + 1
-
 		IF (@bin_type = 7)
 			SET @qty_remaining = 0
 	END
@@ -555,12 +496,6 @@ BEGIN
 		-- Create putaways
 		SELECT	@who = who 
 		FROM	#temp_who
-
-		DELETE	#cvo_putaways
-		WHERE	putaway_qty <= 0
-
-		DELETE	tdc_put_queue
-		WHERE	tran_id = @tran_id
 		
 		SET @last_row_id = 0
 		SET @icount = 0
@@ -574,8 +509,31 @@ BEGIN
 
 		WHILE (@@ROWCOUNT <> 0)
 		BEGIN
+			SET @tran_id = 0
 
-			EXEC dbo.cvo_create_poptwy_transaction_sp @location, @po_no, @receipt_no, @part_no, @lot, @bin_no, @new_bin_no, @fill_qty, @who, @tran_id OUTPUT, 1
+			SELECT	@tran_id = tran_id 
+			FROM	tdc_put_queue (NOLOCK) 
+			WHERE	tran_receipt_no = @receipt_no 
+			AND		part_no = @part_no 
+			AND		next_op = @new_bin_no
+			AND		warehouse_no = 'DIR'
+			
+			IF (@tran_id <> 0)
+			BEGIN
+				UPDATE	tdc_put_queue
+				SET		qty_to_process = @fill_qty
+				WHERE	tran_id = @tran_id
+
+				DELETE	tdc_put_queue
+				WHERE	tran_id = @tran_id
+				AND		qty_to_process <= 0
+
+			END
+			ELSE
+			BEGIN
+				IF (@fill_qty > 0)
+					EXEC dbo.cvo_create_poptwy_transaction_sp @location, @po_no, @receipt_no, @part_no, @lot, @bin_no, @new_bin_no, @fill_qty, @who, @tran_id OUTPUT, 1
+			END
 
 			SET @icount = @icount + 1
 
@@ -592,15 +550,15 @@ BEGIN
 		DROP TABLE #cvo_putaways
 		DROP TABLE #cvo_committed
 	
-		RETURN -99999 -- 2.1 Start
+		RETURN -99999 -- v1.2 Start
 		/*
 		IF (@icount = 1)
 			RETURN 0
 		ELSE
 			RETURN -99999
-		*/ -- v2.1 End
+		*/ -- v1.2 End
 	END
 END
 GO
-GRANT EXECUTE ON  [dbo].[cvo_direct_putaway_sp] TO [public]
+GRANT EXECUTE ON  [dbo].[cvo_direct_putaway_alter_sp] TO [public]
 GO

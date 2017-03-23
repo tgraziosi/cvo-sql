@@ -63,7 +63,7 @@ BEGIN
 
 	  -- SELECT * FROM #allterr where customer_code = '010021'
 
--- PULL LIST FOR CUSTOMERS
+-- PULL LIST FOR CUSTOMERS - 3.2
 IF(OBJECT_ID('dbo.cvo_eyerep_acts_tbl') is null)
 	begin
 	CREATE TABLE [dbo].[cvo_eyerep_acts_Tbl](
@@ -136,7 +136,7 @@ AND STATUS_TYPE=1
 AND ADDRESS_TYPE=0
 
 
--- Process Ship-to Customers
+-- Process Ship-to Customers - 3.2
 
 IF(OBJECT_ID('dbo.cvo_eyerep_actshp_tbl') is null)
 	begin
@@ -185,7 +185,7 @@ WHERE 1=1
 AND STATUS_TYPE=1
 AND ADDRESS_TYPE IN (0,1)
 
--- account extension data
+-- account extension data - 3.2
 -- 7/26/2016
 
 IF(OBJECT_ID('dbo.cvo_eyerep_actext_tbl') is null)
@@ -317,13 +317,14 @@ SELECT  eat.acct_id ,
 	GROUP BY eat.acct_id
 
 
--- get LIST FOR invoice terms
+-- get LIST FOR invoice terms - 3.2
 
 IF(OBJECT_ID('dbo.cvo_eyerep_biltrm_tbl') is null)
 	begin
 	CREATE TABLE [dbo].[cvo_eyerep_biltrm_tbl](
 	biltrm_id VARCHAR(20) NOT NULL,
-	biltrm_description VARCHAR(30) null
+	biltrm_description VARCHAR(30) NULL,
+	biltrm_amount DECIMAL (9,2)
 	) ON [PRIMARY]
 	GRANT ALL ON dbo.cvo_eyerep_biltrm_tbl TO PUBLIC
 	end
@@ -339,7 +340,7 @@ FROM dbo.arterms AS a (nolock)
 WHERE 1=1
 AND terms_desc NOT LIKE 'DO NOT USE%'
 
--- Get Inventory master info
+-- Get Inventory master info - 3.2
 
 IF(OBJECT_ID('dbo.cvo_eyerep_inv_tbl') is null)
 	begin
@@ -347,11 +348,11 @@ IF(OBJECT_ID('dbo.cvo_eyerep_inv_tbl') is null)
 		[sku] [varchar](50) NOT NULL,
 		[upc] [varchar](50) NULL,
 		[collection_id] [varchar](50) NULL,
-		[style] [varchar](20) NULL,
-		[color] [varchar](20) NULL,
-		[eye_size] [varchar](3) NULL,
-		[temple] [varchar](3) NULL,
-		[bridge] [varchar](3) NULL,
+		[style] [varchar](100) NULL,
+		[color] [varchar](100) NULL,
+		[eye_size] [varchar](10) NULL,
+		[temple] [varchar](10) NULL,
+		[bridge] [varchar](10) NULL,
 		[product_rank] [int] NULL,
 		[collection_rank] [int] NULL,
 		[product_type] [varchar](20) NULL,
@@ -385,11 +386,12 @@ IF(OBJECT_ID('dbo.cvo_eyerep_inv_tbl') is null)
 SELECT  i.part_no ,
         i.upc_code ,
         i.Collection ,
-        LEFT(i.model, 20) ,
-        LEFT(i.ColorName, 20) ,
-        CAST (CAST(i.eye_size AS INT) AS VARCHAR(3)) ,
-        CAST (i.temple_size AS VARCHAR(3)) ,
-        CAST (i.dbl_size AS VARCHAR(3)) ,
+        LEFT(i.model, 100) ,
+        CASE WHEN i.collection = 'revo' THEN LEFT(ISNULL(i.colorname,'')+'-'+ISNULL(i.sun_lens_color,''),100) 
+				ELSE LEFT(i.ColorName, 100) END ,
+        CAST (CAST(i.eye_size AS INT) AS VARCHAR(10)) ,
+        CAST (i.temple_size AS VARCHAR(10)) ,
+        CAST (i.dbl_size AS VARCHAR(10)) ,
 		99999 ,
         9999 ,
         LEFT(i.RES_type, 20) ,
@@ -450,7 +452,7 @@ FROM rr JOIN dbo.cvo_eyerep_inv_tbl AS inv
 ON inv.collection_id = rr.category AND inv.style = rr.style
 ;
 
--- Collections
+-- Collections - 3.2
 
 IF(OBJECT_ID('dbo.cvo_eyerep_invcol_tbl') is null)
 	begin
@@ -863,6 +865,7 @@ and ol.ordered > (ol.shipped + isnull(e.qty,0))
 -- and o.sch_ship_date < @today
 and ol.part_type = 'p'
 AND o.who_entered = 'backordr'
+
 
 
 

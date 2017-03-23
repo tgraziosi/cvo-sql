@@ -7,6 +7,8 @@ CREATE TABLE [dbo].[cvo_order_invoice]
 [inv_date] [datetime] NULL
 ) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [cvo_order_invoice_inv] ON [dbo].[cvo_order_invoice] ([inv_number]) ON [PRIMARY]
+GO
 CREATE NONCLUSTERED INDEX [cvo_order_invoice_ind0] ON [dbo].[cvo_order_invoice] ([order_no], [order_ext]) ON [PRIMARY]
 GO
 GRANT REFERENCES ON  [dbo].[cvo_order_invoice] TO [public]
