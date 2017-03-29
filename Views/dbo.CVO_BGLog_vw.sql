@@ -36,7 +36,7 @@ sum(freight) freight,
 sum(tax) tax,                    
 trm,  
 sum(mer_disc) mer_disc,               
-inv_due as inv_due,
+SUM(inv_due) as inv_due, -- 032817
 case when disc_perc < 0 then 0 
         else disc_perc end as disc_perc,  
 --case when sum(mer_tot) = 0 then 0 else            
@@ -50,7 +50,8 @@ from CVO_BGLog_source_vw2
 where inv_tot+mer_tot+net_amt+freight+tax+mer_disc<>0 -- tag 052213
 and disc_perc <> 1 -- 053013 - tag
 and inv_due <> 0 -- for debit promos
-group by 
+group BY 
+
 parent,   
 parent_name,                              
 cust_code,  
@@ -59,11 +60,12 @@ doc_ctrl_num,
 type, 
 trm,   
 inv_date, 
-inv_due,                
+-- inv_due,           -- 032817     
 disc_perc,              
 due_year_month,
 xinv_date,
 rec_type -- v1.1
+
 
 
 

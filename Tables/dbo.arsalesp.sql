@@ -56,7 +56,7 @@ INSERT CVOARMasterAudit
 	, movement_flag
 	, audit_date
 	, user_id) 
-SELECT distinct 'slp commission'
+SELECT distinct 'slp Commission'
 	, cast (d.commission as varchar(20))
 	, cast (i.commission as varchar(20))
 	, i.salesperson_code
@@ -68,6 +68,27 @@ SELECT distinct 'slp commission'
 	i.salesperson_code = d.salesperson_code
 	where isnull(d.commission,0)<>isnull(i.commission,0)
 
+INSERT CVOARMasterAudit 
+	(field_name
+	, field_from
+	, field_to
+	, customer_code
+	, movement_flag
+	, audit_date
+	, user_id) 
+SELECT distinct 'slp Draw'
+	, cast (d.draw_amount as varchar(20))
+	, cast (i.draw_amount as varchar(20))
+	, i.salesperson_code
+	, 2 -- change
+	, getdate()
+	, SUSER_SNAME() 
+	from inserted i 
+	INNER JOIN deleted d ON 
+	i.salesperson_code = d.salesperson_code
+	where isnull(d.draw_amount,0)<>isnull(i.draw_amount,0)
+
+--
 
 DECLARE @salesperson_code	varchar(8),
 		@i_territory_code	varchar(8),

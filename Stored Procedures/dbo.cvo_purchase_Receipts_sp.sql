@@ -9,6 +9,8 @@ BEGIN
 
 	SET NOCOUNT ON;
 
+-- Created: 3/2017 - TAG - For Corrie Elder - AP
+
 -- exec cvo_purchase_receipts_sp
 
 -- ALTER view [dbo].[adrec_vw] as
@@ -122,6 +124,7 @@ WHERE r.recv_date BETWEEN @sdate AND @edate
 
   
  END
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_purchase_Receipts_sp] TO [public]
 GO

@@ -31,7 +31,9 @@ BEGIN
 			@prev_colour		varchar(40),
 			@order_by			int,
 			@last_component		varchar(20),
-			@orig_row			int
+			@orig_row			int,
+			@order_no			int, -- v2.0
+			@order_ext			int -- v2.0
 
 	-- WORKING TABLES
 	CREATE TABLE #data_in (
@@ -336,7 +338,7 @@ BEGIN
 		AND		a.part_no = c.repl_component
 
 		INSERT	#available_stock
-		SELECT	a.location, a.part_no, (a.in_stock - ISNULL(b.qty,0))
+		SELECT	a.location, a.part_no, (a.in_stock) -- v1.9 - ISNULL(b.qty,0))
 		FROM	cvo_inventory2 a (NOLOCK)
 		LEFT JOIN #excluded_bins b
 		ON		a.location = b.location
@@ -775,7 +777,7 @@ BEGIN
 		AND		a.part_no = c.repl_component
 
 		INSERT	#available_stock
-		SELECT	a.location, a.part_no, (a.in_stock - ISNULL(b.qty,0))
+		SELECT	a.location, a.part_no, (a.in_stock)-- v1.9 - ISNULL(b.qty,0))
 		FROM	cvo_inventory2 a (NOLOCK)
 		LEFT JOIN #excluded_bins b
 		ON		a.location = b.location
@@ -810,7 +812,6 @@ BEGIN
 		AND		a.part_no = c.repl_component
 		WHERE	b.usage_type_code = 'QUARANTINE'
 		GROUP BY a.location, a.part_no 
-
 
 		UPDATE	a
 		SET		qty = a.qty - b.qty
@@ -869,6 +870,7 @@ BEGIN
 		JOIN	#available_stock b
 		ON		a.location = b.location
 		AND		a.repl_component = b.part_no
+
 /*
 		SET @last_row_id = 0
 
@@ -995,6 +997,26 @@ BEGIN
 		ORDER BY row_id ASC
 	END
 	
+	-- v2.0 Start
+	IF (@custom_kit = 1)
+	BEGIN
+		SELECT	@order_no = order_no,
+				@order_ext = order_ext
+		FROM	cvo_soft_alloc_no_assign (NOLOCK)
+		WHERE	soft_alloc_no = @soft_alloc_no
+
+		UPDATE	a
+		SET		selected = 1
+		FROM	cvo_cf_process_select a
+		JOIN	ord_list_kit b (NOLOCK)
+		ON		a.repl_component = b.part_no
+		WHERE	a.user_spid = @user_spid
+		AND		b.order_no = @order_no
+		AND		b.order_ext = @order_ext
+	END
+	-- v2.0 End
+
+
 	DROP TABLE #cvo_cf_process_select
 	DROP TABLE #cvo_cf_process_select_order
 	DROP TABLE #data_in

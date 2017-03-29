@@ -3,7 +3,7 @@ GO
 SET ANSI_NULLS OFF
 GO
 
--- SELECT * FROM dbo.CVO_BGLog_installment_source_vw AS blisv WHERE blisv.cust_code = '017417' AND blisv.inv_date > '10/1/2016'
+-- SELECT * FROM dbo.CVO_BGLog_installment_source_vw AS blisv WHERE blisv.cust_code = '052222' AND blisv.inv_date > '02/26/2017'
 
 
 CREATE view [dbo].[CVO_BGLog_installment_source_vw] 
@@ -13,6 +13,7 @@ AS
 -- v2.5 CB 10/07/2013 - Issue #927 - Buying Group Switching
 -- v2.7	CT 20/10/2014 - Issue #1367 - For Sales Orders and Credit Returns, if net price > list price, set list = net and discount = 0 and disc_perc = 0
 -- v2.8 TG 11/1/2016 - Fix where there are 10 or more installments.  not getting into the terms installment correctly
+-- v2.9 tg 3/23/17 - fix rounding on mer_disc and inv_due to match mer_tot and inv_tot
 
 -- 6 AR Split only records  *** NEW ***
 
@@ -132,11 +133,13 @@ sum(round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_
 --sum(round(round((d.curr_price * d.shipped)*(1-(d.discount/100)),2)*(z.installment_prc/100) ,2)) as mer_disc,
 --sum(round(round((d.curr_price * d.shipped)*(1-(d.discount/100)),2)*(z.installment_prc/100) ,2)) as inv_due,
 -- START v2.7
-sum(d.Shipped * ROUND((d.curr_price - (d.curr_price * ((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) / 100))) * (z.installment_prc/100),2)) as mer_disc,
+-- 2.9
+sum(ROUND(d.Shipped * (d.curr_price - (d.curr_price * ((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) / 100))) * (z.installment_prc/100),2)) as mer_disc,
 --sum(d.Shipped * ROUND((d.curr_price - (d.curr_price * (d.discount / 100))) * (z.installment_prc/100),2)) as mer_disc,
-sum(d.Shipped * ROUND((d.curr_price - (d.curr_price * ((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) / 100))) * (z.installment_prc/100),2)) as inv_due,
+sum(ROUND(d.Shipped * (d.curr_price - (d.curr_price * ((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) / 100))) * (z.installment_prc/100),2)) as inv_due,
 --sum(d.Shipped * ROUND((d.curr_price - (d.curr_price * (d.discount / 100))) * (z.installment_prc/100),2)) as inv_due,
 -- END v2.7
+-- 2.9
 --p.disc_perc,
 --disc_perc = CASE WHEN max(d.discount) > 0 THEN max(d.discount/100) ELSE p.disc_perc END,
 -- START v2.7
@@ -183,6 +186,7 @@ AND dbo.f_cvo_get_buying_group(o.cust_code, CONVERT(varchar(10),DATEADD(DAY,h.da
 group by r.parent, m.customer_name, o.cust_code, b.customer_name, h.doc_ctrl_num, z.installment_days, o.type, h.date_due,h.date_doc, (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END), (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE disc_perc END), z.installment_prc
 --group by r.parent, m.customer_name, o.cust_code, b.customer_name, h.doc_ctrl_num, z.installment_days, o.type, h.date_due,h.date_doc, d.discount, disc_perc, z.installment_prc
 -- END v2.7
+
 
 
 

@@ -89,7 +89,6 @@ BEGIN
 	AND		a.hold_reason = 'FL'
 -- v1.2	AND		ISNULL(b.prior_hold,'') = ''
 	AND		a.order_no > 1420973
-	AND		a.order_no = 1421711
 	ORDER BY a.order_no, a.ext	
 
 	-- v1.5 Start 
@@ -139,7 +138,7 @@ BEGIN
 	BEGIN
 	
 		-- Custom Frame Check
-		TRUNCATE TABLE #exclusions
+		-- v2.0 TRUNCATE TABLE #exclusions
 
 		EXEC cvo_soft_alloc_CF_BO_check_sp @soft_alloc_no, @order_no, @order_ext
 
@@ -164,7 +163,7 @@ BEGIN
 			CONTINUE
 		END
 		
-		TRUNCATE TABLE #exclusions
+		-- v2.0 TRUNCATE TABLE #exclusions
 		
 		EXEC cvo_check_fl_stock_pre_allocation_sp @order_no, @order_ext
 		
@@ -200,7 +199,7 @@ BEGIN
 			IF (@prec_avail IS NULL) 
 				SET @prec_avail_str = '' -- v1.9
 			ELSE
-				SET @prec_avail_str = '; %AVL: ' + @prec_avail -- v1.9
+				SET @prec_avail_str = '; PERC AVAILABLE: ' + @prec_avail -- v1.9
 			-- v1.7 End
 
 			IF EXISTS (SELECT 1 FROM #exclusions WHERE order_no = @order_no AND order_ext = @order_ext AND perc_available >= @fill_rate
@@ -307,7 +306,7 @@ BEGIN
 			IF (@prec_avail IS NULL) 
 				SET @prec_avail_str = '' -- v1.9
 			ELSE
-				SET @prec_avail_str = '; %AVL: ' + @prec_avail -- v1.9
+				SET @prec_avail_str = '; PERC AVAILABLE: ' + @prec_avail -- v1.9
 			-- v1.7 End
 
 			INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
@@ -380,7 +379,7 @@ BEGIN
 		IF (@prec_avail IS NULL) 
 			SET @prec_avail_str = '' -- v1.9
 		ELSE
-			SET @prec_avail_str = '; %AVL: ' + @prec_avail -- v1.9
+			SET @prec_avail_str = '; PERC AVAILABLE: ' + @prec_avail -- v1.9
 		-- v1.7 End
 
 		-- v1.1 Start

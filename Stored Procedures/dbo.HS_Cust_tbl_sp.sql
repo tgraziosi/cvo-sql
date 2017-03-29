@@ -55,6 +55,10 @@ BEGIN
 		 OR customer_code = '053318'
 		 OR customer_code = '014910'
 
+-- for Phil for VE - 032717
+	  UPDATE #allterr SET AllTerr = allterr + ',20206'
+	  WHERE customer_code = '014443'
+
 	  -- SELECT * FROM #allterr
 
 -- PULL LIST FOR CUSTOMERS
@@ -233,6 +237,7 @@ SELECT h.id ,
 
 
 END
+
 
 
 
