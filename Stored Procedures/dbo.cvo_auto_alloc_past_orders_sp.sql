@@ -7,6 +7,7 @@ GO
 -- v1.1 CB 14/08/2015 - Add missing mp_consolidation_no column
 -- v1.2 CB 14/04/2016 - #1596 - Add promo level
 -- v1.3 CB 13/06/2016 - Add in routine to consolidate orders
+-- v1.4 CB 30/03/2017 - Not picking up consolidation sets created by the back order process
 -- EXEC dbo.cvo_auto_alloc_past_orders_sp 'ZZ'
 
 CREATE PROC [dbo].[cvo_auto_alloc_past_orders_sp] @order_type	VARCHAR(2) = 'ZZ'
@@ -466,14 +467,14 @@ BEGIN
 					FROM	cvo_masterpack_consolidation_hdr a (NOLOCK)
 					JOIN	cvo_masterpack_consolidation_det b (NOLOCK)
 					ON		a.consolidation_no = b.consolidation_no
-					JOIN	cvo_st_consolidate_release c (NOLOCK)
+					LEFT JOIN	cvo_st_consolidate_release c (NOLOCK)
 					ON		a.consolidation_no = c.consolidation_no
 					WHERE	b.order_no = @order_no
 					AND		b.order_ext = @ext
-					AND		a.type = 'OE'
-					AND		a.closed = 0
+					AND		(a.type = 'OE' OR a.type = 'BO') -- v1.4
+					-- v1.4 AND		a.closed = 0
 					AND		a.shipped = 0
-					AND		c.released = 1
+					AND		(c.released = 1 OR c.released IS NULL) -- v1.4
 					-- v1.3 End
 			
 				END

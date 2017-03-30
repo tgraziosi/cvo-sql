@@ -30,6 +30,8 @@ AS
             @LOCATION VARCHAR(10);
         SET @today = GETDATE();
         SET @LOCATION = '001';
+
+		IF @datatype = 'ALL' SELECT @datatype = NULL
 	
         IF ( OBJECT_ID('tempdb.dbo.#AllTerr') IS NOT NULL )
             DROP TABLE dbo.#AllTerr;
@@ -1109,6 +1111,7 @@ IF 'ACTIVITY' = ISNULL(@datatype, 'ACTIVITY')
                         AND o.who_entered = 'backordr';
 
     END; -- ACTIVITY
+
 
 
 GO
