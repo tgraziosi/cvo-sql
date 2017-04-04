@@ -375,7 +375,7 @@ BEGIN
 	IF (@non_alloc IS NULL)
 		SET @non_alloc = 0
 
-	SELECT	@alloc_qty = ABS(i.in_stock - (t.allocated_amt + t.sa_qty + t.quarantined_amt))
+	SELECT	@alloc_qty = (i.in_stock - (t.allocated_amt + t.sa_qty + t.quarantined_amt)) -- v2.6 Remove ABS
 	FROM	cvo_inventory2 i
 	JOIN	#t1 t
 	ON		i.location = t.location
@@ -415,10 +415,15 @@ BEGIN
 	IF (@alloc_qty IS NULL)
 		SET @alloc_qty = 0
 
-	SET @alloc_qty = @alloc_qty - ISNULL(@ft_qty,0)
+	SET @alloc_qty = @alloc_qty + ISNULL(@ft_qty,0)
 
-	IF (@alloc_qty >= @FT_threshold)
-		SET @use_FT = 1
+	-- v2.6 Start
+	IF (@alloc_qty < 0)
+	BEGIN
+		IF (ABS(@alloc_qty) >= @FT_threshold)
+			SET @use_FT = 1
+	END
+	-- v2.6 End
 
 	-- Check for backorder processing consuming the PO
 	IF EXISTS (SELECT 1 FROM CVO_backorder_processing_orders_po_xref_trans (NOLOCK) WHERE tran_id = @tran_id)
@@ -480,58 +485,70 @@ BEGIN
 		WHERE	bin_type = @bin_type
 
 		IF (@row_id IS NOT NULL)
-		BEGIN
-			SELECT	@fill_qty = (((fill_qty + pick_qty) - put_qty) - qty)
-			FROM	#cvo_putaways
-			WHERE	row_id = @row_id
-			
-			IF (@fill_qty <= @qty_remaining)
-			BEGIN 
-				IF (@fill_qty <= 0)
-				BEGIN -- v2.4 Start
-					IF (@bin_type = 6) -- v1.4
-					BEGIN
-						SET @new_qty = @qty_remaining
-						SET @qty_remaining = 0
-					END
-					ELSE
-					BEGIN
-						IF (@bin_type <> 6)
-						BEGIN					
-							IF (@alloc_qty >= @qty_remaining)
-							BEGIN
-								SET @new_qty = @qty_remaining
-								SET @qty_remaining = 0			
-							END
-							ELSE
-							BEGIN
-								SET @new_qty = @alloc_qty
-								SET @qty_remaining = @qty_remaining - @alloc_qty			
-							END
+		BEGIN -- v2.6 Start
+			IF (@bin_type = 1)
+			BEGIN
+
+				UPDATE	#cvo_putaways
+				SET		putaway_qty = ABS(@alloc_qty)
+				WHERE	row_id = @row_id
+
+				SELECT @qty_remaining = @qty_remaining - ABS(@alloc_qty)
+			END
+			ELSE -- v2.6 End
+			BEGIN
+
+				SELECT	@fill_qty = (((fill_qty + pick_qty) - put_qty) - qty)
+				FROM	#cvo_putaways
+				WHERE	row_id = @row_id
+				
+				IF (@fill_qty <= @qty_remaining)
+				BEGIN 
+					IF (@fill_qty <= 0)
+					BEGIN -- v2.4 Start
+						IF (@bin_type = 6) -- v1.4
+						BEGIN
+							SET @new_qty = @qty_remaining
+							SET @qty_remaining = 0
 						END
 						ELSE
 						BEGIN
-							SET @new_qty = @fill_qty
-							SET @qty_remaining = @qty_remaining - @fill_qty
-						END
-					END -- v2.4 End
+							IF (@bin_type <> 6)
+							BEGIN					
+								IF (@alloc_qty >= @qty_remaining)
+								BEGIN
+									SET @new_qty = @qty_remaining
+									SET @qty_remaining = 0			
+								END
+								ELSE
+								BEGIN
+									SET @new_qty = @alloc_qty
+									SET @qty_remaining = @qty_remaining - @alloc_qty			
+								END
+							END
+							ELSE
+							BEGIN
+								SET @new_qty = @fill_qty
+								SET @qty_remaining = @qty_remaining - @fill_qty
+							END
+						END -- v2.4 End
+					END
+					ELSE
+					BEGIN
+						SET @new_qty = @fill_qty
+						SET @qty_remaining = @qty_remaining - @fill_qty
+					END
 				END
 				ELSE
 				BEGIN
-					SET @new_qty = @fill_qty
-					SET @qty_remaining = @qty_remaining - @fill_qty
+					SET @new_qty = @qty_remaining
+					SET @qty_remaining = 0
 				END
+						
+				UPDATE	#cvo_putaways
+				SET		putaway_qty = @new_qty
+				WHERE	row_id = @row_id
 			END
-			ELSE
-			BEGIN
-				SET @new_qty = @qty_remaining
-				SET @qty_remaining = 0
-			END
-			
-			UPDATE	#cvo_putaways
-			SET		putaway_qty = @new_qty
-			WHERE	row_id = @row_id
-
 		END
 
 		SET @bin_type = @bin_type + 1

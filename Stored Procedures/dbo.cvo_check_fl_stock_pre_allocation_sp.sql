@@ -29,7 +29,8 @@ BEGIN
 			@soft_alloc_no	int, -- v1.1
 			@total_ordered	decimal(20,8), -- v1.2
 			@total_available decimal(20,8), -- v1.2
-			@perc			decimal(20,8) -- v1.2
+			@perc			decimal(20,8), -- v1.2
+			@bin_to_bin_qty	decimal(20,8) -- v1.7
 
 	-- Create working tables 
 	CREATE TABLE #order_hdr (
@@ -157,6 +158,23 @@ BEGIN
 		  
 			IF (@quar_qty IS NULL)  
 			 SET @quar_qty = 0  
+
+			SET @bin_to_bin_qty = 0
+
+			-- v1.7 Start
+			SELECT	@bin_to_bin_qty = SUM(qty) 
+			FROM	tdc_soft_alloc_tbl (NOLOCK)
+			WHERE	location = @location 
+			AND		part_no = @part_no
+			AND		order_no = 0
+			AND		(bin_no <> 'CUSTOM' OR dest_bin <> 'CUSTOM')
+			
+			IF (@bin_to_bin_qty IS NULL)
+				SET @bin_to_bin_qty = 0
+			
+			SET @alloc_qty = @alloc_qty + @bin_to_bin_qty
+			-- v1.7
+			
 
 			-- v1.1 Start
 			 SELECT @soft_alloc_no = soft_alloc_no
