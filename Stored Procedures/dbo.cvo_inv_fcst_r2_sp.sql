@@ -24,17 +24,17 @@ CREATE procedure [dbo].[cvo_inv_fcst_r2_sp]
 --
 /*
  exec cvo_inv_fcst_r2_sp
- @startrank = '12/23/2013',
- @asofdate = '03/01/2017', 
- @endrel = '03/01/2017', 
+  @startrank = '12/23/2013',
+ @asofdate = '04/01/2017', 
+ @endrel = '04/01/2017', 
  @usedrp = 1, 
  @current = 1, 
- @collection = 'bcbg', 
- @style = 'esmee', 
+ @collection = 'as', 
+ @style = 'musical', 
  @specfit = '*all*',
  @usg_option = 'o',
- @debug = 1, -- debug
- @location = '001',
+ @debug = 0, -- debug
+ @location = 'centennial',
  @restype = 'frame,sun'
 
  select * From cvo_ifp_rank
@@ -364,7 +364,7 @@ group by ia.field_26, ia.field_28, i.category, ia.field_2, i.part_no, i.type_cod
 
 select 
 #sls_det.brand,
-#sls_det.style,
+#sls_det.style style, -- for pop
 max(type_code) type_code,
 ISNULL(tt.style_pom,MIN(#sls_det.pom_date)) pom_date,
 min(rel_date) rel_date,
@@ -379,7 +379,8 @@ from #sls_det
 LEFT OUTER JOIN 
 (SELECT t.Collection brand, t.model style, MAX(t.pom_date) style_pom
 FROM dbo.cvo_inv_master_r2_vw t
-JOIN #sls_det ON #sls_det.brand = t.COLLECTION AND #sls_det.style = t.MODEL
+JOIN #sls_det ON #sls_det.brand = t.COLLECTION 
+	AND #sls_det.style = t.MODEL
 GROUP BY	t.Collection , t.model
 HAVING COUNT(t.part_no) = COUNT(t.pom_date) -- fully pom'd style
 ) AS tt ON tt.brand = #sls_det.brand AND tt.style = #sls_det.style
@@ -1088,6 +1089,7 @@ inner join
 (
 SELECT  i.category brand ,
         ia.field_2 style ,
+		i.part_no,
         i.vendor ,
         MAX(i.type_code) type_code ,
         MAX(category_2) gender ,
@@ -1106,21 +1108,27 @@ SELECT  i.category brand ,
 FROM    inv_master i ( NOLOCK )
         INNER JOIN inv_master_add ia ( NOLOCK ) ON ia.part_no = i.part_no
 		INNER JOIN part_price pp (NOLOCK) ON pp.part_no = i.part_no
+		INNER JOIN #type AS t ON t.type_code = i.type_code
 WHERE   1 = 1
-        AND i.type_code IN ( 'frame', 'sun', 'bruit' )
+        -- AND i.type_code IN ( 'frame', 'sun', 'bruit' )
         AND i.void = 'n'
         AND ISNULL(ia.field_32, '') <> 'SpecialOrd'
 GROUP BY i.category ,
          ia.field_2 ,
+		 i.part_no,
          i.vendor
 ) as specs
-on specs.brand = #style.brand and specs.style = #style.style
+on specs.brand = #style.brand and 
+	(specs.style = #style.style
+	OR specs.part_no = #style.part_no) -- pop
 
 LEFT OUTER JOIN
 cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
 
 
 end
+
+
 
 
 

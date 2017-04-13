@@ -120,11 +120,16 @@ BEGIN
 			IF NOT (LEFT(@prior_hold,5) = 'PROMO') 
 			BEGIN
 				-- v1.4 Start
-				INSERT	cvo_so_holds
-				SELECT	@order_no, @order_ext, 'STC', dbo.f_get_hold_priority('STC',''), SUSER_NAME(), GETDATE()
+				-- v1.5 Start
+				IF NOT EXISTS (SELECT 1 FROM cvo_so_holds (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext AND hold_reason = 'STC')
+				BEGIN 
+					INSERT	cvo_so_holds
+					SELECT	@order_no, @order_ext, 'STC', dbo.f_get_hold_priority('STC',''), SUSER_NAME(), GETDATE()
 
-				INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
-				SELECT	GETDATE(), SUSER_NAME(), 'BO', 'STC RESET', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: STC'
+					INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+					SELECT	GETDATE(), SUSER_NAME(), 'BO', 'STC RESET', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: STC'
+				END
+				-- v1.5 End
 
 				--UPDATE	cvo_orders_all
 				--SET		prior_hold = 'STC'
@@ -139,11 +144,16 @@ BEGIN
 			IF (@hold_reason > '' AND @hold_reason <> 'STC')
 			BEGIN
 				-- v1.4 Start
-				INSERT	cvo_so_holds
-				SELECT	@order_no, @order_ext, 'STC', dbo.f_get_hold_priority('STC',''), SUSER_NAME(), GETDATE()
+				-- v1.5 Start
+				IF NOT EXISTS (SELECT 1 FROM cvo_so_holds (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext AND hold_reason = 'STC')
+				BEGIN 
+					INSERT	cvo_so_holds
+					SELECT	@order_no, @order_ext, 'STC', dbo.f_get_hold_priority('STC',''), SUSER_NAME(), GETDATE()
 
-				INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
-				SELECT	GETDATE(), SUSER_NAME(), 'BO', 'STC RESET', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: STC'
+					INSERT	tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+					SELECT	GETDATE(), SUSER_NAME(), 'BO', 'STC RESET', 'ORDER UPDATE', @order_no, @order_ext, '', '', '', '', '', 'ADD HOLD: STC'
+				END
+				-- v1.5 End
 
 				--UPDATE	cvo_orders_all
 				--SET		prior_hold = 'STC'

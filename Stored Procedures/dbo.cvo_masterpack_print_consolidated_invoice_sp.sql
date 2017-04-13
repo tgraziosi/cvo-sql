@@ -465,6 +465,17 @@ BEGIN
 	WHERE	a.customer_code = @cust_code
 	-- v11.3 End
 
+	-- 4/11/2017 -- Invoice Note for SM reorders		
+	IF (DATEPART(WEEKDAY,GETDATE())) = 2 -- only on Mondays
+			AND GETDATE() BETWEEN '4/10/2017' AND '7/3/2017'
+			AND CHARINDEX('FREE Shipping!',ISNULL(@invoice_note,'')) = 0 
+	BEGIN
+				SELECT @invoice_note = CASE WHEN ISNULL(@invoice_note,'') = ''
+				THEN 'Place a Steve Madden reorder today and get FREE shipping!'
+				ELSE ISNULL(@invoice_note,'') + CHAR(13) + CHAR(10) + 'Place a Steve Madden reorder today and get FREE shipping!' 
+				END
+	END
+
 	-- v11.4 Start
 	SELECT	@inv_option = ISNULL(alt_location_code,'')
 	FROM	arcust (NOLOCK)
@@ -2037,6 +2048,23 @@ BEGIN
 									discount_value, order_total, printed_date)
 		VALUES (@order_no, @order_ext, @Cust_Code, @ship_to_no, @invoice_num, @order_net, @order_tax, @order_frt, @order_disc, @order_total, GETDATE())
 
+					
+		-- 4/11/2017 -- Invoice Note for SM reorders		
+		IF (DATEPART(WEEKDAY,GETDATE())) = 2 -- only on Mondays
+				AND GETDATE() BETWEEN '4/10/2017' AND '7/3/2017'
+		BEGIN
+				UPDATE co 
+				SET co.invoice_note = CASE WHEN ISNULL(co.invoice_note,'') = ''
+					THEN 'Place a Steve Madden reorder today and get FREE shipping!'
+					ELSE ISNULL(co.invoice_note,'') + CHAR(13) + CHAR(10) + 'Place a Steve Madden reorder today and get FREE shipping!' 
+					END
+				FROM cvo_orders_all co
+				JOIN orders o ON o.order_no = co.order_no AND o.ext = co.ext
+				WHERE co.order_no = @order_no AND co.ext = @order_ext AND o.type = 'I'
+				AND CHARINDEX('FREE Shipping!',ISNULL(co.invoice_note,'')) = 0 
+		END
+
+
 		-- Keep running totals
 		IF @new_order_totals = 1
 		BEGIN
@@ -2087,4 +2115,5 @@ BEGIN
 	  
 	RETURN
 END
+
 GO

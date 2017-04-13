@@ -353,6 +353,21 @@ WHERE o.order_no = @order_no																		-- T McGrady	22.MAR.2011
 INSERT INTO #PrintData (data_field, data_value) VALUES ('LP_PROMO_NAME',ISNULL(@promo_name,' '))	-- T McGrady	22.MAR.2011
 --																									-- T McGrady	22.MAR.2011
 
+-- 4/11/2017 -- Invoice Note for SM reorders		
+IF (DATEPART(WEEKDAY,GETDATE())) = 2 -- only on Mondays
+		AND GETDATE() BETWEEN '4/10/2017' AND '7/3/2017'
+BEGIN
+		UPDATE co 
+		SET co.invoice_note = CASE WHEN ISNULL(co.invoice_note,'') = ''
+			THEN 'Place a Steve Madden reorder today and get FREE shipping!'
+			ELSE ISNULL(co.invoice_note,'') + CHAR(13) + CHAR(10) + 'Place a Steve Madden reorder today and get FREE shipping!' 
+			END
+		FROM cvo_orders_all co
+		JOIN orders o ON o.order_no = co.order_no AND o.ext = co.ext
+		WHERE co.order_no = @order_no AND co.ext = @order_ext AND o.type = 'I'
+		AND CHARINDEX('FREE Shipping!',ISNULL(co.invoice_note,'')) = 0 
+END
+
 -- START v10.4 - get invoice note
 SELECT
 	@invoice_note = ISNULL(REPLACE(invoice_note, CHAR(13) + CHAR(10), ' ') ,'')	
@@ -1193,6 +1208,9 @@ DECLARE detail_cursor CURSOR FOR
  INSERT dbo.cvo_invoice_audit (order_no, order_ext, customer_code, ship_to, invoice_no, order_value, tax_value, freight_value, 
 								discount_value, order_total, printed_date)
  VALUES (@order_no, @order_ext, @Cust_Code, @ship_to_no, @invoice_num, @order_net, @order_tax, @order_frt, @order_disc, @order_total, GETDATE())
+
+
+
  -----------------------------------------------------------------------------------------------  
  FETCH NEXT FROM print_cursor INTO @format_id, @printer_id, @number_of_copies  
 END  
@@ -1201,6 +1219,7 @@ CLOSE      print_cursor
 DEALLOCATE print_cursor  
   
 RETURN
+
 GO
 
 GRANT EXECUTE ON  [dbo].[tdc_print_ord_pack_list_sp] TO [public]

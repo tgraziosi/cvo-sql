@@ -26,15 +26,15 @@ CREATE procedure [dbo].[cvo_inv_fcst_r3_sp]
 /*
  exec cvo_inv_fcst_r3_sp
 
- @asofdate = '03/01/2017', 
- @endrel = '03/01/2017', 
+ @asofdate = '04/01/2017', 
+ @endrel = '04/01/2017', 
  @current = 1, 
- @collection = 'cvo', 
- @style = 'adam ii', 
+ @collection = 'as', 
+ @style = 'musical', 
  @specfit = '*all*',
  @usg_option = 'o',
- @debug = 1, -- debug
- @location = '001',
+ @debug = 0, -- debug
+ @location = '001,Centennial',
  @restype = 'frame,sun'
 
  select * From cvo_ifp_rank
@@ -285,6 +285,10 @@ BEGIN
 	SELECT @CO = MIN(COLL) FROM #COLL WHERE COLL > @co
 END
 
+DELETE FROM #usage WHERE NOT EXISTS (SELECT 1 FROM #loc WHERE #loc.location = #usage.location)
+
+IF @debug = 1 SELECT * FROM #usage AS u
+
 -- get sales history
 select
 i.category brand,
@@ -313,6 +317,9 @@ inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
 inner join #coll on #coll.coll = i.category
 inner join #style_list on #style_list.style = ia.field_2
 INNER JOIN #type t ON t.type_code = i.type_code
+INNER JOIN #usage u ON u.part_no = i.part_no 
+INNER JOIN #loc l ON l.location = u.location
+
 LEFT outer join cvo_sbm_details s (nolock) on s.part_no = i.part_no
 left outer join armaster a (nolock) on a.customer_code = s.customer and a.ship_to_code = s.ship_to
 where 
@@ -321,12 +328,12 @@ and ia.field_26 >= @startdate
 and i.void = 'N'
 AND EXISTS (SELECT 1 FROM #sf WHERE #sf.sf = ISNULL(ia.field_32,''))
 AND EXISTS (SELECT 1 FROM #gender WHERE #gender.gender = ISNULL(ia.category_2,''))
-AND EXISTS (select 1  FROM #loc WHERE #loc.location = ISNULL(s.location,'001'))
+-- AND EXISTS (select 1 FROM #loc WHERE #loc.location = ISNULL(s.location,#loc.location))
 
 and isnull(s.customer,'') not in ('045733','019482','045217') -- stanton and insight and costco
 and isnull(s.return_code,'') = ''
 and isnull(s.iscl,0) = 0 -- no closeouts
-and isnull(s.location,@loc) = @loc
+-- and isnull(s.location,@loc) = @loc
 
 group by ia.field_26, ia.field_28, i.category, ia.field_2, i.part_no, i.type_code, s.location, s.yyyymmdd -- end cte
 
@@ -353,16 +360,16 @@ HAVING COUNT(t.part_no) = COUNT(t.pom_date) -- fully pom'd style
 ) AS tt ON tt.brand = #sls_det.brand AND tt.style = #sls_det.style
 group BY #sls_det.brand, #sls_det.style, #sls_det.rel_month, tt.style_pom
 
-IF @debug = 1 SELECT ' cte ', * From #cte -- where style = '185' order by style, rel_month
+IF @debug = 1 SELECT ' cte ' cte, * From #cte -- where style = '185' order by style, rel_month
 
 -- Create style summary list
 
- select cte.brand, cte.style , '' as part_no
+ select cte.brand, cte.style , '' as part_no, drp.location
  ,min(cte.pom_date) pom_date
  ,min(cte.rel_date) rel_date
  ,max(rel_month) mth_since_rel
-,sum(case when rel_month <=3 then sales_qty else 0 end) [Sales M1-3] 
-,sum(case when rel_month <=12 then sales_qty else 0 end) [Sales M1-12]
+,sum(case when rel_month <=3 then cte.sales_qty else 0 end) [Sales M1-3] 
+,sum(case when rel_month <=12 then cte.sales_qty else 0 end) [Sales M1-12]
 , ISNULL(drp.s_e4_wu,0) s_e4_wu 
 , ISNULL(drp.s_e12_wu,0) s_e12_wu 
 , ISNULL(drp.s_e52_wu,0) s_e52_wu
@@ -386,6 +393,7 @@ left outer join
 (select -- usage info
 i.category collection,
 ia.field_2 style, 
+drp.location,
 sum(ISNULL(e4_wu,0)) s_e4_wu, sum(ISNULL(e12_wu,0)) s_e12_wu, sum(ISNULL(e52_wu,0)) s_e52_wu
 , SUM(ISNULL(promo_w4,0)) s_promo_w4, SUM(ISNULL(promo_w12,0)) s_promo_w12
 , SUM(ISNULL(rx_w4,0)) s_rx_w4, SUM(ISNULL(rx_w12,0)) s_rx_w12
@@ -396,12 +404,11 @@ from inv_master i (NOLOCK)
 LEFT OUTER JOIN #usage drp (nolock) ON i.part_no = drp.part_no
 INNER JOIN inv_master_add ia (NOLOCK) ON ia.part_no = i.part_no
 where i.void = 'N' 
-AND EXISTS (SELECT 1 FROM #loc WHERE #loc.location = drp.location)
-group by i.category, ia.field_2
+group by i.category, ia.field_2, drp.location
 ) as drp
 on drp.collection = cte.brand and drp.style = cte.style 
 
-group by cte.brand, cte.style, drp.s_e4_wu, drp.s_e12_wu, drp.s_e52_wu, drp.s_promo_w4, drp.s_promo_w12, drp.s_rx_w4, drp.s_rx_w12
+group by cte.brand, cte.style, drp.location, drp.s_e4_wu, drp.s_e12_wu, drp.s_e52_wu, drp.s_promo_w4, drp.s_promo_w12, drp.s_rx_w4, drp.s_rx_w12
 , drp.s_ret_w4, drp.s_ret_w12
 , drp.s_wty_w4, drp.s_wty_w12
 , drp.s_gross_w4, drp.s_gross_w12
@@ -419,7 +426,7 @@ IF @debug = 1 SELECT * FROM #style
 
 select s.brand
 , s.style
-, drp.location
+, S.location
 , i.part_no
 , s.rel_date
 , s.pom_date
@@ -494,10 +501,9 @@ drp.location, drp.part_no, sum(ISNULL(e4_wu,0)) p_e4_wu, sum(ISNULL(e12_wu,0)) p
 from #usage drp (nolock)
 JOIN inv_master i ON i.part_no = drp.part_no
 JOIN #type t ON t.type_code = i.type_code
-where EXISTS (SELECT 1 FROM #loc WHERE location = drp.location)
 group by drp.location, drp.part_no 
 ) as drp
-on drp.part_no = i.part_no
+on drp.part_no = i.part_no AND DRP.LOCATION = S.LOCATION
 
 cross join #dmd_mult
 -- where i.type_code in ('FRAME','sun','BRUIT','PARTS') -- 11/1/16 - ADD PARTS
@@ -606,8 +612,8 @@ where mth_demand_src <> 'xxx'
 -- add DRP data too
 
 
-select 'DRP' AS LINE_TYPE, 
-
+insert into #SKU
+SELECT 'DRP' AS LINE_TYPE, 
 #t.part_no sku,
 #t.location,
 #t.mm,
@@ -647,9 +653,8 @@ From #t
 inner join inv_master_add i (nolock) on i.part_no = #t.part_no
 inner join inv_master inv (nolock) on inv.part_no = i.part_no
 inner join #type t on t.type_code = inv.type_code
-left outer join releases r (nolock) on #t.part_no = r.part_no 
+left outer join releases r (nolock) on #t.part_no = r.part_no AND #t.location = r.location
 where 1=1
-AND EXISTS (SELECT 1 FROM #loc WHERE #loc.location = r.location)
 and  #t.mm = case when DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < @asofdate
 	 THEN month(@asofdate) 
 	 ELSE month(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) end
@@ -687,13 +692,22 @@ CASE when ISNULL(r.x_month,month(@asofdate)) < month(@asofdate)
 From #t 
 inner join inv_master_add i (nolock) on i.part_no = #t.part_no
 inner join inv_master inv (nolock) on inv.part_no = i.part_no
-left outer join cvo_sbm_details r (nolock) on #t.part_no = r.part_no
+left outer join cvo_sbm_details r (nolock) on #t.part_no = r.part_no AND #t.location = r.location AND r.X_MONTH = #t.mm
 where r.yyyymmdd >= @asofdate 
-AND EXISTS (SELECT 1 FROM #loc WHERE location = r.location)
 -- and @pomdate 
-and r.x_month = #t.mm
 and inv.void = 'N'
-group by inv.category, i.field_2, #t.part_no, #t.location, r.x_month, #t.mult, #t.s_mult, #t.sort_seq
+GROUP BY ISNULL(r.x_month, MONTH(@asofdate)) ,
+         DATEADD(m, #t.sort_seq - 1, @asofdate) ,
+         CASE WHEN ISNULL(r.x_month, MONTH(@asofdate)) < MONTH(@asofdate)
+         THEN ISNULL(r.x_month, MONTH(@asofdate)) - MONTH(@ASOFDATE) + 13
+         ELSE ISNULL(r.x_month, MONTH(@asofdate)) - MONTH(@ASOFDATE) + 1
+         END ,
+         #t.part_no ,
+         #t.location ,
+         mult ,
+         s_mult
+
+-- inv.category, i.field_2, #t.part_no, #t.location, r.x_month, #t.mult, #t.s_mult, #t.sort_seq
 -- select * From #SKU  order by sku, sort_seq
 -- select * From #t
 
@@ -722,6 +736,7 @@ inner join inv_master_add i (nolock) on i.part_no = #t.part_no
 inner join inv_master inv (nolock) on inv.part_no = i.part_no
 LEFT OUTER JOIN
 (SELECT  ol.part_no ,
+ol.location,
         X_MONTH = CASE when o.sch_ship_date < @asofdate THEN MONTH(@asofdate) ELSE MONTH(o.sch_ship_date) end,
         YYYYMMDD = CASE WHEN o.sch_ship_date < @asofdate THEN @asofdate ELSE o.sch_ship_date end ,
         open_qty = SUM(ol.ordered - ol.shipped - ISNULL(ha.qty, 0))
@@ -741,19 +756,28 @@ WHERE   o.status < 'r'
         AND ol.ordered > ol.shipped + ISNULL(ha.qty, 0)
         AND ISNULL(sa.status, -3) = -3 -- future orders not yet soft allocated
         AND ol.part_type = 'P'
-		AND EXISTS (SELECT 1 FROM #loc WHERE location = ol.location)
 GROUP BY ol.part_no ,
 		 ol.location,
         MONTH(o.sch_ship_date) ,
         o.sch_ship_date
-) rr on #t.part_no = rr.part_no
+) rr on #t.part_no = rr.part_no AND #t.location = rr.location AND rr.X_MONTH = #t.mm
 where rr.yyyymmdd >= @asofdate 
 -- and @pomdate 
-and rr.x_month = #t.mm
 -- and inv.type_code in ('FRAME','sun','BRUIT','PARTS') -- 11/1/16 - ADD PARTS
 -- and r.status = 'o' and r.part_type = 'p' and r.location = @loc
 and inv.void = 'N'
-group by inv.category, i.field_2, #t.part_no, #t.location, rr.x_month, #t.mult, #t.s_mult, #t.sort_seq
+group BY DATEADD(m, #t.sort_seq - 1, @asofdate) ,
+         CASE WHEN rr.x_month < MONTH(@asofdate)
+         THEN rr.x_month - MONTH(@ASOFDATE) + 13
+         ELSE rr.x_month - MONTH(@ASOFDATE) + 1
+         END ,
+         #t.part_no ,
+         #t.location ,
+         rr.X_MONTH ,
+         mult ,
+         s_mult 
+
+--inv.category, i.field_2, #t.part_no, #t.location, rr.x_month, #t.mult, #t.s_mult, #t.sort_seq
 -- select * From #SKU  order by sku, sort_seq
 -- select * From #t
 
@@ -764,35 +788,51 @@ group by inv.category, i.field_2, #t.part_no, #t.location, rr.x_month, #t.mult, 
 -- 11/19/14 - Change INV line calculation to consume the demand line using the greater of fct/drp or sls as the demand line
 -- 7/20/15 - add avail to promise
 
-declare @inv int, @last_inv int, @INV_AVL INT, @drp int, @sls int, @po INT, @ord INT, @atp INT, @reserve_inv int
+declare @inv int, @last_inv int, @last_loc VARCHAR(10),  @INV_AVL INT, @drp int, @sls int, @po INT, @ord INT, @atp INT, @reserve_inv int
 
-create index idx_f on #SKU (sku asc)
+create index idx_f on #SKU (sku ASC, location asc)
 
-create index idx_sku_line_sort ON #SKU (sku ASC, LINE_TYPE ASC, sort_seq asc)
+create index idx_sku_line_sort ON #SKU (sku ASC, LINE_TYPE ASC, location ASC, sort_seq asc)
 
 select @sku = min(sku) from #SKU
+SELECT @last_loc = MIN(s.location) FROM #sku s WHERE s.sku = @sku
+
+IF @sku IS NOT NULL AND @last_loc IS NOT NULL
+BEGIN
+
 -- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
 	SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) - 
 		   CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
 		   , @atp = ISNULL(qty_avl,0)
 		   , @reserve_inv = ISNULL(cia.ReserveQty,0) -- 12/5/2016
-	from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku and EXISTS (SELECT 1 FROM #loc WHERE location = cia.location)
-
+		   from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku and cia.location = @last_loc
 
 
 select @sort_seq = 0
 SELECT @INV_AVL = @LAST_INV
-select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq+ 1
-select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq+ 1
-select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq+ 1
-select @ord = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq+ 1
+select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq+ 1 AND location = @last_loc
+select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq+ 1 AND location = @last_loc
+select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq+ 1 AND location = @last_loc
+select @ord = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq+ 1 AND location = @last_loc
+END
 
 -- select * From cvo_item_avail_vw where part_no = 'etkatbur5018' and location = '001'
 
+IF @debug = 2 
+BEGIN
+SELECT * FROM #t AS t
+SELECT @sku, @last_loc, @last_inv, @sort_seq
+END
 
 while @sku is not null 
-BEGIN
+BEGIN -- sku loop
 
+		IF @debug = 2 SELECT 'SKU LOOP' TAG, @sku, @last_loc, @last_inv, @sort_seq
+
+	WHILE @last_loc IS NOT NULL
+    begin
+
+			IF @debug = 2 SELECT 'LOC LOOP' TAG, @sku, @last_loc, @last_inv, @sort_seq
 	--IF @debug = 1 
 	--	BEGIN
 	--	 SELECT @sku, @last_inv, @atp, @reserve_inv
@@ -803,10 +843,13 @@ BEGIN
 	update #SKU set qoh = isnull(@last_inv,0)
 					, atp = ISNULL(@atp,0)
 					, reserve_qty = ISNULL(@reserve_inv,0)
-					  where sku = @sku
+					  where sku = @sku AND location = @last_loc
 
 	WHILE @SORT_SEQ < 12
 	BEGIN
+	
+		IF @debug = 2 SELECT 'SORT SEQ LOOP' TAG, @sku, @last_loc, @last_inv, @sort_seq
+
 		SELECT @INV_AVL = @INV_AVL 
 		- case when @drp < @sls then @sls else @drp end
 		-- add back sales after the as of date (consume the demand line)
@@ -814,44 +857,93 @@ BEGIN
 		+ isnull(@po, 0)
 		- ISNULL(@ord, 0)
 
-		insert #sku
+		IF @DEBUG = 2
 		select 
 		'V' AS line_type
-		,sku = @sku
-		,#t.location
-		,mm= #t.mm
-		,bucket = DATEADD(m, @sort_seq, @asofdate)
-		,QOH = isnull(@LAST_INV,0)
+		, sku = @sku
+		, #t.location
+		, mm= #t.mm
+		, bucket = DATEADD(m, @sort_seq, @asofdate)
+		, QOH = isnull(@LAST_INV,0)
 		, atp = ISNULL(@atp,0)
 		, reserve_qty = ISNULL(@reserve_inv,0)
-		,QUANTITY = isnull(@INV_AVL ,0)
-		,mult = #t.mult
+		, QUANTITY = isnull(@INV_AVL ,0)
+		, mult = #t.mult
 		, s_mult = #t.s_mult
 		,SORT_SEQ = #T.SORT_SEQ
-		FROM #T WHERE #T.PART_NO = @SKU AND SORT_SEQ = @SORT_SEQ + 1
+		FROM #T WHERE #T.PART_NO = @SKU AND #T.location = @last_loc AND SORT_SEQ = @SORT_SEQ + 1
+
+		INSERT #sku
+		select 
+		'V' AS line_type
+		, sku = @sku
+		, #t.location
+		, mm= #t.mm
+		, bucket = DATEADD(m, @sort_seq, @asofdate)
+		, QOH = isnull(@LAST_INV,0)
+		, atp = ISNULL(@atp,0)
+		, reserve_qty = ISNULL(@reserve_inv,0)
+		, QUANTITY = isnull(@INV_AVL ,0)
+		, mult = #t.mult
+		, s_mult = #t.s_mult
+		,SORT_SEQ = #T.SORT_SEQ
+		FROM #T WHERE #T.PART_NO = @SKU AND #T.location = @last_loc AND SORT_SEQ = @SORT_SEQ + 1
 
 		SELECT @SORT_SEQ = @SORT_SEQ + 1
-		select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq + 1
-		select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq + 1
-		select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq + 1
-		select @ord = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq + 1
-	END
+		select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq + 1 AND location = @last_loc
+		select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq + 1 AND location = @last_loc
+		select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq + 1 AND location = @last_loc
+		select @ord = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq + 1 AND location = @last_loc
+	END -- monthly buckets
+
+		SELECT @last_loc = MIN(location) FROM #SKU WHERE SKU = @SKU AND location > @last_loc
+
+		IF @last_loc IS NOT NULL AND @sku IS NOT null
+        begin
+	-- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
+		SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) - 
+			   CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
+			   , @atp = ISNULL(qty_avl,0)
+			   , @reserve_inv = ISNULL(cia.ReserveQty,0)
+		from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku AND cia.location = @last_loc
+		
+		select @sort_seq = 0
+		SELECT @INV_AVL = @LAST_INV
+		select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq + 1 AND location = @last_loc
+		select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq + 1 AND location = @last_loc
+		select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq + 1 AND location = @last_loc
+		select @ord = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq + 1 AND location = @last_loc
+		end
+	END -- location  loop
+
 	SELECT @SKU = MIN(SKU) FROM #SKU WHERE SKU > @SKU
+	SELECT @last_loc = MIN(location) FROM #sku WHERE sku = @sku 
+
+	IF (@sku IS NOT NULL AND @last_loc IS NOT null)
+	begin
 -- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
 	SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) - 
 		   CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
 		   , @atp = ISNULL(qty_avl,0)
 		   , @reserve_inv = ISNULL(cia.ReserveQty,0)
-	from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku 
-		AND EXISTS (SELECT 1 FROM #loc WHERE #loc.location = cia.location)
+	from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku AND cia.location = @last_loc
+
 	select @sort_seq = 0
 	SELECT @INV_AVL = @LAST_INV
-	select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq + 1
-	select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq + 1
-	select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq + 1
-	select @ord = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq + 1
-END
+	select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq + 1 AND location = @last_loc
+	select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq + 1 AND location = @last_loc
+	select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq + 1 AND location = @last_loc
+	select @ord = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq + 1 AND location = @last_loc
+	end
+END -- sku loop
+
 -- final select
+
+IF @debug = 1 
+	BEGIN
+		SELECT 'sku' sku, * FROM #sku
+		SELECT '#t' t, * FROM #t
+	end
 
 
 -- fixup
@@ -883,6 +975,7 @@ select distinct
 -- , #SKU.*
 ,#sku.line_type
 ,#sku.sku
+,#sku.location
 ,#sku.mm
 ,case when #style.rel_date <> isnull(ia.field_26,#style.rel_date) 
 	then ia.field_26 end as  p_rel_date
@@ -945,12 +1038,12 @@ specs.price,
 specs.frame_type
 
 from #SKU 
-
+inner join #t on #t.part_no = #sku.sku and #t.mm = #sku.mm AND #t.location= #sku.location
+				AND #t.mult = #sku.mult and #t.sort_seq = #sku.sort_seq
 inner join inv_master i (nolock) on #SKU.sku = i.part_no
 inner join inv_master_add ia (nolock) on #SKU.sku = ia.part_no
-inner join #style on #style.brand = i.category and #style.style = ia.field_2
-inner join #t on #t.part_no = #sku.sku and #t.mm = #sku.mm 
-	and #t.mult = #sku.mult and #t.sort_seq = #sku.sort_seq
+inner join #style on #style.brand = i.category and #style.style = ia.field_2 
+				AND #style.location = #sku.location
 inner join
 (
 SELECT  i.category brand ,
@@ -988,6 +1081,8 @@ cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
 
 
 end
+
+
 
 
 

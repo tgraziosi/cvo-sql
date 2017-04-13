@@ -4,7 +4,7 @@ SET ANSI_NULLS ON
 GO
 CREATE PROCEDURE [dbo].[cvo_commission_statement_sp]
     @FiscalPeriod VARCHAR(10)
-AS -- exec cvo_commission_statement_sp '02/2017'
+AS -- exec cvo_commission_statement_sp '03/2017'
 
     SET NOCOUNT ON;
 
@@ -78,6 +78,21 @@ AS -- exec cvo_commission_statement_sp '02/2017'
                                 RIGHT('00' + CAST(@i AS VARCHAR(2)), 2) mm
                         FROM    dbo.cvo_commission_summary_work_tbl AS ccswt
 						JOIN arsalesp sp ON ccswt.salesperson = sp.salesperson_code 
+						UNION ALL
+                        SELECT DISTINCT
+                                sp.salesperson_code salesperson ,
+                                sp.salesperson_name ,
+                                sp.territory_code territory ,
+                                dbo.calculate_region_fn(sp.territory_code) region ,
+								ISNULL(dbo.adm_format_pltdate_f(sp.date_hired),'1/1/1900') hiredate,
+								ISNULL(dbo.adm_format_pltdate_f(sp.date_terminated),'12/31/2099') termdate,
+								sp.status_type,
+								sp.salesperson_type,
+                                RIGHT('00' + CAST(@i AS VARCHAR(2)), 2) mm
+                        FROM    arsalesp sp
+						WHERE sp.status_type = 1 AND NOT EXISTS 
+						(SELECT 1 FROM dbo.cvo_commission_summary_work_tbl AS ccswt WHERE ccswt.salesperson = sp.salesperson_code
+							AND RIGHT(@FiscalPeriod,4) = RIGHT(ccswt.report_month,4))
 						;
                 SELECT  @i = @i + 1;
             END;
@@ -104,7 +119,11 @@ AS -- exec cvo_commission_statement_sp '02/2017'
                                                 '')
                                     ELSE ''
                                END ,
-                additionrsn3 = addition3.additionrsn3,
+                additionrsn3 = CASE WHEN #mm.mm = additionalrsn3.month_num
+                                    THEN ISNULL(additionalrsn3.additionalrsn3,
+                                                '')
+                                    ELSE ''
+                               END ,
 
                 reduction1 = reductionrsn1.reduction1 ,
                 reductionrsn1 = reductionrsn1.reductionrsn1 ,
@@ -215,8 +234,7 @@ AS -- exec cvo_commission_statement_sp '02/2017'
 
 				 LEFT OUTER JOIN ( SELECT	cpv.rep_code, 
 											LEFT(cpv.recorded_month,2) month_num,
-											SUM(ISNULL(incentive_amount, 0)) addition3,
-											MAX(ISNULL(cpv.comments, '')) additionrsn3
+											SUM(ISNULL(incentive_amount, 0)) addition3
 											 -- closeouts
                               FROM      dbo.cvo_commission_promo_values AS cpv
 
@@ -258,7 +276,35 @@ AS -- exec cvo_commission_statement_sp '02/2017'
                                             AND c.recorded_month <= @FiscalPeriod
                                 ) additionalrsn2 ON #mm.salesperson = additionalrsn2.rep_code
                                                     AND #mm.mm = additionalrsn2.month_num
-
+                LEFT OUTER JOIN ( SELECT DISTINCT
+                                            c.rep_code ,
+                                            LEFT(c.recorded_month, 2) month_num ,
+                                            REPLACE(STUFF(( SELECT DISTINCT
+                                                              '; '
+                                                              + ISNULL(ccpv2.comments,
+                                                              '')
+                                                            FROM
+                                                              dbo.cvo_commission_promo_values
+                                                              AS ccpv2
+                                                            WHERE
+                                                              c.rep_code = ccpv2.rep_code
+                                                              AND ISNULL(ccpv2.line_type,
+                                                              '') IN (
+                                                              'Adj/Additional Adj 3' )
+                                                              AND ISNULL(ccpv2.incentive_amount,
+                                                              0) > 0
+                                                              AND LEFT(ccpv2.recorded_month,2) = LEFT(c.recorded_month, 2)
+															  AND @year = RIGHT(ccpv2.recorded_month,4) -- 2/10
+                                                          FOR
+                                                            XML
+                                                              PATH('')
+                                                          ), 1, 1, ''),
+                                                    '&amp;', '&') additionalrsn3
+                                  FROM      dbo.cvo_commission_promo_values AS c
+                                  WHERE     CAST(RIGHT(c.recorded_month, 4) AS INT) = @year
+                                            AND c.recorded_month <= @FiscalPeriod
+                                ) additionalrsn3 ON #mm.salesperson = additionalrsn3.rep_code
+                                                    AND #mm.mm = additionalrsn3.month_num
                 LEFT OUTER JOIN ( SELECT DISTINCT
                                             c.rep_code ,
                                             LEFT(c.recorded_month, 2) month_num ,
@@ -308,6 +354,9 @@ AS -- exec cvo_commission_statement_sp '02/2017'
 
 
     END;
+
+
+
 
 
 GO

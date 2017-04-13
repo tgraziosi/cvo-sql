@@ -42,7 +42,14 @@ BEGIN
 			@rec_id			SMALLINT,	-- v5.4
 			@stcons_no		int, -- v5.9
 			@last_stcons_no int, -- v5.9
-			@prior_hold		varchar(10) -- v7.3
+			@prior_hold		varchar(10), -- v7.3
+			@fl_row_id		int, -- v7.5
+			@fill_rate		decimal(20,8), -- v7.5
+			@fill_rate_level decimal(20,8), -- v7.5
+			@sc_flag		int, -- v7.5
+			@hold_priority	int, -- v7.5
+			@user_category	varchar(20), -- v7.5
+			@status			char(1) -- v7.5
 
 	-- v6.3 Start
 	DECLARE	@cur_con_no		int,
@@ -323,6 +330,142 @@ BEGIN
 	-- v6.7 End
 
 	-- Future Allocations - Update the status on the soft allocations where the future allocation is now due
+
+	-- v7.5 Start
+	CREATE TABLE #future_fl_check (
+		row_id		int IDENTITY(1,1),
+		order_no	int,	
+		order_ext	int)
+
+	INSERT	#future_fl_check (order_no, order_ext)
+	SELECT	a.order_no, a.order_ext
+	FROM	dbo.cvo_soft_alloc_hdr a WITH (ROWLOCK)
+	JOIN	cvo_orders_all b (NOLOCK)
+	ON		a.order_no = b.order_no
+	AND		a.order_ext = b.ext
+	LEFT JOIN #no_soft_alloc_orders d
+	ON		a.order_no = d.order_no
+	AND		a.order_ext = d.order_ext
+	WHERE	b.allocation_date <= getdate()
+	AND		a.status = -3
+	AND		d.order_no IS NULL 
+	AND		d.order_ext IS NULL
+
+	SELECT	@fill_rate_level = CAST(value_str as decimal(20,8))
+	FROM	dbo.config (NOLOCK) 
+	WHERE	flag = 'ST_ORDER_FILL_RATE'
+
+
+	SET @fl_row_id = 0
+
+	WHILE (1 = 1)
+	BEGIN
+
+		SELECT	TOP 1 @fl_row_id = row_id,
+				@order_no = order_no,
+				@order_ext = order_ext
+		FROM	#future_fl_check
+		WHERE	row_id > @fl_row_id
+		ORDER BY row_id ASC
+
+		IF (@@ROWCOUNT = 0)
+			BREAK
+
+		SELECT	@soft_alloc_no = soft_alloc_no
+		FROM	cvo_soft_alloc_no_assign (NOLOCK)
+		WHERE	order_no = @order_no
+		AND		order_ext = @order_ext
+
+		SELECT	@sc_flag = back_ord_flag,
+				@user_category = user_category,
+				@status = status
+		FROM	orders_all (NOLOCK)
+		WHERE	order_no = @order_no
+		AND		ext = @order_ext
+
+		SET @fill_rate = -1
+		EXEC dbo.cvo_order_summary_sp @soft_alloc_no, @order_no, @order_ext, 1, NULL, @fill_rate OUTPUT 
+
+		IF (@fill_rate < 100 AND @sc_flag = 1) -- Ship Complete
+		BEGIN
+			IF (@status = 'N')
+			BEGIN
+				UPDATE	orders_all
+				SET		status = 'A',
+						hold_reason = 'SC'
+				WHERE	order_no = @order_no
+				AND		ext = @order_ext
+
+				INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+				SELECT	GETDATE() , 'ALLOC CHECK' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
+						'STATUS:A/SC USER HOLD; HOLD REASON: SHIP COMPLETE;'
+				FROM	orders_all a (NOLOCK)
+				WHERE	a.order_no = @order_no
+				AND		a.ext = @order_ext
+			END
+			ELSE
+			BEGIN
+				IF NOT EXISTS (SELECT 1 FROM cvo_so_holds (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext AND hold_reason = 'SC')
+				BEGIN
+					SELECT	@hold_priority = dbo.f_get_hold_priority('SC','')
+
+					INSERT	dbo.cvo_so_holds (order_no, order_ext, hold_reason, hold_priority, hold_user, hold_date)
+					SELECT	@order_no, @order_ext, 'SC', @hold_priority, 'S/ALLOC', GETDATE()
+
+					INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+					SELECT	GETDATE() , 'ALLOC CHECK' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
+							'ADD HOLD SC;'
+					FROM	orders_all a (NOLOCK)
+					WHERE	a.order_no = @order_no
+					AND		a.ext = @order_ext
+				END
+			END
+			INSERT	#exclusions (order_no, order_ext)
+			SELECT	@order_no, @order_ext
+		END
+
+		IF ((@fill_rate < @fill_rate_level AND @sc_flag <> 1) AND LEFT(@user_category,2) = 'ST')
+		BEGIN
+			IF (@status = 'N') 
+			BEGIN
+				UPDATE	orders_all
+				SET		status = 'A',
+						hold_reason = 'FL'
+				WHERE	order_no = @order_no
+				AND		ext = @order_ext
+
+				INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+				SELECT	GETDATE() , 'ALLOC CHECK' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
+						'STATUS:A/FL USER HOLD; HOLD REASON: FILL LEVEL;'
+				FROM	orders_all a (NOLOCK)
+				WHERE	a.order_no = @order_no
+				AND		a.ext = @order_ext
+			END
+			ELSE
+			BEGIN
+				IF NOT EXISTS (SELECT 1 FROM cvo_so_holds (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext AND hold_reason = 'SC')
+				BEGIN
+					SELECT	@hold_priority = dbo.f_get_hold_priority('FL','')
+
+					INSERT	dbo.cvo_so_holds (order_no, order_ext, hold_reason, hold_priority, hold_user, hold_date)
+					SELECT	@order_no, @order_ext, 'FL', @hold_priority, 'S/ALLOC', GETDATE()
+
+					INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+					SELECT	GETDATE() , 'ALLOC CHECK' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
+							'ADD HOLD FL;'
+					FROM	orders_all a (NOLOCK)
+					WHERE	a.order_no = @order_no
+					AND		a.ext = @order_ext
+				END
+			END
+			INSERT	#exclusions (order_no, order_ext)
+			SELECT	@order_no, @order_ext
+		END
+	END
+
+	DROP TABLE #future_fl_check
+	-- v7.5 End
+
 	UPDATE	a
 	SET		status = 0
 	FROM	dbo.cvo_soft_alloc_hdr a WITH (ROWLOCK)

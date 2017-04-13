@@ -6,11 +6,13 @@ GO
 CREATE  PROCEDURE [dbo].[cvo_commiss_bldr_create_summary_sp] (@fiscalPeriod VARCHAR(10) =  NULL, @slp VARCHAR(10) = null )
 AS 
 
+-- TAG 4/11/2017 - get draw amount from builder data, not the salesperson master
+
 SET NOCOUNT ON;
 
 -- exec cvo_commiss_bldr_create_summary_sp '08/2016', '50531'
 -- exec dbo.cvo_commission_bldr_sp '12/01/2015', '12/31/2015'
--- SELECT * FROM cvo_commission_summary_work_tbl AS ccswt where salesperson = '50531'
+-- SELECT * FROM cvo_commission_summary_work_tbl AS ccswt where report_month = '03/2017'
 -- update v set v.rep_code = slp.salesperson_code
 	-- From cvo_commission_promo_values v
 	--LEFT OUTER JOIN arsalesp slp ON slp.salesperson_name = v.rep_code
@@ -96,9 +98,9 @@ select a.Salesperson ,
        dbo.adm_format_pltdate_f(r.date_hired) hiredate ,
        a.amount ,
 	   a.comm_amt
-	   , ISNULL(draw_over.draw_amount, ISNULL( r.draw_amount,0 )) draw_amount
+	   , ISNULL(draw_over.draw_amount, ISNULL( d.draw_amount, 0)) draw_amount
 	   , ISNULL(draw_over.qty, @drawweeks) drawweeks
-	   , total_draw = ISNULL(draw_over.draw_amount, ISNULL( r.draw_amount,0 )) * ISNULL(draw_over.qty, @drawweeks)
+	   , total_draw = ISNULL(draw_over.draw_amount, ISNULL( d.draw_amount, 0)) * ISNULL(draw_over.qty, @drawweeks)
 	   --, pfp.net_pay, pfphist.net_pay
 	   , prior_month_bal = CASE WHEN pfphist.net_pay IS NULL OR pfphist.net_pay = 0 THEN ISNULL(pfp.net_pay,0)
 							ELSE pfphist.net_pay
@@ -129,12 +131,24 @@ from
 		, fiscal_period
 		-- , CONVERT(money,SUM(amount)) amount
 		, CONVERT(money,SUM(net_sales)) amount -- 9/12/2016
-		, convert(money,SUM(comm_amt)) comm_amt 
+		, convert(money,SUM(comm_amt)) comm_amt
 	from cvo_commission_bldr_work_tbl
 	WHERE fiscal_period = @fp
 	AND Salesperson = ISNULL(@slp, Salesperson)
 	GROUP BY Salesperson
 			,fiscal_period) a
+	LEFT OUTER JOIN
+
+    (SELECT distinct salesperson, draw_amount
+	FROM dbo.cvo_commission_bldr_work_tbl 
+	WHERE fiscal_period = @fp AND 
+	salesperson = ISNULL(@slp, salesperson)
+	AND DateShipped = 
+	(SELECT MIN(dateshipped) 
+	FROM dbo.cvo_commission_bldr_work_tbl 
+	WHERE salesperson = ISNULL(@slp, salesperson) AND fiscal_period = @fp)
+	) d ON d.salesperson = a.salesperson
+
 	JOIN arsalesp r ON r.salesperson_code = a.Salesperson
 	LEFT OUTER JOIN -- prior month balance to roll forward, if any
     (SELECT salesperson,
@@ -228,6 +242,9 @@ UPDATE d SET
 		AND d.salesperson = ISNULL(@slp, d.salesperson)
 
 -- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt where report_month = '09/2016'
+
+
+
 
 
 

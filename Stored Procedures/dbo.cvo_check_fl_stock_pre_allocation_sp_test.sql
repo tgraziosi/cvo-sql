@@ -80,7 +80,7 @@ BEGIN
 		SELECT	a.location,
 				a.line_no,
 				a.part_no,
-				a.ordered, -- - a.shipped, -- v1.2
+				a.ordered - a.shipped, -- v1.2
 				0
 		FROM	ord_list a (NOLOCK)
 		JOIN	inv_master b (NOLOCK) -- v1.3
@@ -104,6 +104,7 @@ BEGIN
 		WHILE (@@ROWCOUNT <> 0)
 		BEGIN
 
+			
 			SET @in_stock = 0
 			SET @in_stock_ex = 0
 			SET @alloc_qty = 0
@@ -172,17 +173,28 @@ BEGIN
 			FROM	dbo.cvo_soft_alloc_det a (NOLOCK)  
 -- v1.4		WHERE	a.status IN (0, 1, -1)  
 			WHERE	a.status NOT IN (-2,-3) --  v1.4
-			AND		(CAST(a.order_no AS varchar(10)) + CAST(a.order_ext AS varchar(5))) <> (CAST(@order_no AS varchar(10)) + CAST(@order_ext AS varchar(5)))    
+			AND		(CAST(a.order_no AS varchar(10)) + '-' + CAST(a.order_ext AS varchar(5))) <> (CAST(@order_no AS varchar(10)) + '-' + CAST(@order_ext AS varchar(5)))    
 			AND		a.location = @location  
 			AND		a.part_no = @part_no
 			AND		a.soft_alloc_no < @soft_alloc_no -- v1.1
   
 			IF (@sa_qty IS NULL)  
 			 SET @sa_qty = 0  
+
+			 SELECT '@part_no',@part_no
+			 SELECT '@line_no',@line_no
+			 SELECT '@in_stock',@in_stock
+			 SELECT '@alloc_qty',@alloc_qty
+			 SELECT '@quar_qty',@quar_qty
+			 SELECT '@sa_qty',@sa_qty
+			 SELECT '@qty',@qty
 		  
 			-- Compare - if no stock available then mark the record  
 			IF ((@in_stock - (@alloc_qty + @quar_qty + @sa_qty)) < @qty) 
 			BEGIN  
+
+				SELECT 'Part: ' + @part_no + ' not available'
+
 				UPDATE #order_det  
 				SET  no_stock = 1  
 				WHERE line_row_id = @line_row_id  
@@ -214,6 +226,9 @@ BEGIN
 			SELECT	@total_available = SUM(qty)
 			FROM	#order_det
 			WHERE	no_stock = 0
+
+			SELECT '@total_ordered',@total_ordered
+			SELECT '@total_available',@total_available
 
 
 			IF (@total_available > 0)
