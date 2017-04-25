@@ -16,13 +16,13 @@ GO
 -- exec [dbo].[CVO_rad_shipto_sp]
 -- select * from cvo.dbo.cvo_rad_shipto order by customer, ship_to, yyyymmdd
 -- select * from cvo_rad_shipto where door = 0
--- select sum(netsales) from cvo_csbm_shipto c
+-- select sum(netsales) from cvo_sbm_details c
 	--inner join armaster ar on c.customer_code = ar.customer_code and c.ship_to_code = ar.ship_to_code
 	--and c.territory_code = ar.territory_code
 -- select 
 --customer, ship_to, 
 --sum(netsales) from cvo_rad_shipto where territory = 20201 and year = 2013 group by customer, ship_to
---select customer, c.ship_to, door, sum(anet) from cvo_csbm_shipto c
+--select customer, c.ship_to, door, sum(anet) from cvo_sbm_details c
 --inner join armaster ar (nolock) on c.customer = ar.customer_code and c.ship_to = ar.ship_to_code
 --inner join cvo_armaster_all ca (nolock) on c.customer = ca.customer_code and c.ship_to = ca.ship_to
 --where territory_code = 20201 and year = 2013 group by c.customer, c.ship_to, door
@@ -160,7 +160,7 @@ while @yy <=  @curyy
 	
 	from cvo_armaster_all ca (nolock)
 	inner join armaster ar (nolock) on ar.customer_code = ca.customer_code and ar.ship_to_code = ca.ship_to
-	left outer join /*cvo_csbm_shipto*/ cvo_sbm_details xx (nolock) on
+	left outer join  cvo_sbm_details xx (nolock) on
 		   xx.customer = ca.customer_code and xx.ship_to=ca.ship_to and 
 		   xx.x_month = @mm and xx.year = @yy
 	set @mm = @mm + 1

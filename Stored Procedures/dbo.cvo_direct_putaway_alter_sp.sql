@@ -286,7 +286,8 @@ BEGIN
 	AND		a.part_no = @part_no
 	AND		a.order_no <> 0
 	AND		a.status IN (0,1)
-	AND		CONVERT(varchar(10),b.allocation_date,120) <= CONVERT(varchar(10),GETDATE(),120)
+	AND		a.order_ext > 0 -- v1.8
+	-- v1.8 AND		CONVERT(varchar(10),b.allocation_date,120) <= CONVERT(varchar(10),GETDATE(),120)
 
 	IF (@sa_qty IS NULL)
 		SET @sa_qty = 0
@@ -377,6 +378,11 @@ BEGIN
 	END
 	-- v1.7 End
 
+	-- v1.9 Start
+	IF (ABS(@alloc_qty) > @qty)
+		SET @alloc_qty = @qty
+	-- v1.9 End
+
 	-- Check for backorder processing consuming the PO
 	IF EXISTS (SELECT 1 FROM CVO_backorder_processing_orders_po_xref_trans (NOLOCK) WHERE tran_id = @tran_id)
 	BEGIN
@@ -461,20 +467,20 @@ BEGIN
 						END
 						ELSE
 						BEGIN
-							IF (@bin_type <> 6)
-							BEGIN					
-								IF (@alloc_qty >= @qty_remaining)
-								BEGIN
-									SET @new_qty = @qty_remaining
-									SET @qty_remaining = 0			
-								END
-								ELSE
-								BEGIN
-									SET @new_qty = @alloc_qty
-									SET @qty_remaining = @qty_remaining - @alloc_qty			
-								END
-							END
-							ELSE
+--							IF (@bin_type <> 6)
+--							BEGIN					
+--								IF (@alloc_qty >= @qty_remaining)
+--								BEGIN
+--									SET @new_qty = @qty_remaining
+--									SET @qty_remaining = 0			
+--								END
+--								ELSE
+--								BEGIN
+--									SET @new_qty = @alloc_qty
+--									SET @qty_remaining = @qty_remaining - @alloc_qty			
+--								END
+--							END
+--							ELSE
 							BEGIN
 								SET @new_qty = @fill_qty
 								SET @qty_remaining = @qty_remaining - @fill_qty

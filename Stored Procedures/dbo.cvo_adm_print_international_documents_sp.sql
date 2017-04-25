@@ -16,6 +16,7 @@ GO
 -- v11.1 CT 13/03/2014 - Issue #1461 - When calculating value for Export declaration, get value of all lines which aren't cases
 -- TG 08/06/2014 - update material field in print detail from 15 to 20 characters
 -- v11.2 CB 19/06/2015	Fix issue with LP_TOTAL_QTY on multiple pages for CUSTOMS INVOICE
+-- v11.3 CB 21/02/2017	Deal with an item split over multiple cartons
 -- EXEC cvo_adm_print_international_documents_sp 1419582, 0
 CREATE PROC [dbo].[cvo_adm_print_international_documents_sp]	@order_no	int,
 															@order_ext	int
@@ -283,7 +284,7 @@ IF (@country_code <> 'US' AND @country_code <> '')
 		*/
 
 		UPDATE	a
-		SET		qty = dbo.f_international_documents_qty (order_no, order_ext, line_no, part_no)
+		SET		qty = dbo.f_international_documents_qty (order_no, order_ext, line_no, part_no, carton_no) -- v11.3
 		FROM	#PrintData_detail a
 		WHERE	a.order_no = @order_no
 		AND		a.order_ext = @order_ext
@@ -480,7 +481,7 @@ IF (@country_code <> 'US' AND @country_code <> '')
 			AND		a.order_ext = @order_ext
 			*/
 			UPDATE	a
-			SET		qty = dbo.f_international_documents_qty (order_no, order_ext, line_no, part_no)
+			SET		qty = dbo.f_international_documents_qty (order_no, order_ext, line_no, part_no, carton_no) -- v11.3
 			FROM	#PrintData_detail a
 			WHERE	a.order_no = @order_no
 			AND		a.order_ext = @order_ext
@@ -743,7 +744,7 @@ IF (@country_code <> 'US' AND @country_code <> '')
 		AND		a.order_ext = @order_ext
 		*/
 		UPDATE	a
-		SET		qty = dbo.f_international_documents_qty (order_no, order_ext, line_no, part_no)
+		SET		qty = dbo.f_international_documents_qty (order_no, order_ext, line_no, part_no, carton_no) -- v11.3
 		FROM	#PrintData_detail a
 		WHERE	a.order_no = @order_no
 		AND		a.order_ext = @order_ext
@@ -830,7 +831,7 @@ IF (@country_code <> 'US' AND @country_code <> '')
 
 
 		UPDATE	a
-		SET		qty = dbo.f_international_documents_qty (order_no, order_ext, line_no, part_no)
+		SET		qty = dbo.f_international_documents_qty (order_no, order_ext, line_no, part_no, NULL) -- v11.3
 		FROM	#Order_value a
 		WHERE	a.order_no = @order_no
 		AND		a.order_ext = @order_ext
@@ -1039,7 +1040,7 @@ IF (@country_code <> 'US' AND @country_code <> '')
 		*/
 
 		UPDATE	a
-		SET		qty = dbo.f_international_documents_qty (order_no, order_ext, line_no, part_no)
+		SET		qty = dbo.f_international_documents_qty (order_no, order_ext, line_no, part_no, carton_no) -- v11.3
 		FROM	#PrintData_detail a
 		WHERE	a.order_no = @order_no
 		AND		a.order_ext = @order_ext

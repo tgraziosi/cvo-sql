@@ -17,7 +17,7 @@ GO
 -- select * from cvo.dbo.cvo_tsbm_daily order by territory, otype, month 
 /*
    select sum(anet) from cvo_tsbm_daily 
-   select sum(anet) from cvo_csbm_shipto_daily
+   select sum(anet) from cvo_sbm_details
    select * From tempdb.dbo.#cvo_tsbm_det
 */
 /* 9/5/2012 - make qty's frames and suns only, and add unposted AR */

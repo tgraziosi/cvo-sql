@@ -74,7 +74,7 @@ IF EXISTS (SELECT 1 FROM tdc_pick_queue a (NOLOCK) LEFT JOIN ord_list b (NOLOCK)
 			AND	a.line_no = b.line_no WHERE a.trans_type_no = @order_no AND a.trans_type_ext = @order_ext AND a.trans = 'STDPICK' AND b.line_no IS NULL)
 BEGIN
 	-- Need to unallocate the lines that do not exist on the order
-	DELETE	a
+	DELETE	a WITH (ROWLOCK) -- v3.5
 	FROM	tdc_soft_alloc_tbl a
 	LEFT JOIN	ord_list b (NOLOCK)
 	ON		a.order_no = b.order_no 
@@ -85,7 +85,7 @@ BEGIN
 	AND		b.line_no IS NULL
 	AND		a.order_type = 'S'
 
-	DELETE	a
+	DELETE	a WITH (ROWLOCK) -- v3.5
 	FROM	tdc_pick_queue a
 	LEFT JOIN	ord_list b (NOLOCK)
 	ON		a.trans_type_no = b.order_no 
@@ -127,9 +127,9 @@ IF EXISTS(SELECT * FROM tdc_alloc_history_tbl(NOLOCK)
       AND order_type = 'S'  
       AND location   = @location)  
 BEGIN  
- UPDATE tdc_alloc_history_tbl   
+ UPDATE tdc_alloc_history_tbl WITH (ROWLOCK) -- v3.5  
     SET fill_pct = a.curr_alloc_pct  
-   FROM #so_alloc_management a, tdc_alloc_history_tbl b(NOLOCK)  
+   FROM #so_alloc_management a, tdc_alloc_history_tbl b
   WHERE b.order_no   = @order_no  
     AND b.order_ext  = @order_ext  
     AND b.order_type = 'S'  
@@ -140,7 +140,7 @@ BEGIN
 END  
 ELSE  
 BEGIN  
- INSERT INTO tdc_alloc_history_tbl (order_no, order_ext, location, fill_pct, alloc_date, alloc_by, order_type)  
+ INSERT INTO tdc_alloc_history_tbl WITH (ROWLOCK)(order_no, order_ext, location, fill_pct, alloc_date, alloc_by, order_type)   -- v3.5
  VALUES (@order_no, @order_ext, @location, 0, GETDATE(), @user_id, 'S')  
 END  
   
@@ -237,7 +237,7 @@ BEGIN
  BEGIN
 	SELECT @custom_bin = ISNULL((SELECT value_str FROM tdc_config (nolock)  
 									WHERE [function] = 'CVO_CUSTOM_BIN' AND active = 'Y'), 'CUSTOM')
-	UPDATE	tdc_soft_alloc_tbl   
+	UPDATE	tdc_soft_alloc_tbl WITH (ROWLOCK) -- v3.5   
     SET		qty = qty  - @qty_to_unalloc,  
 			trg_off = 1 --SCR 38010 Jim 8/16/07 : disable tdc_upd_softalloc_tg  
     WHERE	order_no   = @order_no  
@@ -252,7 +252,7 @@ BEGIN
  END
  ELSE
  BEGIN  
-	UPDATE	tdc_soft_alloc_tbl   
+	UPDATE	tdc_soft_alloc_tbl WITH (ROWLOCK) -- v3.5  
     SET		qty = qty  - @qty_to_unalloc,  
 			trg_off = 1 --SCR 38010 Jim 8/16/07 : disable tdc_upd_softalloc_tg  
     WHERE	order_no   = @order_no  
@@ -284,7 +284,7 @@ BEGIN
 	SELECT @custom_bin = ISNULL((SELECT value_str FROM tdc_config (nolock)  
 									WHERE [function] = 'CVO_CUSTOM_BIN' AND active = 'Y'), 'CUSTOM')
 
-	UPDATE tdc_pick_queue   
+	UPDATE tdc_pick_queue WITH (ROWLOCK) -- v3.5  
     SET qty_to_process = qty_to_process - @qty_to_unalloc  
          WHERE trans         IN ('STDPICK', 'PKGBLD')  
            AND trans_type_no  = @order_no  
@@ -298,7 +298,7 @@ BEGIN
  END
  ELSE
  BEGIN
-	UPDATE tdc_pick_queue   
+	UPDATE tdc_pick_queue WITH (ROWLOCK) -- v3.5  
     SET qty_to_process = qty_to_process - @qty_to_unalloc  
          WHERE trans         IN ('STDPICK', 'PKGBLD')  
            AND trans_type_no  = @order_no  
@@ -328,7 +328,7 @@ BEGIN
 	SELECT @custom_bin = ISNULL((SELECT value_str FROM tdc_config (nolock)  
 									WHERE [function] = 'CVO_CUSTOM_BIN' AND active = 'Y'), 'CUSTOM')
 
-	DELETE FROM tdc_pick_queue   
+	DELETE FROM tdc_pick_queue WITH (ROWLOCK) -- v3.5  
          WHERE trans          IN ('STDPICK', 'PKGBLD')  
            AND trans_type_no   = @order_no  
            AND trans_type_ext  = @order_ext  
@@ -341,7 +341,7 @@ BEGIN
  END
  ELSE
  BEGIN
-	DELETE FROM tdc_pick_queue   
+	DELETE FROM tdc_pick_queue WITH (ROWLOCK) -- v3.5  
          WHERE trans          IN ('STDPICK', 'PKGBLD')  
            AND trans_type_no   = @order_no  
            AND trans_type_ext  = @order_ext  
@@ -356,7 +356,7 @@ BEGIN
 	IF EXISTS (SELECT 1 FROM tdc_pick_queue (NOLOCK) WHERE trans_type_no = @order_no AND trans_type_ext = @order_ext 
 				AND part_no = @part_no AND line_no = @line_no AND trans = 'MGTB2B')
 	BEGIN			
-		UPDATE	a
+		UPDATE	a WITH (ROWLOCK) -- v3.5
 		SET		qty = a.qty - b.qty_to_process
 		FROM	tdc_soft_alloc_tbl a
 		JOIN	tdc_pick_queue b (NOLOCK)
@@ -371,7 +371,7 @@ BEGIN
 		AND		a.order_type = 'S'
 		AND		a.order_no = 0
 
-		DELETE	tdc_soft_alloc_tbl
+		DELETE	tdc_soft_alloc_tbl WITH (ROWLOCK) -- v3.5
 		WHERE	location = @location
 		AND		order_no = 0
 		AND		order_type = 'S'
@@ -380,7 +380,7 @@ BEGIN
 	END
 	-- v10.1 End
 
-	DELETE	tdc_pick_queue
+	DELETE	tdc_pick_queue WITH (ROWLOCK) -- v3.5
 	WHERE	trans         = 'MGTB2B'           
     AND		trans_type_no  = @order_no       
     AND		trans_type_ext = @order_ext            
@@ -391,7 +391,7 @@ BEGIN
 	-- v1.7 End
  IF @con_no_passed_in > 0  
  BEGIN  
-  UPDATE tdc_pick_queue   
+  UPDATE tdc_pick_queue  WITH (ROWLOCK) -- v3.5  
      SET qty_to_process = qty_to_process  - @qty_to_unalloc  
           WHERE trans           = 'PLWB2B'  
             AND trans_type_no   = @con_no_passed_in  
@@ -401,7 +401,7 @@ BEGIN
             AND lot             = @lot_ser  
             AND bin_no          = @bin_no  
      
-  DELETE FROM tdc_pick_queue   
+  DELETE FROM tdc_pick_queue WITH (ROWLOCK) -- v3.5  
           WHERE trans           = 'PLWB2B'  
             AND trans_type_no   = @con_no_passed_in  
             AND trans_type_ext  = 0  
@@ -417,7 +417,7 @@ BEGIN
 	SELECT @custom_bin = ISNULL((SELECT value_str FROM tdc_config (nolock)  
 									WHERE [function] = 'CVO_CUSTOM_BIN' AND active = 'Y'), 'CUSTOM')
 
-	UPDATE tdc_soft_alloc_tbl   
+	UPDATE tdc_soft_alloc_tbl WITH (ROWLOCK) -- v3.5  
     SET trg_off = 0 --SCR 37993 Jim 8/16/07 : enable tdc_upd_softalloc_tg  
          WHERE order_no   = @order_no  
            AND order_ext  = @order_ext  
@@ -428,7 +428,7 @@ BEGIN
     AND lot_ser    = @lot_ser  
     AND bin_no     = @custom_bin  
 
-	DELETE	tdc_soft_alloc_tbl
+	DELETE	tdc_soft_alloc_tbl WITH (ROWLOCK) -- v3.5
 	WHERE	order_no   = @order_no  
     AND		order_ext  = @order_ext  
     AND		order_type = 'S'  
@@ -441,7 +441,7 @@ BEGIN
  END
  ELSE
  BEGIN
-	UPDATE tdc_soft_alloc_tbl   
+	UPDATE tdc_soft_alloc_tbl WITH (ROWLOCK) -- v3.5  
     SET trg_off = 0 --SCR 37993 Jim 8/16/07 : enable tdc_upd_softalloc_tg  
          WHERE order_no   = @order_no  
            AND order_ext  = @order_ext  
@@ -455,7 +455,7 @@ BEGIN
  -- Log the record  
  SET @unalloc_type = 'UnAllocate By Lot/Bin: ' -- v2.0
 
- INSERT INTO tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no,   
+ INSERT INTO tdc_log WITH (ROWLOCK)(tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no,    -- v3.5
         lot_ser, bin_no, location, quantity, data)  
  SELECT getdate(), @user_id, 'VB', 'PLWSO', 'UNALLOCATION', @order_no, @order_ext, @part_no,   
         @lot_ser,  @bin_no, @location, @qty_to_unalloc,   
@@ -684,7 +684,7 @@ BEGIN
        AND lot_ser    = @lot_ser  
                      AND bin_no     = @bin_no)  
  BEGIN    
-  UPDATE tdc_soft_alloc_tbl  
+  UPDATE tdc_soft_alloc_tbl  WITH (ROWLOCK) -- v3.5
      SET qty           = qty  + @qty_to_alloc,  
          dest_bin      = @pass_bin,  
          q_priority    = @q_priority,  
@@ -702,13 +702,13 @@ BEGIN
  END  
  ELSE  
  BEGIN  
-  INSERT INTO tdc_soft_alloc_tbl(order_no, order_ext, location, line_no, part_no,lot_ser, bin_no, qty, order_type,   
+  INSERT INTO tdc_soft_alloc_tbl WITH (ROWLOCK)(order_no, order_ext, location, line_no, part_no,lot_ser, bin_no, qty, order_type,    -- v3.5
        target_bin, dest_bin, alloc_type, q_priority, assigned_user, user_hold, pkg_code)  
   VALUES (@order_no, @order_ext, @location, @line_no, @part_no,  @lot_ser,  @bin_no, @qty_to_alloc, 'S',  
    @bin_no, @pass_bin, @alloc_type, @q_priority, @assigned_user, @user_hold, @pkg_code)  
  END  
   
- INSERT INTO tdc_log (tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)  
+ INSERT INTO tdc_log WITH (ROWLOCK)(tran_date, UserID, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)   -- v3.5
  VALUES(GETDATE(), @user_id, 'VB', 'PLW', 'ALLOCATION', @order_no, @order_ext, @part_no, @lot_ser,  @bin_no, @location, @qty_to_alloc, @unalloc_type + @data) -- v2.0
 
 -- v1.6 Start
@@ -770,7 +770,7 @@ BEGIN
 			
 		EXEC CVO_disassembled_print_inv_adjust_sp @order_no, @order_ext		
 			
-		UPDATE	cvo_orders_all 
+		UPDATE	cvo_orders_all WITH (ROWLOCK) -- v3.5
 		SET		flag_print = 2 
 		WHERE	order_no = @order_no 
 		AND		 ext = @order_ext
@@ -807,18 +807,18 @@ BEGIN
   SELECT @con_desc = 'Ord ' +  CONVERT(VARCHAR(20),@order_no) + ' Ext ' + CONVERT(VARCHAR(4),@order_ext)   
    
    
-  INSERT INTO tdc_main ( consolidation_no, consolidation_name, order_type,  
+  INSERT INTO tdc_main WITH (ROWLOCK)( consolidation_no, consolidation_name, order_type,   -- v3.5
    [description], status, created_by, creation_date, pre_pack  )   
   VALUES (@next_con_no , @con_name, 'S', @con_desc, 'O' , @user_id , GETDATE(), @pre_pack_flag )  
    
   --only one order per consolidation set for ONE_FOR_ONE   
-  DELETE FROM tdc_cons_ords   
+  DELETE FROM tdc_cons_ords WITH (ROWLOCK) -- v3.5  
    WHERE order_no = @order_no  
      AND order_ext = @order_ext  
      AND location = @location  
      AND order_type = 'S'  
   
-   INSERT INTO tdc_cons_ords (consolidation_no, order_no, order_ext,location,  
+   INSERT INTO tdc_cons_ords WITH (ROWLOCK)(consolidation_no, order_no, order_ext,location,   -- v3.5
          status, seq_no, print_count, order_type, alloc_type)  
    VALUES ( @next_con_no,@order_no,@order_ext,@location,'O', 1 , 0, 'S', @alloc_type)  
    
@@ -829,7 +829,7 @@ BEGIN
    DELETE FROM tdc_cons_filter_set   
     WHERE consolidation_no = @next_con_no  
    
-  INSERT INTO tdc_cons_filter_set ( consolidation_no, location, order_status, ship_date_start, ship_date_end,  
+  INSERT INTO tdc_cons_filter_set WITH (ROWLOCK)( consolidation_no, location, order_status, ship_date_start, ship_date_end,   -- v3.5
    order_range_start, order_range_end, ext_range_start, ext_range_end, order_priority_start,  
    order_priority_end, order_priority_range,  
    sold_to, ship_to, territory, carrier, destination_zone, cust_op1, cust_op2, cust_op3, order_no_range,  
@@ -871,10 +871,10 @@ BEGIN
              AND order_type = 'S'  
              AND location = @location )   
    BEGIN   
-    INSERT INTO tdc_cons_ords (consolidation_no, order_no,order_ext,location,status,seq_no,print_count,order_type, alloc_type)  
+    INSERT INTO tdc_cons_ords WITH (ROWLOCK)(consolidation_no, order_no,order_ext,location,status,seq_no,print_count,order_type, alloc_type)   -- v3.5
       VALUES ( @con_no_passed_in, @order_no,@order_ext,@location,'O', @con_seq_no , 0, 'S', @alloc_type)  
      
-    INSERT INTO tdc_log (tran_date, UserID, trans_source, module, trans,tran_no , tran_ext, part_no, lot_ser, bin_no, location, quantity, data)  
+    INSERT INTO tdc_log WITH (ROWLOCK)(tran_date, UserID, trans_source, module, trans,tran_no , tran_ext, part_no, lot_ser, bin_no, location, quantity, data)   -- v3.5
      VALUES (getdate(), @user_id , 'VB', 'PLW' , 'Allocation', @con_no_passed_in, 0, '', '', '', @location, '', @unalloc_type + 'ADD order number = ' + CONVERT(VARCHAR(10),@order_no) + '-' + CONVERT(VARCHAR(10),@order_ext))  -- v2.0
    END  
   END  
@@ -884,7 +884,7 @@ END
   
 IF @con_no_passed_in != 0  
 BEGIN  
- UPDATE tdc_main  
+ UPDATE tdc_main  WITH (ROWLOCK) -- v3.5
    SET pre_pack = @pre_pack_flag  
  WHERE consolidation_no = @con_no_passed_in  
 END  
@@ -926,7 +926,7 @@ AND		part_no = @part_no
 IF	(@sa_qty = @alloc_qty) -- Line Fully allocated
 BEGIN
 
-	UPDATE	cvo_soft_alloc_det
+	UPDATE	cvo_soft_alloc_det WITH (ROWLOCK) -- v3.5
 	SET		status = -2
 	WHERE	order_no = @order_no
 	AND		order_ext= @order_ext
@@ -934,7 +934,7 @@ BEGIN
 	AND		part_no = @part_no
 	AND		status IN (0,-1,-3,1) -- v3.1
 	
-	UPDATE	cvo_soft_alloc_det
+	UPDATE	cvo_soft_alloc_det WITH (ROWLOCK) -- v3.5
 	SET		status = -2
 	WHERE	order_no = @order_no
 	AND		order_ext= @order_ext
@@ -944,7 +944,7 @@ BEGIN
 
 	IF NOT EXISTS (SELECT 1 FROM cvo_soft_alloc_det (NOLOCK) WHERE order_no = @order_no AND order_ext= @order_ext AND status IN (0,-1,-3,1)) -- v3.1
 	BEGIN
-		UPDATE	cvo_soft_alloc_hdr
+		UPDATE	cvo_soft_alloc_hdr WITH (ROWLOCK) -- v3.5
 		SET		status = -2
 		WHERE	order_no = @order_no
 		AND		order_ext= @order_ext
@@ -952,12 +952,12 @@ BEGIN
 	END
 
 	-- v2.5 Start
-	DELETE	cvo_soft_alloc_hdr 
+	DELETE	cvo_soft_alloc_hdr WITH (ROWLOCK) -- v3.5
 	WHERE	order_no = @order_no
 	AND		order_ext = @order_ext
 	AND		status = -2 
 
-	DELETE	cvo_soft_alloc_det
+	DELETE	cvo_soft_alloc_det WITH (ROWLOCK) -- v3.5
 	WHERE	order_no = @order_no
 	AND		order_ext = @order_ext
 	AND		status = -2 
@@ -977,13 +977,13 @@ BEGIN
 --	IF (@alloc_qty > 0) -- Line partially allocated
 	BEGIN
 
-		UPDATE	cvo_soft_alloc_hdr
+		UPDATE	cvo_soft_alloc_hdr WITH (ROWLOCK) -- v3.5
 		SET		status = -2
 		WHERE	order_no = @order_no
 		AND		order_ext= @order_ext
 		AND		status IN (0,-1,-3)
 
-		UPDATE	cvo_soft_alloc_det
+		UPDATE	cvo_soft_alloc_det WITH (ROWLOCK) -- v3.5
 		SET		status = -2
 		WHERE	order_no = @order_no
 		AND		order_ext= @order_ext				
@@ -995,7 +995,7 @@ BEGIN
 		AND		order_ext = @order_ext
 		AND		status = -2 
 
-		DELETE	cvo_soft_alloc_det
+		DELETE	cvo_soft_alloc_det WITH (ROWLOCK) -- v3.5
 		WHERE	order_no = @order_no
 		AND		order_ext = @order_ext
 		AND		status = -2 
@@ -1019,10 +1019,10 @@ BEGIN
 		-- v2.5 End
 
 		-- Insert cvo_soft_alloc header
-		INSERT INTO cvo_soft_alloc_hdr (soft_alloc_no, order_no, order_ext, location, bo_hold, status)
+		INSERT INTO cvo_soft_alloc_hdr WITH (ROWLOCK) (soft_alloc_no, order_no, order_ext, location, bo_hold, status) -- v3.5
 		VALUES (@new_soft_alloc_no, @order_no, @order_ext, @location, 0, @cur_status)		
 
-		INSERT INTO	dbo.cvo_soft_alloc_det (soft_alloc_no, order_no, order_ext, line_no, location, part_no, quantity,  
+		INSERT INTO	dbo.cvo_soft_alloc_det WITH (ROWLOCK) (soft_alloc_no, order_no, order_ext, line_no, location, part_no, quantity,   -- v3.5
 									kit_part, change, deleted, is_case, is_pattern, is_pop_gift, status, add_case_flag) -- v1.8			
 		SELECT	@new_soft_alloc_no, @order_no, @order_ext, a.line_no, a.location, a.part_no, ((a.ordered - a.shipped) - ISNULL(c.qty,0)), -- v2.6
 				0, 0, 0, b.is_case, b.is_pattern, b.is_pop_gif, @cur_status, b.add_case -- v1.8
@@ -1041,7 +1041,7 @@ BEGIN
 		-- v1.9
 		EXEC dbo.cvo_update_soft_alloc_case_adjust_sp @new_soft_alloc_no, @order_no, @order_ext
 
-		INSERT INTO	dbo.cvo_soft_alloc_det (soft_alloc_no, order_no, order_ext, line_no, location, part_no, quantity,  
+		INSERT INTO	dbo.cvo_soft_alloc_det WITH (ROWLOCK) (soft_alloc_no, order_no, order_ext, line_no, location, part_no, quantity,   -- v3.5
 									kit_part, change, deleted, is_case, is_pattern, is_pop_gift, status)			
 		SELECT	@new_soft_alloc_no, @order_no, @order_ext, a.line_no, a.location, b.part_no, ((a.ordered - a.shipped) - ISNULL(c.qty,0)), -- v2.6
 				1, 0, 0, 0, 0, 0, @cur_status
@@ -1066,9 +1066,9 @@ DROP TABLE #tmp_alloc
 -- v1.2 End
 
   
-DELETE tdc_cons_filter_set WHERE consolidation_no NOT IN (SELECT consolidation_no FROM tdc_cons_ords (NOLOCK))  
+DELETE tdc_cons_filter_set WITH (ROWLOCK) WHERE consolidation_no NOT IN (SELECT consolidation_no FROM tdc_cons_ords (NOLOCK))   -- v3.5
   
-DELETE tdc_main WHERE consolidation_no NOT IN (SELECT consolidation_no  FROM tdc_cons_ords (NOLOCK))  
+DELETE tdc_main WITH (ROWLOCK) WHERE consolidation_no NOT IN (SELECT consolidation_no  FROM tdc_cons_ords (NOLOCK))   -- v3.5
 
 -- v1.3 - Call autopack routine
 EXEC dbo.CVO_build_autopack_carton_sp @order_no, @order_ext
@@ -1120,11 +1120,11 @@ BEGIN
 	IF @@ROWCOUNT = 0
 		BREAK
 
-	DELETE	tdc_pick_queue
+	DELETE	tdc_pick_queue WITH (ROWLOCK) -- v3.5
 	WHERE	mp_consolidation_no = @consolidation_no
 
 	-- v3.3 Start
-	UPDATE	a
+	UPDATE	a WITH (ROWLOCK) -- v3.5
 	SET		assign_user_id = NULL
 	FROM	tdc_pick_queue a
 	JOIN	cvo_masterpack_consolidation_picks b (NOLOCK)
@@ -1132,15 +1132,15 @@ BEGIN
 	WHERE	b.consolidation_no = @consolidation_no
 	-- v3.3 End
 
-	DELETE	cvo_masterpack_consolidation_picks
+	DELETE	cvo_masterpack_consolidation_picks WITH (ROWLOCK) -- v3.5
 	WHERE	consolidation_no = @consolidation_no	
 
 	-- v3.3 Start
-	DELETE	cvo_masterpack_consolidation_det
+	DELETE	cvo_masterpack_consolidation_det WITH (ROWLOCK) -- v3.5
 	WHERE	order_no = @order_no
 	AND		order_ext = @order_ext
 
-	UPDATE	cvo_orders_all 
+	UPDATE	cvo_orders_all WITH (ROWLOCK) -- v3.5
 	SET		st_consolidate = 0
 	WHERE	order_no = @order_no
 	AND		ext = @order_ext
@@ -1151,10 +1151,10 @@ BEGIN
 
 	IF NOT EXISTS (SELECT 1 FROM cvo_masterpack_consolidation_det (NOLOCK) WHERE consolidation_no = @consolidation_no)
 	BEGIN
-		DELETE	cvo_masterpack_consolidation_hdr
+		DELETE	cvo_masterpack_consolidation_hdr WITH (ROWLOCK) -- v3.5
 		WHERE	consolidation_no = @consolidation_no
 
-		DELETE  cvo_st_consolidate_release
+		DELETE  cvo_st_consolidate_release WITH (ROWLOCK) -- v3.5
 		WHERE	consolidation_no = @consolidation_no
 		
 	END

@@ -47,9 +47,10 @@ FROM
 	LEFT OUTER JOIN inv_master_add ia ON i.part_no = ia.part_no
 	LEFT OUTER JOIN uom_id_code u ON i.part_no = u.part_no
 	LEFT OUTER JOIN part_price p ON i.part_no = p.part_no AND P.CURR_KEY = 'USD'
-	LEFT OUTER JOIN vendor_sku v ON i.part_no = v.sku_no AND i.vendor = v.vendor_no AND V.CURR_KEY = 'USD'
+	LEFT OUTER JOIN vendor_sku v ON i.part_no = v.sku_no AND i.vendor = v.vendor_no AND V.CURR_KEY = 'USD' AND v.last_recv_date > GETDATE()
 	LEFT OUTER JOIN inv_list l ON i.part_no = l.part_no AND l.location = '001'
     LEFT OUTER JOIN gl_country CN (nolock) on I.country_code=CN.country_code	
+
 
 
 

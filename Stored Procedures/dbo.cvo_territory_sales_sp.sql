@@ -45,7 +45,7 @@ cast(0.00 as float) as anet_mtd
 into #temp 
 FROM  armaster (nolock) a 
 INNER JOIN #territory t ON a.territory_code = t.territory
-inner JOIN cvo_csbm_shipto_daily c (nolock) 
+inner JOIN cvo_sbm_Details c (nolock) 
 	ON a.customer_code = c.customer AND a.ship_to_code = c.ship_to
 
 -- fill in the blanks so that all buckets are covered

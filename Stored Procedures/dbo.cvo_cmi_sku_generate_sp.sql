@@ -19,7 +19,7 @@ BEGIN
 -- generate sku's from cmi into epicor
 --  
 -- 
--- exec [cvo_cmi_sku_generate_sp] 'op', '843', NULL, null, '1/24/2017','N', 1
+-- exec [cvo_cmi_sku_generate_sp] 'bcbg_r', 'b984', NULL, null, '12/31/2017','N', 1
 
 -- exec [cvo_cmi_sku_generate_sp] 'IZOD', '2028', NULL, null, '02/21/2017','N', 1
 
@@ -30,6 +30,8 @@ BEGIN
 -- 11/23/2016 - update for patterns so they get into the right account code
 -- 12/16/2016 - fix description for pattern parts.  was saying frame, not pattern
 -- 12/30/2016 - Fix up for Black colorname
+-- 4/17/17 - dd Case hack AND CVO XL FIT
+
 
 SET XACT_ABORT, NOCOUNT ON;
 
@@ -1303,8 +1305,12 @@ INSERT  #ia
                              END , -- color code
 
 							 -- SELECT * FROM #ia
-
-                field_1 = CASE WHEN c.part_type IN ( 'FRAME', 'frame only', 'sun', 'bruit' )
+-- 4/17/17 - HANDLE DD CASES CORRECTLY AND CVO XL FIT
+                field_1 = CASE WHEN c.collection = 'DD' AND C.PART_TYPE IN ('FRAME','FRAME ONLY','SUN','BRUIT') THEN
+								CASE WHEN c.frame_material LIKE '%soft touch%' THEN 'DDZCASEHZIP' ELSE 'DDZCASE' END
+							   WHEN C.COLLECTION = 'CVO' AND C.part_type IN ('FRAME','FRAME ONLY','SUN','BRUIT') THEN
+								CASE WHEN C.specialty_fit = 'XL Fit' THEN 'CVZCASXL' ELSE '' END
+							   WHEN c.part_type IN ( 'FRAME', 'frame only', 'sun', 'bruit' )
                                THEN ISNULL(( SELECT TOP 1
                                                 ia.part_no
                                       FROM      dbo.inv_master_add ia
@@ -1315,6 +1321,7 @@ INSERT  #ia
 										AND cast (ISNULL(ia.long_descr,'') AS VARCHAR(255)) > ''
 										AND i.category = c.collection
                                     ), '')
+								
 						  ELSE ''
                           END , -- case 
                 field_2 = UPPER(c.model) , -- model
@@ -1606,6 +1613,8 @@ INSERT  #i
                             END ) + ' '
                 + CASE WHEN c.res_Type IN ('sun') AND collection IN ('PT','izx','SM') THEN 'Suns'
 					   WHEN c.res_type IN ('sun') AND collection <> 'REVO' THEN 'Sun'
+					   --4/17/2017
+					   WHEN c.res_type ='OTHER' AND c.collection = 'BCBG' AND c.specialty_fit = 'retail' THEN 'Sun'
 					   WHEN (LEFT(c.PrimaryDemographic, 3) IN ( 'boy', 'gir') 
 					   OR c.specialty_fit = 'pediatric'
                        or CHARINDEX('child',c.primarydemographic,0)>0
@@ -1814,7 +1823,7 @@ INSERT INTO #err_list
                 'missing case part'
         FROM    #i 
 				JOIN #ia ON #ia.part_no = #i.part_no
-		WHERE #i.type_code IN ('frame','sun','bruit')
+		WHERE #i.type_code IN ('frame','FRAME ONLY','sun','bruit')
 		AND #i.category NOT IN ('CVO','DH') -- 10/14/2016 - CVO AND DH DO NOT REQUIRE CASES
 		AND NOT EXISTS (SELECT 1 FROM inv_master_add ia WHERE ia.part_no = #ia.field_1);
 
@@ -2335,6 +2344,8 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
+
 
 
 

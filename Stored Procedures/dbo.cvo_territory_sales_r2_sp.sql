@@ -65,7 +65,6 @@ space(3) as Region,
 cast(0.00 as float) as anet_mtd
 into #temp 
 FROM  armaster (nolock) a 
--- inner JOIN cvo_csbm_shipto_daily c (nolock) 
 	inner JOIN cvo_sbm_details c (nolock) 
 	ON a.customer_code = c.customer AND a.ship_to_code = c.ship_to
 

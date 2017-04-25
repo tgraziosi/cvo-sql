@@ -810,7 +810,7 @@ From #t
 inner join inv_master_add i (nolock) on i.part_no = #t.part_no
 inner join inv_master inv (nolock) on inv.part_no = i.part_no
 left outer join cvo_sbm_details r (nolock) on #t.part_no = r.part_no
-where r.yyyymmdd >= @asofdate 
+where r.yyyymmdd >= @asofdate AND r.location = @location
 -- and @pomdate 
 and r.x_month = #t.mm
 and inv.type_code in ('FRAME','sun','BRUIT','PARTS') -- 11/1/16 - ADD PARTS
@@ -1088,6 +1088,7 @@ cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
 
 
 end
+
 
 
 

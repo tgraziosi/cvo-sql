@@ -11,6 +11,8 @@ CREATE TABLE [dbo].[CVO_backorder_processing_pick_tickets]
 [reason] [varchar] (100) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [cvo_bkord_proc_pick_tick_idx1] ON [dbo].[CVO_backorder_processing_pick_tickets] ([order_no], [ext], [is_transfer], [printed]) ON [PRIMARY]
+GO
 CREATE UNIQUE NONCLUSTERED INDEX [CVO_backorder_processing_pick_tickets_pk] ON [dbo].[CVO_backorder_processing_pick_tickets] ([rec_id]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [CVO_backorder_processing_pick_tickets_inx01] ON [dbo].[CVO_backorder_processing_pick_tickets] ([template_code], [printed]) ON [PRIMARY]

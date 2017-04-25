@@ -252,7 +252,8 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
         FROM    #cvo_inv_adj A
         WHERE   EXISTS ( SELECT 1
                          FROM   inv_master (NOLOCK)
-                         WHERE  part_no = A.upc_code );
+                         WHERE  part_no = A.upc_code
+						 AND void = 'N' ); -- 4/24/2017
 
         UPDATE  a
         SET     part_no = b.part_no
@@ -460,6 +461,7 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 	-- IF (SELECT COUNT(*) FROM cvo_upc_upload) > 0 AND @debug = 0 TRUNCATE TABLE CVO_UPC_UPLOAD
 
     END;
+
 
 
 

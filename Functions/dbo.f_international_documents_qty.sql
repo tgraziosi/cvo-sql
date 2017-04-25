@@ -18,13 +18,15 @@ v1.1	08/02/13	CB  Issue #1139 - When printing prior to allocation only include s
 v1.2	23/04/13	CB	Issue #1234 - Need to include packed quantites
 v1.3	16/07/14	CT	Issue #572 - Logic fix to account for multiple orders in the same carton
 v1.4	22/12/2016	CB	CVO-CF-49 - Dynamic Custom Frames
+v1.5	21/02/2017	CB	Deal with an item split over multiple cartons
 
 */
 
 CREATE FUNCTION [dbo].[f_international_documents_qty] (	@order_no INT,
 													@order_ext INT,
 													@line_no INT,
-													@part_no VARCHAR(30))
+													@part_no VARCHAR(30),
+													@carton_no int) -- v1.5
 RETURNS DECIMAL(20,8)
 AS
 BEGIN
@@ -82,23 +84,49 @@ BEGIN
 
 	-- v1.2 Start
 	-- Get the packed qty
-	SELECT 
-		@packed_qty = SUM(a.pack_qty) 
-	FROM 
-		dbo.tdc_carton_detail_tx a (NOLOCK)
-	JOIN
-		dbo.tdc_carton_tx b (NOLOCK)
-	ON	a.carton_no = b.carton_no
-		-- START v1.3
-		AND a.order_no = b.order_no
-		AND a.order_ext = b.order_ext 
-		-- END v1.3
-	WHERE 
-		a.order_no = @order_no
-		AND a.order_ext = @order_ext 
-		AND a.line_no = @line_no 
-		AND a.part_no = @part_no
-		AND b.order_type = 'S'
+	-- v1.5 Start
+	IF (@carton_no IS NULL)
+	BEGIN
+		SELECT 
+			@packed_qty = SUM(a.pack_qty) 
+		FROM 
+			dbo.tdc_carton_detail_tx a (NOLOCK)
+		JOIN
+			dbo.tdc_carton_tx b (NOLOCK)
+		ON	a.carton_no = b.carton_no
+			-- START v1.3
+			AND a.order_no = b.order_no
+			AND a.order_ext = b.order_ext 		
+			-- END v1.3
+		WHERE 
+			a.order_no = @order_no
+			AND a.order_ext = @order_ext 
+			AND a.line_no = @line_no 
+			AND a.part_no = @part_no
+			AND b.order_type = 'S'
+	END
+	ELSE
+	BEGIN
+		SELECT 
+			@packed_qty = SUM(a.pack_qty) 
+		FROM 
+			dbo.tdc_carton_detail_tx a (NOLOCK)
+		JOIN
+			dbo.tdc_carton_tx b (NOLOCK)
+		ON	a.carton_no = b.carton_no
+			-- START v1.3
+			AND a.order_no = b.order_no
+			AND a.order_ext = b.order_ext 		
+			-- END v1.3
+		WHERE 
+			a.order_no = @order_no
+			AND a.order_ext = @order_ext 
+			AND a.line_no = @line_no 
+			AND a.part_no = @part_no
+			AND a.carton_no = @carton_no
+			AND b.order_type = 'S'
+	END
+	-- v1.5 End
 	-- v1.2 End
 
 	SET @ret_qty = ISNULL(@soft_alloc_qty,0) + ISNULL(@hard_alloc_qty,0) + ISNULL(@packed_qty,0) -- v1.2

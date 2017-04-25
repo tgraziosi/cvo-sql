@@ -26,7 +26,8 @@ GO
 -- v1.21	CT	03/07/13 - Fix to stop duplicate free frame lines from being written for subscription promos
 -- v1.22	CT	07/08/13 - Issue #864 - If promo is a drawdown, then store which line qualifications passed
 -- v1.23	CT	07/01/14 - Issue #1435 - For 2 colour check, only evaluate order lines which are FRAME/SUN if there is no category specified in the query
--- v1.3		CB	12/05/2016 - Fix issue with attribute check
+-- v1.24	CB	12/05/2016 - Fix issue with attribute check
+-- v1.25	CB	05/04/2017 - Fix issue with multiple free frame layers
 
 CREATE PROCEDURE [dbo].[CVO_verify_order_quali_sp]	@order_no INT = 0, 
 													@ext INT = 0,  
@@ -921,20 +922,23 @@ where a.order_no = @order_no and a.order_ext = @ext
 					END
 					ELSE
 					BEGIN
-						SELECT @achived = 0
-						-- START v1.5
-						IF @and = 'Y'
+						IF NOT (@and = 'N' AND @achived = 1) -- v1.25 Start
 						BEGIN
-							SET @and_fail_reason = 'Order does not qualify for promotion - mimimum/maximum order quantity.'  
-						END
-						ELSE
-						BEGIN
-							IF ISNULL(@or_fail_reason,'') = '' -- v1.11
-								SET @or_fail_reason = 'Order does not qualify for promotion - mimimum/maximum order quantity.'  
+							SELECT @achived = 0
+							-- START v1.5
+							IF @and = 'Y'
+							BEGIN
+								SET @and_fail_reason = 'Order does not qualify for promotion - mimimum/maximum order quantity.'  
+							END
 							ELSE
-								SET @or_fail_reason = @or_fail_reason + CHAR(13) + CHAR(10) + 'Order does not qualify for promotion - mimimum/maximum order quantity.'  
-						END
-						-- END v1.5
+							BEGIN
+								IF ISNULL(@or_fail_reason,'') = '' -- v1.11
+									SET @or_fail_reason = 'Order does not qualify for promotion - mimimum/maximum order quantity.'  
+								ELSE
+									SET @or_fail_reason = @or_fail_reason + CHAR(13) + CHAR(10) + 'Order does not qualify for promotion - mimimum/maximum order quantity.'  
+							END
+							-- END v1.5
+						END -- v1.25
 					END
 				END
 				ELSE
@@ -949,20 +953,23 @@ where a.order_no = @order_no and a.order_ext = @ext
 					END
 					ELSE
 					BEGIN
-						SELECT @achived = 0
-						-- START v1.5
-						IF @and = 'Y'
+						IF NOT (@and = 'N' AND @achived = 1) -- v1.25 Start
 						BEGIN
-							SET @and_fail_reason = 'Order does not qualify for promotion - mimimum/maximum ordered quantity of the brand/category combination.'
-						END
-						ELSE
-						BEGIN
-							IF ISNULL(@or_fail_reason,'') = '' -- v1.11
-								SET @or_fail_reason = 'Order does not qualify for promotion - mimimum/maximum ordered quantity of the brand/category combination.'
+							SELECT @achived = 0
+							-- START v1.5
+							IF @and = 'Y'
+							BEGIN
+								SET @and_fail_reason = 'Order does not qualify for promotion - mimimum/maximum ordered quantity of the brand/category combination.'
+							END
 							ELSE
-								SET @or_fail_reason = @or_fail_reason + CHAR(13) + CHAR(10) + 'Order does not qualify for promotion - mimimum/maximum ordered quantity of the brand/category combination.'
-						END
-						-- END v1.5
+							BEGIN
+								IF ISNULL(@or_fail_reason,'') = '' -- v1.11
+									SET @or_fail_reason = 'Order does not qualify for promotion - mimimum/maximum ordered quantity of the brand/category combination.'
+								ELSE
+									SET @or_fail_reason = @or_fail_reason + CHAR(13) + CHAR(10) + 'Order does not qualify for promotion - mimimum/maximum ordered quantity of the brand/category combination.'
+							END
+							-- END v1.5
+						END -- v1.25 End
 					END
 				END
 				ELSE
@@ -976,20 +983,23 @@ where a.order_no = @order_no and a.order_ext = @ext
 					END
 					ELSE
 					BEGIN
-						SELECT @achived = 0
-						-- START v1.5
-						IF @and = 'Y'
+						IF NOT (@and = 'N' AND @achived = 1) -- v1.25 Start
 						BEGIN
-							SET @and_fail_reason =  'Order does not qualify for promotion - mimimum/maximum ordered quantity of the brand or category.'
-						END
-						ELSE
-						BEGIN
-							IF ISNULL(@or_fail_reason,'') = '' -- v1.11
-								SET @or_fail_reason =  'Order does not qualify for promotion - mimimum/maximum ordered quantity of the brand or category.'
+							SELECT @achived = 0
+							-- START v1.5
+							IF @and = 'Y'
+							BEGIN
+								SET @and_fail_reason =  'Order does not qualify for promotion - mimimum/maximum ordered quantity of the brand or category.'
+							END
 							ELSE
-								SET @or_fail_reason = @or_fail_reason + CHAR(13) + CHAR(10) + 'Order does not qualify for promotion - mimimum/maximum ordered quantity of the brand or category.'
-						END
-						-- END v1.5
+							BEGIN
+								IF ISNULL(@or_fail_reason,'') = '' -- v1.11
+									SET @or_fail_reason =  'Order does not qualify for promotion - mimimum/maximum ordered quantity of the brand or category.'
+								ELSE
+									SET @or_fail_reason = @or_fail_reason + CHAR(13) + CHAR(10) + 'Order does not qualify for promotion - mimimum/maximum ordered quantity of the brand or category.'
+							END
+							-- END v1.5
+						END -- v1.25 End
 					END
 				END
 			END
@@ -1133,12 +1143,12 @@ where a.order_no = @order_no and a.order_ext = @ext
 			-- Check if any frames/suns on order have attributes not defined for qualification line
 			IF (ISNULL(@attribute,0) <> 0) AND (@achived = 1)
 			BEGIN
-				-- v1.3 Start
+				-- v1.24 Start
 				--IF EXISTS (SELECT 1 FROM #ord_list WHERE category IN ('FRAME','SUN') AND attribute NOT IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
 				--															  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O'))
 				IF NOT EXISTS (SELECT 1 FROM #ord_list WHERE category IN ('FRAME','SUN') AND attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
 																			  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O'))
-				-- v1.3 End
+				-- v1.24 End
 				BEGIN
 					SELECT @achived = 0
 					IF @and = 'Y'
@@ -1369,7 +1379,9 @@ where a.order_no = @order_no and a.order_ext = @ext
 			brand_exclude,
 			category_exclude,
 			promo_id,
-			promo_level)
+			promo_level,
+			min_qty, -- v1.25
+			max_qty) -- v1.25
 		SELECT DISTINCT -- v1.21
 			@@SPID,
 			line_no,
@@ -1386,7 +1398,9 @@ where a.order_no = @order_no and a.order_ext = @ext
 			brand_exclude,
 			category_exclude,
 			@promo_id,
-			@promo_level
+			@promo_level,
+			min_qty, -- v1.25
+			max_qty -- v1.25
 		FROM 
 			#cvo_order_qualifications 
 		WHERE 

@@ -13,6 +13,7 @@ GO
 -- v1.8 CB 29/04/2015 - Fix for v1.7 - Could be multiple bins in lot bin ship
 -- v1.9 TG 11/11/2015 - add check for null value for discount in cvo_ord_list
 -- v2.0 TG 12/20/2016 - add check on lb_tracking and kit_flag for DCF
+-- v2.1 TG 4/9/2017 - do not try and re-process orders that have already failed and been logged in the error table
 /* 
 BEGIN TRAN
 select status, * from orders_all where order_no = 1420450
@@ -74,6 +75,8 @@ BEGIN
 		FROM	orders_all (NOLOCK)
 		WHERE	status in ('R','S','W')
 		-- AND		order_no = 1420450  
+		-- 4/19/2017 - don't try and post something that already has failed out of this process.  they'll have to be manually processed.
+		AND NOT EXISTS (SELECT 1 FROM dbo.cvo_auto_posting_errors AS ape WHERE ape.order_no = orders_all.order_no AND ape.order_ext = orders_all.ext)
 		ORDER BY order_no, ext
 
 		IF (@@ROWCOUNT = 0)
@@ -314,5 +317,6 @@ BEGIN
    , @body = @body  
 
 END
+
 
 GO

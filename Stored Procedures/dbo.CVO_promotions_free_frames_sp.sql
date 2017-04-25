@@ -6,6 +6,7 @@ GO
 -- v1.0 CT 28/02/2013 - Calculates the free frames for the order
 -- v1.1 CT 04/03/2013 - Corrected calculation for number of free frames
 -- v1.2 CT 16/08/2013 - Issue #1360 - use correct field for gender
+-- v1.3 CB 05/04/2017 - Fix issue with multiple free frame layers
 
 
 CREATE PROC [dbo].[CVO_promotions_free_frames_sp] ( @promo_id			VARCHAR(30),	
@@ -33,7 +34,9 @@ BEGIN
 			@line_no			INT,
 			@apply_qty			DECIMAL(20,8),
 			@split				SMALLINT,
-			@qty				DECIMAL(20,8)
+			@qty				DECIMAL(20,8),
+			@min_qty			int, -- v1.3
+			@max_qty			int -- v1.3
 
 	-- Create temp tables for ord_list records
 	CREATE TABLE #ff_ord_list (
@@ -84,7 +87,7 @@ BEGIN
 		inv_master_add ia (NOLOCK) ON a.part_no = ia.part_no
 	WHERE 
 		a.SPID = @spid 	
-	
+
 	-- If the promo was overridden then treat all free frame lines as if they qualified
 	IF ISNULL(@override,0) = 1
 	BEGIN
@@ -151,7 +154,9 @@ BEGIN
 			@category = category,
 			@gender_check = gender_check,
 			@attribute = attribute,
-			@promo_line_no = line_no
+			@promo_line_no = line_no,
+			@min_qty = min_qty, -- v1.3
+			@max_qty = max_qty -- v1.3
 		FROM
 			dbo.CVO_free_frame_qualified (NOLOCK)
 		WHERE
@@ -218,76 +223,159 @@ BEGIN
 		FROM
 			#selected_ord_list
 
-		-- Does it meet the minimum qty?
-		IF ISNULL(@actual_qty,0) > = @ff_min_qty
+		-- v1.3 Start
+		IF (@min_qty <> 0 AND @max_qty <> 0)
 		BEGIN
-			-- START v1.1
-			SET @free_qty = ISNULL(@actual_qty,0) - @ff_min_qty 
-			-- SET @free_qty = ISNULL(@actual_qty,0) - (@ff_min_qty - 1)
-			-- END v1.1
-		
-			-- If free qty is greater than max free qty then set to max free qty
-			IF @free_qty > @ff_max_free_qty
+			IF (ISNULL(@actual_qty,0) >= @min_qty AND ISNULL(@actual_qty,0) <= @max_qty)
 			BEGIN
-				SET @free_qty = @ff_max_free_qty
-			END
-
-			-- Loop through lines and apply until free_qty is 0 or no more lines left
-			WHILE @free_qty > 0
-			BEGIN
-				SELECT TOP 1
-					@line_no = a.line_no,
-					@qty = CASE split WHEN 0 THEN a.ordered ELSE a.ordered - free_qty END
-				FROM
-					dbo.cvo_free_frame_apply a (NOLOCK)
-				INNER JOIN
-					#selected_ord_list b (NOLOCK)
-				ON
-					a.line_no = b.line_no
-				WHERE
-					a.SPID = @spid
-					AND ((a.is_free = 0) OR (a.is_free = 1 AND split = 1))
-				ORDER BY
-					a.price ASC, 
-					a.line_no ASC
-
-				IF @@ROWCOUNT = 0
-					BREAK
-
-				IF @free_qty > @qty 
+				-- Does it meet the minimum qty?
+				IF ISNULL(@actual_qty,0) > = @ff_min_qty 
 				BEGIN
-					SET @free_qty = @free_qty - @qty
-					SET @apply_qty = @qty
-					SET @split = 0
-				END
-				ELSE
-				BEGIN
-					SET @apply_qty = @free_qty
-					SET @free_qty = 0
-					IF @qty = @apply_qty
+					-- START v1.1
+					SET @free_qty = ISNULL(@actual_qty,0) - @ff_min_qty 
+					-- SET @free_qty = ISNULL(@actual_qty,0) - (@ff_min_qty - 1)
+					-- END v1.1
+
+				
+					-- If free qty is greater than max free qty then set to max free qty
+					IF @free_qty > @ff_max_free_qty
 					BEGIN
+						SET @free_qty = @ff_max_free_qty
+					END
+
+					-- Loop through lines and apply until free_qty is 0 or no more lines left
+					WHILE @free_qty > 0
+					BEGIN
+						SELECT TOP 1
+							@line_no = a.line_no,
+							@qty = CASE split WHEN 0 THEN a.ordered ELSE a.ordered - free_qty END
+						FROM
+							dbo.cvo_free_frame_apply a (NOLOCK)
+						INNER JOIN
+							#selected_ord_list b (NOLOCK)
+						ON
+							a.line_no = b.line_no
+						WHERE
+							a.SPID = @spid
+							AND ((a.is_free = 0) OR (a.is_free = 1 AND split = 1))
+						ORDER BY
+							a.price ASC, 
+							a.line_no ASC
+
+						IF @@ROWCOUNT = 0
+							BREAK
+
+						IF @free_qty > @qty 
+						BEGIN
+							SET @free_qty = @free_qty - @qty
+							SET @apply_qty = @qty
+							SET @split = 0
+						END
+						ELSE
+						BEGIN
+							SET @apply_qty = @free_qty
+							SET @free_qty = 0
+							IF @qty = @apply_qty
+							BEGIN
+								SET @split = 0
+							END
+							ELSE
+							BEGIN
+								SET @split = 1
+							END
+						END
+
+						-- Update record
+						UPDATE
+							dbo.cvo_free_frame_apply
+						SET
+							free_qty = free_qty + @apply_qty,
+							split = @split,
+							is_free = 1
+						WHERE
+							SPID = @spid
+							AND line_no = @line_no
+
+					END
+
+				END
+
+			END
+		END
+		ELSE
+		BEGIN
+			-- Does it meet the minimum qty?
+			IF ISNULL(@actual_qty,0) > = @ff_min_qty 
+			BEGIN
+				-- START v1.1
+				SET @free_qty = ISNULL(@actual_qty,0) - @ff_min_qty 
+				-- SET @free_qty = ISNULL(@actual_qty,0) - (@ff_min_qty - 1)
+				-- END v1.1
+
+			
+				-- If free qty is greater than max free qty then set to max free qty
+				IF @free_qty > @ff_max_free_qty
+				BEGIN
+					SET @free_qty = @ff_max_free_qty
+				END
+
+				-- Loop through lines and apply until free_qty is 0 or no more lines left
+				WHILE @free_qty > 0
+				BEGIN
+					SELECT TOP 1
+						@line_no = a.line_no,
+						@qty = CASE split WHEN 0 THEN a.ordered ELSE a.ordered - free_qty END
+					FROM
+						dbo.cvo_free_frame_apply a (NOLOCK)
+					INNER JOIN
+						#selected_ord_list b (NOLOCK)
+					ON
+						a.line_no = b.line_no
+					WHERE
+						a.SPID = @spid
+						AND ((a.is_free = 0) OR (a.is_free = 1 AND split = 1))
+					ORDER BY
+						a.price ASC, 
+						a.line_no ASC
+
+					IF @@ROWCOUNT = 0
+						BREAK
+
+					IF @free_qty > @qty 
+					BEGIN
+						SET @free_qty = @free_qty - @qty
+						SET @apply_qty = @qty
 						SET @split = 0
 					END
 					ELSE
 					BEGIN
-						SET @split = 1
+						SET @apply_qty = @free_qty
+						SET @free_qty = 0
+						IF @qty = @apply_qty
+						BEGIN
+							SET @split = 0
+						END
+						ELSE
+						BEGIN
+							SET @split = 1
+						END
 					END
+
+					-- Update record
+					UPDATE
+						dbo.cvo_free_frame_apply
+					SET
+						free_qty = free_qty + @apply_qty,
+						split = @split,
+						is_free = 1
+					WHERE
+						SPID = @spid
+						AND line_no = @line_no
+
 				END
 
-				-- Update record
-				UPDATE
-					dbo.cvo_free_frame_apply
-				SET
-					free_qty = free_qty + @apply_qty,
-					split = @split,
-					is_free = 1
-				WHERE
-					SPID = @spid
-					AND line_no = @line_no
-				
 			END
-
-		END
+		END -- v1.3 End
 	END
 
 	-- Return rows to be given for free

@@ -78,7 +78,7 @@ AS
     SET @pom_asof = @first;
 
 -- UNCOMMENT FOR THE PRINTED CIR RUN
--- set @pom_asof = '12/27/2016'
+-- set @pom_asof = '04/25/2017'
           
 -- set @first = '08/28/2013'
                   
@@ -542,8 +542,7 @@ AS
 --sum(case when [year] = datepart(yy,@first) and [x_month] <= month(@last) then anet else 0 end) as YTDTY,
 --sum(case when [year] = datepart(yy,dateadd(yy,-1,@first)) and [x_month] <= month(@last) then anet else 0 end) as YTDLY
     INTO    #cs
--- from cvo_csbm_shipto cs (nolock)
--- from cvo_csbm_shipto_daily cs (nolock)
+
     FROM    dbo.cvo_sbm_details AS cs ( NOLOCK )
             INNER JOIN armaster ar ( NOLOCK ) ON cs.customer = ar.customer_code
                                                  AND cs.ship_to = ar.ship_to_code
@@ -577,21 +576,7 @@ AS
             ISNULL(#cs.NetSalesLY, 0) netsalesly ,
             ISNULL(#cs.YTDTY, 0) ytdty ,
             ISNULL(#cs.YTDLY, 0) ytdly ,
-/*
-Custnetsales = isnull((select sum(anet) from cvo_csbm_shipto where
-	   customer = a.cust_code and ship_to=a.ship_to and yyyymmdd 
-	   between @f12 and @last), 0),
---v3.3 
-NetSalesLY = isnull(( select sum(anet) from cvo_csbm_shipto where
-		customer = a.cust_code and ship_to=a.ship_to and yyyymmdd 
-		between @f24 and dateadd(yy,-1,@last)), 0),
-YTDTY = isnull(( select sum(anet) from cvo_csbm_shipto where
-		customer = a.cust_code and ship_to=a.ship_to and 
-		[year] = datepart(yy,@first) and [x_month] <= month(@last), 0),
-YTDLY = isnull(( select sum(anet) from cvo_csbm_shipto where
-		customer = a.cust_code and ship_to=a.ship_to and 
-		[year] = datepart(yy,dateadd(yy,-1,@first)) and [x_month] <= month(@last), 0),
-*/
+
             ST12 = CASE WHEN ( a.ShipDate >= @F12
                                AND a.type = 'I'
                                AND a.user_category LIKE 'ST%'
@@ -652,8 +637,8 @@ YTDLY = isnull(( select sum(anet) from cvo_csbm_shipto where
                     END ,
 -- v4.4
             TotAcctNetSales = ISNULL(( SELECT   SUM(anet)
-                                       FROM     cvo_csbm_shipto_daily cs ,
-                                                armaster ar
+                                       FROM     dbo.cvo_sbm_details AS cs ,
+                                                armaster ar (NOLOCK)
                                        WHERE    cs.customer = ar.customer_code
                                                 AND cs.ship_to = ar.ship_to_code
                                                 AND cs.customer = a.cust_code
@@ -762,7 +747,7 @@ YTDLY = isnull(( select sum(anet) from cvo_csbm_shipto where
                                         AND #cs.ship_to = c.shipto
                                ), 0) ,
             new.TotAcctNetSales = ISNULL(( SELECT   SUM(anet)
-                                           FROM     cvo_csbm_shipto_daily cs ,
+                                           FROM     cvo_sbm_details cs ,
                                                     armaster ar ( NOLOCK )
                                            WHERE    cs.customer = ar.customer_code
                                                     AND cs.customer IN (
@@ -976,6 +961,7 @@ YTDLY = isnull(( select sum(anet) from cvo_csbm_shipto where
     FROM    cvo_carbi;
 
 -- 
+
 
 
 

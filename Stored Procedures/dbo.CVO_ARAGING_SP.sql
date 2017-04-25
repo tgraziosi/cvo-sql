@@ -41,6 +41,7 @@ EXEC cc_summary_aging_sp '000567',4,1,'CVO','CVO',0
 -- v3.1 CB 12/03/2015 - Issue #1469 - Deal with finance and late charges and chargebacks
 -- v3.2 CB 06/05/2015 - Fix issue with duplicate transactions
 -- v3.3 CB 07/06/2016 - Fix bug with void records and duplicate doc numbers
+-- v3.4 TG 4/24/2017 - change from cvo_csbm_shipto to cvo_sbm_details
 
 CREATE PROCEDURE [dbo].[CVO_ARAGING_SP] (@WHERECLAUSE VARCHAR(1024))  
 AS      
@@ -1053,11 +1054,11 @@ DELETE #invoices where ABS(balance) < 0.001 -- v2.0
        
  UPDATE #FINAL     
  SET     
- YTDCREDS = isnull((select sum(areturns) from cvo_csbm_shipto where    
+ YTDCREDS = isnull((select sum(areturns) from dbo.cvo_sbm_details AS sd where    
     customer = f.customer_code and yyyymmdd >=@curryrstart), 0),    
- YTDSALES = isnull((select sum(anet) from cvo_csbm_shipto where    
+ YTDSALES = isnull((select sum(anet) from dbo.cvo_sbm_details AS sd2 where    
     customer = f.customer_code and yyyymmdd >=@curryrstart), 0),    
- LYRSALES = isnull((select sum(anet) from cvo_csbm_shipto where    
+ LYRSALES = isnull((select sum(anet) from dbo.cvo_sbm_details AS sd3 where    
     customer = f.customer_code and yyyymmdd  BETWEEN @LASTYRSTART AND @LASTYREND), 0),    
  r12Sales = isnull((select sum(anet) from cvo_sbm_details where    
      customer = f.customer_code and yyyymmdd >=@r12Start), 0)    
@@ -1144,167 +1145,7 @@ DELETE #invoices where ABS(balance) < 0.001 -- v2.0
         
  end      
       
---      
---      
----- --YTDCREDS      
----- if(object_id('tempdb.dbo.#cred') is not null) drop table #cred        
----- SELECT CUST_CODE, IsNull(SUM(TOTAL_AMT_ORDER),0) AS CRED      
----- INTO #CRED      
----- FROM ORDERS_ALL (NOLOCK)       
----- WHERE STATUS = 'T' AND TYPE = 'C'       
----- AND DATE_SHIPPED BETWEEN @CURRYRSTART AND @CURRYREND      
----- GROUP BY CUST_CODE      
----- ORDER BY 1      
-----       
----- UPDATE #FINAL SET YTDCREDS = CRED      
----- FROM #FINAL F, #CRED D      
----- WHERE F.CUSTOMER_CODE = D.CUST_CODE      
---       
--- --YTDSALES      
----- if(object_id('tempdb.dbo.#sales') is not null) drop table #sales      
-----  SELECT CUST_CODE, IsNull(SUM(TOTAL_AMT_ORDER),0) AS SALES      
----- INTO #SALES      
----- FROM ORDERS_ALL (NOLOCK)       
----- WHERE STATUS = 'T' AND TYPE = 'I'       
----- AND DATE_SHIPPED BETWEEN @CURRYRSTART AND @CURRYREND      
----- GROUP BY CUST_CODE      
----- ORDER BY 1      
-----      
-----Custnetsales = isnull((select sum(anet) from cvo_csbm_shipto where      
-----    customer = a.cust_code and ship_to=a.ship_to and yyyymmdd >=@f12), 0),       
---       
----- UPDATE #FINAL       
----- SET       
----- YTDCREDS = isnull((select sum(areturns) from cvo_csbm_shipto where      
-----    customer = f.customer_code and yyyymmdd >=@curryrstart), 0),      
----- YTDSALES = isnull((select sum(anet) from cvo_csbm_shipto where      
-----    customer = f.customer_code and yyyymmdd >=@curryrstart), 0),      
----- LYRSALES = isnull((select sum(anet) from cvo_csbm_shipto where      
-----    customer = f.customer_code and yyyymmdd  BETWEEN @LASTYRSTART AND @LASTYREND), 0)      
----- from #final F      
---      
----- SALES      
----- FROM #FINAL F, #SALES D      
----- WHERE F.CUSTOMER_CODE = D.CUST_CODE      
---       
-----      
----- --LYRSALES      
----- if(object_id('tempdb.dbo.#lsales') is not null) drop table #lsales      
----- SELECT CUST_CODE, IsNull(SUM(TOTAL_AMT_ORDER),0) AS SALES      
----- INTO #LSALES      
----- FROM ORDERS_ALL (NOLOCK)       
----- WHERE STATUS = 'T' AND TYPE = 'I'       
----- AND DATE_SHIPPED BETWEEN @LASTYRSTART AND @LASTYREND      
----- GROUP BY CUST_CODE      
----- ORDER BY 1      
-----       
----- UPDATE #FINAL SET LYRSALES = SALES      
----- FROM #FINAL F, #LSALES D      
----- WHERE F.CUSTOMER_CODE = D.CUST_CODE      
---       
---      
---       
--- --LPMTDT AND AMOUNT      
---/* - tag - CVO - just get the last check amount and be done with it      
---      
--- SELECT H.CUSTOMER_CODE, H.TRX_CTRL_NUM, MAX(H.DATE_ENTERED) AS DATE_ENTERED, 0 AS CNT      
--- INTO #TEMP2      
--- FROM ARTRX H (NOLOCK)       
--- WHERE H.TRX_TYPE = 2111      
--- AND H.VOID_FLAG = 0      
--- AND H.PAYMENT_TYPE <> 3      
--- and h.customer_code = @last_customer      
--- GROUP BY H.CUSTOMER_CODE, H.TRX_CTRL_NUM      
---       
--- if(object_id('tempdb.dbo.#temp3') is not null) drop table #temp3      
--- SELECT A.TRX_CTRL_NUM, COUNT(*) AS CNT      
--- INTO #TEMP3      
--- FROM ARTRXPDT A (NOLOCK), #TEMP2 T      
--- WHERE A.TRX_CTRL_NUM =T.TRX_CTRL_NUM      
--- GROUP BY A.TRX_CTRL_NUM      
---      
-----select * from #temp2      
-----select * from #temp3      
---       
--- UPDATE T2      
--- SET CNT = T3.CNT      
--- FROM #TEMP2 T2, #TEMP3 T3      
--- WHERE T2.TRX_CTRL_NUM = T3.TRX_CTRL_NUM      
---       
--- SET ROWCOUNT 0      
---      
--- if(object_id('tempdb.dbo.#check_data') is not null) drop table #check_data      
--- CREATE TABLE #CHECK_DATA      
--- ( CUSTOMER_CODE VARCHAR(8),      
---  DOC_CTRL_NUM VARCHAR(16),      
---  AMT_NET  FLOAT NULL,      
---  DATE_ENTERED INT NULL,      
---  APPLY_TO_NUM VARCHAR(16) NULL,      
---  AMT_APPLIED FLOAT NULL,      
---  INV_DATE_ENTERED INT NULL,      
---  NAT_CUR_CODE VARCHAR(8),      
---  DATE_APPLIED INT NULL,      
---  ORG_ID VARCHAR(30) NULL       
--- )      
--- CREATE INDEX #CHECK_DATA_IDX ON #CHECK_DATA (customer_code,doc_ctrl_num)      
---      
---       
---  INSERT #CHECK_DATA      
---  SELECT H.CUSTOMER_CODE,       
---      H.DOC_CTRL_NUM,       
---      AMT_NET,      
---      H.DATE_ENTERED,       
---      D.APPLY_TO_NUM,       
---      D.AMT_APPLIED,       
---      NULL,      
---      NAT_CUR_CODE,       
---      H.DATE_APPLIED,      
---      H.ORG_ID      
---  FROM ARTRX H (NOLOCK), ARTRXPDT D (NOLOCK), #TEMP2 T      
---  WHERE H.TRX_CTRL_NUM = T.TRX_CTRL_NUM        
---  AND H.TRX_CTRL_NUM = D.TRX_CTRL_NUM      
---  AND H.CUSTOMER_CODE = T.CUSTOMER_CODE      
---  AND H.ORG_ID = D.ORG_ID      
---  AND T.CNT > 0      
---      
---  INSERT #CHECK_DATA      
---  SELECT H.CUSTOMER_CODE,       
---      H.DOC_CTRL_NUM,       
---      AMT_NET,      
---      H.DATE_ENTERED,       
---      '',      
---      0.0,       
---      NULL,      
---      NAT_CUR_CODE,       
---      H.DATE_APPLIED,      
---      H.ORG_ID      
---  FROM ARTRX H (NOLOCK), #TEMP2 T      
---  WHERE H.TRX_CTRL_NUM = T.TRX_CTRL_NUM        
---  AND H.CUSTOMER_CODE = T.CUSTOMER_CODE      
---  AND T.CNT = 0      
---      
--- UPDATE #CHECK_DATA       
--- SET INV_DATE_ENTERED = D.DATE_ENTERED      
--- FROM #CHECK_DATA C, ARTRX D      
--- WHERE D.DOC_CTRL_NUM = C.APPLY_TO_NUM      
---      
--- if(object_id('tempdb.dbo.#lpmtdt') is not null) drop table #lpmtdt      
---       
--- SELECT  CUSTOMER_CODE,       
---   MAX(ISNULL(DATE_ENTERED,0)) AS LPMTDT      
--- INTO #LPMTDT      
--- FROM #CHECK_DATA      
--- GROUP BY CUSTOMER_CODE      
---       
--- UPDATE F      
--- SET LPMTDT = L.LPMTDT,      
--- AMOUNT = STR(C.AMT_NET,30,6)      
--- FROM #FINAL F, #LPMTDT L, #CHECK_DATA C      
--- WHERE F.CUSTOMER_CODE = L.CUSTOMER_CODE      
--- AND F.CUSTOMER_CODE = C.CUSTOMER_CODE      
---*/      
-----      
-      
+     
       
  SELECT       
    CUST_CODE = CUSTOMER_CODE,    

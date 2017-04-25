@@ -29,13 +29,13 @@ CREATE procedure [dbo].[cvo_inv_fcst_r3_sp]
  @asofdate = '04/01/2017', 
  @endrel = '04/01/2017', 
  @current = 1, 
- @collection = 'as', 
- @style = 'musical', 
- @specfit = '*all*',
+ @collection = 'bcbg', 
+ @style = 'appeal', 
+ @specfit = 'retail',
  @usg_option = 'o',
- @debug = 0, -- debug
- @location = '001,Centennial',
- @restype = 'frame,sun'
+ @debug = 5, -- debug
+ @location = 'bcbg-retai,002liberty',
+ @restype = 'frame,sun,parts'
 
  select * From cvo_ifp_rank
 
@@ -282,12 +282,35 @@ BEGIN
 	select location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12,
 	ret_w4, ret_w12, wty_w4, wty_w12, gross_w4, gross_w12
 	from dbo.f_cvo_calc_weekly_usage_COLL (@usg_option, @CO)
+
 	SELECT @CO = MIN(COLL) FROM #COLL WHERE COLL > @co
 END
 
-DELETE FROM #usage WHERE NOT EXISTS (SELECT 1 FROM #loc WHERE #loc.location = #usage.location)
+DELETE FROM #usage 
+	WHERE NOT EXISTS (SELECT 1 FROM #loc WHERE #loc.location = #usage.location)
+	OR NOT EXISTS (SELECT 1 FROM inv_list il WHERE il.part_no = #usage.part_no AND il.location = #usage.location)
 
-IF @debug = 1 SELECT * FROM #usage AS u
+-- fill in for locations with no usage
+
+DECLARE @lo VARCHAR(20)
+SELECT @lo = MIN(#loc.location) FROM #loc WHERE NOT EXISTS (SELECT 1 FROM #usage WHERE #loc.location = #usage.location)
+WHILE @lo IS NOT NULL
+begin
+	INSERT INTO #usage 
+	(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12,
+	ret_w4, ret_w12, wty_w4, wty_w12, gross_w4, gross_w12)
+	select DISTINCT @lo, #usage.part_no, usg_option, asofdate, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	FROM #usage
+	WHERE EXISTS (SELECT 1 FROM inv_list WHERE location = @lo AND part_no = #usage.part_no)
+
+	SELECT @lo = MIN(#loc.location) 
+				FROM #loc
+			    LEFT OUTER JOIN #usage  ON #usage.location = #loc.location
+				WHERE #loc.location > @lo AND #usage.location IS NULL
+
+END
+
+IF @debug = 5 SELECT * FROM #usage AS u
 
 -- get sales history
 select
@@ -470,7 +493,7 @@ select s.brand
 , pct_of_style = round((case when isnull(CAST(s_e12_wu AS DECIMAL),0.00) <> 0.00	
 							 then isnull(CAST(p_e12_wu AS DECIMAL),0.00)/isnull(CAST(s_e12_wu AS DECIMAL),0) else 0.00 end),4)
 , first_po = isnull((select top 1 quantity From releases 
-	where part_no = i.part_no and location = drp.location and part_type = 'p' and status = 'c' 
+	where part_no = i.part_no and location = '001' AND part_type = 'p' and status = 'c' 
 	order by release_date),0)
 , pct_first_po = cast (0 as float) -- calculate this later
 , p_sales_m1_3 = 0
@@ -496,14 +519,13 @@ drp.location, drp.part_no, sum(ISNULL(e4_wu,0)) p_e4_wu, sum(ISNULL(e12_wu,0)) p
 , SUM(ISNULL(drp.ret_w4,0)) p_ret_w4, SUM(ISNULL(drp.ret_w12,0)) p_ret_w12
 , SUM(ISNULL(drp.wty_w4,0)) p_wty_w4, SUM(ISNULL(drp.wty_w12,0)) p_wty_w12
 , SUM(ISNULL(drp.gross_w4,0)) p_gross_w4, SUM(ISNULL(drp.gross_w12,0)) p_gross_w12
-
-
 from #usage drp (nolock)
 JOIN inv_master i ON i.part_no = drp.part_no
 JOIN #type t ON t.type_code = i.type_code
 group by drp.location, drp.part_no 
 ) as drp
 on drp.part_no = i.part_no AND DRP.LOCATION = S.LOCATION
+
 
 cross join #dmd_mult
 -- where i.type_code in ('FRAME','sun','BRUIT','PARTS') -- 11/1/16 - ADD PARTS
@@ -568,7 +590,7 @@ update #t set
 pct_first_po = 
 	round((case when isnull(x.style_first_po,0.00) = 0.00 then 0.00
 	      else cast(isnull(x.first_po,0.00)/isnull(x.style_first_po,1) as float) end),4)
-from #t inner join x on #t.part_no = x.part_no
+from #t inner join x on #t.part_no = x.part_no 
 where isnull(x.style_first_po,0.00) <> 0.00;
 -- where #t.style = 'clarissa'
 
@@ -801,6 +823,7 @@ IF @sku IS NOT NULL AND @last_loc IS NOT NULL
 BEGIN
 
 -- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
+	SELECT @last_inv = 0, @atp = 0, @reserve_inv = 0
 	SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) - 
 		   CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
 		   , @atp = ISNULL(qty_avl,0)
@@ -901,6 +924,7 @@ BEGIN -- sku loop
 		IF @last_loc IS NOT NULL AND @sku IS NOT null
         begin
 	-- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
+		SELECT @last_inv = 0, @atp = 0, @reserve_inv = 0
 		SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) - 
 			   CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
 			   , @atp = ISNULL(qty_avl,0)
@@ -922,6 +946,7 @@ BEGIN -- sku loop
 	IF (@sku IS NOT NULL AND @last_loc IS NOT null)
 	begin
 -- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
+	SELECT @last_inv = 0, @atp = 0, @reserve_inv = 0
 	SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) - 
 		   CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
 		   , @atp = ISNULL(qty_avl,0)
@@ -1040,11 +1065,12 @@ specs.frame_type
 from #SKU 
 inner join #t on #t.part_no = #sku.sku and #t.mm = #sku.mm AND #t.location= #sku.location
 				AND #t.mult = #sku.mult and #t.sort_seq = #sku.sort_seq
+INNER JOIN INV_LIST IL ON IL.location = #t.location AND IL.part_no = #t.part_no
 inner join inv_master i (nolock) on #SKU.sku = i.part_no
 inner join inv_master_add ia (nolock) on #SKU.sku = ia.part_no
 inner join #style on #style.brand = i.category and #style.style = ia.field_2 
 				AND #style.location = #sku.location
-inner join
+LEFT OUTER join
 (
 SELECT  i.category brand ,
         ia.field_2 style ,
@@ -1064,10 +1090,11 @@ SELECT  i.category brand ,
         MIN(ISNULL(ia.field_26, '1/1/1900')) rel_date,
 		MAX(pp.price_a) price
 FROM    inv_master i ( NOLOCK )
+		JOIN #type AS t ON t.type_code = i.type_code
         INNER JOIN inv_master_add ia ( NOLOCK ) ON ia.part_no = i.part_no
-		INNER JOIN part_price pp (NOLOCK) ON pp.part_no = i.part_no
+		INNER JOIN part_price pp (NOLOCK) ON pp.part_no = i.part_no	
 WHERE   1 = 1
-        AND i.type_code IN ( 'frame', 'sun', 'bruit' )
+        -- AND i.type_code IN ( 'frame', 'sun', 'bruit' )
         AND i.void = 'n'
         AND ISNULL(ia.field_32, '') <> 'SpecialOrd'
 GROUP BY i.category ,
@@ -1081,6 +1108,7 @@ cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
 
 
 end
+
 
 
 

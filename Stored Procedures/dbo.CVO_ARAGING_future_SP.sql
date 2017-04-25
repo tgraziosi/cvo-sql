@@ -43,6 +43,7 @@ EXEC cc_summary_aging_sp '039226',4,1,'CVO','CVO',0
 -- v3.1 CB 12/03/2015 - Issue #1469 - Deal with finance and late charges and chargebacks
 -- v3.2 CB 06/05/2015 - Fix issue with duplicate transactions
 -- v3.3 CB 07/06/2016 - Fix bug with void records and duplicate doc numbers
+-- v3.4 TG 4/24/2017 - use cvo_sbm_details instead of cvo_csbm_shipto
 
 -- tag - 3/13/2017 - Future aging - cash forecast
 
@@ -1146,17 +1147,20 @@ AS
        
         UPDATE  #FINAL
         SET     YTDCREDS = ISNULL(( SELECT  SUM(areturns)
-                                    FROM    dbo.cvo_csbm_shipto
+                                    -- FROM    dbo.cvo_csbm_shipto
+									FROM	dbo.cvo_sbm_details
                                     WHERE   customer = f.customer_code
                                             AND yyyymmdd >= @CURRYRSTART
                                   ), 0) ,
                 YTDSALES = ISNULL(( SELECT  SUM(anet)
-                                    FROM    dbo.cvo_csbm_shipto
+                                    -- FROM    dbo.cvo_csbm_shipto
+									FROM	dbo.cvo_sbm_details
                                     WHERE   customer = f.customer_code
                                             AND yyyymmdd >= @CURRYRSTART
                                   ), 0) ,
                 LYRSALES = ISNULL(( SELECT  SUM(anet)
-                                    FROM    dbo.cvo_csbm_shipto
+                                    -- FROM    dbo.cvo_csbm_shipto
+									FROM	dbo.cvo_sbm_details 
                                     WHERE   customer = f.customer_code
                                             AND yyyymmdd BETWEEN @LASTYRSTART AND @LASTYREND
                                   ), 0) ,

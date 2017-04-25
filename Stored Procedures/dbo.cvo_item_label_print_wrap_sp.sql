@@ -4,50 +4,53 @@ SET ANSI_NULLS ON
 GO
 CREATE PROCEDURE [dbo].[cvo_item_label_print_wrap_sp]
 
-    @part_no_1 VARCHAR(30) = NULL ,
-    @upc_code_1 VARCHAR(30) = NULL ,
-    @part_no_2 VARCHAR(30) = NULL ,
-    @upc_code_2 VARCHAR(30) = NULL ,
-    @part_no_3 VARCHAR(30) = NULL ,
-    @upc_code_3 VARCHAR(30) = NULL ,
+    @sku_no_1 VARCHAR(30) = NULL ,
+	@sort_idx_1 VARCHAR(2) = '  ',
+	@sku_no_2 VARCHAR(30) = NULL ,
+    @sort_idx_2 VARCHAR(2) = '  ',
+	@sku_no_3 VARCHAR(30) = NULL ,
+	@sort_idx_3 VARCHAR(2) = '  ',
     @printer_id_param INT = NULL
+
 
 AS 
 
--- EXEC dbo.cvo_item_label_print_wrap_sp 'ASACCLBLA5717',null,'ASACCLGRE5717',null,'ASACCLSMO5717',null,23
+-- EXEC dbo.cvo_item_label_print_wrap_sp 'ASACCLBLA5717','a1','ASACCLGRE5717','b2','ASACCLSMO5717','c3',14
 
     BEGIN
 
+	declare
+	@part_no_1 VARCHAR(30), @upc_code_1 VARCHAR(30),
+	@part_no_2 VARCHAR(30), @upc_code_2 VARCHAR(30),
+	@part_no_3 VARCHAR(30), @upc_code_3 VARCHAR(30)
+
         SET NOCOUNT ON;
 
-        IF @part_no_1 IS NOT NULL
-            OR @upc_code_1 IS NOT NULL
+        IF @sku_no_1 IS NOT NULL
             BEGIN
                 SELECT  @part_no_1 = part_no ,
                         @upc_code_1 = upc_code
                 FROM    inv_master
-                WHERE   part_no = @part_no_1
-                        OR upc_code = @upc_code_1;
+                WHERE   part_no = @sku_no_1
+                        OR upc_code = @sku_no_1;
             END;
 
-        IF @part_no_2 IS NOT NULL
-            OR @upc_code_2 IS NOT NULL
+        IF @sku_no_2 IS NOT NULL
             BEGIN
                 SELECT  @part_no_2 = part_no ,
                         @upc_code_2 = upc_code
                 FROM    inv_master
-                WHERE   part_no = @part_no_2
-                        OR upc_code = @upc_code_2;
+                WHERE   part_no = @sku_no_2
+                        OR upc_code = @sku_no_2;
             END;
         
-        IF @part_no_3 IS NOT NULL
-            OR @upc_code_3 IS NOT NULL
+        IF @sku_no_3 IS NOT NULL
             BEGIN
                 SELECT  @part_no_3 = part_no ,
                         @upc_code_3 = upc_code
                 FROM    inv_master
-                WHERE   part_no = @part_no_3
-                        OR upc_code = @upc_code_3;
+                WHERE   part_no = @sku_no_3
+                        OR upc_code = @sku_no_3;
             END;
 
 
@@ -68,7 +71,8 @@ AS
 
         INSERT  #PrintDataDetail
                 EXECUTE cvo_item_label_print_sp @part_no_1, @upc_code_1, 1,
-                    @part_no_2, @upc_code_2, 1, @part_no_3, @upc_code_3, 1;
+												@part_no_2, @upc_code_2, 1, 
+												@part_no_3, @upc_code_3, 1;
 
         ALTER TABLE #PrintDataDetail ADD row_id INT IDENTITY(1,1);
 
@@ -111,7 +115,7 @@ AS
         SELECT  @format_id = ISNULL(format_id, '')
         FROM    tdc_label_format_control (NOLOCK)
         WHERE   module = 'ADH'
-                AND trans = 'ITEMLBLPNT'
+                AND trans = 'ITEMLBLPNTSORT'
                 AND trans_source = 'VB';
 
         SELECT  @printer_id = CASE WHEN @printer_id_param IS NOT NULL
@@ -121,7 +125,7 @@ AS
                 @number_of_copies = ISNULL(quantity, 0)
         FROM    tdc_tx_print_routing (NOLOCK)
         WHERE   module = 'ADH'
-                AND trans = 'ITEMLBLPNT'
+                AND trans = 'ITEMLBLPNTSORT'
                 AND trans_source = 'VB'
                 AND format_id = @format_id;
 
@@ -189,6 +193,16 @@ AS
                         FROM    #PrintDataDetail
                         WHERE   row_id = @row_id;
 
+				INSERT  INTO #PrintData
+                        ( data_field ,
+                          data_value
+                        )
+						VALUES
+						( 'LP_SORT_1' ,
+                                @sort_idx_1
+						);
+                        
+
                 INSERT  INTO #PrintData
                         ( data_field ,
                           data_value
@@ -246,6 +260,16 @@ AS
                         FROM    #PrintDataDetail
                         WHERE   row_id = @row_id + 1;
 
+				INSERT  INTO #PrintData
+                        ( data_field ,
+                          data_value
+                        )
+						VALUES
+						( 'LP_SORT_2' ,
+                                @sort_idx_2
+						);
+                 
+
                 INSERT  INTO #PrintData
                         ( data_field ,
                           data_value
@@ -302,6 +326,16 @@ AS
                                 print_size
                         FROM    #PrintDataDetail
                         WHERE   row_id = @row_id + 2;
+
+				INSERT  INTO #PrintData
+                        ( data_field ,
+                          data_value
+                        )
+						VALUES
+						( 'LP_SORT_3' ,
+                                @sort_idx_3
+						);
+                 
 	
                 SELECT  @row_id = MIN(row_id)
                 FROM    #PrintDataDetail
@@ -317,7 +351,7 @@ AS
 
         IF @no_rows > 0
             BEGIN 
-                SET @detail_lines = 21; -- 7 lines per item
+                SET @detail_lines = 24; -- 8 lines per item
                 SET @FORMAT = '*FORMAT,' + @format_id;
 	
                 IF ( @no_rows % @detail_lines ) > 0
@@ -430,4 +464,6 @@ AS
 
 
 	GRANT EXECUTE ON cvo_item_label_print_wrap_sp TO PUBLIC;    
+GO
+GRANT EXECUTE ON  [dbo].[cvo_item_label_print_wrap_sp] TO [public]
 GO
