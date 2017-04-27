@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -75,7 +74,7 @@ CREATE VIEW [dbo].[cvo_web_style_vw] AS
 		, MAX(release_date) release_date 
 		, web_saleable_flag
 		FROM cvo_inv_master_r2_vw c
-		WHERE web_saleable_flag = 'y'
+		WHERE web_saleable_flag = 'y' AND c.part_no NOT LIKE '%F1'
 		GROUP BY 
 		collection
 	  , collectionname
@@ -102,6 +101,7 @@ CREATE VIEW [dbo].[cvo_web_style_vw] AS
 		--, img_front_hr
 		--, img_front
 	
+
 
 
 

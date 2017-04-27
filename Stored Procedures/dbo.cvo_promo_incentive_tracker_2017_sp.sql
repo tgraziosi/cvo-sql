@@ -2,12 +2,14 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-create PROCEDURE [dbo].[cvo_promo_incentive_tracker_2017_sp]
+CREATE PROCEDURE [dbo].[cvo_promo_incentive_tracker_2017_sp]
     @terr VARCHAR(1024) = NULL ,
     @debug INT = 0,
 	@ytdstartty DATETIME = null,
     @ytdendty DATETIME = null
-AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
+AS 
+
+-- exec cvo_promo_incentive_tracker_2017_sp 20226, 0
 
 
     BEGIN
@@ -17,6 +19,7 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
 
 
         --DECLARE @ytdstartty DATETIME ,
+
         --    @ytdendty DATETIME;
 		IF @ytdstartty IS NULL OR @ytdendty IS null
         SELECT  @ytdstartty = BeginDate ,
@@ -60,8 +63,8 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
               t_id INT IDENTITY(1, 1) ,
               ytdtynet FLOAT ,
               ytdlynet FLOAT ,
-              core_goal_amt FLOAT ,
-              revo_goal_num INT 
+              core_goal_amt FLOAT 
+         
             );
 
         IF @terr IS NULL
@@ -124,12 +127,12 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
 
 
         UPDATE  t
-        SET     t.core_goal_amt = ISNULL(ts.Core_Goal_Amt,0) ,
-                t.revo_goal_num = ts.revo_goal_amt
+        SET     t.core_goal_amt = ISNULL(ts.Core_Goal_Amt,0) 
 				
         FROM    #territory AS t
                 LEFT OUTER JOIN dbo.cvo_terr_scorecard AS ts ON ts.Territory_Code = t.territory
-        WHERE   ts.Stat_Year = CAST(YEAR(@cutoffdate) AS VARCHAR(4));
+        WHERE   ts.Stat_Year = CAST(YEAR(@cutoffdate) AS VARCHAR(4))
+				AND ts.Salesperson_name <> 'region summary';
 
 
         UPDATE  t
@@ -169,23 +172,25 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
             );
 
 
-        INSERT  #p
-        VALUES  ( 'revo', 'launch 1', '10/1/2015', 'REVO' );
-        INSERT  #p
-        VALUES  ( 'revo', 'launch 2', '10/1/2015', 'REVO' );
-        INSERT  #p
-        VALUES  ( 'revo', 'launch 3', '10/1/2015', 'REVO' );
-        INSERT  #p
-        VALUES  ( 'revo', '1', '10/1/2015', 'REVO' );
-        INSERT  #p
-        VALUES  ( 'revo', '2', '10/1/2015', 'REVO' );
-        INSERT  #p
-        VALUES  ( 'revo', '3', '10/1/2015', 'REVO' );
-		INSERT  #p (PROMO_ID, PROMO_LEVEL, SDATE, PROGRAM)
-		SELECT PROMO_ID, PROMO_LEVEL, '10/1/2015', 'REVO'
-		FROM CVO_PROMOTIONS WHERE PROMO_ID = 'VE-REVO';
+		INSERT #p (promo_id,promo_level,sdate,Program)
+		SELECT promo_id, promo_level, promo_start_date, 'REVO'
+		FROM cvo_promotions WHERE promo_id IN ('REVO') AND 
+		promo_level IN ('1','2','3','LAUNCH 1','LAUNCH 2','LAUNCH 3');
 
+		INSERT #p (promo_id,promo_level,sdate,Program)
+		SELECT promo_id, promo_level, '1/1/2017', 'ASPIRE'
+		FROM cvo_promotions WHERE promo_id IN ('ASPIRE','VE-ASPIRE') AND 
+		promo_level IN ('1','24','24 pcS','24a','24-b','3','launch','new','VEW');
 
+		INSERT #p (promo_id,promo_level,sdate,Program)
+		SELECT promo_id, promo_level, promo_start_date, 'ASPIRE 2.0'
+		FROM cvo_promotions WHERE promo_id = 'aspire 2.0'
+		AND promo_level IN ('1','2','3');
+
+		INSERT #p (promo_id,promo_level,sdate,Program)
+		SELECT promo_id, promo_level, promo_start_date, 'BLUTECH'
+		FROM cvo_promotions WHERE promo_id = 'BT'
+		AND PROMO_LEVEL IN ('ADULTS','KIDS','SUNS');
 
 --SELECT * FROM dbo.CVO_promotions
 --JOIN #p on #p.promo_id = CVO_promotions.promo_id AND #p.promo_level = CVO_promotions.promo_level
@@ -329,7 +334,6 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
                 ROW_NUMBER() OVER ( PARTITION BY ar.customer_code,
                                     ar.ship_to_code ORDER BY ar.customer_code, ar.ship_to_code ) rank_cust,
 				0 AS core_goal_amt,
-				0 AS revo_goal_num,
 				0 AS FramesOrdered
         INTO    #f
         FROM    #promotrkr p
@@ -350,7 +354,6 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
                   ytdtynet ,
                   ytdlynet,
 				  core_goal_amt,
-				  revo_goal_num,
 				  FramesOrdered
 	            )
                 SELECT DISTINCT
@@ -360,13 +363,40 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
                         #p.Program ,
                         'A' AS source ,
                         0 AS qual_order ,
-                        t.ytdtynet ,
-                        t.ytdlynet,
-						ISNULL(t.core_goal_amt,0),
-						ISNULL(t.revo_goal_num,0),
+                        0 AS ytdtynet ,
+                        0 AS ytdlynet,
+						0 AS core_goal_amt,
 						0 AS framesordered
                 FROM    #p
                         CROSS JOIN #territory t
+                        LEFT OUTER JOIN arsalesp slp ON slp.territory_code = t.territory
+                                                        AND slp.status_type = 1
+                WHERE   region < '800';
+
+		        INSERT  INTO #f
+                ( region ,
+                  territory ,
+                  salesperson_code ,
+                  Program ,
+                  source ,
+                  qual_order ,
+                  ytdtynet ,
+                  ytdlynet,
+				  core_goal_amt,
+				  FramesOrdered
+	            )
+                SELECT DISTINCT
+                        t.region ,
+                        t.territory ,
+                        slp.salesperson_code ,
+                        'TARGET' Program ,
+                        'G' AS source ,
+                        0 AS qual_order ,
+                        t.ytdtynet ,
+                        t.ytdlynet,
+						ISNULL(t.core_goal_amt,0),
+						0 AS framesordered
+                FROM    #territory t
                         LEFT OUTER JOIN arsalesp slp ON slp.territory_code = t.territory
                                                         AND slp.status_type = 1
                 WHERE   region < '800';
@@ -382,7 +412,6 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
 			  ytdtynet,
 			  ytdlynet,
 			  core_goal_amt,
-			  revo_goal_num,
 			  FramesOrdered,
 			  Program)
 			  SELECT t.region,
@@ -393,8 +422,7 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
                       0 AS ytdtynet ,
                       0 AS ytdlynet,
 					  0 AS core_goal_amt,
-					  0 AS revo_goal_num,
-					 SUM(gv.Shipped) ,
+					  SUM(gv.Shipped) ,
 					 'REVO'
 
 			  FROM #territory t
@@ -424,21 +452,26 @@ AS -- exec cvo_promo_incentive_tracker_2016_sp 30302, 0
                 #f.ytdtynet ,
                 #f.ytdlynet ,
 				#F.core_goal_amt,
-				#F.revo_goal_num,
-				ceiling(ISNULL(CAST(#f.Revo_Goal_num AS DECIMAL),0.00) / 2.00) revo_goal_num_ty,
-                #f.source ,
+				#f.source ,
                 #f.qual_order ,
                 #f.Program,
+				prog.startdate,
                 @cutoffdate cutoffdate,
 				#f.FramesOrdered
         FROM    #f
                 LEFT OUTER JOIN #territory AS t ON t.territory = #f.territory
-				LEFT OUTER JOIN arsalesp s ON s.salesperson_code = #f.salesperson_code;
+				LEFT OUTER JOIN arsalesp s ON s.salesperson_code = #f.salesperson_code
+				LEFT OUTER JOIN
+				(SELECT p.program, MIN(p.sdate) startdate
+				 FROM #p AS p
+				GROUP BY p.Program) prog ON prog.Program = #f.program;
 
 
 
 
     END;
+
+
 
 
 

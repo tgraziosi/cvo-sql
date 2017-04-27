@@ -28,6 +28,10 @@ CREATE TABLE [dbo].[cvo_terr_scorecard]
 [Blutech_Goal_Amt] [decimal] (20, 8) NULL,
 [RSM_Territory_Code] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
+GO
+CREATE NONCLUSTERED INDEX [idx_terr_scorecard_1>] ON [dbo].[cvo_terr_scorecard] ([RSM_Territory_Code]) INCLUDE ([Salesperson_name], [Stat_Year], [Territory_Code]) ON [PRIMARY]
+GO
+CREATE NONCLUSTERED INDEX [idx_terr_scorecard_2] ON [dbo].[cvo_terr_scorecard] ([Stat_Year], [Salesperson_name]) INCLUDE ([Core_Goal_Amt], [Territory_Code]) ON [PRIMARY]
+GO
 CREATE UNIQUE CLUSTERED INDEX [pk_terr_scorecard] ON [dbo].[cvo_terr_scorecard] ([Territory_Code], [Stat_Year], [Salesperson_name]) ON [PRIMARY]
-
 GO

@@ -12,7 +12,7 @@ GO
 -- SELECT * From cvo_eyerep_repEXT_tbl
 -- SELECT * From cvo_eyerep_actsls_tbl
 -- SELECT * FROM dbo.cvo_eyerep_promocodes_tbl AS ept
--- SELECT * FROM dbo.cvo_eyerep_invcol_tbl AS eit
+-- SELECT * FROM dbo.cvo_eyerep_inv_tbl AS eit where style = 'bluestone park'
 -- tag - 071213 - create a regular table instead of temp table
 -- tag - 8/21/2015 - add sales rep customer accounts
 -- tag - 6/30/2016 - add ordtyp.txt table for promotions
@@ -754,12 +754,14 @@ IF 'ACTIVITY' = ISNULL(@datatype, 'ACTIVITY')
 	                    )
                         SELECT  i.part_no ,
                                 i.upc_code ,
-                                CASE WHEN hi.[category:1] IN ( 'frame', 'sun',
-                                                              'pop' )
-                                     THEN i.Collection
-                                     ELSE hi.[category:1]
-                                END AS Collection ,
-                                LEFT(i.model, 100) ,
+								i.collection,
+								--CASE WHEN hi.[category:1] IN ( 'frame', 'sun',
+        --                                                      'pop' )
+        --                             THEN i.Collection
+        --                             ELSE hi.[category:1]
+        --                        END AS Collection ,
+                                CASE WHEN hi.[category:1] IN ('frame','sun','pop') THEN LEFT(i.model, 100)
+										ELSE LEFT(i.model+ '-'+hi.[category:1],100) END  ,
                                 CASE WHEN i.Collection = 'revo'
                                      THEN LEFT(ISNULL(i.ColorName, '') + '-'
                                                + ISNULL(i.sun_lens_color, ''),
@@ -1111,6 +1113,7 @@ IF 'ACTIVITY' = ISNULL(@datatype, 'ACTIVITY')
                         AND o.who_entered = 'backordr';
 
     END; -- ACTIVITY
+
 
 
 
