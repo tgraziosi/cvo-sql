@@ -31,6 +31,7 @@ exec [cvo_open_order_backorder_sp] '001', 2, 0
 
 -- exec cvo_open_order_backorder_sp '001', 4, 0
 
+SET NOCOUNT ON;
 
 declare @today datetime, @bo_hold varchar(2)
 select @today = dateadd(dd, datediff(dd,0,getdate()), 0)
@@ -184,6 +185,7 @@ ool.open_ord_qty, ool.daysoverdue
  LEFT outer join #ool_summary ool on #cia.part_no = ool.part_no and #cia.location = ool.location
  -- 8/3/2015
  WHERE #cia.qty_avl < 0
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_open_order_backorder_sp] TO [public]
