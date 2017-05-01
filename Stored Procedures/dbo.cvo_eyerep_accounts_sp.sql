@@ -146,8 +146,8 @@ IF 'MASTER' = ISNULL(@datatype, 'MASTER')
                                 LEFT(contact_phone, 15) AS bill_phone ,
                                 LEFT(CASE WHEN ( contact_email LIKE '%refused%' )
                                           THEN ''
-                                          WHEN #AllTerr.customer_code = '010021'
-                                          THEN 'tgraziosi@cvoptical.com'
+                                          --WHEN #AllTerr.customer_code = '010021'
+                                          --THEN 'tgraziosi@cvoptical.com'
                                           ELSE REPLACE(LOWER(ISNULL(contact_email,
                                                               '')), ';', ',')
                                      END, 100) ,
@@ -334,7 +334,7 @@ IF 'MASTER' = ISNULL(@datatype, 'MASTER')
                                 a.terms_desc
                         FROM    dbo.arterms AS a ( NOLOCK )
                         WHERE   1 = 1
-                                AND terms_desc NOT LIKE 'DO NOT USE%';
+                                AND a.terms_code IN ('NET30','NET60','NET90','INS2','INS3','INS4','INS5','INS7','PP');
 
 
 -- Order types
@@ -360,7 +360,7 @@ IF 'MASTER' = ISNULL(@datatype, 'MASTER')
                                 su.category_code + ' = ' + su.category_desc
                         FROM    dbo.so_usrcateg AS su
                         WHERE   void = 'N'
-                                AND su.category_code LIKE 'ST%';
+                                AND su.category_code LIKE 'ST%' AND RIGHT(su.category_code,2) <>'RB';
 
 -- promotion codes
 
@@ -735,6 +735,23 @@ IF 'ACTIVITY' = ISNULL(@datatype, 'ACTIVITY')
 
                 TRUNCATE TABLE dbo.cvo_eyerep_inv_tbl;
 
+				IF ( OBJECT_ID('tempdb.dbo.#usage') IS NOT NULL ) DROP TABLE #usage;
+
+				SELECT location ,
+                       part_no ,
+                       usg_option ,
+                       asofdate ,
+                       e4_wu ,
+                       e12_wu ,
+                       e26_wu ,
+                       e52_wu ,
+                       subs_exist ,
+                       subs_w4 ,
+                       subs_w12 ,
+                       promo_w4 ,
+                       promo_w12 
+					   INTO #usage FROM dbo.f_cvo_calc_weekly_usage('O')
+
                 INSERT  INTO dbo.cvo_eyerep_inv_tbl
                         ( sku ,
                           upc ,
@@ -754,14 +771,16 @@ IF 'ACTIVITY' = ISNULL(@datatype, 'ACTIVITY')
 	                    )
                         SELECT  i.part_no ,
                                 i.upc_code ,
-								i.collection,
-								--CASE WHEN hi.[category:1] IN ( 'frame', 'sun',
-        --                                                      'pop' )
-        --                             THEN i.Collection
-        --                             ELSE hi.[category:1]
-        --                        END AS Collection ,
-                                CASE WHEN hi.[category:1] IN ('frame','sun','pop') THEN LEFT(i.model, 100)
-										ELSE LEFT(i.model+ '-'+hi.[category:1],100) END  ,
+								
+								CASE WHEN hi.[category:1] IN ( 'frame', 'sun',
+                                                              'pop' )
+                                     THEN CASE WHEN i.collection IN ('izod','izx') THEN 'IZOD' ELSE i.collection END
+                                     ELSE hi.[category:1]
+                                END AS Collection ,
+          --                      CASE WHEN hi.[category:1] IN ('frame','sun','pop') THEN LEFT(i.model, 100)
+										--ELSE LEFT(i.model+ '-'+hi.[category:1],100) END  ,
+								-- LEFT(i.model, 100),
+								hi.VariantDescription,
                                 CASE WHEN i.Collection = 'revo'
                                      THEN LEFT(ISNULL(i.ColorName, '') + '-'
                                                + ISNULL(i.sun_lens_color, ''),
@@ -809,10 +828,143 @@ IF 'ACTIVITY' = ISNULL(@datatype, 'ACTIVITY')
                                                               @today)
                                 LEFT OUTER JOIN dbo.cvo_item_avail_vw AS iav ON iav.part_no = i.part_no
                                                               AND location = @LOCATION
-                                LEFT OUTER JOIN dbo.f_cvo_calc_weekly_usage('O')
+                                LEFT OUTER JOIN #usage
                                 AS fccwu ON fccwu.location = @LOCATION
                                             AND fccwu.part_no = i.part_no
                         WHERE   1 = 1
+						;
+
+				
+						INSERT into dbo.cvo_eyerep_inv_tbl
+						(
+							sku,
+							upc,
+							collection_id,
+							style,
+							color,
+							eye_size,
+							temple,
+							bridge,
+							product_rank,
+							collection_rank,
+							product_type,
+							avail_status,
+							avail_date,
+							base_price,
+							new_release
+						)
+						SELECT
+							sku,
+							hi.barcode,
+							'POP',
+							hi.VariantDescription,
+							'' AS color,
+							'' AS eye_size,
+							'' AS temple,
+							'' AS bridge,
+							99999 AS product_rank,
+							9999 AS collection_rank,
+							LEFT(iav.REStype, 20),
+							CASE
+								WHEN ISNULL(iav.qty_avl, 0) <= 0
+									 AND ISNULL(iav.SOF, 0) > 0 THEN
+									'BACK-ORDERED'
+								WHEN ISNULL(iav.qty_avl, 0) <= 0 THEN
+									'OUT-OF-STOCK'
+								WHEN ISNULL(iav.qty_avl, 0) <= ISNULL(fccwu.e12_wu,
+																		 0
+																	 ) THEN
+									'LIMITED-QUANTITIES'
+								ELSE
+									'AVAILABLE'
+							END,
+							CASE
+								WHEN ISNULL(iav.qty_avl, 0) <= 0 THEN
+									ISNULL(CONVERT(   VARCHAR(8), CASE WHEN ISNULL(iav.NextPODueDate, @today) < @today THEN
+															  DATEADD(D, 1, @today )
+														  ELSE
+															  ISNULL(iav.NextPODueDate, '') END, 112 ), '' )
+								ELSE '' END,
+							pp.price_a,
+							CASE
+								WHEN iav.ReleaseDate >= DATEADD(M,-6, @today) THEN 'Y' ELSE 'N' END
+						FROM
+							dbo.cvo_hs_inventory_8 AS hi
+							LEFT OUTER JOIN part_price pp ON pp.part_no = hi.sku
+							LEFT OUTER JOIN dbo.cvo_item_avail_vw AS iav
+								ON iav.part_no = hi.sku
+								   AND location = @location
+							LEFT OUTER JOIN #usage AS fccwu
+								ON fccwu.location = @location
+								   AND fccwu.part_no = hi.sku
+						WHERE hi.Manufacturer = 'POP'
+						;
+
+						INSERT dbo.cvo_eyerep_inv_tbl
+						(
+						    sku,
+						    upc,
+						    collection_id,
+						    style,
+						    color,
+						    eye_size,
+						    temple,
+						    bridge,
+						    product_rank,
+						    collection_rank,
+						    product_type,
+						    avail_status,
+						    avail_date,
+						    base_price,
+						    new_release
+						)
+						SELECT
+							sku,
+							hi.barcode,
+							hi.coll,
+							hi.VariantDescription,
+							hi.Color AS color,
+							hi.size AS eye_size,
+							'' AS temple,
+							'' AS bridge,
+							99999 AS product_rank,
+							9999 AS collection_rank,
+							LEFT(iav.REStype, 20),
+							CASE
+								WHEN ISNULL(iav.qty_avl, 0) <= 0
+									 AND ISNULL(iav.SOF, 0) > 0 THEN
+									'BACK-ORDERED'
+								WHEN ISNULL(iav.qty_avl, 0) <= 0 THEN
+									'OUT-OF-STOCK'
+								WHEN ISNULL(iav.qty_avl, 0) <= ISNULL(fccwu.e12_wu,
+																		 0
+																	 ) THEN
+									'LIMITED-QUANTITIES'
+								ELSE
+									'AVAILABLE'
+							END,
+							CASE
+								WHEN ISNULL(iav.qty_avl, 0) <= 0 THEN
+									ISNULL(CONVERT(   VARCHAR(8), CASE WHEN ISNULL(iav.NextPODueDate, @today) < @today THEN
+															  DATEADD(D, 1, @today )
+														  ELSE
+															  ISNULL(iav.NextPODueDate, '') END, 112 ), '' )
+								ELSE '' END,
+							pp.price_a,
+							CASE
+								WHEN iav.ReleaseDate >= DATEADD(M,-6, @today) THEN 'Y' ELSE 'N' END
+						FROM
+							dbo.cvo_hs_inventory_8 AS hi
+							LEFT OUTER JOIN part_price pp ON pp.part_no = hi.sku
+							LEFT OUTER JOIN dbo.cvo_item_avail_vw AS iav
+								ON iav.part_no = hi.sku
+								   AND location = @location
+							LEFT OUTER JOIN #usage AS fccwu
+								ON fccwu.location = @location
+								   AND fccwu.part_no = hi.sku
+						WHERE NOT EXISTS (SELECT 1 FROM cvo_eyerep_inv_tbl eit WHERE eit.sku = hi.sku)
+						;
+
 
                 UPDATE  dbo.cvo_eyerep_inv_tbl
                 SET     avail_date = ''
@@ -892,8 +1044,7 @@ IF 'ACTIVITY' = ISNULL(@datatype, 'ACTIVITY')
                                 eit.collection_id
                         FROM    dbo.cvo_eyerep_inv_tbl AS eit
                                 LEFT OUTER JOIN cvo_eyerep_invcol_tbl c ON c.collection_id = eit.collection_id
-                        WHERE   eit.collection_id NOT IN ( 'frame', 'sun',
-                                                           'pop' )
+                        WHERE   eit.collection_id NOT IN ( 'frame', 'sun' )
                                 AND c.collection_id IS NULL;
 
 
@@ -1113,6 +1264,7 @@ IF 'ACTIVITY' = ISNULL(@datatype, 'ACTIVITY')
                         AND o.who_entered = 'backordr';
 
     END; -- ACTIVITY
+
 
 
 

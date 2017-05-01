@@ -544,7 +544,7 @@ ELSE IF @object_flag = 'O'
 				@po_no,			
 				@release_id,
 			        @lead_datetime
-			FROM	purchaes_all P
+			FROM	dbo.purchase_all AS P
 			WHERE	P.po_no = @po_no
 		end -- @@rowcount <> 0
 		END
@@ -1005,6 +1005,7 @@ ELSE	RaisError 69080 'Illegal category code passed'
 
 RETURN
 END
+
 
 GO
 GRANT EXECUTE ON  [dbo].[fs_update_schedule] TO [public]

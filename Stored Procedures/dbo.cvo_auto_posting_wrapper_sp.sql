@@ -14,6 +14,8 @@ GO
 -- v1.9 TG 11/11/2015 - add check for null value for discount in cvo_ord_list
 -- v2.0 TG 12/20/2016 - add check on lb_tracking and kit_flag for DCF
 -- v2.1 TG 4/9/2017 - do not try and re-process orders that have already failed and been logged in the error table
+-- v1.4 TG 5/1/2017 - change nnb/inactive error checking to allow credit returns for nnb customers
+
 /* 
 BEGIN TRAN
 select status, * from orders_all where order_no = 1420450
@@ -176,10 +178,23 @@ BEGIN
 							WHERE	customer_code = @cust_code
 							AND		ship_to_code = @ship_to
 							AND		status_type IN (2,3))
+							AND EXISTS ( SELECT 1 FROM dbo.orders AS o WHERE o.order_no = @order_no AND o.ext = @order_ext AND o.type = 'I' )
 				BEGIN
 					SET @error_exists = 1
 					INSERT	dbo.cvo_auto_posting_errors (error_date, batch_no, order_no, order_ext, error_desc)
-					SELECT	GETDATE(), NULL, @order_no, @order_ext, 'Customer is Inactive or set to No New Business'
+					SELECT	GETDATE(), NULL, @order_no, @order_ext, 'Invoice for Customer who is Inactive or No New Business'
+				END
+
+				IF EXISTS (	SELECT	1 
+							FROM	armaster_all (NOLOCK) 
+							WHERE	customer_code = @cust_code
+							AND		ship_to_code = @ship_to
+							AND		status_type IN (2))
+							AND EXISTS ( SELECT 1 FROM dbo.orders AS o WHERE o.order_no = @order_no AND o.ext = @order_ext AND o.type = 'C' )
+				BEGIN
+					SET @error_exists = 1
+					INSERT	dbo.cvo_auto_posting_errors (error_date, batch_no, order_no, order_ext, error_desc)
+					SELECT	GETDATE(), NULL, @order_no, @order_ext, 'Credit Return for Customer who is Inactive'
 				END
 				-- v1.4 End
 
@@ -317,6 +332,7 @@ BEGIN
    , @body = @body  
 
 END
+
 
 
 GO

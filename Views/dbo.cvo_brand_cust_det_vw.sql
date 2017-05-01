@@ -2,7 +2,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-create VIEW [dbo].[cvo_brand_cust_det_vw] 
+CREATE VIEW [dbo].[cvo_brand_cust_det_vw] 
 AS 
 
 SELECT buwt.brand ,
@@ -10,10 +10,10 @@ SELECT buwt.brand ,
        buwt.rel_date ,
        buwt.type_code ,
        buwt.rel_date_wk ,
-       buwt.first_sale_wk ,
+       buwt.first_wk ,
        buwt.wkno ,
        buwt.num_cust ,
-       buwt.net_qty ,
+       buwt.sales_qty ,
        buwt.st_qty ,
        buwt.rx_qty ,
        buwt.asofdate
@@ -31,6 +31,7 @@ NTILE(4) OVER (PARTITION BY brand ORDER BY SUM(num_cust) ) AS tile
 		  rel_date
 HAVING MAX(wkno) >=52
 ) s ON s.brand = buwt.brand AND s.MODEL = buwt.MODEL AND s.rel_date = buwt.rel_date
+
 
 GO
 GRANT REFERENCES ON  [dbo].[cvo_brand_cust_det_vw] TO [public]
