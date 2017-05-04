@@ -8,11 +8,10 @@ GO
 -- Author:		elabarbera
 -- Create date: 3/13/2013
 -- Description:	Territory ST Cycle Report
--- EXEC Territory_ST_Cycle_SSRS_SP '3/30/2015' , '20201'
+-- EXEC Territory_ST_Cycle_SSRS_SP '04/30/2017' , '20201'
 -- 033015 - add territory parameter for performance
 -- =============================================
-CREATE PROCEDURE [dbo].[Territory_ST_Cycle_SSRS_SP] 
-@DateTo datetime, @Terr varchar(1000) = null
+CREATE PROCEDURE [dbo].[Territory_ST_Cycle_SSRS_SP] @DateTo datetime, @Terr varchar(1000) = null
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -64,7 +63,21 @@ end
 
 IF(OBJECT_ID('tempdb.dbo.#OrdersAll') is not null)
 drop table dbo.#OrdersAll
-SELECT * INTO #OrdersAll 
+SELECT tmp.Terr ,
+       tmp.cust_code ,
+       tmp.ship_to ,
+       tmp.address_name ,
+       tmp.postal_code ,
+       tmp.phone ,
+       tmp.order_no ,
+       tmp.ext ,
+       tmp.invoice_no ,
+       tmp.invoice_date ,
+       tmp.date_shipped ,
+       tmp.date_entered ,
+       tmp.user_category ,
+       tmp.total_amt_order ,
+       tmp.Qty INTO #OrdersAll 
 FROM (
 SELECT DISTINCT t2.territory_code as Terr, cust_code, ship_to, t2.address_name, 
 left(t2.postal_code,5)postal_code, contact_phone as phone, order_no, ext, invoice_no, invoice_date, date_shipped, date_entered, USER_CATEGORY, total_amt_order, (select sum(ordered) from ord_list t22 JOIN INV_MASTER T33 ON T22.PART_NO=T33.PART_NO where t1.order_no=t22.order_no and t1.ext=t22.order_ext and t22.order_ext=0 AND T33.TYPE_CODE IN ('SUN','FRAME'))Qty
@@ -96,6 +109,7 @@ order by Terr, Cust_code, ship_to, date_entered desc
 
 IF(OBJECT_ID('tempdb.dbo.#STCYC') is not null)
 drop table dbo.#STCYC
+
 select CASE WHEN status_type = 1 THEN 'Open' ELSE 'Closed' end as status_type,
  territory_code, customer_code, ship_to_code, address_name, city, left(postal_code,5)postal_code, contact_phone as phone,
 (SELECT TOP 1 order_no FROM #OrdersAll T11 WHERE T1.customer_code=T11.CUST_CODE AND T1.SHIP_TO_CODE=T11.SHIP_TO and t11.qty >=5 ORDER BY date_shipped desc) 'Ord#',
@@ -127,7 +141,8 @@ case
 	ELSE 4 END AS R
 	  
 INTO #STCYC
-from armaster T1
+from #territory AS t
+JOIN armaster T1 ON t.territory = t1.territory_code
 --where status_type=1
 --and 
 where address_type <>9
@@ -137,5 +152,6 @@ group by status_type, territory_code, customer_code, ship_to_code, address_name,
 SELECT * FROM #stcyc ORDER BY TERRITORY_CODE, R, M
 
 END
+
 
 GO

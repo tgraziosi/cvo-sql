@@ -779,8 +779,8 @@ IF 'ACTIVITY' = ISNULL(@datatype, 'ACTIVITY')
                                 END AS Collection ,
           --                      CASE WHEN hi.[category:1] IN ('frame','sun','pop') THEN LEFT(i.model, 100)
 										--ELSE LEFT(i.model+ '-'+hi.[category:1],100) END  ,
-								-- LEFT(i.model, 100),
-								hi.VariantDescription,
+								LEFT(i.model, 100),
+								-- hi.VariantDescription,
                                 CASE WHEN i.Collection = 'revo'
                                      THEN LEFT(ISNULL(i.ColorName, '') + '-'
                                                + ISNULL(i.sun_lens_color, ''),
@@ -1264,6 +1264,7 @@ IF 'ACTIVITY' = ISNULL(@datatype, 'ACTIVITY')
                         AND o.who_entered = 'backordr';
 
     END; -- ACTIVITY
+
 
 
 

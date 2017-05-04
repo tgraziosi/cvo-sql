@@ -195,6 +195,7 @@ AS
                                     WHEN I.type_code = 'SUN'
                                          AND ISNULL(field_28, @today) < @today
                                          AND ISNULL(field_36, '') <> 'sunps'
+										 AND I.category <> 'REVO' -- 5/4/2017 - SHOW ALL REVOS
                                     THEN 'EORS'
                                     WHEN dbo.f_cvo_get_part_tl_status(I.part_no,
                                                               @today) = 'R'
@@ -977,6 +978,7 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 -- SELECT distinct manufacturer, [category:1], [CATEGORY:2] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
 
 
 

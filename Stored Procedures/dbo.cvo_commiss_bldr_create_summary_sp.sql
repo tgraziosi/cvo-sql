@@ -7,6 +7,7 @@ CREATE  PROCEDURE [dbo].[cvo_commiss_bldr_create_summary_sp] (@fiscalPeriod VARC
 AS 
 
 -- TAG 4/11/2017 - get draw amount from builder data, not the salesperson master
+-- tag 5/3/2017 - add commission override (for empty territories)
 
 SET NOCOUNT ON;
 
@@ -97,7 +98,8 @@ select a.Salesperson ,
 	   dbo.calculate_region_fn(r.territory_code) region,
        dbo.adm_format_pltdate_f(r.date_hired) hiredate ,
        a.amount ,
-	   a.comm_amt
+	   -- a.comm_amt
+	   ISNULL(comm_over.comm_amt, ISNULL( a.comm_amt, 0)) comm_amt -- 5/3/2017
 	   , ISNULL(draw_over.draw_amount, ISNULL( d.draw_amount, 0)) draw_amount
 	   , ISNULL(draw_over.qty, @drawweeks) drawweeks
 	   , total_draw = ISNULL(draw_over.draw_amount, ISNULL( d.draw_amount, 0)) * ISNULL(draw_over.qty, @drawweeks)
@@ -230,7 +232,13 @@ from
 		AND ISNULL(line_type,'') IN ('Draw_Over') 
 		GROUP BY ccpv.rep_code
 	) draw_over ON draw_over.rep_code = a.salesperson 
-
+		LEFT OUTER JOIN -- commission overrides - 05/03/2017
+    (SELECT ccpv.rep_code, SUM(ccpv.incentive_amount) comm_amt
+        FROM dbo.cvo_commission_promo_values AS ccpv
+		WHERE ccpv.recorded_month = @fp 
+		AND ISNULL(line_type,'') IN ('Comm Override') 
+		GROUP BY ccpv.rep_code
+	) comm_over ON comm_over.rep_code = a.salesperson 
 
 
 UPDATE d SET 
@@ -242,6 +250,7 @@ UPDATE d SET
 		AND d.salesperson = ISNULL(@slp, d.salesperson)
 
 -- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt where report_month = '09/2016'
+
 
 
 

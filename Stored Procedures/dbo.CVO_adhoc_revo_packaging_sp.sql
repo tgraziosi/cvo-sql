@@ -20,6 +20,8 @@ SET NOCOUNT ON
 DECLARE @BIN VARCHAR(10), @LOC VARCHAR(10)
 DECLARE @QTY_TO_ISSUE INT, @last_upd datetime
 
+-- first do the adjustments in 001
+
 SET @BIN = 'F11-BOX'
 SET @LOC = '001'
 
@@ -86,8 +88,13 @@ end
 
 -- keep the rx lenses at an inventory level of 1000
 
+-- switch to location VC
+
+SELECT @loc = 'VC'
+SELECT @bin = 'VC'
+
 insert into #temp_part_list
-select @loc, ISNULL(lb.bin_no, @bin), i.part_no, 1000 - ISNULL(qty,0) , 1
+select @loc, ISNULL(lb.bin_no, @bin), i.part_no, 500 - ISNULL(qty,0) , 1
 	FROM
 	inv_master i (NOLOCK)
 	LEFT OUTER JOIN
@@ -95,8 +102,8 @@ select @loc, ISNULL(lb.bin_no, @bin), i.part_no, 1000 - ISNULL(qty,0) , 1
 	AND lb.bin_no = (SELECT TOP 1 bin_no FROM lot_bin_stock l (NOLOCK) WHERE l.part_no = lb.part_no 
 		 AND l.location = lb.location ORDER BY qty DESC)
 -- where location = @LOC and bin_no = @BIN
-where i.type_code = 'lens' AND i.category = 'revo'
-AND ISNULL(lb.qty,0) < 1000 
+where ((i.type_code = 'lens' AND i.category = 'revo') OR i.part_no = 'RERIMLESS')
+AND ISNULL(lb.qty,0) < 500 
 AND ISNULL(i.void,'N') = 'N'
 AND ISNULL(i.lb_tracking,'N') = 'Y'
 
@@ -259,6 +266,7 @@ SELECT adj_no ,
        row_id FROM #adm_INV_ADJ_log
 
 END
+
 
 
 GO

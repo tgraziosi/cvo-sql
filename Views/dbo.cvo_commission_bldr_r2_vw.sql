@@ -4,8 +4,11 @@ SET ANSI_NULLS ON
 GO
 
 
+
   
 -- Author = TG - rewrite of cvo_commission_bldr_vw
+-- used by Explorer View 
+-- as of 1/17 use the ereport version, not this... cvo_commission_bldr_r3_sp
 -- 12/2015 - allow for multiple commission rates on an order/invoice
 -- 10/2016 - add AR Only INvoice/Credits
 
@@ -243,24 +246,24 @@ AS
 -- AR Only Invoices
 UNION ALL
 
-select   
+SELECT   
 x.salesperson_code,
 x.territory_code,
 x.customer_code customer,
 x.ship_to_code ship_to,
-ar.address_name as name,
-null as order_no,
-null as ext,
-substring(x.doc_ctrl_num,4,10) as invoice_no,
-x.date_doc as invoicedate,
-x.date_applied as dateshipped,
-'ST' as ordertype,
-'' as promo_id,
-'' as level,
-case when x.trx_type = 2031 then 'Inv' else 'Crd' end as type,
-Net_sales = clv.ext_net_sales * case when x.trx_type = 2031 then 1 else -1 end,
-brand = isnull(clv.brand, 'CORE'),
-Amount = isnull(clv.ext_comm_sales, 0) * case when x.trx_type = 2031 then 1 else -1 end,
+ar.address_name AS name,
+NULL AS order_no,
+NULL AS ext,
+SUBSTRING(x.doc_ctrl_num,4,10) AS invoice_no,
+x.date_doc AS invoicedate,
+x.date_applied AS dateshipped,
+'ST' AS ordertype,
+'' AS promo_id,
+'' AS level,
+CASE WHEN x.trx_type = 2031 THEN 'Inv' ELSE 'Crd' END AS type,
+Net_sales = clv.ext_net_sales * CASE WHEN x.trx_type = 2031 THEN 1 ELSE -1 END,
+brand = ISNULL(clv.brand, 'CORE'),
+Amount = ISNULL(clv.ext_comm_sales, 0) * CASE WHEN x.trx_type = 2031 THEN 1 ELSE -1 END,
 [Comm%] = 0,
 [Comm$] = 0,
 'AR Posted' AS Loc ,
@@ -268,12 +271,12 @@ slp.salesperson_name ,
 ISNULL(CONVERT(VARCHAR, slp.date_of_hire, 101), '') AS HireDate ,
 slp.draw_amount
 
-from artrx_all x (nolock)  
-join artrxcdt d (nolock) on x.trx_ctrl_num = d.trx_ctrl_num  
-JOIN armaster ar (nolock) on ar.customer_code = x.customer_code and ar.ship_to_code = x.ship_to_code
+FROM artrx_all x (NOLOCK)  
+JOIN artrxcdt d (NOLOCK) ON x.trx_ctrl_num = d.trx_ctrl_num  
+JOIN armaster ar (NOLOCK) ON ar.customer_code = x.customer_code AND ar.ship_to_code = x.ship_to_code
 JOIN arsalesp slp (NOLOCK) ON slp.salesperson_code = x.salesperson_code
 
-left outer join inv_master i on i.part_no = d.item_code
+LEFT OUTER JOIN inv_master i ON i.part_no = d.item_code
 LEFT OUTER JOIN ( SELECT    a.trx_ctrl_num ,
                                     brand = CASE WHEN i.category IN ( 'REVO',
                                                               'BT', 'LS' )
@@ -294,18 +297,19 @@ LEFT OUTER JOIN ( SELECT    a.trx_ctrl_num ,
                                     END ,
                                     a.trx_ctrl_num
 				) clv ON clv.trx_ctrl_num = x.trx_ctrl_num -- Issue #982
-where
-not exists(select 1 from orders_invoice oi where oi.trx_ctrl_num =  x.trx_ctrl_num)
-and x.trx_type in (2031,2032)  
-and x.doc_ctrl_num not like 'FIN%' and x.doc_ctrl_num not like 'CB%'   
-and x.doc_desc not like 'converted%' and x.doc_desc not like '%nonsales%' 
-and x.terms_code not like 'ins%'
-and (d.gl_rev_acct like '4000%' or 
-     d.gl_rev_acct like '4500%' or
+WHERE
+NOT EXISTS(SELECT 1 FROM orders_invoice oi WHERE oi.trx_ctrl_num =  x.trx_ctrl_num)
+AND x.trx_type IN (2031,2032)  
+AND x.doc_ctrl_num NOT LIKE 'FIN%' AND x.doc_ctrl_num NOT LIKE 'CB%'   
+AND x.doc_desc NOT LIKE 'converted%' AND x.doc_desc NOT LIKE '%nonsales%' 
+AND x.terms_code NOT LIKE 'ins%'
+AND (d.gl_rev_acct LIKE '4000%' OR 
+     d.gl_rev_acct LIKE '4500%' OR
      -- d.gl_rev_acct like '4530%' or -- 022514 - tag - add account for debit promo's
-     d.gl_rev_acct like '4600%' or 
-     d.gl_rev_acct like '4999%')  
-and x.void_flag <> 1     --v2.0  
+     d.gl_rev_acct LIKE '4600%' OR 
+     d.gl_rev_acct LIKE '4999%')  
+AND x.void_flag <> 1     --v2.0  
+
 
 
 

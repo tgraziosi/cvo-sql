@@ -14,7 +14,7 @@ as
 -- 8/3/2015 - only include line items where the part has <0 qty avl
 
 /*
-exec [cvo_open_order_backorder_sp] '001', 2, 0
+exec [cvo_open_order_backorder_sp] '001', 4, 0
 */
 
 -- option = 1 - promos
@@ -121,6 +121,7 @@ i.part_no,
 ia.field_28 as pom_date, --v1.1
 -- 0 as qty_avl,
 cia.qty_avl AS qty_avl,
+cia.QcQty2 AS qty_rec, -- add rdock qty 5/4/17
 ool.location,
 r.NextPO, 
 r.NextPOOnOrder,
@@ -174,17 +175,39 @@ CREATE NONCLUSTERED INDEX [idx_cia] ON #cia
 
 -- select * From #cia
 
-select #cia.brand, #cia.style, #cia.restype, #cia.gender, 
-#cia.part_no, 
-#cia.pom_date, 
-#cia.qty_avl, #cia.location, 
-#cia.nextpo, #cia.nextpoduedate, #cia.nextpoonorder, #cia.shipvia, #cia.plrecd, #cia.vendor, 
-case when #cia.report_option <> '' then #cia.report_option else ool.report_option end as report_option,
-ool.open_ord_qty, ool.daysoverdue
- from #cia 
- LEFT outer join #ool_summary ool on #cia.part_no = ool.part_no and #cia.location = ool.location
- -- 8/3/2015
- WHERE #cia.qty_avl < 0
+SELECT
+    #cia.brand,
+    #cia.style,
+    #cia.restype,
+    #cia.gender,
+    #cia.part_no,
+    #cia.pom_date,
+    #cia.qty_avl,
+    #cia.qty_rec,
+    #cia.location,
+    #cia.NextPO,
+    #cia.NextPODueDate,
+    #cia.nextpoonorder,
+    #cia.shipvia,
+    #cia.plrecd,
+    #cia.vendor,
+    CASE
+        WHEN #cia.report_option <> '' THEN
+            #cia.report_option
+        ELSE
+            ool.report_option
+    END AS report_option,
+    ool.open_ord_qty,
+    ool.daysoverdue
+FROM
+    #cia
+    LEFT OUTER JOIN #ool_summary ool
+        ON #cia.part_no = ool.part_no
+           AND #cia.location = ool.location
+-- 8/3/2015
+WHERE #cia.qty_avl < 0
+;
+
 
 
 GO

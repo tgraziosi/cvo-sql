@@ -4,7 +4,9 @@ SET ANSI_NULLS ON
 GO
 CREATE PROCEDURE [dbo].[cvo_commission_statement_sp]
     @FiscalPeriod VARCHAR(10)
-AS -- exec cvo_commission_statement_sp '03/2017'
+AS 
+
+-- exec cvo_commission_statement_sp '03/2017'
 
     SET NOCOUNT ON;
 
@@ -19,7 +21,8 @@ AS -- exec cvo_commission_statement_sp '03/2017'
             @month INT;
 
 --DECLARE @fiscalperiod VARCHAR(10)
--- SELECT @fiscalperiod = '01/2016'
+-- SELECT @fiscalperiod = '03/2017'
+
         SELECT  @fp = @FiscalPeriod;
 
         SELECT  @start_date = CAST(LEFT(@fp, 2) AS VARCHAR(2)) + '/1/'
@@ -149,6 +152,7 @@ AS -- exec cvo_commission_statement_sp '03/2017'
                 END AS total_earnings_ly ,
                 general_note = general.comments ,
                 spec_pay.spec_pay
+		INTO #final
         FROM    #mm
                 LEFT OUTER JOIN ( SELECT    id ,
                                             salesperson ,
@@ -350,10 +354,52 @@ AS -- exec cvo_commission_statement_sp '03/2017'
                                             rep_code
                                 ) spec_pay ON #mm.salesperson = spec_pay.rep_code
                                               AND #mm.mm = spec_pay.month_num
-        ORDER BY salesperson;
+		;
 
+		DELETE FROM #final WHERE 
+		#final.salesperson IN 
+		(SELECT salesperson FROM #final GROUP BY salesperson HAVING SUM(amount) = 0);
+
+		SELECT id ,
+               salesperson ,
+               salesperson_name ,
+               hiredate ,
+               termdate ,
+               amount ,
+               comm_amt ,
+               draw_amount ,
+               draw_weeks ,
+               commission ,
+               incentivePC ,
+               incentive ,
+               addition1 ,
+               addition2 ,
+               addition3 ,
+               additionrsn1 ,
+               additionrsn2 ,
+               additionrsn3 ,
+               reduction1 ,
+               reductionrsn1 ,
+               rep_type ,
+               status_Type ,
+               territory ,
+               region ,
+               total_earnings ,
+               total_draw ,
+               prior_month_bal ,
+               net_pay ,
+               report_month ,
+               current_flag ,
+               promo_detail ,
+               promo_sum ,
+               month_num ,
+               year_ly ,
+               total_earnings_ly ,
+               general_note ,
+               spec_pay FROM #final;
 
     END;
+
 
 
 

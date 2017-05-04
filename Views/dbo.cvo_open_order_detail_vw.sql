@@ -3,17 +3,6 @@ GO
 SET ANSI_NULLS ON
 GO
 
-
-
-
-
-
-
-
-
-
-
-
 /*
 -- for backorder summary support
 select * From cvo_open_order_detail_vw where location = '001' 
@@ -35,6 +24,7 @@ CREATE view [dbo].[cvo_open_order_detail_vw] as
 -- v1.6 - tag - 081913 - add net value of open qty
 -- v1.7 - tag - 101513 - add order priority
 -- v1.8 - tag - 031314 - add cust po
+-- v1.9 - tag - 050417 - add qty in receiving
 
 select 
 i.category as brand, 
@@ -45,8 +35,10 @@ ol.part_no,
 i.vendor vendor, -- v1.3
 ia.field_28 pom_date, --v1.1
 --cia.description,
-(select top (1) qty_avl from cvo_item_avail_vw cia (nolock) where cia.part_no = ol.part_no
-	and cia.location = ol.location) qty_avl,
+iav.qty_avl AS qty_avl,
+iav.QcQty2 AS qty_Rec,
+--(select top (1) qty_avl from cvo_item_avail_vw cia (nolock) where cia.part_no = ol.part_no
+--	and cia.location = ol.location) qty_avl,
 ol.location, 
 --cia.in_stock, 
 --cia.qty_commit, 
@@ -127,6 +119,7 @@ so_priority_code
 , ol.ordered
 
 From  ord_list ol (nolock)
+ INNER JOIN dbo.cvo_item_avail_vw AS iav ON iav.location = ol.location AND iav.part_no = ol.part_no
  inner join orders o (nolock) on  ol.order_no = o.order_no and ol.order_ext = o.ext 
  inner join cvo_orders_all co (nolock) on co.order_no = o.order_no and co.ext = o.ext
  inner join inv_master i (nolock) on i.part_no = ol.part_no
@@ -144,6 +137,7 @@ and ol.ordered > ol.shipped
 --and not exists (select * from tdc_soft_alloc_tbl (nolock) where part_no = ol.part_no and
 --order_no = ol.order_no and order_ext = ol.order_ext and line_no = ol.line_no)
 --and cia.style = 'portia'
+
 
 
 

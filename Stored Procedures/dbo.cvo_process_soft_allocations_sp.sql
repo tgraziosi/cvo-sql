@@ -1516,7 +1516,9 @@ BEGIN
 			SELECT	@curr_alloc_pct = (@curr_alloc / @curr_ordered) * 100
 			-- v3.0 End
 
-			SELECT	@back_ord_flag = back_ord_flag
+			SELECT	@back_ord_flag = back_ord_flag,
+					@status = status, -- v7.6
+					@user_category = user_category -- v7.6
 			FROM	orders_all (NOLOCK)
 			WHERE	order_no = @order_no
 			AND		ext = @order_ext
@@ -1524,7 +1526,6 @@ BEGIN
 			-- v1.3 Start
 			IF (@curr_alloc_pct < 100) -- v3.6  AND @back_ord_flag IN (0,2))
 			BEGIN
-
 				-- v5.7 Start
 				IF (@back_ord_flag = 1)
 				BEGIN
@@ -1558,94 +1559,138 @@ BEGIN
 				END
 				ELSE
 				BEGIN
+					-- v7.6 Start
+					SET @fill_rate = -1
+					EXEC dbo.cvo_order_summary_sp @soft_alloc_no, @order_no, @order_ext, 1, NULL, @fill_rate OUTPUT 
 
-					UPDATE	dbo.cvo_soft_alloc_hdr WITH (ROWLOCK)
-					SET		status = -2
-					WHERE	order_no = @order_no
-					AND		order_ext = @order_ext
-					AND		status = -1	
-
-					UPDATE	dbo.cvo_soft_alloc_det WITH (ROWLOCK)
-					SET		status = -2
-					WHERE	order_no = @order_no
-					AND		order_ext = @order_ext
-					AND		status = -1	
-
-					-- v4.0 Start
-					-- Get new soft alloc number
-	--				BEGIN TRAN
-	--					UPDATE	dbo.cvo_soft_alloc_next_no
-	--					SET		next_no = next_no + 1
-	--				COMMIT TRAN	
-					
-	--				SELECT	@new_soft_alloc = next_no
-	--				FROM	dbo.cvo_soft_alloc_next_no
-
-					SET	@new_soft_alloc = @soft_alloc_no
-					-- v4.0 End
-
-					-- Create table to work out the back orders
-					CREATE TABLE #sa_backorder (
-						line_no		int,
-						part_no		varchar(30),
-						quantity	decimal(20,8))
-
-					INSERT	#sa_backorder (line_no, part_no, quantity)
-					SELECT	a.line_no,
-							a.part_no,
-							SUM(a.ordered) - ISNULL(CASE WHEN SUM(b.qty) IS NULL THEN 0 ELSE SUM(b.qty) END,0)
-					FROM	ord_list a (NOLOCK)
-					LEFT JOIN
-							(SELECT SUM(qty) qty, order_no, order_ext, order_type, line_no FROM tdc_soft_alloc_tbl (NOLOCK) GROUP BY order_no, order_ext, order_type, line_no) b -- v2.4
-					ON		a.order_no = b.order_no
-					AND		a.order_ext = b.order_ext
-					AND		a.line_no = b.line_no
-					WHERE	a.order_no = @order_no
-					AND		a.order_ext = @order_ext
-					AND		ISNULL(b.order_type,'S') = 'S'
-					GROUP BY a.line_no, a.part_no
-
-					-- Create the new soft allocation records
-					-- v4.7 Start
-					IF NOT EXISTS (SELECT 1 FROM cvo_soft_alloc_hdr WHERE soft_alloc_no = @soft_alloc_no AND status = 0)
+					IF ((@fill_rate < @fill_rate_level) AND LEFT(@user_category,2) = 'ST')
 					BEGIN
-						INSERT	cvo_soft_alloc_hdr WITH (ROWLOCK) (soft_alloc_no, order_no, order_ext, location, bo_hold, status)
-		-- v3.6				SELECT	@new_soft_alloc, order_no, order_ext, location, 1, 0
-						SELECT	@new_soft_alloc, order_no, order_ext, location, CASE WHEN @back_ord_flag = 1 THEN 0 ELSE 1 END, 0 -- v3.6
-						FROM	cvo_soft_alloc_hdr (NOLOCK)
-						WHERE	soft_alloc_no = @soft_alloc_no
+						EXEC CVO_UnAllocate_sp @order_no, @order_ext, 0, 'AUTO_ALLOC'
+
+						IF (@status = 'N') 
+						BEGIN
+							UPDATE	orders_all
+							SET		status = 'A',
+									hold_reason = 'FL'
+							WHERE	order_no = @order_no
+							AND		ext = @order_ext
+
+							INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+							SELECT	GETDATE() , 'ALLOC CHECK' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
+									'STATUS:A/FL USER HOLD; HOLD REASON: FILL LEVEL;'
+							FROM	orders_all a (NOLOCK)
+							WHERE	a.order_no = @order_no
+							AND		a.ext = @order_ext
+						END
+						ELSE
+						BEGIN
+							IF NOT EXISTS (SELECT 1 FROM cvo_so_holds (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext AND hold_reason = 'SC')
+							BEGIN
+								SELECT	@hold_priority = dbo.f_get_hold_priority('FL','')
+
+								INSERT	dbo.cvo_so_holds (order_no, order_ext, hold_reason, hold_priority, hold_user, hold_date)
+								SELECT	@order_no, @order_ext, 'FL', @hold_priority, 'S/ALLOC', GETDATE()
+
+								INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+								SELECT	GETDATE() , 'ALLOC CHECK' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
+									'ADD HOLD FL;'
+								FROM	orders_all a (NOLOCK)
+								WHERE	a.order_no = @order_no
+								AND		a.ext = @order_ext
+							END
+						END
 					END
+					ELSE
+					BEGIN
 
-					INSERT	cvo_soft_alloc_det WITH (ROWLOCK)(soft_alloc_no, order_no, order_ext, line_no, location, part_no, quantity,  
-															kit_part, change, deleted, is_case, is_pattern, is_pop_gift, status, add_case_flag, case_adjust) -- v3.4 v3.5
-					SELECT	DISTINCT @new_soft_alloc, a.order_no, a.order_ext, a.line_no, a.location, a.part_no, b.quantity,  
-															a.kit_part, 0, a.deleted, a.is_case, a.is_pattern, a.is_pop_gift, 0, a.add_case_flag, a.case_adjust -- v3.4 v3.5
+						UPDATE	dbo.cvo_soft_alloc_hdr WITH (ROWLOCK)
+						SET		status = -2
+						WHERE	order_no = @order_no
+						AND		order_ext = @order_ext
+						AND		status = -1	
 
-					FROM	cvo_soft_alloc_det a (NOLOCK)
-					JOIN	#sa_backorder b
-					ON		a.line_no = b.line_no
-					AND		a.part_no = b.part_no
-					WHERE	b.quantity > 0
-					AND		soft_alloc_no = @soft_alloc_no
-					-- v4.7 End
-					
-					DROP TABLE #sa_backorder
+						UPDATE	dbo.cvo_soft_alloc_det WITH (ROWLOCK)
+						SET		status = -2
+						WHERE	order_no = @order_no
+						AND		order_ext = @order_ext
+						AND		status = -1	
 
-					-- v3.8 Start
-					DELETE	dbo.cvo_soft_alloc_hdr
-					WHERE	order_no = @order_no
-					AND		order_ext = @order_ext
-					AND		status = -2
+						-- v4.0 Start
+						-- Get new soft alloc number
+		--				BEGIN TRAN
+		--					UPDATE	dbo.cvo_soft_alloc_next_no
+		--					SET		next_no = next_no + 1
+		--				COMMIT TRAN	
+						
+		--				SELECT	@new_soft_alloc = next_no
+		--				FROM	dbo.cvo_soft_alloc_next_no
 
-					DELETE	dbo.cvo_soft_alloc_det
-					WHERE	order_no = @order_no
-					AND		order_ext = @order_ext
-					AND		status = -2
-					-- v3.8
+						SET	@new_soft_alloc = @soft_alloc_no
+						-- v4.0 End
 
-					EXEC dbo.cvo_update_soft_alloc_case_adjust_sp @new_soft_alloc, @order_no, @order_ext
-				END
-				-- v5.7 End					
+						-- Create table to work out the back orders
+						CREATE TABLE #sa_backorder (
+							line_no		int,
+							part_no		varchar(30),
+							quantity	decimal(20,8))
+
+						INSERT	#sa_backorder (line_no, part_no, quantity)
+						SELECT	a.line_no,
+								a.part_no,
+								SUM(a.ordered) - ISNULL(CASE WHEN SUM(b.qty) IS NULL THEN 0 ELSE SUM(b.qty) END,0)
+						FROM	ord_list a (NOLOCK)
+						LEFT JOIN
+								(SELECT SUM(qty) qty, order_no, order_ext, order_type, line_no FROM tdc_soft_alloc_tbl (NOLOCK) GROUP BY order_no, order_ext, order_type, line_no) b -- v2.4
+						ON		a.order_no = b.order_no
+						AND		a.order_ext = b.order_ext
+						AND		a.line_no = b.line_no
+						WHERE	a.order_no = @order_no
+						AND		a.order_ext = @order_ext
+						AND		ISNULL(b.order_type,'S') = 'S'
+						GROUP BY a.line_no, a.part_no
+
+						-- Create the new soft allocation records
+						-- v4.7 Start
+						IF NOT EXISTS (SELECT 1 FROM cvo_soft_alloc_hdr WHERE soft_alloc_no = @soft_alloc_no AND status = 0)
+						BEGIN
+							INSERT	cvo_soft_alloc_hdr WITH (ROWLOCK) (soft_alloc_no, order_no, order_ext, location, bo_hold, status)
+			-- v3.6				SELECT	@new_soft_alloc, order_no, order_ext, location, 1, 0
+							SELECT	@new_soft_alloc, order_no, order_ext, location, CASE WHEN @back_ord_flag = 1 THEN 0 ELSE 1 END, 0 -- v3.6
+							FROM	cvo_soft_alloc_hdr (NOLOCK)
+							WHERE	soft_alloc_no = @soft_alloc_no
+						END
+
+						INSERT	cvo_soft_alloc_det WITH (ROWLOCK)(soft_alloc_no, order_no, order_ext, line_no, location, part_no, quantity,  
+																kit_part, change, deleted, is_case, is_pattern, is_pop_gift, status, add_case_flag, case_adjust) -- v3.4 v3.5
+						SELECT	DISTINCT @new_soft_alloc, a.order_no, a.order_ext, a.line_no, a.location, a.part_no, b.quantity,  
+																a.kit_part, 0, a.deleted, a.is_case, a.is_pattern, a.is_pop_gift, 0, a.add_case_flag, a.case_adjust -- v3.4 v3.5
+
+						FROM	cvo_soft_alloc_det a (NOLOCK)
+						JOIN	#sa_backorder b
+						ON		a.line_no = b.line_no
+						AND		a.part_no = b.part_no
+						WHERE	b.quantity > 0
+						AND		soft_alloc_no = @soft_alloc_no
+						-- v4.7 End
+						
+						DROP TABLE #sa_backorder
+
+						-- v3.8 Start
+						DELETE	dbo.cvo_soft_alloc_hdr
+						WHERE	order_no = @order_no
+						AND		order_ext = @order_ext
+						AND		status = -2
+
+						DELETE	dbo.cvo_soft_alloc_det
+						WHERE	order_no = @order_no
+						AND		order_ext = @order_ext
+						AND		status = -2
+						-- v3.8
+
+						EXEC dbo.cvo_update_soft_alloc_case_adjust_sp @new_soft_alloc, @order_no, @order_ext
+					END
+					-- v5.7 End					
+				END -- v7.6
 			END
 			-- v1.3 End
 		END
