@@ -803,14 +803,11 @@ group BY DATEADD(m, #t.sort_seq - 1, @asofdate) ,
 -- select * From #SKU  order by sku, sort_seq
 -- select * From #t
 
-
-
-
 -- figure out the running total inv available line
 -- 11/19/14 - Change INV line calculation to consume the demand line using the greater of fct/drp or sls as the demand line
 -- 7/20/15 - add avail to promise
 
-declare @inv int, @last_inv int, @last_loc VARCHAR(10),  @INV_AVL INT, @drp int, @sls int, @po INT, @ord INT, @atp INT, @reserve_inv int
+declare @inv int, @last_inv int, @last_loc VARCHAR(10),  @INV_AVL INT, @drp int, @sls int, @po INT, @ord INT, @atp INT, @reserve_inv INT, @qty_ord int
 
 create index idx_f on #SKU (sku ASC, location asc)
 
@@ -824,11 +821,34 @@ BEGIN
 
 -- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
 	SELECT @last_inv = 0, @atp = 0, @reserve_inv = 0
-	SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) - 
-		   CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
+	SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) 
+		   -- CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
+		   , @qty_ord = isnull(cia.sof,0) + isnull(cia.allocated,0)
 		   , @atp = ISNULL(qty_avl,0)
 		   , @reserve_inv = ISNULL(cia.ReserveQty,0) -- 12/5/2016
 		   from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku and cia.location = @last_loc
+
+		   IF EXISTS (SELECT 1 FROM #sku WHERE LINE_TYPE = 'ord' AND sort_seq = 1 AND location = @last_loc AND sku = @sku)
+			   UPDATE #sku SET quantity = quantity + @qty_ord 
+				WHERE sku = @sku AND LINE_TYPE = 'ord' AND sort_seq = 1 AND location = @last_loc
+			ELSE
+				insert into #SKU
+					select -- 
+					'ORD' as line_type
+					,@sku sku
+					,@last_loc
+					,#t.mm
+					,bucket = dateadd(m,#t.sort_seq-1, @asofdate)
+					,QOH = 0
+					, atp = 0
+					, reserve_qty = 0
+					,@qty_ord,
+					#t.mult,
+					#t.s_mult,
+					#t.sort_seq
+					FROM #T WHERE #T.PART_NO = @SKU AND #T.location = @last_loc AND #t.SORT_SEQ = 1
+
+
 
 
 select @sort_seq = 0
@@ -836,7 +856,9 @@ SELECT @INV_AVL = @LAST_INV
 select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq+ 1 AND location = @last_loc
 select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq+ 1 AND location = @last_loc
 select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq+ 1 AND location = @last_loc
-select @ord = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq+ 1 AND location = @last_loc
+select @ord = SUM(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq+ 1 AND location = @last_loc
+
+
 END
 
 -- select * From cvo_item_avail_vw where part_no = 'etkatbur5018' and location = '001'
@@ -925,18 +947,39 @@ BEGIN -- sku loop
         begin
 	-- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
 		SELECT @last_inv = 0, @atp = 0, @reserve_inv = 0
-		SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) - 
-			   CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
+		SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) 
+			   -- CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
+			   , @qty_ord = isnull(cia.sof,0) + isnull(cia.allocated,0)
 			   , @atp = ISNULL(qty_avl,0)
 			   , @reserve_inv = ISNULL(cia.ReserveQty,0)
 		from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku AND cia.location = @last_loc
 		
+		   IF EXISTS (SELECT 1 FROM #sku WHERE LINE_TYPE = 'ord' AND sort_seq = 1 AND location = @last_loc AND sku = @sku)
+			   UPDATE #sku SET quantity = quantity + @qty_ord 
+				WHERE sku = @sku AND LINE_TYPE = 'ord' AND sort_seq = 1 AND location = @last_loc
+			ELSE
+				insert into #SKU
+					select -- 
+					'ORD' as line_type
+					,@sku sku
+					,@last_loc
+					,#t.mm
+					,bucket = dateadd(m,#t.sort_seq-1, @asofdate)
+					,QOH = 0
+					, atp = 0
+					, reserve_qty = 0
+					,@qty_ord,
+					#t.mult,
+					#t.s_mult,
+					#t.sort_seq
+					FROM #T WHERE #T.PART_NO = @SKU AND #T.location = @last_loc AND #t.SORT_SEQ = 1
+
 		select @sort_seq = 0
 		SELECT @INV_AVL = @LAST_INV
 		select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq + 1 AND location = @last_loc
 		select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq + 1 AND location = @last_loc
 		select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq + 1 AND location = @last_loc
-		select @ord = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq + 1 AND location = @last_loc
+		select @ord = SUM(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq + 1 AND location = @last_loc
 		end
 	END -- location  loop
 
@@ -947,18 +990,37 @@ BEGIN -- sku loop
 	begin
 -- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
 	SELECT @last_inv = 0, @atp = 0, @reserve_inv = 0
-	SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) - 
-		   CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
+	SELECT @last_inv = isnull(cia.in_stock,0) + isnull(cia.qcqty2,0) 
+		   -- CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
+		   , @qty_ord = isnull(cia.sof,0) + isnull(cia.allocated,0)
 		   , @atp = ISNULL(qty_avl,0)
 		   , @reserve_inv = ISNULL(cia.ReserveQty,0)
 	from cvo_item_avail_vw cia 	WHERE  cia.part_no = @sku AND cia.location = @last_loc
-
+		   IF EXISTS (SELECT 1 FROM #sku WHERE LINE_TYPE = 'ord' AND sort_seq = 1 AND location = @last_loc AND sku = @sku)
+			   UPDATE #sku SET quantity = quantity + @qty_ord 
+				WHERE sku = @sku AND LINE_TYPE = 'ord' AND sort_seq = 1 AND location = @last_loc
+			ELSE
+				insert into #SKU
+					select -- 
+					'ORD' as line_type
+					,@sku sku
+					,@last_loc
+					,#t.mm
+					,bucket = dateadd(m,#t.sort_seq-1, @asofdate)
+					,QOH = 0
+					, atp = 0
+					, reserve_qty = 0
+					,@qty_ord,
+					#t.mult,
+					#t.s_mult,
+					#t.sort_seq
+					FROM #T WHERE #T.PART_NO = @SKU AND #T.location = @last_loc AND #t.SORT_SEQ = 1
 	select @sort_seq = 0
 	SELECT @INV_AVL = @LAST_INV
 	select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq + 1 AND location = @last_loc
 	select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq + 1 AND location = @last_loc
 	select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq + 1 AND location = @last_loc
-	select @ord = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq + 1 AND location = @last_loc
+	select @ord = SUM(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq + 1 AND location = @last_loc
 	end
 END -- sku loop
 
@@ -1108,6 +1170,8 @@ cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
 
 
 end
+
+
 
 
 

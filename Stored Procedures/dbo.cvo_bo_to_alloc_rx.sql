@@ -99,6 +99,7 @@ AS -- RX backorders to allocate
             AND i.type_code <> 'case'
             AND ( o.user_category LIKE 'rx%'
                   OR o.user_category = 'st-tr'
+				  OR (o.user_category NOT LIKE 'rx%' AND DATEDIFF(d, o.sch_ship_date, @today) > 42) -- 5/5/2017 per CP request
                 )
             AND col.is_customized = 'n'
             AND ol.part_type = 'p';
@@ -327,6 +328,7 @@ AS -- RX backorders to allocate
 -- and qty_to_alloc > 0 
 ORDER BY    part_no ,
             qty_avl_to_alloc DESC;
+
 
 
 GO

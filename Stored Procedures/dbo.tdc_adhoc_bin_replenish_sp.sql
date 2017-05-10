@@ -652,7 +652,13 @@ DEALLOCATE repl_cursor
 
 IF @@TRANCOUNT > 0 COMMIT TRAN  
 
+-- tag 050917
+INSERT cvo_replenishment_log
+SELECT replen_group, location, queue_id, part_no, part_desc, from_bin, to_bin, qty, GETDATE(), @in_repl_group
+ FROM #cvo_replenishment ORDER BY row_id
+
 RETURN 0  
+
 GO
 GRANT EXECUTE ON  [dbo].[tdc_adhoc_bin_replenish_sp] TO [public]
 GO

@@ -7,7 +7,7 @@ GO
 -- Author: elabarbera
 -- Create date: 7/1/2013
 -- Description:, NEW Ranking Customer BILL TO
--- EXEC RankCust_all_sp 'Year To Date','TRUE', null, null, '*all*', 'b'
+-- EXEC RankCust_all_sp '1/1/2017', 12/31/2017','TRUE', null, null, '*all*', 'b', 'rxe'
 -- EXEC RankCustBillTo_sp '1/1/2014','12/31/2014','TRUE'
 -- EXEC RankCustshipTo_sp '1/1/2014','12/31/2014','TRUE'
 -- 12/5/2014 - tag - update RA figures to be only ra returns.  was including wty too
@@ -24,13 +24,15 @@ CREATE PROCEDURE [dbo].[RankCust_all_sp]
     @collection VARCHAR(1000) = NULL ,
     @Territory VARCHAR(8000) = NULL ,
 	@BuyingGroup VARCHAR(8000) = NULL ,
-	@CustOpt CHAR(1) = 'B'  -- B or S
+	@CustOpt CHAR(1) = 'B',
+	@ActiveDesig VARCHAR(1000) = NULL,  -- B or S
+	@debug int = 0
 
 AS
     BEGIN
         SET NOCOUNT ON;
         SET ANSI_WARNINGS OFF;
-
+		        
 
 -- --  DECLARES
         DECLARE @DateFromTY DATETIME;                                    
@@ -123,12 +125,34 @@ AS
                         FROM    dbo.f_comma_list_to_table(@BuyingGroup);
             END;
 
+		CREATE TABLE #activedesig
+            (
+              [code] VARCHAR(10)
+            );
+        IF ( @ActiveDesig IS NULL OR @activedesig = '*all*')
+            BEGIN
+                INSERT  INTO #activedesig
+                        ( code )
+                        SELECT DISTINCT
+                                code 
+						FROM    dbo.cvo_designation_codes AS dc
+						WHERE   void = 0;
+            END;
+        ELSE
+            BEGIN
+                INSERT  INTO #activedesig
+                        ( code )
+                        SELECT  ListItem
+                        FROM    dbo.f_comma_list_to_table(@ActiveDesig);
+            END;
+
+			IF @debug = 1 SELECT * FROM #activedesig AS a
 
 -- Lookup 0 & 9 affiliated Accounts
         IF ( OBJECT_ID('tempdb.dbo.#Rank_Aff') IS NOT NULL )
             DROP TABLE #Rank_Aff; 
  
-        SELECT  a.customer_code AS from_cust ,
+        SELECT  DISTINCT a.customer_code AS from_cust ,
                 a.affiliated_cust_code AS to_cust
         INTO    #Rank_Aff
         FROM    armaster a ( NOLOCK )
@@ -221,8 +245,7 @@ AS
 				INNER JOIN armaster t1 ( NOLOCK ) ON t.terr = t1.territory_code
 				INNER JOIN artierrl (NOLOCK) art ON art.rel_cust = t1.customer_code
 				INNER JOIN #bg ON #bg.bg = CASE WHEN art.rel_cust = art.parent THEN '' ELSE art.parent END
-				 
-                LEFT OUTER JOIN CVO_armaster_all T2 ON t1.customer_code = T2.customer_code
+				LEFT OUTER JOIN CVO_armaster_all T2 (NOLOCK) ON t1.customer_code = T2.customer_code
                                                        AND t1.ship_to_code = T2.ship_to
 				LEFT OUTER JOIN SSRS_ARAging_Temp ar ON ar.CUST_CODE = t1.customer_code
                 LEFT OUTER JOIN ( SELECT    c.customer_code ,
@@ -253,6 +276,19 @@ AS
                 ship_to;
 
       CREATE CLUSTERED INDEX [idx_rankcust3] ON #RankCusts_S3 (MergeCust, ship_to);
+
+		IF @ActiveDesig IS NOT NULL AND @ActiveDesig <> '*ALL*' -- only report customers in the active designations they want
+		BEGIN
+			DELETE FROM #RankCusts_S3 
+			WHERE mergecust+ship_to NOT IN 
+   			(SELECT mergecust+ship_to cust FROM #RankCusts_S3 AS rcs (nolock)
+			JOIN dbo.cvo_cust_designation_codes AS cdc (NOLOCK) ON mergecust = RIGHT(cdc.customer_code,5)
+			JOIN #activedesig AS a ON a.code = cdc.code
+			WHERE ISNULL(cdc.Start_date, @DateToTY) <= @DateToTY
+			  AND ISNULL(cdc.end_date, @datetoty) >= @DateToTY
+			) 
+			
+		end
 
 -- SOURCE SALES
         IF ( OBJECT_ID('tempdb.dbo.#sales') IS NOT NULL )
@@ -316,7 +352,7 @@ AS
 
 		CREATE INDEX idx_sales ON #sales (MergeCust, ship_to)
 
-        SET ANSI_WARNINGS OFF;
+
 
         DECLARE @PrYr1From DATETIME;
         DECLARE @PrYr1To DATETIME;
@@ -481,7 +517,7 @@ AS
                           END ,
                  ( SELECT TOP 1
                             code
-                  FROM      cvo_cust_designation_codes CD
+                  FROM      cvo_cust_designation_codes CD (NOLOCK)
                   WHERE     code IN ( 'RXE', 'RX3', 'RX5', 'GPN-RXE' ) -- 7/26/16 - added GPN-RXE
                             AND ( ISNULL(end_date, @DateToTY) >= @DateToty )
                             AND RIGHT(t1.cust_code, 5) = RIGHT(CD.customer_code,5)
@@ -773,7 +809,7 @@ AS
                           END ,
                 ( SELECT TOP 1
                             last_st_ord_date
-                  FROM      cvo_carbi B
+                  FROM      cvo_carbi B (nolock)
                   WHERE     A.cust_code = B.cust_code
                             AND A.ship_to = CASE WHEN @CustOpt = 'B' THEN ''
                                                  ELSE B.ship_to
@@ -971,6 +1007,7 @@ AS
                                 ) ar ON T1.customer = ar.customer; 
 
     END;
+
 
 
 

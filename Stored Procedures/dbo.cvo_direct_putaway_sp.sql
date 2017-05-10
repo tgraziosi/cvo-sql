@@ -508,6 +508,11 @@ BEGIN
 				FROM	#cvo_putaways
 				WHERE	row_id = @row_id
 				
+				-- v2.9 Start
+				IF (ABS(@fill_qty) > @qty_remaining)
+					SET @fill_qty = @qty_remaining
+				-- v2.9 End
+
 				IF (@fill_qty <= @qty_remaining)
 				BEGIN 
 					IF (@fill_qty <= 0)

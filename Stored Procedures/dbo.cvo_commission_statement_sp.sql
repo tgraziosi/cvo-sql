@@ -338,11 +338,21 @@ AS
 
 
                 LEFT OUTER JOIN ( SELECT DISTINCT
-                                            rep_code ,
-                                            comments
-                                  FROM      dbo.cvo_commission_promo_values
-                                  WHERE     line_type = 'General'
-                                            --AND recorded_month = 'Note'
+										g.rep_code,
+										g.comments
+									FROM
+										dbo.cvo_commission_promo_values g
+										JOIN
+										( SELECT
+												rep_code, MAX(date) max_date
+											FROM dbo.cvo_commission_promo_values AS cpv
+											WHERE cpv.line_type = 'General'
+											GROUP BY rep_code
+										) gg
+											ON gg.rep_code = g.rep_code
+											   AND gg.max_date = g.date
+									WHERE g.line_type = 'General'
+
                                 ) general ON #mm.salesperson = general.rep_code
                 LEFT OUTER JOIN ( SELECT    rep_code ,
                                             LEFT(recorded_month, 2) month_num ,
@@ -399,6 +409,7 @@ AS
                spec_pay FROM #final;
 
     END;
+
 
 
 

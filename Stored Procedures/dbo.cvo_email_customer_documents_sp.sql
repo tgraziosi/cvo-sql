@@ -44,6 +44,8 @@ BEGIN
 	BEGIN
 
 		-- Call SQL email routine
+		SELECT @subject_line = REPLACE(@subject_line,'Invoice/Credit','Invoice/Credit ')
+		SELECT @body_text = 'Thank you for choosing ClearVision Optical.  Please find attached your latest invoice/credit, as requested.  If you have any questions, please contact our accounting department at 800.645.3733.  Have a Fantastic day!'
 
 		EXEC @rc = msdb.dbo.sp_send_dbmail
 			 @recipients = @email_address,

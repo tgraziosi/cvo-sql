@@ -100,9 +100,9 @@ select a.Salesperson ,
        a.amount ,
 	   -- a.comm_amt
 	   ISNULL(comm_over.comm_amt, ISNULL( a.comm_amt, 0)) comm_amt -- 5/3/2017
-	   , ISNULL(draw_over.draw_amount, ISNULL( d.draw_amount, 0)) draw_amount
+	   , ISNULL(draw_over.draw_amount, ISNULL( d.draw_amount, r.draw_amount)) draw_amount
 	   , ISNULL(draw_over.qty, @drawweeks) drawweeks
-	   , total_draw = ISNULL(draw_over.draw_amount, ISNULL( d.draw_amount, 0)) * ISNULL(draw_over.qty, @drawweeks)
+	   , total_draw = ISNULL(draw_over.draw_amount, ISNULL( d.draw_amount, r.draw_amount)) * ISNULL(draw_over.qty, @drawweeks)
 	   --, pfp.net_pay, pfphist.net_pay
 	   , prior_month_bal = CASE WHEN pfphist.net_pay IS NULL OR pfphist.net_pay = 0 THEN ISNULL(pfp.net_pay,0)
 							ELSE pfphist.net_pay
@@ -146,7 +146,7 @@ from
 	WHERE fiscal_period = @fp AND 
 	salesperson = ISNULL(@slp, salesperson)
 	AND DateShipped = 
-	(SELECT MIN(dateshipped) 
+	(SELECT max(dateshipped) 
 	FROM dbo.cvo_commission_bldr_work_tbl 
 	WHERE salesperson = ISNULL(@slp, salesperson) AND fiscal_period = @fp)
 	) d ON d.salesperson = a.salesperson
@@ -250,6 +250,7 @@ UPDATE d SET
 		AND d.salesperson = ISNULL(@slp, d.salesperson)
 
 -- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt where report_month = '09/2016'
+
 
 
 

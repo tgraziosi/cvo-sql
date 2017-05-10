@@ -54,34 +54,33 @@ AS
                 AND t1.type = 'i'
 -- default list ('CH','ET','IZOD','IZX','OP','JMC','ME')
 -- UPDATE FOR REVO AND SM - 2/16/17
-
-				AND ( ( CATEGORY IN ('SM') AND t1.ship_to_country_cd NOT IN (
-				'AS','AR','CA','CL','CN','CZ','FR','DE','GR','GU','IN','IT','JP','KW','MX','MA',
-				'NL','AN','MP','PE','PT','PR','RO','SK','SE','TW','TT','TR','GB','US','VI'))
+-- MORE UPDATES FOR REVO AND SM - 5/5/17 PER kb EMAIL
+				AND ( ( CATEGORY IN ('SM') AND t1.ship_to_country_cd NOT IN ('AG',
+				'AS','AR','AW','BB','BM','BS','CA','CL','CN','CZ','EQ','FR','DE','GD','GR','GT','GU','GY',
+				'HT','IN','IT','JM','JP','KW','MX','MA','NI',
+				'NL','AN','MP','PA','PE','PT','PR','RO','SK','SE','SR','SV','TW','TT','TR','GB','US','VI'))
 				OR (category IN ('REVO') AND T1.ship_to_country_cd NOT IN 
-				('AS','GU','MP','PR','US','VI'))
+				('AS','GU','GY','MP','PR','US','VI'))
 				OR 
 				(ship_to_country_cd IN ( 'CF', 'ZA' )
-                        AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                          'ME' )
+                        AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP') -- 5/5/17 - remove ME
+                                         -- 'ME' )
                       )  --africa
                       OR ( ship_to_country_cd IN ( 'AI' )
-                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', 'ME' )
+                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP' )
                          )  --anguilla
                       OR ( ship_to_country_cd IN ( 'AG' )
-                           AND category IN ( 'ME' )
+                           AND category IN ( '' )
                          )  --antigua & barbuda (Antilles)
                       OR ( ship_to_country_cd IN ( 'AR' )
                            AND category IN ( 'ET', 'IZOD', 'IZX', 'OP' )
                          )  --argentina
 --OR (ship_to_country_cd in ('AW') and category in () )  --ARUBA  ALL
                       OR ( ship_to_country_cd IN ( 'AU' )
-                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP' )
                          )  --AUSTRALIA
                       OR ( ship_to_country_cd IN ( 'AT' )
-                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP' )
                          )  --AUSTRA
 --OR (ship_to_country_cd in ('BS') and category in () )  --BAHAMAS  ALL
 --OR (ship_to_country_cd in ('BB') and category in () )  --BARBADOS  ALL
@@ -89,8 +88,7 @@ AS
                            AND category IN ( 'ET', 'IZOD', 'IZX', 'OP' )
                          )  --BARBUDA
                       OR ( ship_to_country_cd IN ( 'BE' )
-                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP' )
                          )  --BELGIUM
                       OR ( ship_to_country_cd IN ( 'BZ' )
                            AND category IN ( 'IZOD', 'IZX' )
@@ -103,17 +101,16 @@ AS
                            AND category IN ( 'IZOD', 'IZX' )
                          )  --BONAIRE
                       OR ( ship_to_country_cd IN ( 'BR' )
-                           AND category IN ( 'ET', 'OP', 'ME' )
+                           AND category IN ( 'ET', 'OP' )
                          )  --BRAZIL
                       OR ( ship_to_country_cd IN ( 'VG' )
-                           AND category IN ( 'ME' )
+                           AND category IN ( '' )
                          )  -- BRITISH VIRGIN ISLANDS
                       OR ( ship_to_country_cd IN ( 'BG' )
-                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP' )
                          )  --BULGARIA 
                       OR ( ship_to_country_cd IN ( 'CA' )
-                           AND category IN ( 'ME' )
+                           AND category IN ( '' )
                          )  --CANADA 
 -- CARRIBBEAN (see individual countries)
 --OR (ship_to_country_cd in ('KY') and category in () )  --CAYMAN ISL  ALL
@@ -126,15 +123,13 @@ AS
 -- OR (ship_to_country_cd in ('CR') and category in ('OP') )  --COSTA RICA - OP ok to CR 02/29/2016
 --OR (ship_to_country_cd in ('CW') and category in () )  --curaco  ALL
                       OR ( ship_to_country_cd IN ( 'CZ' )
-                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP' )
                          )  --czech rep
                       OR ( ship_to_country_cd IN ( 'DK' )
-                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP' )
                          )  --denmark
                       OR ( ship_to_country_cd IN ( 'DM' )
-                           AND category IN ( 'ME' )
+                           AND category IN ( '' )
                          )  --dominica (Antillies)
                       OR ( ship_to_country_cd IN ( 'DO' )
                            AND category IN ( 'ET', 'OP' )
@@ -146,28 +141,22 @@ AS
                          )  --ecuador -- 022015
 -- OR (ship_to_country_cd in ('SV') and category in () )  --el salvador all -- 022015
                       OR ( ship_to_country_cd IN ( 'EE' )
-                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP' )
                          )  --estonia 
                       OR ( ship_to_country_cd IN ( 'FI' )
-                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP' )
                          )  --finland
                       OR ( ship_to_country_cd IN ( 'Fr' )
-                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP' )
                          )  --france
                       OR ( ship_to_country_cd IN ( 'GF' )
-                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP' )
                          )  --french guiana
                       OR ( ship_to_country_cd IN ( 'DE' )
-                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP' )
                          )  --gremany
                       OR ( ship_to_country_cd IN ( 'GR' )
-                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                           AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP' )
                          )  --greece
 --OR (ship_to_country_cd in ('GD') and category in () )   --grenada all
                       OR ( ship_to_country_cd IN ( 'GT' )
@@ -184,40 +173,40 @@ AS
                          )  --honduras
                       OR ( ship_to_country_cd IN ( 'HU' )
                            AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                                             '' )
                          )  --hungry
                       OR ( ship_to_country_cd IN ( 'IE' )
                            AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                                             '' )
                          )  --IRELAND
                       OR ( ship_to_country_cd IN ( 'IT' )
                            AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                                             '' )
                          )  --ITALY
 --OR (ship_to_country_cd in ('JM') and category in () )  --JAMAICA  ALL
                       OR ( ship_to_country_cd IN ( 'JP' )
-                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', 'ME' )
+                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', '' )
                          )  --JAPAN
                       OR ( ship_to_country_cd IN ( 'LV' )
                            AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                                             '' )
                          )  --LATVIA
                       OR ( ship_to_country_cd IN ( 'LT' )
                            AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                                             '' )
                          )  --LITHUANIA
                       OR ( ship_to_country_cd IN ( 'LU' )
                            AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                                             '' )
                          )  --LUXEMBOURG
                       OR ( ship_to_country_cd IN ( 'MT' )
                            AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                                             '' )
                          )  --MALTA
 --OR (ship_to_country_cd in ('MX') and category in () ) -- MEXCO ALL
                       OR ( ship_to_country_cd IN ( 'NL' )
                            AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                                             '' )
                          )  --NETHERLANDS
                       OR ( ship_to_country_cd IN ( 'NI' )
                            AND category IN ( 'ET', 'OP' )
@@ -232,52 +221,52 @@ AS
                            AND category IN ( 'ET', 'IZOD', 'IZX', 'OP' )
                          )  --PERU
                       OR ( ship_to_country_cd IN ( 'PH' )
-                           AND category IN ( 'ET', 'OP', 'ME' )
+                           AND category IN ( 'ET', 'OP', '' )
                          )  --PHILIPPINES
                       OR ( ship_to_country_cd IN ( 'PL' )
                            AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                                             '' )
                          )  --POLAND
                       OR ( ship_to_country_cd IN ( 'PT' )
                            AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                                             '' )
                          )  --PORTUGAL
 --OR (ship_to_country_cd in ('PR') and category in () )   --PUERTO RICO  ALL
                       OR ( ship_to_country_cd IN ( 'RO' )
                            AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                                             '' )
                          )  --Romania
                       OR ( ship_to_country_cd IN ( 'SK' )
                            AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                                             '' )
                          )  --slovakia
                       OR ( ship_to_country_cd IN ( 'SI' )
                            AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                                             '' )
                          )  --slovenia
                       OR ( ship_to_country_cd IN ( 'ES' )
                            AND category IN ( 'CH', 'ET', 'IZOD', 'IZX', 'OP',
-                                             'ME' )
+                                             '' )
                          )  --spain
                       OR ( ship_to_country_cd IN ( 'LC' )
-                           AND category IN ( 'ME' )
+                           AND category IN ( '' )
                          )  --st. lucia  ALL
                       OR ( ship_to_country_cd IN ( 'SX' )
-                           AND category IN ( 'IZOD', 'IZX', 'ME' )
+                           AND category IN ( 'IZOD', 'IZX', '' )
                          )  --st. maarten Dutch
                       OR ( ship_to_country_cd IN ( 'MF' )
-                           AND category IN ( 'ET', 'IZOD', 'IZX', 'ME' )
+                           AND category IN ( 'ET', 'IZOD', 'IZX', '' )
                          )  --st. martin (French)
                       OR ( ship_to_country_cd IN ( 'VC' )
-                           AND category IN ( 'ME' )
+                           AND category IN ( '' )
                          )  --Saint Vincent and the Grenadines  ALL
 --OR (ship_to_country_cd in ('SR') and category in () )  --suriname  ALL
                       OR ( ship_to_country_cd IN ( 'TW' )
-                           AND category IN ( 'CH', 'IZOD', 'IZX', 'OP', 'ME' )
+                           AND category IN ( 'CH', 'IZOD', 'IZX', 'OP', '' )
                          )  --taiwan
 --OR (ship_to_country_cd in ('TT') and category in () )  -- trinidad and tobago ALL
                       OR ( ship_to_country_cd IN ( 'GB' )
-                           AND category IN ( 'ET', 'OP', 'ME' )
+                           AND category IN ( 'ET', 'OP', '' )
                          )  --UK
                       OR ( ship_to_country_cd IN ( 'UY' )
                            AND category IN ( 'ET', 'IZOD', 'IZX', 'OP' )
@@ -287,28 +276,28 @@ AS
                          )  --Venezuela
 --OR (ship_to_country_cd in ('VI') and category in () )  --us virgin islands  ALL
                       OR ( ship_to_country_cd IN ( 'CU' )
-                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', 'ME' )
+                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', '' )
                          )  --cuba -- caribbean
                       OR ( ship_to_country_cd IN ( 'GP' )
-                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', 'ME' )
+                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', '' )
                          )  --guadeloupe -- caribbean
                       OR ( ship_to_country_cd IN ( 'MQ' )
-                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', 'ME' )
+                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', '' )
                          )  --martinique-- caribbean
                       OR ( ship_to_country_cd IN ( 'MS' )
-                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', 'ME' )
+                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', '' )
                          )  --montserrat-- caribbean
                       OR ( ship_to_country_cd IN ( 'BL' )
-                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', 'ME' )
+                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', '' )
                          )  --sant barthemeley-- caribbean
                       OR ( ship_to_country_cd IN ( 'KN' )
-                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', 'ME' )
+                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', '' )
                          )  --st kitts and nevis-- caribbean
                       OR ( ship_to_country_cd IN ( 'TC' )
-                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', 'ME' )
+                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', '' )
                          )  --turks and caicos-- caribbean
                       OR ( ship_to_country_cd IN ( 'UM' )
-                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', 'ME' )
+                           AND category IN ( 'ET', 'IZOD', 'IZX', 'OP', '' )
                          )  --US Minor Outlying Islands
                     )
 --and date_entered between '1/1/2013' and '3/1/2013'  
@@ -344,12 +333,13 @@ AS
 				ship_to_name,
                 ship_to_region ,
                 date_entered ,
-                CASE WHEN Brand = 'ME'
-                          AND Ctry IN ( 'AI', 'AG', 'MS', 'BM', 'VG', 'DM',
-                                        'BL', 'KN', 'SX', 'MF', 'TC', 'VC',
-                                        'LC' ) THEN 'NPA'
-                     ELSE ''
-                END AS NeedsApproval ,
+                --CASE WHEN Brand = 'ME'
+                --          AND Ctry IN ( 'AI', 'AG', 'MS', 'BM', 'VG', 'DM',
+                --                        'BL', 'KN', 'SX', 'MF', 'TC', 'VC',
+                --                        'LC' ) THEN 'NPA'
+                --     ELSE ''
+                --END AS NeedsApproval ,
+				'' AS NeedsApproval,
                 date_shipped ,
                 total_amt_order ,
                 QtyOrd ,
@@ -357,6 +347,7 @@ AS
         FROM    #LIST;
 
     END;
+
 
 
 

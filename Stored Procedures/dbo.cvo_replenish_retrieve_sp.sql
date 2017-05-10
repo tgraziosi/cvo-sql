@@ -650,6 +650,12 @@ BEGIN
 
 	END
 
+	-- v2.0 Start
+	DELETE	#temp_repl_display
+	WHERE	qty >= replenish_min_lvl
+	AND		replenish_min_lvl <> 0
+	-- v2.0 End
+
 	-- Result returned
 	IF (@results_returned > 0)
 	BEGIN

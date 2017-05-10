@@ -3,7 +3,7 @@ GO
 SET ANSI_NULLS ON
 GO
 
--- EXEC dbo.cvo_email_invoice_reprint_sp 1421327, 0, '035192', '', 'cboston@epicor.com'
+-- EXEC dbo.cvo_email_invoice_reprint_sp 1421327, 0, '035192', '', 'tgraziosi@cvoptical.com'
 
 CREATE PROC [dbo].[cvo_email_invoice_reprint_sp]  
 AS
@@ -66,12 +66,12 @@ BEGIN
 		END
 
 		-- Set email subject and body text
-		SET @subject_line = 'Invoice Copy - ' + @doc_ctrl_num + '.'
+		SET @subject_line = 'Invoice/Credit Copy - ' + @doc_ctrl_num + '.'
 
-		SET @body_text = 'Hello! <BR><BR>'
+		SET @body_text = 'Thank you for choosing ClearVision Optical. <BR><BR>'
 		SET @body_text = @body_text + 'Attached is a copy of your invoice as requested. <BR><BR>'
-
-		SET @body_text = @body_text + 'Thank you for ordering from CVO!<BR><BR>'	
+		SET @body_text = @body_text + 'If you have any questions please contact our accounting department.<BR><BR>'	
+		SET @body_text = @body_text + 'Have a Fantastic day !<BR><BR>'	
 		SET @body_text = @body_text + '<i>ClearVision Optical</i><BR>'
 		SET @body_text = @body_text + '<i>1.800.645.3733</i><BR>'
 		SET @body_text = @body_text + '<i>425 Rabro Drive, Suite 2</i><BR>'
@@ -127,6 +127,7 @@ BEGIN
 
 	END
 END
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_email_invoice_reprint_sp] TO [public]
 GO
