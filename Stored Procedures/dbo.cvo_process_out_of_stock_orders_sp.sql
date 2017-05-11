@@ -17,6 +17,7 @@ v1.0	19/07/12	CT	Original version
 v1.1	01/05/13	CT	Take into account stock soft allocated
 v1.2	08/05/13	CT	Added logic to check Custom Frames
 v1.3	03/05/2016	CB	Record transaction in tdc_log
+v1.4	19/04/2017	CB	Only process RX orders
 */
 
 CREATE PROC [dbo].[cvo_process_out_of_stock_orders_sp]
@@ -64,6 +65,8 @@ BEGIN
 			AND a.[status] = 'N'
 			AND a.ext = 0
 			AND ISNULL(b.allocation_date,GETDATE()) <= GETDATE()
+			AND	LEFT(a.user_category,2) = 'RX' -- v1.4
+			AND a.user_category <> 'RX-RB' -- v1.4
 			AND c.order_no IS NULL
 		ORDER BY
 			a.order_no

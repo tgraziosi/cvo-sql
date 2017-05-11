@@ -254,6 +254,8 @@ CREATE NONCLUSTERED INDEX [tdc_pick_ind_prio_seq] ON [dbo].[tdc_pick_queue] ([pr
 GO
 CREATE NONCLUSTERED INDEX [tdc_pick_queue_idx07] ON [dbo].[tdc_pick_queue] ([tran_id]) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [idx_tdc_pick_queue_tranid_cons] ON [dbo].[tdc_pick_queue] ([tran_id]) INCLUDE ([mp_consolidation_no], [trans_type_ext], [trans_type_no]) ON [PRIMARY]
+GO
 CREATE NONCLUSTERED INDEX [tdc_pick_queue_idx05] ON [dbo].[tdc_pick_queue] ([trans], [trans_type_no], [trans_type_ext], [location], [part_no], [lot], [bin_no], [line_no], [trans_source]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [cvo_tdc_pick_queue_ind1] ON [dbo].[tdc_pick_queue] ([trans], [trans_type_no], [trans_type_ext], [mfg_batch]) ON [PRIMARY]

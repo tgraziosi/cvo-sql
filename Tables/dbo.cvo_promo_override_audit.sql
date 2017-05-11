@@ -7,6 +7,8 @@ CREATE TABLE [dbo].[cvo_promo_override_audit]
 [failure_reason] [varchar] (2000) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [idx_cvo_promo_ovr_ord_ext] ON [dbo].[cvo_promo_override_audit] ([order_no], [order_ext]) ON [PRIMARY]
+GO
 GRANT REFERENCES ON  [dbo].[cvo_promo_override_audit] TO [public]
 GO
 GRANT SELECT ON  [dbo].[cvo_promo_override_audit] TO [public]

@@ -66,10 +66,10 @@ rel AS
 	   (SELECT DISTINCT i.category brand,
 			   ia.field_2 model,
 			   COUNT(DISTINCT ia.field_26) rel_cnt,
-			   ISNULL(ccv.eye_shape,'') eye_shape, 
-			   ISNULL(ccv.front_material, ISNULL(ia.field_10,'')) Material,
-			   ISNULL(ccv.PrimaryDemographic,ISNULL(ia.category_2,'')) PrimaryDemographic, 
-			   ISNULL(ccv.frame_category, ISNULL(ia.field_11,'')) Frame_type
+			   MAX(ISNULL(ccv.eye_shape,'')) eye_shape, 
+			   MAX(ISNULL(ccv.front_material, ISNULL(ia.field_10,''))) Material,
+			   MAX(ISNULL(ccv.PrimaryDemographic,ISNULL(ia.category_2,''))) PrimaryDemographic, 
+			   MAX(ISNULL(ccv.frame_category, ISNULL(ia.field_11,''))) Frame_type
 	     FROM inv_master_add ia 
 	    JOIN inv_master i ON i.part_no = ia.part_no 
 		LEFT OUTER JOIN dbo.cvo_cmi_catalog_view AS ccv ON ccv.upc_code = i.upc_code
@@ -77,10 +77,11 @@ rel AS
 		and ia.field_26 BETWEEN @rel_start AND @rel_end
 		AND i.category = CASE WHEN @coll IS NULL THEN i.category ELSE @coll end
 		AND i.type_code IN ('frame','sun')
-		GROUP BY ISNULL(ccv.eye_shape, '') ,
-                 ISNULL(ccv.front_material, ISNULL(ia.field_10, '')) ,
-                 ISNULL(ccv.PrimaryDemographic, ISNULL(ia.category_2, '')) ,
-                 ISNULL(ccv.frame_category, ISNULL(ia.field_11, '')) ,
+		GROUP BY 
+				 --ISNULL(ccv.eye_shape, '') ,
+     --            ISNULL(ccv.front_material, ISNULL(ia.field_10, '')) ,
+     --            ISNULL(ccv.PrimaryDemographic, ISNULL(ia.category_2, '')) ,
+     --            ISNULL(ccv.frame_category, ISNULL(ia.field_11, '')) ,
                  i.category ,
                  ia.field_2
 				 )
@@ -131,6 +132,7 @@ SELECT CONVERT(DATETIME,MIN(cte.rel_date),110) rel_date,
                 rel.Material ,
                 rel.PrimaryDemographic ,
                 rel.Frame_type
+
 
 
 

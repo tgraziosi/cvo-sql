@@ -25,6 +25,7 @@ GO
 -- v3.7 CB 18/09/2014 - #572 Masterpack - Third Party Ship To 
 -- v3.8 CB 22/09/2014 - #572 Masterpack - Global Ship To 
 -- v3.9 CB 17/09/2015 - #1540 - weight code for non US
+-- v4.0 CB 03/05/2017 - Calc freight for credits
 /*
  DECLARE @freight_amt decimal(20,8)
  EXEC [CVO_GetFreight_tot_sp] 1419617, 0, 0, '96782-2657', 1, 'UPS1D', '', 50213.12, @freight_amt OUTPUT
@@ -67,7 +68,8 @@ BEGIN
 
 	DECLARE	@line_no		int, -- v3.1
 			@IsAvailable	int, -- v3.1
-			@RBTB			smallint -- v3.2
+			@RBTB			smallint, -- v3.2
+			@CR				smallint -- v4.0
 	
 	DECLARE	@row_id			int, -- v3.4
 			@last_row_id	int -- 3.4
@@ -95,6 +97,13 @@ BEGIN
 	ELSE
 		SET @RBTB = 0
 	-- v3.2 End
+
+	-- v4.0 Start
+	IF EXISTS (SELECT 1 FROM orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @ext AND type = 'C')
+		SET @CR = 1
+	ELSE
+		SET @CR = 0
+	-- v4.0 End
 
 	-- v2.2 Start
 	SET @IsAllocated = 0
@@ -155,12 +164,22 @@ BEGIN
 			BEGIN
 
 				-- v3.2 Start
-				IF (@RBTB = 1)
+				IF (@RBTB = 1 OR @CR = 1) -- v4.0
 				BEGIN
-
-					SELECT	@ordered_i = SUM(ordered)
-					FROM	ord_list (NOLOCK)
-					WHERE	order_no = @order_no AND order_ext = @ext AND part_no = @part_no_c AND location = @location_c AND line_no = @line_no
+					-- v4.0 Start
+					IF (@CR = 1)
+					BEGIN
+						SELECT	@ordered_i = SUM(cr_ordered)
+						FROM	ord_list (NOLOCK)
+						WHERE	order_no = @order_no AND order_ext = @ext AND part_no = @part_no_c AND location = @location_c AND line_no = @line_no
+					END
+					ELSE
+					BEGIN
+						SELECT	@ordered_i = SUM(ordered)
+						FROM	ord_list (NOLOCK)
+						WHERE	order_no = @order_no AND order_ext = @ext AND part_no = @part_no_c AND location = @location_c AND line_no = @line_no
+					END
+					-- v4.0 End
 				END
 				ELSE
 				BEGIN
@@ -222,7 +241,6 @@ BEGIN
 
 	UPDATE #parts_temp SET weight = p.available * i.weight_ea
 	FROM #parts_temp p INNER JOIN inv_master i (NOLOCK) ON p.part_no = i.part_no
-
 
 	SELECT @weight = SUM(weight) FROM #parts_temp
 

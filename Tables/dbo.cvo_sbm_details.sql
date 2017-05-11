@@ -43,6 +43,8 @@ CREATE NONCLUSTERED INDEX [idx_sbm_det_for_drp] ON [dbo].[cvo_sbm_details] ([par
 GO
 CREATE NONCLUSTERED INDEX [idx_cvo_sbm_prod] ON [dbo].[cvo_sbm_details] ([part_no], [yyyymmdd]) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [idx_sbm_details_yr] ON [dbo].[cvo_sbm_details] ([year], [yyyymmdd]) INCLUDE ([month], [X_MONTH]) ON [PRIMARY]
+GO
 CREATE NONCLUSTERED INDEX [idx_cvo_sbm_yyyymmdd_cir] ON [dbo].[cvo_sbm_details] ([yyyymmdd]) INCLUDE ([customer], [DateOrdered], [isCL], [part_no], [qreturns], [qsales], [return_code], [ship_to], [user_category]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [idx_cvo_sbm_yyyymmdd] ON [dbo].[cvo_sbm_details] ([yyyymmdd]) INCLUDE ([anet], [c_month], [c_year], [customer], [part_no], [ship_to], [user_category]) ON [PRIMARY]
