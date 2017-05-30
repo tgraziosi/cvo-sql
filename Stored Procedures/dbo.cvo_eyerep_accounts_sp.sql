@@ -64,6 +64,7 @@ AS
             INTO    #AllTerr
             FROM    C;
 
+
 	  -- add sales rep customers too - 8/19/2015
         INSERT  INTO #AllTerr
                 ( customer_code ,
@@ -335,6 +336,9 @@ IF 'MASTER' = ISNULL(@datatype, 'MASTER')
                         FROM    dbo.arterms AS a ( NOLOCK )
                         WHERE   1 = 1
                                 AND a.terms_code IN ('NET30','NET60','NET90','INS2','INS3','INS4','INS5','INS7','PP');
+						UPDATE cvo_eyerep_biltrm_tbl SET biltrm_description = REPLACE(biltrm_description,'installment terms net ','')
+						UPDATE cvo_eyerep_biltrm_tbl SET biltrm_description = REPLACE(biltrm_description,'inst. terms ','')
+						UPDATE cvo_eyerep_biltrm_tbl SET biltrm_description = REPLACE(biltrm_description,'day billing terms','')
 
 
 -- Order types
@@ -464,7 +468,7 @@ IF 'MASTER' = ISNULL(@datatype, 'MASTER')
                         LEFT OUTER JOIN arsalesp slp ON slp.employee_code = #AllTerr.customer_code
                 WHERE   1 = 1
                         AND ar.status_type = 1
-                        AND ar.address_type = 0
+                        AND ar.address_type IN (0,1) -- 5/16/17
                         AND EXISTS ( SELECT 1
                                      FROM   dbo.cvo_eyerep_rp_tbl AS cert
                                      WHERE  cert.rep_id = ISNULL(slp.territory_code,
@@ -1264,6 +1268,8 @@ IF 'ACTIVITY' = ISNULL(@datatype, 'ACTIVITY')
                         AND o.who_entered = 'backordr';
 
     END; -- ACTIVITY
+
+
 
 
 

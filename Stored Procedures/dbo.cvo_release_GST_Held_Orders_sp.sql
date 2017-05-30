@@ -15,7 +15,8 @@ BEGIN
 			@order_no		int,
 			@order_ext		int,
 			@rc				int,
-			@prior_hold		varchar(10) -- v1.4
+			@prior_hold		varchar(10), -- v1.4
+			@status			char(1) -- v1.5
 
 	-- WORKING TABLES
 	CREATE TABLE #gst_orders (
@@ -253,15 +254,25 @@ BEGIN
 
 		EXEC dbo.cvo_print_pick_ticket_sp @order_no, @order_ext
 
-		INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
-		SELECT	GETDATE() , 'GSH_ALLOC' , 'VB' , 'PLW' , 'PICK TICKET' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
-				'STATUS:Q;'
-		FROM	orders_all a (NOLOCK)
-		JOIN	cvo_orders_all b (NOLOCK)
-		ON		a.order_no = b.order_no
-		AND		a.ext = b.ext
-		WHERE	a.order_no = @order_no
-		AND		a.ext = @order_ext
+		-- v1.5 Start
+		SELECT	@status = status
+		FROM	orders_all (NOLOCK)
+		WHERE	order_no = @order_no
+		AND		ext = @order_ext
+		
+		IF (@status = 'Q')
+		BEGIN
+			INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+			SELECT	GETDATE() , 'GSH_ALLOC' , 'VB' , 'PLW' , 'PICK TICKET' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
+					'STATUS:Q;'
+			FROM	orders_all a (NOLOCK)
+			JOIN	cvo_orders_all b (NOLOCK)
+			ON		a.order_no = b.order_no
+			AND		a.ext = b.ext
+			WHERE	a.order_no = @order_no
+			AND		a.ext = @order_ext
+		END
+		-- v1.5 End
 			
 
 		SET @last_row_id = @row_id

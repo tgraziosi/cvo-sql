@@ -11,6 +11,7 @@ GO
 -- v1.6 CT 18/02/2015 - Issue #1526 - Expand promo kits
 -- v1.7 CB 05/09/2016 - Use returns account
 -- v1.8 CB 12/09/2016 - #1613 - Custom kits in order upload
+-- v1.9 CB 15/05/2017 - Return is not using the inv return flag from the return code
 
 CREATE PROC [dbo].[CVO_create_upload_credit_return_sp] (@SPID INT, @hold SMALLINT)  
 AS
@@ -88,7 +89,8 @@ BEGIN
 			@freight_allow_type		VARCHAR(10),
 			@orig_order_no			VARCHAR(40), -- v1.1
 			@email_address			VARCHAR(255), -- v1.2
-			@is_kit					int -- v1.8
+			@is_kit					int, -- v1.8
+			@is_inv_ret				int -- v1.9
 
 	-- Create temporary table
 	CREATE TABLE #std_price (
@@ -131,6 +133,13 @@ BEGIN
 		SELECT -4
 		RETURN -4
 	END
+
+	-- v1.9 Start
+	SET @is_inv_ret = 1
+	SELECT	@is_inv_ret = ret_inv_flag
+	FROM	dbo.po_retcode (NOLOCK) 
+	WHERE	return_code = @return_code
+	-- v1.9 End
 	
 	-- Load header details
 	SELECT
@@ -434,7 +443,9 @@ BEGIN
 		BEGIN
 			INSERT ord_list_kit (order_no, order_ext, line_no, location, part_no, part_type, ordered, shipped, status, lb_tracking, cr_ordered, cr_shipped, uom, conv_factor, cost, labor, direct_dolrs,
 					ovhd_dolrs, util_dolrs, note, qty_per, qc_flag, qc_no, description)
-			SELECT	@new_order_no, 0, @line_no, b.location, a.part_no, a.status, 0, 0, CASE @hold WHEN 0 THEN 'N' ELSE 'A' END, a.lb_tracking, 
+			SELECT	@new_order_no, 0, @line_no, b.location, a.part_no, 
+					CASE WHEN @is_inv_ret = 1 THEN a.status ELSE 'N' END, -- v1.9
+					0, 0, CASE @hold WHEN 0 THEN 'N' ELSE 'A' END, a.lb_tracking, 
 					@quantity, 0, a.uom, 1, 0, 0, 0, 0, 0, NULL, @quantity, a.qc_flag, 0, a.[description] 
 			FROM	dbo.inv_master a (NOLOCK)
 			JOIN	dbo.inv_list b (NOLOCK)
@@ -517,7 +528,9 @@ BEGIN
 			@price_type, CASE @hold WHEN 0 THEN 'N' ELSE 'A' END, 0, @who_entered, 0, 0, @quantity, 0, 0, a.uom, 
 			1, 0, a.cubic_feet, a.lb_tracking, 0, 0, 0, 0, a.qc_flag, 'RETURN', 
 -- v1.7		a.taxable, a.[status], 0, 0, c.sales_acct_code, 0, @tax_code, @price, @price, @line_no, 
-			a.taxable, a.[status], 0, 0, c.sales_return_code, 0, @tax_code, @price, @price, @line_no, -- v1.7
+			a.taxable, 
+			CASE WHEN @is_inv_ret = 1 THEN a.[status] ELSE 'N' END, -- v1.9 
+			0, 0, c.sales_return_code, 0, @tax_code, @price, @price, @line_no, -- v1.7
 			'N', 0, 0, 0, 'N', @return_code, 'CVO', '' 
 		FROM
 			dbo.inv_master a (NOLOCK)

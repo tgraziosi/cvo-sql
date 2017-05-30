@@ -10,6 +10,7 @@ GO
 -- v1.5 CT 11/06/2013 - If this is called by the Backorder Processing job, then only allocate the relevant lines/qtys
 -- v1.6 CB 26/08/2016 - Sort order wrong way around
 -- v1.7 CB 03/02/2017 - Remove v1.6
+-- v1.8 CB 18/05/2017 - Fix issue with routine over allocating - cursor not working so change to temp table
   
 CREATE PROCEDURE [dbo].[tdc_plw_xfer_soft_alloc_sp]  
   @user_id        varchar(50),  
@@ -82,7 +83,17 @@ BEGIN
 	TRUNCATE TABLE #xfer_bin_type	-- v1.1
 	  
 	SET @alloc_type = 'XF'  
-	  
+
+	-- v1.8 Start
+	CREATE TABLE #cursor_table (
+		row_id		int IDENTITY(1,1),
+		lot_ser		varchar(25),
+		bin_no		varchar(20), 
+		avail_qty	decimal(20,8))
+
+	DECLARE @row_id int 
+	-- v1.8 End
+  
 	--------------------------------------------------------------------------------------------------------------  
 	-- Call the unallocate stored procedure and free the inventory that is to be unallocated  
 	--------------------------------------------------------------------------------------------------------------  
@@ -610,7 +621,27 @@ BEGIN
 				END
 				-- END v1.6		
 
+				-- v1.8 Start
+				TRUNCATE TABLE #cursor_table
+
+				SELECT @lb_cursor_clause = 'INSERT  #cursor_table (lot_ser, bin_no, avail_qty)
+					   SELECT tlb.lot_ser, tlb.bin_no, avail_qty   
+						   FROM lot_bin_stock lb (NOLOCK), #xfer_lb_stock tlb, tdc_bin_master bm (NOLOCK), #xfer_bin_type bt  
+						WHERE lb.location  = tlb.from_loc  
+						  AND lb.part_no   = tlb.part_no  
+						  AND lb.bin_no    = tlb.bin_no  
+						  AND lb.lot_ser   = tlb.lot_ser  
+						  AND tlb.avail_qty > 0  
+						  AND lb.location  = bm.location  
+						  AND lb.bin_no    = bm.bin_no
+						  AND lb.location  = bt.location
+						  AND lb.bin_no    = bt.bin_no  
+						  AND tlb.part_no  = ' + CHAR(39) + @part_no  + CHAR(39) +  
+						' AND tlb.from_loc = ' + CHAR(39) + @from_loc + CHAR(39) +   
+						@xfer_order_by 
+
 				-- Declare cursor as a string so we can dynamically change ORDER BY clause 
+/*
 				SELECT @lb_cursor_clause = 'DECLARE lots_bins_cursor CURSOR FOR  
 					   SELECT tlb.lot_ser, tlb.bin_no, avail_qty   
 						   FROM lot_bin_stock lb (NOLOCK), #xfer_lb_stock tlb, tdc_bin_master bm (NOLOCK), #xfer_bin_type bt  
@@ -626,6 +657,8 @@ BEGIN
 						  AND tlb.part_no  = ' + CHAR(39) + @part_no  + CHAR(39) +  
 						' AND tlb.from_loc = ' + CHAR(39) + @from_loc + CHAR(39) +   
 						@xfer_order_by 
+*/
+				-- v1.8 End
 				/* 
 				SELECT @lb_cursor_clause = 'DECLARE lots_bins_cursor CURSOR FOR  
 					   SELECT tlb.lot_ser, tlb.bin_no, avail_qty   
@@ -643,9 +676,11 @@ BEGIN
 				*/ 
 				-- END v1.1
 				EXEC (@lb_cursor_clause)  
-	  
-				OPEN lots_bins_cursor  
-				FETCH NEXT FROM lots_bins_cursor INTO @lot_ser, @bin_no, @avail_qty_for_part_line_no   
+					  
+--				OPEN lots_bins_cursor  
+--				FETCH NEXT FROM lots_bins_cursor INTO @lot_ser, @bin_no, @avail_qty_for_part_line_no   
+
+				SET @row_id = 0 -- v1.8
 	  
 				IF @bop = 0
 				BEGIN
@@ -653,13 +688,27 @@ BEGIN
 					SELECT @filled_ind = 'N'   
 				END
 
-				WHILE (@@FETCH_STATUS = 0 AND @filled_ind = 'N')  
+				-- v1.8 WHILE (@@FETCH_STATUS = 0 AND @filled_ind = 'N')  
+				-- v1.8 Start
+				WHILE ( 1 = 1 AND @filled_ind = 'N')
 				BEGIN  
 	  
-					SELECT @swap_qty = 0  
+					SELECT	TOP 1 @row_id = row_id,
+							@lot_ser = lot_ser,
+							@bin_no = bin_no,
+							@avail_qty_for_part_line_no = avail_qty
+					FROM	#cursor_table
+					WHERE	row_id > @row_id
 
+					IF (@@ROWCOUNT = 0)
+						BREAK
+					-- v1.8 End
+
+					SELECT @swap_qty = 0  
+					
 					IF (@avail_qty_for_part_line_no >= @needed_qty_for_part_line_no)  
 					BEGIN  
+
 						IF @conv_factor <> 1   
 							SELECT @swap_qty = FLOOR(@needed_qty_for_part_line_no / @conv_factor) * @conv_factor  
 						ELSE  
@@ -708,10 +757,11 @@ BEGIN
 						END  
 					END    
 					ELSE 
-					BEGIN    
+					BEGIN  
 						IF (@avail_qty_for_part_line_no > 0)-- is there at least some items that could be picked FROM this bin   
 						BEGIN  
-							IF @swap_qty <> 1   
+							-- v1.8 IF @swap_qty <> 1 
+							IF @conv_factor <> 1 -- v1.8   
 								SELECT @swap_qty = FLOOR(@avail_qty_for_part_line_no / @conv_factor) * @conv_factor  
 							ELSE  
 								SELECT @swap_qty = @avail_qty_for_part_line_no  
@@ -768,14 +818,21 @@ BEGIN
 					AND part_no   = @part_no  
 					AND lot_ser   = @lot_ser  
 					AND bin_no    = @bin_no  
+
+					-- v1.8 Start
+					UPDATE	#cursor_table
+					SET		avail_qty = avail_qty - @swap_qty
+					WHERE	lot_ser = @lot_ser  
+					AND		bin_no = @bin_no
+					-- v1.8 End
 	  
 					DELETE FROM #xfer_lb_stock WHERE avail_qty = 0  
   
-					FETCH NEXT FROM lots_bins_cursor INTO @lot_ser, @bin_no, @avail_qty_for_part_line_no   
+					-- v1.8 FETCH NEXT FROM lots_bins_cursor INTO @lot_ser, @bin_no, @avail_qty_for_part_line_no   
 				END  
 	  
-				CLOSE    lots_bins_cursor  
-				DEALLOCATE lots_bins_cursor  
+				-- v1.8 CLOSE    lots_bins_cursor  
+				-- v1.8 DEALLOCATE lots_bins_cursor  
 	  
 				IF (@filled_ind = 'N' AND @cdock = 'Y')  
 				BEGIN  

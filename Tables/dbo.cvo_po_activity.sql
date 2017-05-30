@@ -11,7 +11,8 @@ CREATE TABLE [dbo].[cvo_po_activity]
 [activity_key] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [activity_date] [datetime] NULL,
 [activity_user] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[activity_status] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[activity_status] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[isActive] [tinyint] NULL CONSTRAINT [DF__cvo_po_ac__isAct__71CEE850] DEFAULT ('1')
 ) ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_po_activity] ADD CONSTRAINT [PK__cvo_po_activity__217C64C4] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

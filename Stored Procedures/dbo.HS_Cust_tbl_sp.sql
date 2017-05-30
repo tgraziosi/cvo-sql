@@ -59,6 +59,9 @@ BEGIN
 	  UPDATE #allterr SET AllTerr = allterr + ',20206'
 	  WHERE customer_code = '014443'
 
+	  UPDATE #allterr SET allterr = allterr + ',50530'
+	  WHERE AllTerr LIKE '%50510%'
+
 	  -- SELECT * FROM #allterr
 
 -- PULL LIST FOR CUSTOMERS
@@ -237,6 +240,7 @@ SELECT h.id ,
 
 
 END
+
 
 
 

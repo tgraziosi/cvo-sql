@@ -481,6 +481,7 @@ BEGIN
 		SET @bin_type = 2
 	-- v1.4 End
 
+
 	WHILE (@qty_remaining > 0)
 	BEGIN
 
@@ -492,6 +493,7 @@ BEGIN
 
 		IF (@row_id IS NOT NULL)
 		BEGIN -- v2.6 Start
+
 			IF (@bin_type = 1)
 			BEGIN
 
@@ -512,6 +514,11 @@ BEGIN
 				IF (ABS(@fill_qty) > @qty_remaining)
 					SET @fill_qty = @qty_remaining
 				-- v2.9 End
+	
+				-- v3.0 Start
+				IF (@fill_qty < 0)
+					SET @fill_qty = 0
+				-- v3.0 End
 
 				IF (@fill_qty <= @qty_remaining)
 				BEGIN 

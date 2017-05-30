@@ -67,6 +67,7 @@ BEGIN
 			JOIN	inv_master_add b (NOLOCK)
 			ON		a.part_no = b.part_no
 			WHERE	a.part_no = @part_no_1
+					AND A.VOID = 'N'
 
 			SET @label_count = @label_count - 1
 		END
@@ -97,6 +98,7 @@ BEGIN
 			JOIN	inv_master_add b (NOLOCK)
 			ON		a.part_no = b.part_no
 			WHERE	a.part_no = @part_no_2
+					AND A.VOID = 'N'
 
 			SET @label_count = @label_count - 1
 		END
@@ -127,6 +129,7 @@ BEGIN
 			JOIN	inv_master_add b (NOLOCK)
 			ON		a.part_no = b.part_no
 			WHERE	a.part_no = @part_no_3
+					AND VOID = 'N'
 
 			SET @label_count = @label_count - 1
 		END
@@ -191,6 +194,8 @@ BEGIN
 	ORDER BY row_id
 	
 END
+
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_item_label_print_sp] TO [public]
 GO

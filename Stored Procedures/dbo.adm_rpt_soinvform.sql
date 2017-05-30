@@ -39,6 +39,7 @@ set nocount on
 -- v12.1 CB 22/09/2015 - As per Tine - They want to see the gross price (list price) as whatever it is (non-zero), and the net price to show as $0.
 -- v12.2 CB 11/05/2016 - Fix issue with promo discount
 -- v12.3 CB 04/08/2016 - #1599 email ship confirmation order may not be posted
+-- v12.4 CB 12/05/2017 - Fix issue with type not being picked up for invoice or credit
 
 --DECLARE	@custom_count int -- v10.1 v10.3
   
@@ -369,13 +370,21 @@ BEGIN
 END
 ELSE
 BEGIN
+	-- v12.4 Start
+	IF LEFT(@invoice,1) = 'N'
+	BEGIN
+		select @typ     = SUBSTRING(@invoice, 2, 1)
+		select @invoice = substring(@invoice,4,16)  
+	END
+	ELSE
+		select @invoice = substring(@invoice,2,16)
+	-- v12.4 End	  
 
-	select @invoice = substring(@invoice,2,16)  
-	  
 	if @invoice <> ''  
 	begin  
-	  select @typ     = left(@invoice,1)  
-	  select @invoice = substring(@invoice,3,16)  
+-- v12.4	  select @typ     = SUBSTRING(@invoice, 2, 1)  --left(@invoice,1)  
+-- v12.4	  select @invoice = substring(@invoice,4,16)  
+
 	  if @typ != 'L'  
 	  begin  
 		exec('insert #invoices  

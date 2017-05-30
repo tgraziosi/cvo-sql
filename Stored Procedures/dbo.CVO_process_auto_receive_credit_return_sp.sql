@@ -5,6 +5,7 @@ GO
 
 -- v1.0 CT 18/10/2012 - Process record in the CVO_auto_receive_credit_return table
 -- v1.1 CB 28/07/2015 - Add another step for writing tdc log only when stock actually received (credit return posting)
+-- make sure apply date is current 5/17/2017
 /*
 Processed values:
 0 = New record, not processed
@@ -73,7 +74,11 @@ BEGIN
 			processed_date = GETDATE()
 		WHERE
 			rec_id = @rec_id
+		-- make sure apply date is current 5/17/2017
+		UPDATE orders SET date_shipped = GETDATE() WHERE order_no = @order_no AND ext = @ext
+
 	END
 
 END
+
 GO

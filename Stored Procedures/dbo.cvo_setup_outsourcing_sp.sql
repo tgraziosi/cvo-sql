@@ -416,13 +416,40 @@ BEGIN
 		SET @test_part_no = @part_no + '-RAW'
 		IF EXISTS (SELECT 1 FROM inv_master (NOLOCK) WHERE part_no = @test_part_no)
 		BEGIN
-			IF (@void = 'V')
+			-- v1.4 IF (@void = 'V')
+			IF EXISTS (SELECT 1 FROM inv_master (NOLOCK) WHERE part_no = @test_part_no AND void = 'V') -- v1.4
 			BEGIN
 				UPDATE	inv_master
 				SET		void = 'N',
 						void_who = NULL,
-						void_date = NULL
+						void_date = NULL,
+						vendor = @raw_vendor -- v1.4
 				WHERE	part_no = @test_part_no
+
+				-- v1.4 Start
+				UPDATE	inv_list
+				SET		std_cost = @raw_cost
+				WHERE	location = @make_vendor
+				AND		part_no = @test_part_no
+
+				UPDATE	inv_list
+				SET		std_cost = @raw_cost
+				WHERE	location = '001'
+				AND		part_no = @test_part_no
+
+				IF NOT EXISTS (SELECT 1 FROM vendor_sku WHERE vendor_no = @raw_vendor AND sku_no = @test_part_no)
+				BEGIN
+					EXEC cvo_CreateVendorQuote_sp @item_no = @test_part_no, @currency = @raw_curr, @cost = @raw_cost, @suppress = 1 
+				END
+				ELSE
+				BEGIN
+					UPDATE	vendor_sku
+					SET		last_price = @raw_cost
+					WHERE	vendor_no = @raw_vendor
+					AND		sku_no = @test_part_no
+				END
+				-- v1.4 End
+
 			END
 		END
 		ELSE
@@ -581,7 +608,8 @@ BEGIN
 		SET @test_part_no = @part_no + '-MAKE'
 		IF EXISTS (SELECT 1 FROM inv_master (NOLOCK) WHERE part_no = @test_part_no)
 		BEGIN
-			IF (@void = 'V')
+			-- v1.4 IF (@void = 'V')
+			IF EXISTS (SELECT 1 FROM inv_master (NOLOCK) WHERE part_no = @test_part_no AND void = 'V') -- v1.4
 			BEGIN
 				UPDATE	inv_master
 				SET		void = 'N',
@@ -722,13 +750,29 @@ BEGIN
 		SET @test_part_no = @part_no + '-FG'
 		IF EXISTS (SELECT 1 FROM inv_master (NOLOCK) WHERE part_no = @test_part_no)
 		BEGIN
-			IF (@void = 'V')
+			-- v1.4 IF (@void = 'V')
+			IF EXISTS (SELECT 1 FROM inv_master (NOLOCK) WHERE part_no = @test_part_no AND void = 'V') -- v1.4
 			BEGIN
 				UPDATE	inv_master
 				SET		void = 'N',
 						void_who = NULL,
 						void_date = NULL
 				WHERE	part_no = @test_part_no
+
+				-- v1.4 Start
+				IF NOT EXISTS (SELECT 1 FROM vendor_sku WHERE vendor_no = @make_vendor AND sku_no = @test_part_no)
+				BEGIN
+					EXEC cvo_CreateVendorQuote_sp @item_no = @test_part_no, @currency = @raw_curr, @cost = @make_cost, @suppress = 1 
+				END
+				ELSE
+				BEGIN
+					UPDATE	vendor_sku
+					SET		last_price = @make_cost
+					WHERE	vendor_no = @make_vendor
+					AND		sku_no = @test_part_no
+				END	
+				-- v1.4 End			
+
 			END
 		END
 		ELSE

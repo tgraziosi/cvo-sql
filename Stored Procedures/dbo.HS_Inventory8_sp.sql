@@ -964,11 +964,12 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 		WHERE   [Manufacturer] = 'POP'
 		AND		[category:1] = 'ME SELL-DOWN'; 
 
-		-- 3/17/17
-		UPDATE dbo.cvo_hs_inventory_8
-		SET [category:2] = 'MARC ECKO', COLL = 'ME'
-		WHERE [category:1] = 'ME SELL-DOWN' AND 
-		([category:2]<> 'MARK ECKO' OR COLL <> 'ME');
+		-- 5/15/2017 - don't do this any more.  Let unlimited show on its own within me sell-down
+		---- 3/17/17
+		--UPDATE dbo.cvo_hs_inventory_8
+		--SET [category:2] = 'MARC ECKO', COLL = 'ME'
+		--WHERE [category:1] = 'ME SELL-DOWN' AND 
+		--([category:2]<> 'MARK ECKO' OR COLL <> 'ME');
 
 		-- 2/10/2017 - show everything to allow for returns
 		--UPDATE dbo.cvo_hs_inventory_8
@@ -986,6 +987,7 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 -- SELECT distinct manufacturer, [category:1], [CATEGORY:2] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
 
 
 

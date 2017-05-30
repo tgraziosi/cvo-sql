@@ -6,6 +6,9 @@ GO
 CREATE PROC [dbo].[cvo_release_alloc_fl_holds_sp]
 AS
 BEGIN
+
+-- exec cvo_release_alloc_fl_holds_sp
+
 	-- DIRECTIVES
 	SET NOCOUNT ON
 
@@ -120,6 +123,37 @@ BEGIN
 	AND		d.order_ext IS NULL
 	ORDER BY a.order_no, a.ext	
 	-- v1.5 End
+
+	-- tag 05/24/2017 - include other fl hold orders with no allocation records.
+
+	INSERT	#fl_orders (soft_alloc_no, order_no, order_ext, process, prior_hold, ship_complete, release_only) -- v1.3 v1.5
+	SELECT	DISTINCT 0,
+			a.order_no, 
+			a.ext,
+			0,
+			ISNULL(b.prior_hold,''), -- v1.2
+			CASE WHEN a.back_ord_flag = 1 THEN 1 ELSE 0 END, -- v1.3
+			1 -- v1.5
+	FROM	orders_all a (NOLOCK)
+	JOIN	cvo_orders_all b (NOLOCK)
+	ON		a.order_no = b.order_no
+	AND		a.ext = b.ext
+	JOIN	cvo_soft_alloc_no_assign c (NOLOCK)
+	ON		a.order_no = c.order_no
+	AND		a.ext = c.order_ext
+	LEFT JOIN #fl_orders d
+	ON		a.order_no = d.order_no
+	AND		a.ext = d.order_ext
+	WHERE	a.type = 'I'
+	AND		a.status = 'A'
+	AND		a.hold_reason = 'FL'
+-- v1.2	AND		ISNULL(b.prior_hold,'') = ''
+	-- AND		c.order_type = 'S'
+	AND		a.order_no > 1420973
+	AND		d.order_no IS NULL
+	AND		d.order_ext IS NULL
+	ORDER BY a.order_no, a.ext	
+
 
 	-- Step 1 - Check stock
 	SET @last_row_id = 0
@@ -611,6 +645,7 @@ BEGIN
 	
 
 END
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_release_alloc_fl_holds_sp] TO [public]
 GO

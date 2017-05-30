@@ -15,11 +15,13 @@ GO
 -- v2.0 TG 12/20/2016 - add check on lb_tracking and kit_flag for DCF
 -- v2.1 TG 4/9/2017 - do not try and re-process orders that have already failed and been logged in the error table
 -- v1.4 TG 5/1/2017 - change nnb/inactive error checking to allow credit returns for nnb customers
+-- v1.5 TG 5/19/2017 - check inv balances so that t602 trigger doesn't fail it later and mess up the whole batch
 
 /* 
 BEGIN TRAN
 select status, * from orders_all where order_no = 1420450
 EXEC cvo_auto_posting_wrapper_sp
+select * From orders where status = 'r'
 select * from cvo_auto_posting_errors order by error_date desc
 select status, * from orders_all where order_no = 1420450
 ROLLBACK TRAN
@@ -133,6 +135,31 @@ BEGIN
 				INSERT	dbo.cvo_auto_posting_errors (error_date, batch_no, order_no, order_ext, error_desc)
 				SELECT	GETDATE(), NULL, @order_no, @order_ext, 'Lot Bin Tracking Flag MisMatch'
 			END
+
+			-- v1.5 start
+			-- from t602updinvs
+			-- v1.0 Use tables instead of inventory view
+			IF EXISTS (SELECT 1 
+						FROM ord_list ol (NOLOCK) 
+						JOIN inv_master m (NOLOCK) ON m.part_no = ol.part_no
+						JOIN inv_list l (NOLOCK) ON m.part_no = l.part_no AND l.location = ol.location
+						JOIN inv_sales s (NOLOCK) ON l.location = s.location AND l.part_no = s.part_no
+						JOIN inv_produce p (NOLOCK) ON l.location = p.location AND l.part_no = p.part_no
+						JOIN inv_recv r (NOLOCK) ON l.location = r.location AND l.part_no = r.part_no
+						JOIN inv_xfer x (NOLOCK) ON l.location = x.location AND l.part_no = x.part_no
+						LEFT JOIN dbo.f_get_excluded_bins(4) z on l.location = z.location AND l.part_no = z.part_no
+						WHERE	ol.order_no = @order_no AND ol.order_ext = @order_ext
+						AND		ol.location = l.location 
+						AND		m.lb_tracking = 'Y' 
+						AND		(case when (m.status='C' or m.status='V') then 0 else (l.in_stock + l.issued_mtd + p.produced_mtd - p.usage_mtd - s.sales_qty_mtd + r.recv_mtd + x.xfer_mtd - isnull(z.qty,0)) END) < 0)
+
+			BEGIN
+				SET @error_exists = 1
+				INSERT	dbo.cvo_auto_posting_errors (error_date, batch_no, order_no, order_ext, error_desc)
+				SELECT	GETDATE(), NULL, @order_no, @order_ext, 'You cannot ship more than is available for lot bin tracked items'
+			END	
+			-- v1.5 end
+
 
 			-- v1.2 Start
 			IF (@type = 'C')
@@ -332,6 +359,7 @@ BEGIN
    , @body = @body  
 
 END
+
 
 
 

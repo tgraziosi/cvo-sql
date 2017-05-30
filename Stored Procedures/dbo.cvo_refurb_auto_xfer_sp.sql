@@ -201,6 +201,17 @@ BEGIN
 	-- Check if the transfer has been allocated and if so then pick
 	IF EXISTS (SELECT 1 FROM tdc_pick_queue (NOLOCK) WHERE trans_source = 'PLW' AND trans = 'XFERPICK' AND trans_type_no = @xfer_no)
 	BEGIN
+
+		-- v1.1 Start
+		UPDATE	xfers_all
+		SET		back_ord_flag = 2
+		WHERE	xfer_no = @xfer_no
+
+		UPDATE	xfer_list
+		SET		back_ord_flag = 2
+		WHERE	xfer_no = @xfer_no
+		-- v1.1 End
+
 		SET @last_tran_id = 0
 
 		SELECT	TOP 1 @tran_id = tran_id,

@@ -461,6 +461,11 @@ BEGIN
 					SET @fill_qty = @qty_remaining
 				-- v2.0 End
 
+				-- v2.2 Start
+				IF (@fill_qty < 0)
+					SET @fill_qty = 0
+				-- v2.2 End
+
 				IF (@fill_qty <= @qty_remaining)
 				BEGIN 
 					IF (@fill_qty <= 0)
@@ -492,6 +497,11 @@ BEGIN
 							END
 						END -- v1.5 End
 					END
+					ELSE -- v2.1 Start
+					BEGIN
+						SET @new_qty = @fill_qty
+						SET @qty_remaining = @qty_remaining - @fill_qty
+					END -- v2.1 End
 				END
 				ELSE
 				BEGIN

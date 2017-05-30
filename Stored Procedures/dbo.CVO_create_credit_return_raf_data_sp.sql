@@ -5,6 +5,7 @@ GO
 -- v1.0 CT 02/12/2013 - Create a credit return from sales order upload
 -- v1.1 CT 10/12/2014 - Issue #1505 - If the credit return contains an email, use that instead.
 -- v1.2 CB 12/09/2016 - #1613 - Custom kits in order upload
+-- v1.3 CB 15/05/2017 - Return is not using the inv return flag from the return code
 
 -- Selects 0 for success, -1 if tables not populated
 
@@ -151,7 +152,7 @@ BEGIN
 	WHERE
 		a.order_no = @order_no
 		AND a.order_ext = @ext
-		AND a.part_type IN ('P','C') -- v1.2
+		AND a.part_type IN ('P','C','N') -- v1.2 v1.3
 
 	IF @@ROWCOUNT <= 0
 	BEGIN
@@ -181,7 +182,7 @@ BEGIN
 	WHERE
 		order_no = @order_no
 		AND order_ext = @ext
-		AND part_type IN ('P','C') -- v1.2
+		AND part_type IN ('P','C','N') -- v1.2 v1.3
 
 
 	-- Check if email address exists

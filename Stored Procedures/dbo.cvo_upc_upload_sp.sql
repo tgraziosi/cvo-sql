@@ -28,10 +28,11 @@ GROUP BY lbs.part_no
 
 EXEC CVO_UPC_UPLOAD_SP 'tine','tine', -2, 'WRITEOFF', 0
 
-EXEC CVO_UPC_UPLOAD_SP '001','RR REFURB', 1, 'WRITEOFF', 0
+EXEC CVO_UPC_UPLOAD_SP '001','RR PUTAWAY', 1, 'WRITEOFF', 0
 
 
 SELECT * fROM CVO_UPC_UPLOAD
+SELECT * fROM TDC_LOG ORDER BY TRAN_DATE DESC
 
 insert cvo_upc_upload
 values ('026851012253',1)
@@ -50,7 +51,8 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
             @qty_to_adj DECIMAL(20, 8) ,
             @reason_code VARCHAR(10) ,
             @code VARCHAR(10) ,
-            @bin_qty DECIMAL(20, 8);
+            @bin_qty DECIMAL(20, 8),
+			@tdc_data VARCHAR(7500);
 
         SELECT  @reason_code = CASE WHEN @reason = 'WRITEOFF' THEN 'WRITE-OFF'
                                     ELSE 'ADJ-ADHOC'
@@ -404,10 +406,51 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 
 			-- SELECT * FROM #adm_inv_adj
 
-                        IF @debug = 0
-                            EXEC dbo.tdc_adm_inv_adj; 
+						IF @debug = 0
+						BEGIN
+							EXEC dbo.tdc_adm_inv_adj
+							;
 
-                        INSERT  INTO #adm_inv_adj_log
+
+							SELECT @tdc_data = dbo.f_create_tdc_log_bin2bin_data_string(@part_no, @qty_to_adj, @bin_no)
+							;
+
+							INSERT INTO tdc_log
+							(
+								tran_date,
+								UserID,
+								trans_source,
+								module,
+								trans,
+								tran_no,
+								tran_ext,
+								part_no,
+								lot_ser,
+								bin_no,
+								location,
+								quantity,
+								data
+							)
+							SELECT
+								GETDATE(),
+								'UPC Upload',
+								'CO',
+								'ADH',
+								'BN2BN',
+								'',
+								'',
+								@part_no,
+								'1',
+								@bin_no,
+								@location,
+								CAST(@qty_to_adj AS INT),
+								@tdc_data
+							FROM #adm_inv_adj AS aia
+							;
+						END
+						;
+
+					INSERT  INTO #adm_inv_adj_log
                                 SELECT  *
                                 FROM    #adm_inv_adj;
                     END;
@@ -461,6 +504,7 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 	-- IF (SELECT COUNT(*) FROM cvo_upc_upload) > 0 AND @debug = 0 TRUNCATE TABLE CVO_UPC_UPLOAD
 
     END;
+
 
 
 

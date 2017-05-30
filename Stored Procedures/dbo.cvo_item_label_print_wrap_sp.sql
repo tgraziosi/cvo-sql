@@ -5,11 +5,11 @@ GO
 CREATE PROCEDURE [dbo].[cvo_item_label_print_wrap_sp]
 
     @sku_no_1 VARCHAR(30) = NULL ,
-	@sort_idx_1 VARCHAR(2) = '  ',
+	@sort_idx_1 VARCHAR(3) = '  ',
 	@sku_no_2 VARCHAR(30) = NULL ,
-    @sort_idx_2 VARCHAR(2) = '  ',
+    @sort_idx_2 VARCHAR(3) = '  ',
 	@sku_no_3 VARCHAR(30) = NULL ,
-	@sort_idx_3 VARCHAR(2) = '  ',
+	@sort_idx_3 VARCHAR(3) = '  ',
     @printer_id_param INT = NULL
 
 
@@ -31,8 +31,9 @@ AS
                 SELECT  @part_no_1 = part_no ,
                         @upc_code_1 = upc_code
                 FROM    inv_master
-                WHERE   part_no = @sku_no_1
-                        OR upc_code = @sku_no_1;
+                WHERE   (part_no = @sku_no_1
+                        OR upc_code = @sku_no_1)
+						AND void = 'N';
             END;
 
         IF @sku_no_2 IS NOT NULL
@@ -40,8 +41,9 @@ AS
                 SELECT  @part_no_2 = part_no ,
                         @upc_code_2 = upc_code
                 FROM    inv_master
-                WHERE   part_no = @sku_no_2
-                        OR upc_code = @sku_no_2;
+                WHERE   (part_no = @sku_no_2
+                        OR upc_code = @sku_no_2)
+						AND VOID = 'N';
             END;
         
         IF @sku_no_3 IS NOT NULL
@@ -49,8 +51,9 @@ AS
                 SELECT  @part_no_3 = part_no ,
                         @upc_code_3 = upc_code
                 FROM    inv_master
-                WHERE   part_no = @sku_no_3
-                        OR upc_code = @sku_no_3;
+                WHERE   (part_no = @sku_no_3
+                        OR upc_code = @sku_no_3)
+						AND VOID = 'N';
             END;
 
 
@@ -464,6 +467,8 @@ AS
 
 
 	GRANT EXECUTE ON cvo_item_label_print_wrap_sp TO PUBLIC;    
+
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_item_label_print_wrap_sp] TO [public]
 GO

@@ -1524,7 +1524,7 @@ BEGIN
 			AND		ext = @order_ext
 
 			-- v1.3 Start
-			IF (@curr_alloc_pct < 100) -- v3.6  AND @back_ord_flag IN (0,2))
+			IF (@curr_alloc_pct < 100) AND (@status < 'Q') -- v7.7 -- v3.6  AND @back_ord_flag IN (0,2))
 			BEGIN
 				-- v5.7 Start
 				IF (@back_ord_flag = 1)

@@ -108,7 +108,7 @@ INNER join cvo_sbm_details s (NOLOCK) oN s.part_no = i.part_no
 INNER JOIN armaster ar (NOLOCK) ON ar.customer_code = s.customer AND ar.ship_to_code = s.ship_to
 INNER JOIN #territory AS t ON t.territory = ar.territory_code
 WHERE s.yyyymmdd >= @startdate AND i.type_code IN ('frame','sun') AND ISNULL(i.void,'n') = 'n'
-AND i.category NOT IN ('FP')
+AND i.category NOT IN ('FP','CH','ME','UN') -- 5/18/2017 - REMOVE CH, ME, AND UN NO LONGER SELLING
 AND EXISTS (SELECT 1 FROM dbo.hs_cust_tbl AS hct WHERE hct.id = s.customer)
 
 GROUP BY s.customer ,
@@ -239,6 +239,7 @@ WHERE NOT EXISTS  (SELECT 1 FROM #cir WHERE
 				AND #cir.ship_to = chct.ship_to)
 
 END
+
 
 
 

@@ -23,7 +23,8 @@ BEGIN
 			@curr_alloc_pct	decimal(20,8),
 			@back_ord_flag	int,
 			@cons_no		int,
-			@rc				int
+			@rc				int,
+			@pnt_status		char(1) -- v1.5
 
 	-- Working tables
 	CREATE TABLE #rx_consolidate (
@@ -386,15 +387,25 @@ BEGIN
 
 					EXEC dbo.cvo_print_pick_ticket_sp @order_no, @order_ext
 
-					INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
-					SELECT	GETDATE() , 'RX_CONSOLIDATE' , 'VB' , 'PLW' , 'PICK TICKET' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
-							'STATUS:Q;'
-					FROM	orders_all a (NOLOCK)
-					JOIN	cvo_orders_all b (NOLOCK)
-					ON		a.order_no = b.order_no
-					AND		a.ext = b.ext
-					WHERE	a.order_no = @order_no
-					AND		a.ext = @order_ext
+					-- v1.5 Start
+					SELECT	@pnt_status = status
+					FROM	orders_all (NOLOCK)
+					WHERE	order_no = @order_no
+					AND		ext = @order_ext
+
+					IF (@pnt_status = 'Q')
+					BEGIN
+						INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+						SELECT	GETDATE() , 'RX_CONSOLIDATE' , 'VB' , 'PLW' , 'PICK TICKET' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
+								'STATUS:Q;'
+						FROM	orders_all a (NOLOCK)
+						JOIN	cvo_orders_all b (NOLOCK)
+						ON		a.order_no = b.order_no
+						AND		a.ext = b.ext
+						WHERE	a.order_no = @order_no
+						AND		a.ext = @order_ext
+					END
+					-- v1.5 End
 				END -- v1.3 End
 			END
 			ELSE
