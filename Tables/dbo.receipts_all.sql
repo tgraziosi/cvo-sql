@@ -2475,6 +2475,8 @@ DEALLOCATE recupd
 end  
   
 GO
+CREATE NONCLUSTERED INDEX [rec4] ON [dbo].[receipts_all] ([po_key]) INCLUDE ([recv_date]) ON [PRIMARY]
+GO
 CREATE NONCLUSTERED INDEX [rec3] ON [dbo].[receipts_all] ([qc_flag]) ON [PRIMARY]
 GO
 CREATE UNIQUE CLUSTERED INDEX [rec1] ON [dbo].[receipts_all] ([receipt_no]) ON [PRIMARY]

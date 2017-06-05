@@ -63,7 +63,7 @@ o.ship_to_name,
 o.cust_po,
 o.ship_to_region Territory,
 --v1.3
-(select top (1) addr_sort1 from arcust (nolock) where o.cust_code = customer_code )
+( SELECT top (1) addr_sort1 from arcust (nolock) where o.cust_code = customer_code )
 -- and o.ship_to = ship_to_code)
 as CustomerType,
 o.date_entered,
@@ -71,17 +71,22 @@ o.sch_ship_date,
 -- line_no, 
 ol.ordered-ol.shipped open_ord_qty,
 
-isnull( (select sum(qty) from tdc_soft_alloc_tbl (nolock)
-	where order_no = o.order_no and order_ext = o.ext 
-	and line_no = ol.line_no and location = ol.location), 0) alloc_qty,
-	
-isnull((select sum(sa_stock)-sum(bo_stock) from cvo_get_soft_alloc_stock_vw sof (nolock)
-where sof.order_no = ol.order_no and sof.order_ext = ol.order_ext 
-and sof.line_no = ol.line_no and sof.part_no = ol.part_no), 0) sa_qty_avail,
+ISNULL(ha.alloc_qty,0) alloc_qty,
 
-isnull((select sum(bo_stock) from cvo_get_soft_alloc_stock_vw sof (nolock)
-where sof.order_no = ol.order_no and sof.order_ext = ol.order_ext
-and sof.line_no = ol.line_no and sof.part_no = ol.part_no ), 0) sa_qty_notavail,
+--isnull( (select sum(qty) from tdc_soft_alloc_tbl (nolock)
+--	where order_no = o.order_no and order_ext = o.ext 
+--	and line_no = ol.line_no and location = ol.location), 0) alloc_qty,
+
+ISNULL(sa.sa_qty_avail,0) sa_qty_avail,
+ISNULL(sa.sa_qty_notavail,0) sa_qty_notavail,
+
+--isnull((select sum(sa_stock)-sum(bo_stock) from cvo_get_soft_alloc_stock_vw sof (nolock)
+--where sof.order_no = ol.order_no and sof.order_ext = ol.order_ext 
+--and sof.line_no = ol.line_no and sof.part_no = ol.part_no), 0) sa_qty_avail,
+
+--isnull((select sum(bo_stock) from cvo_get_soft_alloc_stock_vw sof (nolock)
+--where sof.order_no = ol.order_no and sof.order_ext = ol.order_ext
+--and sof.line_no = ol.line_no and sof.part_no = ol.part_no ), 0) sa_qty_notavail,
     
 
 /*  - 062712 - tag - as per KM request (81)
@@ -125,6 +130,19 @@ From  ord_list ol (nolock)
  inner join inv_master i (nolock) on i.part_no = ol.part_no
  inner join inv_master_add ia (nolock) on ia.part_no = ol.part_no
  left outer join cvo_promotions p (nolock) on p.promo_id = co.promo_id and p.promo_level = co.promo_level
+ 
+ LEFT OUTER JOIN 
+ (select order_no, order_ext, line_no, SUM(qty) alloc_qty
+ FROM tdc_soft_alloc_tbl (nolock)
+ GROUP BY order_no, order_ext, line_no
+ ) ha ON ha.line_no = ol.line_no AND ha.order_ext = ol.order_ext AND ha.order_no = ol.order_no
+
+ LEFT OUTER join
+(select sof.order_no, sof.order_ext, sof.line_no, SUM(sa_stock)-sum(bo_stock) sa_qty_avail, SUM(bo_stock) sa_qty_notavail
+FROM cvo_get_soft_alloc_stock_vw sof (nolock)
+GROUP BY sof.order_no, sof.order_ext, sof.line_no
+) sa ON sa.line_no = ol.line_no AND sa.order_no = ol.order_no AND sa.order_ext = ol.order_ext
+
 where 1=1
 -- cvo_item_avail_vw cia (nolock)
 and ol.status < 'R' 
@@ -137,6 +155,7 @@ and ol.ordered > ol.shipped
 --and not exists (select * from tdc_soft_alloc_tbl (nolock) where part_no = ol.part_no and
 --order_no = ol.order_no and order_ext = ol.order_ext and line_no = ol.line_no)
 --and cia.style = 'portia'
+
 
 
 

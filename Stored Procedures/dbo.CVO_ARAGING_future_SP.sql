@@ -850,7 +850,8 @@ AS
                         WHERE   doc_ctrl_num = @last_doc
                                 AND customer_code = @last_cust;      
        
-                        SELECT  @terms_code = terms_code
+                        SELECT  @terms_code = terms_code,
+								@date_due = date_due -- tag
                         FROM    dbo.artrx (NOLOCK)
                         WHERE   doc_ctrl_num = @last_doc
                                 AND customer_code = @last_cust;      
@@ -858,19 +859,21 @@ AS
                         IF ( @terms_code = ''
                              OR @terms_code IS NULL
                            )
-                            SELECT  @terms_code = terms_code
-                            FROM    dbo.arcust (NOLOCK)
-                            WHERE   customer_code = @last_cust;      
+						begin
+								SELECT  @terms_code = terms_code
+								FROM    dbo.arcust (NOLOCK)
+								WHERE   customer_code = @last_cust;      
             
-                        IF ( SELECT ISNULL(DATALENGTH(LTRIM(RTRIM(@terms_code))),
-                                           0)
-                           ) = 0
-                            SELECT  @terms_code = terms_code
-                            FROM    dbo.arcust (NOLOCK)
-                            WHERE   customer_code = @last_cust;      
+							IF ( SELECT ISNULL(DATALENGTH(LTRIM(RTRIM(@terms_code))),
+											   0)
+							   ) = 0
+								SELECT  @terms_code = terms_code
+								FROM    dbo.arcust (NOLOCK)
+								WHERE   customer_code = @last_cust;      
       
-                        EXEC dbo.CVO_CalcDueDate_sp @last_cust, @date_doc,
-                            @date_due OUTPUT, @terms_code;      
+							EXEC dbo.CVO_CalcDueDate_sp @last_cust, @date_doc,
+								@date_due OUTPUT, @terms_code;  
+						end    
   
    /* PJC 042413 - use doc date if due date is blank */      
                         IF ( @date_due = 0
@@ -1276,9 +1279,8 @@ AS
                 [KEY] = ADDR_SORT1 ,
                 attn_email ,
                 SLS = SALESPERSON_CODE ,
-                TERR = TERRITORY_CODE ,    
-   -- 11/1/2013    
-                dbo.calculate_region_fn(TERRITORY_CODE) AS REGION ,
+                TERR = tr.TERRITORY_CODE ,    
+                tr.region AS REGION ,
                 NAME = ADDRESS_NAME ,
                 BG_Code ,
                 BG_Name ,
@@ -1306,7 +1308,11 @@ AS
 --   @date_asof as date_asof,    
                 @DATE_TYPE_STRING AS date_type_string ,
                 @DATE_TYPE_PARM AS date_type
-        FROM    #FINAL;       
+        FROM    #FINAL
+		JOIN 
+		(SELECT DISTINCT TERRITORY_CODE, dbo.calculate_region_fn(TERRITORY_CODE) region 
+		FROM #final
+		) tr ON tr.TERRITORY_CODE = #final.TERRITORY_CODE;       
       
 -- DROP TABLE #ARTRXAGE_TMP       
 -- DROP TABLE #AGE_SUMMARY      
@@ -1329,5 +1335,6 @@ AS
     
         SET NOCOUNT OFF;       
     END; -- CVO_ARAGING_SP DATA       
+
 
 GO

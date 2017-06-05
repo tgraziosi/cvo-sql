@@ -123,6 +123,10 @@ AS
 -- delete cvo_armaster_all 
 -- from cvo_armaster_all t1 join (SELECT t1.customer_code, T1.ship_to FROM cvo_armaster_all T1 FULL OUTER JOIN armaster T2 ON t1.customer_code=t2.customer_code and t1.ship_to=t2.ship_to_code WHERE T2.ship_to_code IS NULL) t2 on t1.customer_code=t2.customer_code and t1.ship_to=t2.ship_to
 
+	IF EXISTS (SELECT 1 FROM cvo_armaster_all car 
+				LEFT OUTER JOIN armaster ar 
+				ON ar.customer_code = car.customer_code AND ar.ship_to_code = car.ship_to
+				WHERE ar.customer_code IS null)
     DELETE 
 --	SELECT * FROM 
             CVO_armaster_all WITH ( ROWLOCK )
@@ -201,8 +205,8 @@ and end_date is null
     UPDATE  o
     SET     o.ship_to_region = ar.territory_code
 -- select o.order_no, o.ext, o.salesperson, ar.salesperson_code, o.ship_to_region, ar.territory_code,  * 
-    FROM    armaster ar WITH ( ROWLOCK )
-            JOIN orders o ( NOLOCK ) ON ar.customer_code = o.cust_code
+    FROM    armaster ar WITH ( nolock )
+            JOIN orders o ( rowlock ) ON ar.customer_code = o.cust_code
                                         AND ar.ship_to_code = o.ship_to
     WHERE   o.ship_to_region <> ar.territory_code
             AND o.ship_to_region = '';
@@ -221,7 +225,7 @@ and o.territory_code = '' and o.trx_type in (2031,2032)
     UPDATE  co
     SET     rx_consolidate = 0
 -- SELECT * 
-    FROM    CVO_armaster_all co
+    FROM    CVO_armaster_all co (ROWLOCK)
     WHERE   ship_to > ''
             AND rx_consolidate > 0;
 
@@ -230,9 +234,10 @@ and o.territory_code = '' and o.trx_type in (2031,2032)
 UPDATE  cdc
 SET     primary_flag = 0
 -- SELECT * 
-FROM    dbo.cvo_cust_designation_codes AS cdc
+FROM    dbo.cvo_cust_designation_codes AS cdc (ROWLOCK)
 WHERE   cdc.primary_flag = 1
         AND ISNULL(cdc.end_date, GETDATE()) < GETDATE();
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_armaster_fixup_sp] TO [public]

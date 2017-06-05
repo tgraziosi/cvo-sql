@@ -40,6 +40,7 @@ set nocount on
 -- v12.2 CB 11/05/2016 - Fix issue with promo discount
 -- v12.3 CB 04/08/2016 - #1599 email ship confirmation order may not be posted
 -- v12.4 CB 12/05/2017 - Fix issue with type not being picked up for invoice or credit
+-- v12.3 CB 31/05/2017 - Issue with buying group child data
 
 --DECLARE	@custom_count int -- v10.1 v10.3
   
@@ -67,7 +68,7 @@ trx_type int, doc_ctrl_num varchar(16), level int, order_ext int) -- v4.4
 create unique index inv_idx0 on #invoices (invoice_no, trx_type)  
 
 -- v4.1
-CREATE TABLE #customers (cust_code varchar(10), cust_type varchar(40))
+CREATE TABLE #customers (cust_code varchar(10), cust_type varchar(40), bg varchar(10)) -- v12.3
 create index cust_idx0 on #customers (cust_code,cust_type)  
 
 
@@ -421,10 +422,10 @@ BEGIN
 			SET @cust_range = replace(@cust_range,'orders_all.cust_code', 'c.customer_code')  
 	    
 
-			exec('insert #customers  (cust_code, cust_type)
-			select distinct c.customer_code, c.addr_sort1
+			exec('insert #customers  (cust_code, cust_type, bg)
+			select distinct c.customer_code, c.addr_sort1, CASE WHEN c.addr_sort1 = ''BUYING GROUP'' THEN c.customer_code ELSE '''' END
 			from adm_cust c (nolock)
-			where ' + @cust_range ) 		
+			where ' + @cust_range )  -- v12.3		
 		END
 	 
 		exec('insert #invoices  
@@ -450,10 +451,10 @@ BEGIN
 			SET @cust_range = SUBSTRING(@cust_range,1,@end_range)
 			SET @cust_range = replace(@cust_range,'orders_all.cust_code', 'c.customer_code')  
 	    
-			exec('insert #customers  (cust_code, cust_type)
-			select distinct c.customer_code, c.addr_sort1
+			exec('insert #customers  (cust_code, cust_type, bg)
+			select distinct c.customer_code, c.addr_sort1, CASE WHEN c.addr_sort1 = ''BUYING GROUP'' THEN c.customer_code ELSE '''' END
 			from adm_cust c (nolock)
-			where ' + @cust_range ) 			
+			where ' + @cust_range )  -- v12.3 			
 		END
 
 		exec('insert #invoices  
@@ -488,8 +489,8 @@ BEGIN
 				SELECT @dend = NULL
 			END
 
-			INSERT 	#customers (cust_code, 	cust_type)
-			SELECT	b.child, c.addr_sort1
+			INSERT 	#customers (cust_code, 	cust_type, bg)  -- v12.3
+			SELECT	b.child, c.addr_sort1, a.cust_code  -- v12.3
 			FROM	#customers a
 			CROSS APPLY dbo.f_cvo_get_buying_group_child_list_range(a.cust_code,@dstart,@dend) b 
 			JOIN	armaster_all c (NOLOCK)
@@ -537,9 +538,13 @@ BEGIN
 				join locations l (nolock) on l.location = orders_all.location  
 				join region_vw r (nolock) on l.organization_id = r.org_id  
 				join #customers tc on c.customer_code = tc.cust_code
+				join cvo_orders_all cvo (nolock) on orders_all.order_no = cvo.order_no and orders_all.ext = cvo.ext
 				where orders_all.status >= ''T'' and orders_all.status < ''V'' and orders_all.invoice_no > 0 and orders_all.type < ''X'' and   
 				  isnull(orders_all.tax_valid_ind,1) = 1 and  ' + @date_range + ' and
-			   orders_all.printed < ''T'' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num')   
+				tc.bg = cvo.buying_group and
+			   orders_all.printed < ''T'' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num ')  -- v12.3
+				
+			  
 
 			END 
 			ELSE
@@ -553,10 +558,14 @@ BEGIN
 				join region_vw r (nolock) on l.organization_id = r.org_id   
 				join orders_invoice oi (nolock) on oi.order_no = orders_all.order_no and oi.order_ext = orders_all.ext  
 				join #customers tc on c.customer_code = tc.cust_code
+				join cvo_orders_all cvo (nolock) on orders_all.order_no = cvo.order_no and orders_all.ext = cvo.ext
 				where orders_all.status >= ''T'' and orders_all.status < ''V''  and  ' + @date_range + ' and
 				  isnull(orders_all.tax_valid_ind,1) = 1   
-				  and orders_all.invoice_no > 0 and orders_all.type < ''X'' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num')   
+					tc.bg = cvo.buying_group and
+				  and orders_all.invoice_no > 0 and orders_all.type < ''X'' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num')  -- v12.3
 			END
+
+			
 
 		END
 

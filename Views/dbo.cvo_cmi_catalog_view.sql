@@ -3,10 +3,6 @@ GO
 SET ANSI_NULLS ON
 GO
 
-
-
-
-
 -- select * from cvo_cmi_catalog_view where collection = 'bt'
 
 
@@ -110,7 +106,9 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	, ISNULL(d.dim_lens_color, v.lens_color) lens_color
 	, i.pom_date
 	, i.part_no sku
-
+	, v.supplier_color_description Supplier_front_ref_code
+	, v.ws_lens_color_code supplier_lens_color_code
+	
 
 	FROM 
 	
@@ -124,6 +122,7 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 		--AND d.eye_size =  i.eye_size AND v.color = i.colorname
 	
 	WHERE v.isActive = 1
+
 
 
 

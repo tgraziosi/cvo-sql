@@ -5,8 +5,8 @@ GO
 
 CREATE FUNCTION [dbo].[f_cvo_calc_weekly_usage_coll]
     (
-      @usg_option CHAR(1) = 's' ,
-      @coll VARCHAR(20) = NULL
+      @usg_option CHAR(1) = 'o' ,
+      @coll VARCHAR(20) = NULL -- pass null to report all collections
     )
 RETURNS @usage TABLE
     (

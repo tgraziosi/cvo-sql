@@ -745,16 +745,17 @@ DELETE #invoices where ABS(balance) < 0.001 -- v2.0
    WHERE doc_ctrl_num = @last_doc      
    AND customer_code = @last_cust      
        
-      SELECT @terms_code = terms_code FROM artrx (NOLOCK) WHERE doc_ctrl_num = @last_doc AND customer_code = @last_cust      
+      SELECT @terms_code = terms_code, @date_due = date_due
+	   FROM artrx (NOLOCK) WHERE doc_ctrl_num = @last_doc AND customer_code = @last_cust      
    /* PJC 042413 - get terms code from customer when terms code is blank */      
    IF ( @terms_code = '' OR @terms_code IS NULL )      
     SELECT @terms_code = terms_code from arcust (NOLOCK) where customer_code = @last_cust      
-            
-   IF ( SELECT ISNULL(DATALENGTH(LTRIM(RTRIM(@terms_code))), 0)) = 0       
-    SELECT @terms_code = terms_code FROM arcust (NOLOCK) WHERE customer_code = @last_cust      
+     begin      
+	   IF ( SELECT ISNULL(DATALENGTH(LTRIM(RTRIM(@terms_code))), 0)) = 0       
+		SELECT @terms_code = terms_code FROM arcust (NOLOCK) WHERE customer_code = @last_cust      
       
-   EXEC CVO_CalcDueDate_sp @last_cust, @date_doc, @date_due OUTPUT, @terms_code      
-  
+	   EXEC CVO_CalcDueDate_sp @last_cust, @date_doc, @date_due OUTPUT, @terms_code      
+		end
    /* PJC 042413 - use doc date if due date is blank */      
    IF ( @date_due = 0 or @date_due IS NULL )      
     SELECT @date_due = @date_doc      
@@ -1152,9 +1153,9 @@ DELETE #invoices where ABS(balance) < 0.001 -- v2.0
    [KEY] = ADDR_SORT1,    
    attn_email,    
    SLS = SALESPERSON_CODE,    
-   TERR = TERRITORY_CODE,    
+   TERR = #final.TERRITORY_CODE,    
    -- 11/1/2013    
-   dbo.calculate_region_fn(TERRITORY_CODE) AS REGION,    
+   tr.region AS REGION,    
    NAME = ADDRESS_NAME,    
    BG_CODE,    
    BG_NAME,    
@@ -1181,7 +1182,10 @@ DELETE #invoices where ABS(balance) < 0.001 -- v2.0
 --   @date_asof as date_asof,    
    @DATE_TYPE_STRING as date_type_string,    
    @DATE_TYPE_parm as date_type    
- FROM #FINAL       
+ FROM #FINAL
+ JOIN
+ (SELECT DISTINCT territory_code, dbo.calculate_region_fn(territory_code) region FROM #final
+ ) tr ON tr.TERRITORY_CODE = #FINAL.TERRITORY_CODE       
       
 -- DROP TABLE #ARTRXAGE_TMP       
 -- DROP TABLE #AGE_SUMMARY      
@@ -1204,6 +1208,7 @@ DELETE #invoices where ABS(balance) < 0.001 -- v2.0
     
  SET NOCOUNT off       
 end -- CVO_ARAGING_SP DATA       
+
 GO
 
 GRANT EXECUTE ON  [dbo].[CVO_ARAGING_SP] TO [public]

@@ -229,13 +229,13 @@ begin
 				@QTY,
 				0,
 				'' -- user_id
-			UPDATE pp SET ISPICKED = 'Y', PP.pick_complete_dt = @asofdate
+			UPDATE pp WITH (rowlock) SET ISPICKED = 'Y', PP.pick_complete_dt = @asofdate
 			    FROM CVO_CART_PARTS_PROCESSED PP
 				WHERE TRAN_ID = @tran_id and ispicked <> 'y'
 
 		END
  		
-		UPDATE dbo.cvo_cart_orders_processed SET order_status = 'C', processed_date = @asofdate 
+		UPDATE dbo.cvo_cart_orders_processed WITH (ROWLOCK) SET order_status = 'C', processed_date = @asofdate 
 			WHERE order_no = @cart_order_no
 
 
@@ -290,6 +290,7 @@ begin
 END -- proc_option = 99
 
  
+
 
 
 

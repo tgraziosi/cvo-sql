@@ -8,7 +8,8 @@ CREATE PROCEDURE [dbo].[cvo_recvg_dashboard_sp] @recalc_usage INT = 0, @det INT 
 
 AS
 
--- exec cvo_recvg_dashboard_sp 0, 1, 999
+-- exec cvo_recvg_dashboard_sp 0, 1, 5
+-- SELECT * FROM ##cvo_usage
 
 SET NOCOUNT ON
 
@@ -30,7 +31,7 @@ BEGIN
 		   ISNULL(iav.qty_avl,0) qty_avl,
 		   ISNULL(iav.sof,0)+ISNULL(iav.Allocated,0) open_ord
 	INTO ##cvo_usage
-	FROM dbo.f_cvo_calc_weekly_usage('o') AS fccwu
+	FROM dbo.f_cvo_calc_weekly_usage_coll('o',null) AS fccwu
 	LEFT JOIN dbo.cvo_item_avail_vw AS iav ON iav.location = fccwu.location AND iav.part_no = fccwu.part_no
 	CREATE INDEX idx_cvo_usage ON ##cvo_usage (location, PART_no)
 	
@@ -44,7 +45,7 @@ select
 	isnull(r.inhouse_date, r.confirm_date) inhouse_date,
 --	ISNULL(r.departure_date, r.confirm_date) departure_date,
 	pa.vendor_no,
-	p.po_key ,
+	pa.po_key ,
 	pa.user_category category,
 	--pa.date_of_order,
 	p.line ,
@@ -118,19 +119,16 @@ left join inv_master i (nolock) on i.part_no = p.part_no
 left join ##cvo_usage AS drp (nolock) 
 on p.part_no = drp.part_no and p.location = drp.location
 LEFT JOIN
-(SELECT po_key, location, part_no, po_line, MAX(rr.receipt_no) max_receipt, MAX(rr.recv_date) max_recv_date
-	FROM  dbo.receipts_all AS rr
+(SELECT po_key, po_line, MAX(rr.receipt_no) max_receipt, MAX(rr.recv_date) max_recv_date
+	FROM  dbo.receipts_all AS rr (NOLOCK)
 	GROUP BY rr.po_key ,
-             rr.location ,
-             rr.part_no ,
              rr.po_line
-	) ra ON ra.po_key = p.po_key AND ra.location = r.location 
-		  AND ra.part_no = r.part_no AND ra.po_line = r.po_line
+	) ra ON ra.po_key = p.po_key AND ra.po_line = r.po_line
 where p.po_key = p.po_no and pa.po_no = pa.po_key
 and r.po_key = r.po_no
 AND p.status = 'o' AND p.void <> 'v'
 AND DATEDIFF(d, @asofdate, isnull(r.inhouse_date, r.confirm_date)) BETWEEN -@days_out AND @days_out
-ORDER BY 	isnull(r.inhouse_date, r.confirm_date), i.vendor, p.po_key
+--ORDER BY 	isnull(r.inhouse_date, r.confirm_date), i.vendor, p.po_key
 END
 
 IF @det = 0
@@ -139,10 +137,11 @@ select
 	DATEDIFF(d, @asofdate, ISNULL(r.inhouse_date, r.confirm_date)) due_days,
 	isnull(r.inhouse_date, r.confirm_date) inhouse_date,
 --	ISNULL(r.departure_date, r.confirm_date) departure_date,
-	pa.vendor_no,
-	p.po_key ,
+	aa.address_name vendor_name,
+	pa.po_key ,
 	pa.user_category category,
 	p.location ,
+	b.brands,
 	COUNT(p.line) num_lines ,
 	MAX(CASE  WHEN ia.field_26 > @asofdate THEN 'New Release' 
 		  WHEN 	isnull(drp.qty_avl,0) < 0 AND isnull(drp.open_ord,0) > 0 THEN 'Backorders'
@@ -151,24 +150,28 @@ select
 	qty_open = case when SUM(qty_ordered-qty_received) < 0 then 0
 					else SUM(qty_ordered-qty_received)
 				end,
-	ra.max_recv_date Last_receipt_date,
+	(SELECT MAX(recv_date) FROM dbo.receipts_all AS ra2 (NOLOCK) WHERE ra2.po_key = pa.po_key) Last_receipt_date,
 	case when isnull(p.plrecd,0) = 1 then 'Yes-L'
 		 when isnull(pa.expedite_flag,0) = 1 then 'Yes-H' 
 		 else 'No' end as Pk_lst
 from pur_list p (nolock) 
 inner join purchase_all pa (nolock)
 on pa.po_key = p.po_key
+INNER JOIN dbo.apmaster_all AS aa (NOLOCK) ON aa.vendor_code = pa.vendor_no
 left join releases r (nolock)
 on p.po_key = r.po_key and p.line = r.po_line
 left join inv_master_add ia (nolock) on p.part_no = ia.part_no
-left join inv_master i (nolock) on i.part_no = p.part_no
 left join ##cvo_usage AS drp (nolock) 
 on p.part_no = drp.part_no and p.location = drp.location
-LEFT JOIN
-(SELECT po_key,  MAX(rr.recv_date) max_recv_date
-	FROM  dbo.receipts_all AS rr
-	GROUP BY rr.po_key 
-	) ra ON ra.po_key = p.po_key 
+LEFT OUTER JOIN
+(SELECT DISTINCT ppp.po_key, brands = STUFF (( SELECT DISTINCT ';' + i.category
+												 FROM pur_list pp  (NOLOCK)
+												 JOIN inv_master i (NOLOCK) ON pp.part_no = i.part_no
+												 WHERE pp.status = 'o' AND pp.void <> 'v'
+												 AND pp.po_key = ppp.po_key
+									 FOR XML PATH('') ),1,1, '' )
+			 FROM dbo.purchase AS ppp (NOLOCK)
+			 WHERE ppp.status = 'o' AND ppp.void <> 'v' ) b ON b.po_key = pa.po_key
 		  
 where p.po_key = p.po_no and pa.po_no = pa.po_key
 and r.po_key = r.po_no
@@ -180,12 +183,12 @@ GROUP BY DATEDIFF(d, @asofdate, ISNULL(r.inhouse_date, r.confirm_date)) ,
          WHEN ISNULL(pa.expedite_flag, 0) = 1 THEN 'Yes-H'
          ELSE 'No'
          END ,
-         pa.vendor_no ,
-         p.po_key ,
+         aa.address_name ,
+         pa.po_key ,
          pa.user_category ,
          p.location ,
-         ra.max_recv_date 
-ORDER BY 	isnull(r.inhouse_date, r.confirm_date), p.po_key
+		 b.brands
+--ORDER BY 	isnull(r.inhouse_date, r.confirm_date), p.po_key
 END
 
 
