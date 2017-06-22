@@ -21,7 +21,7 @@ DECLARE @location	VARCHAR (10)
 
 	DECLARE parts_cur CURSOR FOR 
 							 SELECT   ol.order_no, ol.order_ext, ol.line_no, ol.ordered, ol.part_no, ol.location
-							 FROM     CVO_ord_list cvo, ord_list ol
+							 FROM     CVO_ord_list cvo (NOLOCK), ord_list ol (NOLOCK) -- v1.3
 							 WHERE    cvo.order_no		= ol.order_no	AND
 									  cvo.order_ext		= ol.order_ext	AND
 									  cvo.line_no		= ol.line_no	AND 
@@ -30,7 +30,7 @@ DECLARE @location	VARCHAR (10)
 									  cvo.is_customized = 'S'
 							 UNION ALL
 							 SELECT   olk.order_no, olk.order_ext, olk.line_no, olk.ordered, olk.part_no, olk.location
-							 FROM     cvo_ord_list_kit cvo, ord_list_kit olk	
+							 FROM     cvo_ord_list_kit cvo (NOLOCK), ord_list_kit olk (NOLOCK) -- v1.3	
 							 WHERE    cvo.order_no	= olk.order_no		AND
 									  cvo.order_ext = olk.order_ext		AND
 									  cvo.location	= olk.location		AND

@@ -31,6 +31,7 @@ v10.5 CB 07/06/2013 - Issue #1289 - Frame/case relationship at order entry
 v10.6 CB 18/06/2013 - Fix for when order is partially picked and then unallocated and reallocated - cases do not allocate
 v10.7 CB 26/01/2016 - #1581 2nd Polarized Option
 v10.8 CB 23/08/2016 - CVO-CF-49 - Dynamic Custom Frames
+v10.9 CB 30/05/2017 - #1628 Items added after picked 
 */
 CREATE PROCEDURE [dbo].[CVO_Calculate_qty_to_alloc_sp] AS
 BEGIN				  	
@@ -137,6 +138,7 @@ BEGIN
 		ON		a.part_no = d.part_no
 		WHERE	a.order_no = @order_no
 		AND		a.order_ext = @order_ext
+		AND		a.shipped < a.ordered -- v10.9
 		ORDER BY a.line_no
 
 		-- if the data is an order since soft allocation was added then the #splits table is correct

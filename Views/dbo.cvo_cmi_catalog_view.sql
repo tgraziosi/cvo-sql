@@ -4,7 +4,7 @@ SET ANSI_NULLS ON
 GO
 
 -- select * from cvo_cmi_catalog_view where collection = 'bt'
-
+-- 6/20/17 - add release and pom dates
 
 CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS 
 	SELECT 
@@ -27,6 +27,7 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	bm.nose_pads,
 	bm.hinge_type,
 	bm.release_date,
+	bm.pom_date,
 	bm.frame_only, -- 2/10/2016 - for BT And REvo
 	bm.lens_cost,
 	bm.lens_vendor,
@@ -104,11 +105,12 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 	, ISNULL(	CASE WHEN d.dim_release_date='1/1/1900' THEN NULL ELSE d.dim_release_date END, bm.release_date) dim_release_date
 	, bm.model_lead_time
 	, ISNULL(d.dim_lens_color, v.lens_color) lens_color
-	, i.pom_date
+	, i.pom_date e_pom_date
 	, i.part_no sku
 	, v.supplier_color_description Supplier_front_ref_code
 	, v.ws_lens_color_code supplier_lens_color_code
-	
+	, ISNULL(	CASE WHEN d.dim_pom_date='1/1/1900' THEN NULL ELSE d.dim_pom_date END, bm.pom_date) dim_pom_date
+
 
 	FROM 
 	
@@ -122,6 +124,7 @@ CREATE VIEW [dbo].[cvo_cmi_catalog_view] AS
 		--AND d.eye_size =  i.eye_size AND v.color = i.colorname
 	
 	WHERE v.isActive = 1
+
 
 
 

@@ -69,7 +69,8 @@ BEGIN
 			@new_soft_alloc_no int, -- v1.2
 			@notifications	SMALLINT, -- v1.4
 			@retval			INT, -- v1.4
-			@consolidation_no int -- v2.3
+			@consolidation_no int, -- v2.3
+			@removed_qty decimal(20,8) -- v2.5
 
 	-- START v1.4
 	/*
@@ -156,6 +157,8 @@ BEGIN
 	AND		c.ext = @order_ext	
 	*/
 	-- END v2.1
+
+	SET @removed_qty = @bin_qty - @picked_qty -- v2.5
 
 	-- START v1.4
 	-- Pick what was entered in the console screen
@@ -614,6 +617,11 @@ BEGIN
 			RETURN 
 		END
 	END
+
+	-- v2.5 Start
+	IF (@removed_qty > 0)
+		EXEC CVO_no_stock_admin_email_sp @order_no, @order_ext, @bin_no, @part_no, @removed_qty
+	-- v2.5 End
 	
 	-- START v1.8
 	-- Check there's nothing allocated

@@ -104,7 +104,7 @@ BEGIN
 			END -- v1.4 Start
 			ELSE
 			BEGIN
-				UPDATE	orders_all
+				UPDATE	orders_all WITH (ROWLOCK)
 				SET		hold_reason = '',
 						status = 'N'
 				WHERE	order_no = @order_no
@@ -149,6 +149,7 @@ BEGIN
 
 	RETURN
 END
+
 
 
 

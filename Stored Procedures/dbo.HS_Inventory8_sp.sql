@@ -203,9 +203,9 @@ AS
                                                       ISNULL(field_28, @today),
                                                       @today) < 9 THEN 'RED'
                                     WHEN DATEDIFF(m, ISNULL(field_28, @today),
-                                                  @today) >= 24 THEN 'EOR'
+                                                  @today) >= 24 AND I.type_code <> 'SUN' THEN 'EOR'
                                     WHEN DATEDIFF(m, ISNULL(field_28, @today),
-                                                  @today) >= 9 THEN 'QOP'
+                                                  @today) >= 9 AND I.TYPE_CODE <> 'SUN' THEN 'QOP'
                                     ELSE I.type_code
                                END ,
                 [CATEGORY:2] = CASE WHEN I.category IN ( 'izod', 'izx' )
@@ -987,6 +987,7 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 -- SELECT distinct manufacturer, [category:1], [CATEGORY:2] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
 
 
 

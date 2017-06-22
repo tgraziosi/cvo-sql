@@ -9,7 +9,7 @@ CREATE PROCEDURE [dbo].[cvo_promo_incentive_tracker_2017_sp]
     @ytdendty DATETIME = null
 AS 
 
--- exec cvo_promo_incentive_tracker_2017_sp 20226, 0
+-- exec cvo_promo_incentive_tracker_2017_sp null, 0
 
 
     BEGIN
@@ -228,7 +228,9 @@ AS
         WHERE   1 = 1
                 AND o.date_entered BETWEEN #p.sdate AND @edate
                 AND o.who_entered <> 'backordr' -- 1/18/2016) -- don't count splits as extra programs
-                AND o.status <> 'V'; -- 110714 - exclude void orders
+                AND o.status <> 'V' -- 110714 - exclude void orders
+				AND o.framesordered > 0 -- 6/15/2017 - don't count orders w/o frame/suns i.e. pOP only
+				;
 
 -- SELECT * FROM #promotrkr AS p
 
@@ -470,6 +472,7 @@ AS
 
 
     END;
+
 
 
 

@@ -27,11 +27,12 @@ GO
 -- v3.1 CB 20/03/2015 - Performance Changes  
 -- v3.2 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 -- v3.3 CB 09/02/2017 - #1620 - Recheck fill rate and ship comlete  
+-- v3.4 CB 15/05/2017 - #1624 Add button to display unavailable items
 
 -- Implement Soft Allocation
 -- CVO-CF-3
 /* TESTING
-EXEC dbo.cvo_order_summary_sp 11868,1420240,0,1,'TESTPART10'
+EXEC dbo.cvo_order_summary_sp 19815,1421860,0,0,NULL,0,1
 */
 
 
@@ -41,7 +42,8 @@ CREATE PROC [dbo].[cvo_order_summary_sp]	@soft_alloc_no	int,
 										@order_ext		int,
 										@onload			smallint,
 										@part_no_in		varchar(30) = NULL, -- v2.9
-										@fill_rate_out	decimal(20,8) = 0 OUTPUT -- v3.3
+										@fill_rate_out	decimal(20,8) = 0 OUTPUT, -- v3.3
+										@button_call	int = 0 -- v3.4
 AS
 BEGIN
 	-- Declarations
@@ -648,6 +650,22 @@ BEGIN
 			END
 		END
 		-- END v2.7
+
+		-- v3.4 Start
+		IF (@button_call = 1)
+		BEGIN
+			SELECT	a.row_id, a.type_code, a.location, a.part_no, a.avail_quantity, a.quantity,
+					CASE WHEN @order_no = 0 THEN a.line_no ELSE b.display_line END line_no
+			FROM	@returndata a
+			LEFT JOIN ord_list b (NOLOCK)
+			ON		a.line_no = b.line_no
+			AND		b.order_no = @order_no
+			AND		b.order_ext = @order_ext
+			WHERE	a.avail_quantity < a.quantity
+			ORDER BY line_no ASC
+			RETURN
+		END
+		-- v3.4 End
 
 		-- v2.0 Start
 		IF NOT EXISTS (SELECT 1 FROM @returndata WHERE type_code IN ('FRAME','SUN'))

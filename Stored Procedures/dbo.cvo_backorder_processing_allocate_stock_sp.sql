@@ -20,6 +20,10 @@ CREATE PROC [dbo].[cvo_backorder_processing_allocate_stock_sp]
 
 AS
 BEGIN
+
+	SET NOCOUNT ON 
+	SET ANSI_WARNINGS OFF
+    
 	DECLARE @rec_id			INT,
 			@retval			SMALLINT,
 			@order_no		INT,
@@ -392,6 +396,7 @@ BEGIN
 
 	RETURN 0
 END
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_backorder_processing_allocate_stock_sp] TO [public]

@@ -10,7 +10,8 @@ CREATE TABLE [dbo].[cvo_designation_code_audit]
 [to_start_date] [datetime] NULL,
 [from_end_date] [datetime] NULL,
 [to_end_date] [datetime] NULL,
-[primary_flag_changed] [int] NULL
+[primary_flag_changed] [int] NULL,
+[ship_to] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_desig__ship___4FCED607] DEFAULT ('')
 ) ON [PRIMARY]
 GO
 GRANT REFERENCES ON  [dbo].[cvo_designation_code_audit] TO [public]

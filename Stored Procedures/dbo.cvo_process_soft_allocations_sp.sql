@@ -640,6 +640,17 @@ BEGIN
 	WHERE	o.status < 'Q'
 	AND		a.change > 0
 
+	-- v7.8 Start
+	INSERT	#forced_orders (order_no, order_ext, status, hold_reason)
+	SELECT	DISTINCT o.order_no, o.ext, o.status, o.hold_reason
+	FROM	orders_all o (NOLOCK)
+	JOIN	cvo_soft_alloc_det a (NOLOCK)
+	ON		o.order_no = a.order_no
+	AND		o.ext = a.order_ext
+	WHERE	o.status = 'P'
+	AND		a.change = 2
+	-- v7.8 End
+
 	DELETE	a
 	FROM	#exclusions a
 	JOIN	#forced_orders b
@@ -1124,10 +1135,12 @@ BEGIN
 					hold_reason = ''
 			WHERE	order_no = @order_no
 			AND		ext = @order_ext
+			AND		status <> 'P' -- v7.8
 		END
 		-- v6.1 End
 
 		EXEC @rc = tdc_order_after_save @order_no, @order_ext   
+
 
 		-- v6.1 Start
 		IF EXISTS (SELECT 1 FROM #forced_orders WHERE order_no = @order_no AND order_ext = @order_ext)
@@ -1141,6 +1154,7 @@ BEGIN
 			AND		a.ext = b.order_ext
 			WHERE	a.order_no = @order_no
 			AND		a.ext = @order_ext
+			AND		a.status <> 'P' -- v7.8
 		END
 		-- v6.1 End
 

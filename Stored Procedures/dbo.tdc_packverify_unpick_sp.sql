@@ -46,7 +46,7 @@ BEGIN
 	END
 	
 	-- Decriment the picked quantity
-	UPDATE tdc_dist_item_pick 
+	UPDATE tdc_dist_item_pick WITH (ROWLOCK)
 	   SET quantity  	   = quantity - @qty
 	 WHERE order_no  	   = @order_no
 	   AND order_ext 	   = @order_ext
@@ -94,7 +94,7 @@ BEGIN
 		END
 	
 		-- Decriment the picked quantity
-		UPDATE tdc_dist_item_pick 
+		UPDATE tdc_dist_item_pick WITH (ROWLOCK)
 		   SET quantity   = quantity - 1
 		 WHERE order_no   = @order_no
 		   AND order_ext  = @order_ext
@@ -130,7 +130,7 @@ WHERE quantity < 0
   AND EXISTS (SELECT * FROM tdc_dist_group (nolock) WHERE child_serial_no = p.child_serial_no)
 
 --Set status of tdc_order back to 'Q1'
-UPDATE tdc_order  
+UPDATE tdc_order WITH (ROWLOCK) 
    SET TDC_status = 'Q1'  
  WHERE order_no   =  @order_no
    AND order_ext  =  @order_ext
@@ -148,8 +148,8 @@ IF NOT EXISTS (SELECT * FROM ord_list (NOLOCK)
                   AND order_ext = @order_ext
                   AND shipped   > 0)  
 BEGIN
-	UPDATE orders   SET status = 'N' WHERE order_no = @order_no AND ext       = @order_ext
-	UPDATE ord_list SET status = 'N' WHERE order_no = @order_no AND order_ext = @order_ext
+	UPDATE orders   WITH (ROWLOCK) SET status = 'N' WHERE order_no = @order_no AND ext       = @order_ext
+	UPDATE ord_list WITH (ROWLOCK) SET status = 'N' WHERE order_no = @order_no AND order_ext = @order_ext
 END
        
 RETURN 0

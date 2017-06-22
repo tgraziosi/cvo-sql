@@ -68,7 +68,7 @@ BEGIN
 			BEGIN	
 				SET @qty = 0																														  -- Sum of the quantity in lot_bin_stock   -- Subtract the quantity allocated   
 				SELECT TOP 1 @lot_ser = lb.lot_ser, @bin_from = lb.bin_no, @date_expires = lb.date_expires, @qty = (SUM(qty) - (SELECT ISNULL(( SELECT SUM(qty) FROM tdc_soft_alloc_tbl (NOLOCK) WHERE location = lb.location AND part_no = lb.part_no AND lot_ser = lb.lot_ser AND bin_no = lb.bin_no),0)))
-				FROM       lot_bin_stock lb, tdc_bin_master bm             
+				FROM       lot_bin_stock lb (NOLOCK), tdc_bin_master bm (NOLOCK) -- v1.1             
 				WHERE      lb.bin_no     = bm.bin_no	AND   
 		  				   lb.location   = bm.location	AND
 		  				   lb.location   = @location	AND 
@@ -115,7 +115,7 @@ BEGIN
 		SELECT 	@lot_ser	= lot_ser
 			   ,@bin_from	= bin_to
 			   ,@bin_to		= bin_from
-		FROM   CVO_disassembled_frame_B2B_history_tbl
+		FROM   CVO_disassembled_frame_B2B_history_tbl (NOLOCK) -- v1.1
 		WHERE  order_no  = @order_no  AND 
 			   order_ext = @order_ext AND 
 			   location  = @location  AND			
@@ -125,7 +125,7 @@ BEGIN
 		SELECT @qty	= @qty_to_move			  			  			  
 
 		SELECT @date_expires = date_expires
-		FROM   lot_bin_stock            
+		FROM   lot_bin_stock (NOLOCK) -- v1.1           
 		WHERE  location = @location	AND 
 			   part_no  = @part_no	AND
 			   bin_no   = @bin_from	AND
@@ -149,7 +149,6 @@ BEGIN
  
 END
 -- Permissions  
-
 GO
 GRANT EXECUTE ON  [dbo].[CVO_b2b_move_sp] TO [public]
 GO

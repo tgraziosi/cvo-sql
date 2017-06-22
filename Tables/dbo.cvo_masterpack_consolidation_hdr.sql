@@ -7,7 +7,8 @@ CREATE TABLE [dbo].[cvo_masterpack_consolidation_hdr]
 [carrier] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [ship_date] [datetime] NULL,
 [closed] [smallint] NOT NULL,
-[shipped] [smallint] NOT NULL
+[shipped] [smallint] NOT NULL,
+[location] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
 CREATE UNIQUE NONCLUSTERED INDEX [cvo_masterpack_consolidation_hdr_pk] ON [dbo].[cvo_masterpack_consolidation_hdr] ([consolidation_no]) ON [PRIMARY]

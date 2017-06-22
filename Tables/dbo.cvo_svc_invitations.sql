@@ -60,6 +60,6 @@ CREATE TABLE [dbo].[cvo_svc_invitations]
 [response] [varchar] (3) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [me] [tinyint] NULL CONSTRAINT [DF__cvo_svc_invi__me__3D9A4BDC] DEFAULT ('0'),
 [me_show] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__me_sh__3E8E7015] DEFAULT ('1'),
-[me_order] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__me_or__3F82944E] DEFAULT ('1')
+[me_order] [int] NULL
 ) ON [PRIMARY]
 GO

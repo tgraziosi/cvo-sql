@@ -19,6 +19,9 @@ INSERT INTO #allocated_orders SELECT 1420178, 0
 -- v1.0 CT 02/04/2014 - Issue #572 - Masterpack consolidation of orders
 -- v1.1 CT 23/05/2014 - Issue #572 - If backorder consolidation, only consolidate orders that have allocated
 -- v1.2 CT 17/12/2014 - Issue #572 - For backorder processing, only consolidate orders with a status of 'N'
+-- v1.3 CB 08/06/2017 - Add location to masterpack hdr
+-- v1.4 CB 15/06/2017 - Do not consolidate RX Orders
+-- v1.5 CB 19/06/2017 - Check for header before inserting
 
 CREATE PROC [dbo].[cvo_masterpack_consolidate_orders_sp]  @type VARCHAR(2)
 AS
@@ -34,7 +37,8 @@ BEGIN
 			@current_date		DATETIME,
 			@row_id				INT,
 			@max_charge			DECIMAL(20,8),
-			@order_value		DECIMAL(20,8)
+			@order_value		DECIMAL(20,8),
+			@location			varchar(10) -- v1.3
 
 	-- Create temporary tables
 	CREATE TABLE #masterpack_orders(
@@ -45,7 +49,8 @@ BEGIN
 		ship_to				VARCHAR(10),
 		carrier				VARCHAR(20),
 		ship_date			DATETIME,
-		[status]			CHAR(1))
+		[status]			CHAR(1),
+		location			varchar(10)) -- v1.3
 
 	CREATE TABLE #masterpack_group(
 		rec_id				INT IDENTITY(1,1),
@@ -53,7 +58,8 @@ BEGIN
 		ship_to				VARCHAR(10),
 		carrier				VARCHAR(20),
 		ship_date			DATETIME,
-		cnt					INT)
+		cnt					INT,
+		location			varchar(10)) -- v1.3
 
 	CREATE TABLE #consolidate_picks(
 		consolidation_no	INT,
@@ -74,7 +80,8 @@ BEGIN
 			ship_to,
 			carrier,
 			ship_date,
-			[status])
+			[status],
+			location) -- v1.3
 		SELECT
 			a.order_no,
 			a.ext,
@@ -82,7 +89,8 @@ BEGIN
 			a.ship_to,
 			a.routing,
 			CASE @type WHEN 'BO' THEN @current_date ELSE a.sch_ship_date END, -- BO processing doesn't group on this field
-			a.[status]
+			a.[status],
+			a.location -- v1.3
 		FROM
 			dbo.orders_all a (NOLOCK)
 		INNER JOIN
@@ -101,6 +109,7 @@ BEGIN
 			-- START v1.2
 			AND a.status = 'N'
 			-- END v1.2
+			AND LEFT(a.user_category,2) <> 'RX' -- v1.4
 	END
 	ELSE
 	BEGIN
@@ -111,7 +120,8 @@ BEGIN
 			ship_to,
 			carrier,
 			ship_date,
-			[status])
+			[status],
+			location) -- v1.3
 		SELECT
 			a.order_no,
 			a.ext,
@@ -119,7 +129,8 @@ BEGIN
 			a.ship_to,
 			a.routing,
 			CASE @type WHEN 'BO' THEN @current_date ELSE a.sch_ship_date END, -- BO processing doesn't group on this field
-			a.[status]
+			a.[status],
+			a.location -- v1.3
 		FROM
 			dbo.orders_all a (NOLOCK)
 		INNER JOIN
@@ -130,6 +141,7 @@ BEGIN
 		WHERE
 			a.[type] = 'I'
 			AND ISNULL(a.sold_to,'') = '' -- Don't consolidate global labs	
+			AND LEFT(a.user_category,2) <> 'RX' -- v1.4
 	END
 	-- END v1.1
 
@@ -261,20 +273,23 @@ BEGIN
 		ship_to,
 		carrier,
 		ship_date,
-		cnt)
+		cnt,
+		location) -- v1.3
 	SELECT
 		cust_code,
 		ship_to,
 		carrier,
 		ship_date,
-		COUNT(1)
+		COUNT(1),
+		location -- v1.3
 	FROM
 		#masterpack_orders
 	GROUP BY
 		cust_code,
 		ship_to,
 		carrier,
-		ship_date
+		ship_date,
+		location -- v1.3
 	HAVING 
 		COUNT(1) > 1
 
@@ -296,7 +311,8 @@ BEGIN
 			@cust_code = cust_code,
 			@ship_to = ship_to,
 			@carrier = carrier,
-			@ship_date = ship_date
+			@ship_date = ship_date,
+			@location = location -- v1.3
 		FROM
 			#masterpack_group
 		WHERE
@@ -319,7 +335,8 @@ BEGIN
 			AND cust_code = @cust_code
 			AND ship_to = @ship_to
 			AND carrier = @carrier
-			AND ISNULL(ship_date,@current_date) = @ship_date 
+			AND ISNULL(ship_date,@current_date) = @ship_date
+			AND	location = @location -- v1.3 
 			AND closed = 0
 
 		-- If we haven't found a consolidation set, create a new one
@@ -372,6 +389,7 @@ BEGIN
 				AND c.ship_to = @ship_to
 				AND c.carrier = @carrier
 				AND c.ship_date = @ship_date
+				AND	c.location = @location -- v1.3
 				AND	b.order_type = 'S'
 
 			-- If the value is over max charge then change carrier on order to UPSGR
@@ -394,6 +412,7 @@ BEGIN
 					AND b.ship_to = @ship_to
 					AND b.carrier = @carrier
 					AND b.ship_date = @ship_date
+					AND	b.location = @location -- v1.3
 
 				-- Update temp table
 				UPDATE
@@ -405,6 +424,7 @@ BEGIN
 					AND ship_to = @ship_to
 					AND carrier = @carrier
 					AND ship_date = @ship_date
+					AND	location = @location -- v1.3
 
 				-- Update variable
 				SET @carrier = 'UPSGR'
@@ -413,25 +433,32 @@ BEGIN
 
 		END
 
-		-- Create header record
-		INSERT INTO dbo.cvo_masterpack_consolidation_hdr(
-			consolidation_no,
-			[type],
-			cust_code,
-			ship_to,
-			carrier,
-			ship_date,
-			closed,
-			shipped)
-		SELECT
-			@consolidation_no,
-			@type,
-			@cust_code,
-			@ship_to,
-			@carrier,
-			CASE @type WHEN 'BO' THEN NULL ELSE @ship_date END, -- don't store ship date for BO sets
-			CASE @type WHEN 'BO' THEN 1 ELSE 0 END, -- auto close BO sets
-			0
+		-- v1.5 Start
+		IF NOT EXISTS (SELECT 1 FROM dbo.cvo_masterpack_consolidation_hdr (NOLOCK) WHERE consolidation_no = @consolidation_no)
+		BEGIN
+			-- Create header record
+			INSERT INTO dbo.cvo_masterpack_consolidation_hdr(
+				consolidation_no,
+				[type],
+				cust_code,
+				ship_to,
+				carrier,
+				ship_date,
+				closed,
+				shipped,
+				location) -- v1.3
+			SELECT
+				@consolidation_no,
+				@type,
+				@cust_code,
+				@ship_to,
+				@carrier,
+				CASE @type WHEN 'BO' THEN NULL ELSE @ship_date END, -- don't store ship date for BO sets
+				CASE @type WHEN 'BO' THEN 1 ELSE 0 END, -- auto close BO sets
+				0,
+				@location -- v1.3
+		END
+		-- v1.5 End
 
 		-- Create detail records
 		INSERT INTO dbo.cvo_masterpack_consolidation_det(

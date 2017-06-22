@@ -6,7 +6,8 @@ CREATE TABLE [dbo].[cvo_cust_designation_codes]
 [date_reqd] [smallint] NULL,
 [start_date] [datetime] NULL,
 [end_date] [datetime] NULL,
-[primary_flag] [int] NULL
+[primary_flag] [int] NULL,
+[ship_to] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_cust___ship___4EDAB1CE] DEFAULT ('')
 ) ON [PRIMARY]
 GO
 SET QUOTED_IDENTIFIER OFF

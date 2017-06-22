@@ -24,6 +24,7 @@ v1.1 CB 17/10/2012 - Issue #949 - Mark all lines with the tran_id_link of the ST
 v1.2 CT 02/05/2013 - Write a tdc_log record to show pick queue transaction has been created
 v1.3 CT 04/04/2014 - Issue #1470 - Do select stock from bins marked as "Exclude From Allocation"
 v1.4 CB 23/08/2016 - CVO-CF-49 - Dynamic Custom Frames
+v1.5 CB 06/06/2017 - Performance
 */
 CREATE PROCEDURE [dbo].[CVO_Create_Substitution_MGMB2B_Moves_sp]	@order_no int,
 																	@order_ext int,
@@ -115,15 +116,15 @@ DECLARE @bin_no			varchar(20),
 		AND 	part_no = @original_part
 		
 		-- Check if an existing tdc_soft_alloc_tbl record exists and the qty is greater then the qty passed in
-		IF EXISTS (SELECT 1 FROM tdc_soft_alloc_tbl a JOIN tdc_pick_queue b ON a.part_no = b.part_no AND a.lot_ser = b.lot        
+		IF EXISTS (SELECT 1 FROM tdc_soft_alloc_tbl a (NOLOCK) JOIN tdc_pick_queue b (NOLOCK) ON a.part_no = b.part_no AND a.lot_ser = b.lot -- v1.5       
 						AND a.bin_no = b.bin_no AND a.target_bin = b.next_op WHERE a.order_no = 0 AND a.order_ext  = 0            
 						AND a.order_type = 'S' AND a.line_no = 0 AND b.tran_id = @tran_id AND a.qty > @qty)
 		BEGIN
 			-- Reduce the qty on the allocation record
-			UPDATE	tdc_soft_alloc_tbl
+			UPDATE	tdc_soft_alloc_tbl WITH (ROWLOCK) -- v1.5
 			SET		qty = qty - @qty
 			FROM 	tdc_soft_alloc_tbl a
-			JOIN    tdc_pick_queue b          
+			JOIN    tdc_pick_queue b (NOLOCK) -- v1.5         
 			ON		a.part_no = b.part_no    
 			AND		a.lot_ser = b.lot        
 			AND		a.bin_no = b.bin_no     
@@ -140,7 +141,7 @@ DECLARE @bin_no			varchar(20),
 			-- Delete the allocation record
 			DELETE	tdc_soft_alloc_tbl    
 			FROM 	tdc_soft_alloc_tbl a
-			JOIN    tdc_pick_queue b          
+			JOIN    tdc_pick_queue b (NOLOCK) -- v1.5         
 			ON		a.part_no = b.part_no    
 			AND		a.lot_ser = b.lot        
 			AND		a.bin_no = b.bin_no     
@@ -284,11 +285,11 @@ DECLARE @bin_no			varchar(20),
 	-- If one bin can not satisfy the requirement then loop through the bins other use the first bin
 	IF @bin_no IS NOT NULL
 	BEGIN
-		IF EXISTS (SELECT 1 FROM tdc_soft_alloc_tbl WHERE order_no = 0 AND order_ext = 0 AND order_type = 'S' 
+		IF EXISTS (SELECT 1 FROM tdc_soft_alloc_tbl (NOLOCK) WHERE order_no = 0 AND order_ext = 0 AND order_type = 'S' -- v1.5
 					AND location = @location AND line_no = 0 AND part_no = @part_no 
 					AND lot_ser = @lot AND bin_no = @bin_no AND dest_bin = @dest_bin_no )
 		BEGIN
-			UPDATE tdc_soft_alloc_tbl
+			UPDATE tdc_soft_alloc_tbl WITH (ROWLOCK) -- v1.5
 			   SET qty = qty + @qty
 			 WHERE order_no = 0
 			   AND order_ext = 0
@@ -381,11 +382,11 @@ DECLARE @bin_no			varchar(20),
 			IF @bin_qty > @qty_remaining
 				SET @bin_qty = @qty_remaining
 
-			IF EXISTS (SELECT 1 FROM tdc_soft_alloc_tbl WHERE order_no = 0 AND order_ext = 0 AND order_type = 'S' 
+			IF EXISTS (SELECT 1 FROM tdc_soft_alloc_tbl (NOLOCK) WHERE order_no = 0 AND order_ext = 0 AND order_type = 'S' -- v1.5
 						AND location = @location AND line_no = 0 AND part_no = @part_no 
 						AND lot_ser = @lot AND bin_no = @bin_no AND dest_bin = @dest_bin_no )
 			BEGIN
-				UPDATE tdc_soft_alloc_tbl
+				UPDATE tdc_soft_alloc_tbl WITH (ROWLOCK) -- v1.5
 				   SET qty = qty + @bin_qty
 				 WHERE order_no = 0
 				   AND order_ext = 0

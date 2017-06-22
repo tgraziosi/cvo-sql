@@ -11,6 +11,8 @@ GO
 /*======================================================================*/  
 -- v10.0 CB 22/05/2012 - Soft Allocation  
 -- v10.1 CT 18/10/2012 - Allow auto receiving of credit returns
+-- v10.3 CB 28/11/2016 - SQL 2012 Compliance
+-- v10.4 CB 30/05/2017 - #1628 Items added after picked need to be forced
 CREATE PROC [dbo].[tdc_order_list_change] (  
   @tran_no INT,   
   @tran_ext INT,   
@@ -114,7 +116,8 @@ BEGIN
  -- should not happen.  
  IF EXISTS (SELECT * FROM ord_list (nolock) WHERE order_no = @tran_no AND order_ext = @tran_ext AND line_no = @tran_line AND lb_tracking = 'Y' AND part_type = 'V')  
  BEGIN  
-  RAISERROR 84903 'A lot bin tracked part with non-quantity bearing type has been found on this order!'  
+	EXEC raiserror_sp 84903, 'A lot bin tracked part with non-quantity bearing type has been found on this order!' -- v10.3 SQL 2012 Compliance
+  -- v10.3 RAISERROR 84903 'A lot bin tracked part with non-quantity bearing type has been found on this order!'  
   ROLLBACK TRAN  
  END   
   
@@ -237,10 +240,15 @@ BEGIN
    IF EXISTS (SELECT * FROM tdc_ord_list_kit (nolock) WHERE order_no = @tran_no AND order_ext = @tran_ext AND kit_picked > 0 )  
    OR EXISTS (SELECT * FROM tdc_dist_item_pick (nolock) WHERE order_no = @tran_no AND order_ext = @tran_ext AND [function] = 'S')  
    BEGIN  
-    IF (@@TRANCOUNT > 0) ROLLBACK TRAN  
-  
-    RAISERROR ('Order %d-%d is controlled by Supply Chain Execution system.', 16, -1, @tran_no, @tran_ext)  
-    RETURN 0  
+
+	IF NOT EXISTS (SELECT 1 FROM cvo_soft_alloc_det (NOLOCK) WHERE order_no = @tran_no AND order_ext = @tran_ext AND change = 2) -- v10.4
+	BEGIN
+
+		IF (@@TRANCOUNT > 0) ROLLBACK TRAN  
+	  
+		RAISERROR ('Order %d-%d is controlled by Supply Chain Execution system.', 16, -1, @tran_no, @tran_ext)  
+		RETURN 0  
+	END
    END  
   
    IF (EXISTS (SELECT * FROM tdc_soft_alloc_tbl (nolock) WHERE order_no      = @tran_no AND order_ext      = @tran_ext AND order_type = 'S' and location < '100')  
@@ -248,10 +256,14 @@ BEGIN
           --SCR 36574 052406 ToddR  
           --AND (SELECT active FROM tdc_config (NOLOCK) WHERE [function] = 'so_auto_allocate') != 'Y'   
    BEGIN  
-    IF (@@TRANCOUNT > 0) ROLLBACK TRAN  
-  
-    RAISERROR ('Order %d-%d must be unallocated', 16, -1, @tran_no, @tran_ext)  
-    RETURN 0  
+
+	IF NOT EXISTS (SELECT 1 FROM cvo_soft_alloc_det (NOLOCK) WHERE order_no = @tran_no AND order_ext = @tran_ext AND change = 2) -- v10.4
+	BEGIN
+		IF (@@TRANCOUNT > 0) ROLLBACK TRAN  
+	  
+		RAISERROR ('Order %d-%d must be unallocated', 16, -1, @tran_no, @tran_ext)  
+		RETURN 0  
+	END
    END  
   END  
   

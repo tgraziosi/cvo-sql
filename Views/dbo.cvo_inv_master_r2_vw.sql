@@ -34,7 +34,7 @@ LOWER(CASE WHEN ia.category_2 = 'unknown' THEN ''
  WHEN ia.category_2 LIKE '%child%' AND i.category IN ('op') THEN 'kids'
  ELSE ISNULL(g.description,'') END) AS PrimaryDemographic,
 ISNULL(age.description,'') AS target_age,
-cia.eye_shape,
+ISNULL(x.eye_shape,ISNULL(cia.eye_shape,'')) eye_shape,
 ia.category_5 AS ColorGroupCode,      
 ISNULL(cc.description,'') ColorGroupName,
 ia.field_3 AS ColorName,
@@ -122,9 +122,10 @@ LEFT OUTER JOIN cvo_inv_features_vw pf ON
 	AND pf.feature_group = 'Progressive Friendly'
 -- 12/4/2015 get a,b,ed from cmi if available
 LEFT OUTER JOIN 
-(SELECT part_no, a_size, b_size, ed_size, d.dim_unit
+(SELECT part_no, a_size, b_size, ed_size, d.dim_unit, m.eye_shape
  FROM dbo.cvo_cmi_sku_xref xref
  JOIN dbo.cvo_cmi_dimensions d ON xref.dim_id = d.id
+  JOIN dbo.cvo_cmi_models m ON m.id = d.model_id
  ) AS x  ON x.part_no = i.part_no
 
    
@@ -132,7 +133,6 @@ WHERE i.void='n' AND i.type_code IN ('frame','sun')
 
 
 -- select * From cvo_part_price_cost_vw where part_no = 'cvellblu5114'
-
 
 
 

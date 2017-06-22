@@ -11,6 +11,7 @@ v1.4 CT 08/02/2012 - If order number is zero, use SPID instead
 v1.5 CT 01/03/2013 - Free frames logic
 v1.6 CT 05/06/2013 - Issue #1304 - If customer has a primary designation code set, then only select subscription promos for that designation code
 v1.7 CT 11/11/2013 - Issue #1412 - Check primary only setting when checking for designation code
+v1.8 CB 13/06/2017 - #1593 - Designation Codes - Ship To	
 */
 CREATE PROCEDURE [dbo].[CVO_check_for_subscription_promo_sp] @customer_code VARCHAR(8), 
 															 @order_no INT, 
@@ -29,9 +30,31 @@ BEGIN
 			@current_promo_id		VARCHAR(20), -- v1.2
 			@current_promo_level	VARCHAR(30), -- v1.2
 			@spid					INT,		 -- v1.4
-			@primary_code			VARCHAR(10)	 -- v1.6
+			@primary_code			VARCHAR(10),	 -- v1.6
+			@ship_to_code			varchar(10), -- v1.8
+			@useCustDC				varchar(10) -- v1.8
 
 	SELECT @spid = @@SPID -- v1.4
+
+	-- v1.8 Start
+	SET @ship_to_code = @ship_to
+
+	SET @useCustDC = 'Y'
+	SELECT	@useCustDC = value_str
+	FROM	dbo.config (NOLOCK)
+	WHERE	flag = 'DESIGNATION CUST DEF'
+
+	IF (@ship_to_code <> '')
+	BEGIN
+		IF NOT EXISTS (SELECT 1 FROM cvo_cust_designation_codes a (NOLOCK) JOIN cvo_designation_codes b (NOLOCK)
+				ON a.code = b.code WHERE b.void = 0 AND a.customer_code = @customer_code AND a.ship_to = @ship_to_code AND a.date_reqd = 1 
+				AND (GETDATE() BETWEEN a.start_date AND ISNULL(a.end_date,'01 january 2999')))
+		BEGIN
+			IF (@useCustDC = 'Y')
+				SET @ship_to_code = ''
+		END
+	END
+	-- v1.8 End
 
 	CREATE TABLE #promos(
 		rec_key INT IDENTITY(1,1),
@@ -137,6 +160,7 @@ BEGIN
 		a.code = c.code
 	WHERE
 		a.customer_code = @customer_code
+		AND a.ship_to = @ship_to_code -- v1.8
 		AND (a.date_reqd = 0 
 			OR (a.date_reqd = 1 AND a.start_date <= GETDATE() AND ISNULL(a.end_date,GETDATE()) >= GETDATE()))
 		AND ISNULL(c.void,0) = 0

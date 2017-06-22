@@ -164,6 +164,13 @@ BEGIN
 			-- v1.2 Start
 			IF (@type = 'C')
 			BEGIN
+
+				-- check the ship date and keep current if it's not.  RMAs sometimes have old ship dates.
+				UPDATE o SET date_shipped = DATEADD(DAY, DATEDIFF(DAY, 0, @start_time), 0)
+				FROM dbo.orders_all AS o WITH (rowlock)
+				WHERE o.order_no = @order_no AND ext = @order_ext
+				AND o.date_shipped < DATEADD(DAY, DATEDIFF(DAY, 0, @start_time), 0)
+
 				IF EXISTS (	SELECT	1 FROM ord_list a (NOLOCK) 
 							JOIN	lot_bin_ship b (NOLOCK)
 							ON		a.order_no = b.tran_no
@@ -359,6 +366,7 @@ BEGIN
    , @body = @body  
 
 END
+
 
 
 

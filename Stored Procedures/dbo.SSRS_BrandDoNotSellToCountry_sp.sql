@@ -6,7 +6,7 @@ GO
 -- Author:		elabarbera
 -- Create date: 2/25/2013
 -- Description:	By Brand Do Not Sell To Country Report
--- EXEC SSRS_BrandDoNotSellToCountry_sp '4/1/2014','6/1/2014'
+-- EXEC SSRS_BrandDoNotSellToCountry_sp '6/12/2017', '06/14/2017'
 -- 022015 - OP ok's sales to Ecuador and El Salvador
 -- 123015 - Add Bermuda ME and Guatemala ET as ok to sell
 -- 093016 - add customer name per BL request
@@ -55,8 +55,9 @@ AS
 -- default list ('CH','ET','IZOD','IZX','OP','JMC','ME')
 -- UPDATE FOR REVO AND SM - 2/16/17
 -- MORE UPDATES FOR REVO AND SM - 5/5/17 PER kb EMAIL
+-- CR ok for SM -  061417
 				AND ( ( CATEGORY IN ('SM') AND t1.ship_to_country_cd NOT IN ('AG',
-				'AS','AR','AW','BB','BM','BS','CA','CL','CN','CZ','EQ','FR','DE','GD','GR','GT','GU','GY',
+				'AS','AR','AW','BB','BM','BS','CA','CL','CN','CR','CZ','EQ','FR','DE','GD','GR','GT','GU','GY',
 				'HT','IN','IT','JM','JP','KW','MX','MA','NI',
 				'NL','AN','MP','PA','PE','PT','PR','RO','SK','SE','SR','SV','TW','TT','TR','GB','US','VI'))
 				OR (category IN ('REVO') AND T1.ship_to_country_cd NOT IN 
@@ -347,6 +348,7 @@ AS
         FROM    #LIST;
 
     END;
+
 
 
 

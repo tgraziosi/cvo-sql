@@ -77,7 +77,8 @@ BEGIN
 			@child_tran_id	int,
 			@qty_required	DECIMAL(20,8),
 			@stat_id		int,
-			@consolidation_no int -- v1.1
+			@consolidation_no int, -- v1.1
+			@removed_qty decimal(20,8) -- v1.3
  
 	IF (@station_id > '')
 		SET @stat_id =  CAST(@station_id as int)
@@ -171,6 +172,13 @@ BEGIN
 	ON		b.category_code = c.user_category
 	WHERE	c.order_no = @order_no
 	AND		c.ext = @order_ext	
+
+	SET @removed_qty = @bin_qty - @picked_qty -- v1.3
+
+	-- v1.3 Start
+	IF (@removed_qty > 0)
+		EXEC CVO_no_stock_admin_email_sp @order_no, @order_ext, @bin_no, @part_no, @removed_qty
+	-- v1.3 End
 
 	-- Pick what was entered in the console screen
 	IF @picked_qty > 0

@@ -26,16 +26,16 @@ CREATE procedure [dbo].[cvo_inv_fcst_r3_sp]
 /*
  exec cvo_inv_fcst_r3_sp
 
- @asofdate = '05/01/2017', 
- @endrel = '05/01/2017', 
+ @asofdate = '06/01/2017', 
+ @endrel = '06/01/2017', 
  @current = 0, 
- @collection = 'izod', 
- @style = '2008', 
+ @collection = NULL, 
+ @style = NULL, 
  @specfit = null,
  @usg_option = 'o',
- @debug = 4, -- debug
- @location = '001',
- @restype = 'frame,sun'
+ @debug = 1, -- debug
+ @location = 'CASES',
+ @restype = 'CASE'
 
  select * From cvo_ifp_rank
 
@@ -140,6 +140,20 @@ begin
 	INSERT INTO #loc ([location])
 	SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@loc)
 END
+
+IF @loc = 'CASES' AND @type_code = 'CASE'
+BEGIN
+	INSERT INTO #loc ([location])
+	SELECT DISTINCT L.LOCATION
+	FROM INV_MASTER I 
+	JOIN dbo.cvo_inventory2 AS L ON L.part_no = I.part_no
+	WHERE I.type_code = 'CASE'
+	AND I.VOID  <> 'V'
+	AND L.CVO_in_stock <> 0
+	DELETE FROM #loc WHERE location = 'CASES'
+	END
+
+IF @DEBUG > 0 SELECT * FROM #loc AS l
 
 -- get gender selections
 
@@ -394,7 +408,7 @@ IF @debug = 1 SELECT ' cte ' cte, * From #cte -- where style = '185' order by st
  ,min(cte.rel_date) rel_date
  ,max(rel_month) mth_since_rel
 ,sum(case when rel_month <=3 then cte.sales_qty else 0 end) [Sales M1-3] 
-,sum(case when rel_month <=12 then cte.sales_qty else 0 end) [Sales M1-12]
+,sum(case when rel_month <=12 THEN cte.sales_qty else 0 end) [Sales M1-12]
 , ISNULL(drp.s_e4_wu,0) s_e4_wu 
 , ISNULL(drp.s_e12_wu,0) s_e12_wu 
 , ISNULL(drp.s_e52_wu,0) s_e52_wu
@@ -550,27 +564,6 @@ create index idx_t on #t (part_no asc)
 
 --END 
 
-if @current = 1  -- if reporting current styles/skus only remove any pom skus 
-begin
-	delete from #t where exists (select 1 from inv_master_add where part_no = #t.part_no and field_28 is not null and field_28 < @asofdate )
-END
-
--- remove any skus after the ending release date (full styles only)
-
-
-DELETE FROM #t 
-	WHERE EXISTS (SELECT 1 FROM 
-	(SELECT brand, style, COUNT(DISTINCT rel_date) rel_date_cnt
-	FROM #t 
-	GROUP BY brand, style
-	HAVING COUNT(DISTINCT rel_date) = 1
-	AND MAX(rel_date) > @endrel
-	) future_releases
-	WHERE #t.brand = future_releases.brand AND #t.style = future_releases.style
-	)
-
-IF @debug = 1  SELECT 'after future_releases removed', * FROM #t AS t
-
 -- figure out pct of first purchase
 ;with x as 
 (select distinct 
@@ -596,6 +589,30 @@ pct_first_po =
 from #t inner join x on #t.part_no = x.part_no 
 where isnull(x.style_first_po,0.00) <> 0.00
 ;
+
+
+if @current = 1  -- if reporting current styles/skus only remove any pom skus 
+begin
+	delete from #t where exists (select 1 from inv_master_add where part_no = #t.part_no and field_28 is not null and field_28 < @asofdate )
+END
+
+-- remove any skus after the ending release date (full styles only)
+
+
+DELETE FROM #t 
+	WHERE EXISTS (SELECT 1 FROM 
+	(SELECT brand, style, COUNT(DISTINCT rel_date) rel_date_cnt
+	FROM #t 
+	GROUP BY brand, style
+	HAVING COUNT(DISTINCT rel_date) = 1
+	AND MAX(rel_date) > @endrel
+	) future_releases
+	WHERE #t.brand = future_releases.brand AND #t.style = future_releases.style
+	)
+
+IF @debug = 1  SELECT 'after future_releases removed', * FROM #t AS t
+
+
 -- where #t.style = 'clarissa'
 
 -- figure out first 3 months sales by part
@@ -1108,6 +1125,17 @@ IF @debug = 1
 	end
 
 
+IF @loc = 'cases'
+BEGIN
+		DELETE FROM #sku 
+		WHERE sku+location in
+        (SELECT sku+location s_key
+		FROM #sku
+		GROUP BY sku+location
+		HAVING SUM(quantity) = 0
+		)
+END
+
 -- fixup
 select distinct
 -- #style.*
@@ -1166,6 +1194,8 @@ select distinct
 ,#t.s_mth_usg
 ,#t.p_mth_usg
 ,#t.s_mth_usg_mult
+,#t.p_sales_m1_3
+
 , p_po_qty_y1 = 
 case when #sku.line_type = 'V' and #sku.sort_seq = 1 then
 isnull((select sum(qty_ordered)  
@@ -1247,6 +1277,8 @@ cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
 
 
 end
+
+
 
 
 

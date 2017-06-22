@@ -832,6 +832,7 @@ v2.0	CB	26/02/2015  Do no apply promo hold if update is from the release of stoc
 v2.1	CB	05/03/2015	Do not apply promo hold if order is a rebill
 v2.2	CB  24/04/2015  If RB is resaved with bg set ensure data is updated in cvo_rb_data
 v2.3	CB	27/10/2016 - #1616 Hold Processing - Moved to order save
+v2.4	CB	12/06/2017 - #1593 - Designation Codes - Ship To	
 */
 
 CREATE TRIGGER [dbo].[orders_upd_trg] ON [dbo].[orders_all]
@@ -843,6 +844,8 @@ BEGIN
 			@cust_code		varchar(10),-- v1.1
 			@date_shipped	datetime,	-- v1.1
 			@type			CHAR(1),	-- v1.4
+			@ship_to		varchar(10), -- v2.4
+			@useCustDC		varchar(10), -- v2.4
 			-- START v1.9
 			@hold_reason	VARCHAR(10),
 			@location		VARCHAR(10),
@@ -919,6 +922,14 @@ BEGIN
 
 	
 	-- START v1.1 - designation codes
+
+	-- v2.4 Start
+	SET @useCustDC = 'Y'
+	SELECT	@useCustDC = value_str
+	FROM	dbo.config (NOLOCK)
+	WHERE	flag = 'DESIGNATION CUST DEF'
+	-- v2.4 End
+
 	SET @order_no = 0
 		
 	-- Get the order to action
@@ -952,6 +963,7 @@ BEGIN
 			SELECT TOP 1 
 				@ext = i.ext,
 				@cust_code = i.cust_code,
+				@ship_to = i.ship_to, -- v2.4
 				@date_shipped = i.date_shipped,
 				@type = i.type -- v1.4
 			FROM 
@@ -971,6 +983,19 @@ BEGIN
 
 			IF @@RowCount = 0
 				Break
+
+			-- v2.4 Start
+			IF (@ship_to <> '')
+			BEGIN
+				IF NOT EXISTS (SELECT 1 FROM cvo_cust_designation_codes a (NOLOCK) JOIN cvo_designation_codes b (NOLOCK)
+						ON a.code = b.code WHERE b.void = 0 AND a.customer_code = @cust_code AND a.ship_to = @ship_to AND a.date_reqd = 1 
+						AND (@date_shipped BETWEEN a.start_date AND ISNULL(a.end_date,'01 january 2999')))
+				BEGIN
+					IF (@useCustDC = 'Y')
+						SET @ship_to = ''
+				END
+			END
+			-- v2.4 End
 		
 			INSERT INTO cvo_ord_designation_codes WITH (ROWLOCK)(
 				order_no,
@@ -989,6 +1014,7 @@ BEGIN
 			WHERE
 				b.void = 0
 				AND a.customer_code = @cust_code
+				AND	a.ship_to = @ship_to -- v2.4
 				AND a.date_reqd = 1 
 				AND (@date_shipped BETWEEN a.start_date AND ISNULL(a.end_date,'01 january 2999'))
 

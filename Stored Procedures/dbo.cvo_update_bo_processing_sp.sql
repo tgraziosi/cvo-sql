@@ -13,6 +13,11 @@ BEGIN
 	--DIRECTIVES
 	SET NOCOUNT ON
 
+	-- v1.1 Start
+	IF OBJECT_ID('tempdb..#backorder_processing_allocation') IS NOT NULL
+		RETURN
+	-- v1.1 End
+
 	-- PROCESSING
 	IF (@upd_type = 'A')
 	BEGIN

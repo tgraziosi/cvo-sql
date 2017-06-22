@@ -31,6 +31,7 @@ GO
 -- v11.8 CB 08/09/2015 - As per Tine - They want to see the gross price (list price) as whatever it is (non-zero), and the net price to show as $0.
 -- v11.9 CB 30/12/2015 - Issue #1585 Use BG Setting
 -- v12.0 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
+-- v12.1 CB 06/06/2017 - Capture missing invoice numbers
 
 CREATE PROCEDURE [dbo].[tdc_print_ord_pack_list_sp](  
    @user_id    varchar(50),  
@@ -85,8 +86,10 @@ DECLARE
  @invoice_num	varchar(16),	@invoice_date	varchar(12),										--v6.0
  @caller	varchar(60),																			--v6.0
  @invoice_note VARCHAR(255),																			-- v10.4
- @parent varchar(10), @current_parent varchar(10) -- v10.8
- 
+ @parent varchar(10), @current_parent varchar(10), -- v10.8
+ @doc_ctrl_num	varchar(16), -- v12.1
+ @invno			int, -- v12.1
+ @result			int -- v12.1
 -- DECLARE	@custom_count int -- v10.1 v10.3
 
   
@@ -255,6 +258,25 @@ SELECT	@invoice_num = IsNull(doc_ctrl_num,''),
   FROM cvo_order_invoice (NOLOCK)
  WHERE order_no  = @order_no AND order_ext = @order_ext  
 --v6.0
+
+	-- v12.1 Start
+	IF ISNULL(@invoice_num,'') = ''
+	BEGIN
+		EXEC @result = ARGetNextControl_SP 2001, @doc_ctrl_num OUTPUT, @invno OUTPUT, 0  
+
+		DELETE	dbo.cvo_order_invoice
+		WHERE	order_no = @order_no
+		AND		order_ext = @order_ext
+
+		INSERT	dbo.cvo_order_invoice (order_no, order_ext, inv_number, doc_ctrl_num)
+		SELECT	@order_no, @order_ext, @invno, @doc_ctrl_num
+
+		SET @invoice_num = @doc_ctrl_num
+		SET @invoice_date = GETDATE()
+
+	END
+-- v12.1 End
+
 -- v6.4 Start
 UPDATE	cvo_order_invoice
 SET		inv_date = GETDATE()
@@ -352,21 +374,6 @@ WHERE o.order_no = @order_no																		-- T McGrady	22.MAR.2011
 --Thank you for participating in our [promo name] promotion
 INSERT INTO #PrintData (data_field, data_value) VALUES ('LP_PROMO_NAME',ISNULL(@promo_name,' '))	-- T McGrady	22.MAR.2011
 --																									-- T McGrady	22.MAR.2011
-
--- 4/11/2017 -- Invoice Note for SM reorders		
-IF (DATEPART(WEEKDAY,GETDATE())) = 2 -- only on Mondays
-		AND GETDATE() BETWEEN '4/10/2017' AND '7/3/2017'
-BEGIN
-		UPDATE co 
-		SET co.invoice_note = CASE WHEN ISNULL(co.invoice_note,'') = ''
-			THEN 'Place a Steve Madden reorder today and get FREE shipping!'
-			ELSE ISNULL(co.invoice_note,'') + CHAR(13) + CHAR(10) + 'Place a Steve Madden reorder today and get FREE shipping!' 
-			END
-		FROM cvo_orders_all co
-		JOIN orders o ON o.order_no = co.order_no AND o.ext = co.ext
-		WHERE co.order_no = @order_no AND co.ext = @order_ext AND o.type = 'I'
-		AND CHARINDEX('FREE Shipping!',ISNULL(co.invoice_note,'')) = 0 
-END
 
 -- START v10.4 - get invoice note
 SELECT
@@ -1208,9 +1215,6 @@ DECLARE detail_cursor CURSOR FOR
  INSERT dbo.cvo_invoice_audit (order_no, order_ext, customer_code, ship_to, invoice_no, order_value, tax_value, freight_value, 
 								discount_value, order_total, printed_date)
  VALUES (@order_no, @order_ext, @Cust_Code, @ship_to_no, @invoice_num, @order_net, @order_tax, @order_frt, @order_disc, @order_total, GETDATE())
-
-
-
  -----------------------------------------------------------------------------------------------  
  FETCH NEXT FROM print_cursor INTO @format_id, @printer_id, @number_of_copies  
 END  
@@ -1219,7 +1223,6 @@ CLOSE      print_cursor
 DEALLOCATE print_cursor  
   
 RETURN
-
 GO
 
 GRANT EXECUTE ON  [dbo].[tdc_print_ord_pack_list_sp] TO [public]

@@ -27,6 +27,7 @@ GO
 -- v3.8 CT 14/10/14 - Issue #1499 - Promo level buy in
 -- v3.9 CB 23/10/15 - #1541 - Promo rolling periods
 -- v4.0 CB 19/04/2016 - #1584 - Add min, max and number of pieces for stock order. Add min and for RX reorders.
+-- v4.1 CB 12/06/2017 - #1593 - Designation Codes - Ship To	
 
 -- EXEC [CVO_verify_customer_quali_sp] 'CB','1','045911', 1418426, 0
 
@@ -98,7 +99,9 @@ BEGIN
 				@stock_orders_pieces smallint, -- v4.0
 				@min_rx_orders		smallint, -- v4.0
 				@max_rx_orders		smallint, -- v4.0
-				@order_cnt			int -- v4.0
+				@order_cnt			int, -- v4.0
+				@ship_to_code		varchar(10), -- v4.1
+				@useCustDC			varchar(10) -- v4.1
 
 		SET @fail_reason = '' -- v1.1
 		SET @frequency_fail = 0
@@ -198,11 +201,41 @@ BEGIN
 
 		IF ISNULL(@promo_designation_code, '') <> ''
 		BEGIN
+			-- v4.1 Start
+			SET @useCustDC = 'Y'
+			SELECT	@useCustDC = value_str
+			FROM	dbo.config (NOLOCK)
+			WHERE	flag = 'DESIGNATION CUST DEF'			
+
+			SET @ship_to_code = @ship_to
+			IF @primary_only = 1
+			BEGIN
+				IF NOT EXISTS (SELECT 1 FROM dbo.cvo_cust_designation_codes (NOLOCK) WHERE customer_code = @customer AND ship_to = @ship_to_code -- v4.1
+								AND code = @promo_designation_code AND ISNULL(primary_flag,0) = 1 AND (date_reqd = 0 OR (date_reqd = 1 AND start_date <= GETDATE() 
+								AND ISNULL(end_date,GETDATE()) >= GETDATE())))
+				BEGIN
+					IF (@useCustDC = 'Y')
+						SET @ship_to_code = ''
+				END
+			END
+			ELSE
+			BEGIN
+				IF NOT EXISTS (SELECT 1 FROM dbo.cvo_cust_designation_codes (NOLOCK) WHERE customer_code = @customer AND ship_to = @ship_to_code -- v4.1
+								AND code = @promo_designation_code AND (date_reqd = 0 OR (date_reqd = 1 AND start_date <= GETDATE() 
+								AND ISNULL(end_date,GETDATE()) >= GETDATE())))
+				BEGIN
+					IF (@useCustDC = 'Y')
+						SET @ship_to_code = ''
+				END
+			END
+			-- v4.1 End
+
 			-- START v3.6
 			-- If primary only is set to true then customer must have designation code as primary
 			IF @primary_only = 1
 			BEGIN
-				IF NOT EXISTS (SELECT 1 FROM dbo.cvo_cust_designation_codes (NOLOCK) WHERE customer_code = @customer AND code = @promo_designation_code 
+				IF NOT EXISTS (SELECT 1 FROM dbo.cvo_cust_designation_codes (NOLOCK) WHERE customer_code = @customer AND ship_to = @ship_to_code -- v4.1
+								AND code = @promo_designation_code 
 								AND ISNULL(primary_flag,0) = 1 AND (date_reqd = 0 OR (date_reqd = 1 AND start_date <= GETDATE() AND ISNULL(end_date,GETDATE()) >= GETDATE())))
 				BEGIN
 					IF @sub_check = 0
@@ -219,7 +252,8 @@ BEGIN
 			ELSE
 			BEGIN
 
-				IF NOT EXISTS (SELECT 1 FROM dbo.cvo_cust_designation_codes (NOLOCK) WHERE customer_code = @customer AND code = @promo_designation_code 
+				IF NOT EXISTS (SELECT 1 FROM dbo.cvo_cust_designation_codes (NOLOCK) WHERE customer_code = @customer AND ship_to = @ship_to_code -- v4.1
+								AND code = @promo_designation_code 
 								AND (date_reqd = 0 OR (date_reqd = 1 AND start_date <= GETDATE() AND ISNULL(end_date,GETDATE()) >= GETDATE())))
 				BEGIN
 					IF @sub_check = 0

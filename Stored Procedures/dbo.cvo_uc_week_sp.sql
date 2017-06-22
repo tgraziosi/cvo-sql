@@ -7,7 +7,7 @@ GO
 -- Author:		tine graziosi
 -- Create date: 060117
 -- Description:	Unique Customers by Territory by Week
--- EXEC CVO_UC_week_sp '1/1/2017', '12/31/2017'
+-- EXEC CVO_UC_week_sp '1/1/2017', '12/31/2017', '20201'
 -- =============================================
 
 CREATE PROCEDURE [dbo].[cvo_uc_week_sp]
@@ -80,6 +80,7 @@ AS
         SET @DateTo = DATEADD(SECOND, -1, DATEADD(D, 1, @DateTo))
         ;
 
+
         -- -- # STOCK ORDERS PER MONTH  
         -- PULL DATA FOR ST SHIPPED ORDERS / CREDITS OVER 5PCS
         IF (OBJECT_ID('tempdb.dbo.#Invoices') IS NOT NULL)
@@ -97,6 +98,7 @@ AS
             QTY = SUM(ol.qty),
             SUM(total_amt_order - total_discount) ord_value,
             DATEADD(DAY, DATEDIFF(DAY, 0, o.date_shipped), 0) date_shipped,
+			DATEADD(wk, DATEDIFF(wk, 0, o.date_shipped), 0) wk_shipped ,
 			DATEPART(WEEK,o.date_shipped) week_num
         INTO #invoices
         FROM
@@ -158,6 +160,7 @@ AS
              QTY = -1 * SUM(ol.qty),
             -1 * SUM(total_amt_order - total_discount) ord_value,
             DATEADD(DAY, DATEDIFF(DAY, 0, o.date_shipped), 0) date_shipped,
+			DATEADD(wk, DATEDIFF(wk, 0, o.date_shipped), 0) wk_shipped ,
 			DATEPART(WEEK,o.date_shipped) week_num
 
         FROM
@@ -215,19 +218,44 @@ AS
         ;
 
 
+		
+		-- build framework of weeks
+
+		;WITH weeks
+		AS (SELECT DATEADD(DAY, DATEDIFF(DAY, 0, @DateFrom), 0) AS week_date
+			UNION ALL
+			SELECT DATEADD(WEEK, 1, week_date) AS Week_date
+			FROM weeks
+			WHERE DATEADD(WEEK, 1, Week_date) <=  DATEADD(DAY, DATEDIFF(DAY, 0, @dateto), 0)
+		   )
+		     SELECT
+			 t.region,
+             t.territory,
+			 s.salesperson_name,
+			 week_date,
+			 DATEPART(WEEK, weeks.week_date) week_num
+		INTO #weeks
+		FROM weeks
+		CROSS JOIN #territory AS t
+		JOIN arsalesp s ON s.territory_code = t.territory
+		WHERE s.status_type = 1
+		;
+
+
         -- Pull Unique Custs Orders by Month >=5pcs
         --IF (OBJECT_ID('tempdb.dbo.#InvStCount') IS NOT NULL)
         --    DROP TABLE #InvStCount
         --    ;
+	    
         SELECT
 			t.region,
             i.territory_code,
 			s.salesperson_name,
-            COUNT(DISTINCT i.cust_key) STOrds,
+            COUNT(DISTINCT i.cust_key) STOrds, 
             SUM(ISNULL(i.ord_value, 0)) ord_value,
             week_num,
 			ceiling(week_num/8.0) AS wk_cycle,
-			DATEADD(WEEK,week_num-1, @datefrom) week_date
+			i.wk_shipped week_date
         -- INTO #InvStCount
         FROM #invoices i
 		JOIN #territory AS t ON i.territory_code = t.territory
@@ -240,9 +268,15 @@ AS
 			AND s.status_type = 1
         GROUP BY
             t.region,
-			i.territory_code, s.salesperson_name, week_num, DATEADD(WEEK,week_num-1, @datefrom)
+			i.territory_code, s.salesperson_name, week_num, i.wk_shipped
         HAVING SUM(QTY) >= 5
-        ;
+    
+		UNION ALL
+       	SELECT region, territory, salesperson_name, 0, 0, week_num, CEILING(week_num/8.0) AS wk_cycle, week_date
+		FROM #weeks
+		
+    
+	    ;
 
 
     END
@@ -250,6 +284,7 @@ AS
 
 	GRANT EXECUTE ON cvo_uc_week_sp TO PUBLIC
     
+
 
 
 GO

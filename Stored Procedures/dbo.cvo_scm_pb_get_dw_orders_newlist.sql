@@ -132,7 +132,9 @@ BEGIN
 			CVO_ord_list.free_frame,
 			cvo_ord_list.due_date,
 			ord_list.who_unpicked_id, -- v1.1
-			CVO_ord_list.upsell_flag
+			CVO_ord_list.upsell_flag,
+-- v1.5			CASE WHEN EXISTS(SELECT 1 FROM tdc_soft_alloc_tbl (NOLOCK) WHERE order_type = 'S' AND order_no = ord_list.order_no AND order_ext = ord_list.order_ext) THEN 'Y' ELSE 'N' END is_allocated -- v1.3 v1.4 Remove line no
+			CASE WHEN orders.user_def_fld11 = 0 THEN 'N' ELSE 'Y' END is_allocated -- v1.5
 	FROM	ord_list
     left outer join cust_xref (nolock) on ( ord_list.part_no = cust_xref.part_no) and ( dbo.cust_xref.customer_key = @custkey )
     left outer join inv_master (nolock) on ( ord_list.part_no = inv_master.part_no)

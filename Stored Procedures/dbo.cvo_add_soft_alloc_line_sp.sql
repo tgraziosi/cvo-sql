@@ -51,6 +51,7 @@ BEGIN
 		IF (EXISTS(SELECT 1 FROM tdc_soft_alloc_tbl (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext AND order_type = 'S')) 
 			OR (EXISTS(SELECT 1 FROM dbo.cvo_soft_alloc_hdr (NOLOCK) WHERE soft_alloc_no = @soft_alloc_no AND status IN (-1,-2)))
 			OR (EXISTS(SELECT 1 FROM dbo.cvo_soft_alloc_hdr (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext AND status IN (-1,-2)))
+			OR (EXISTS(SELECT 1 FROM dbo.orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @order_ext AND status = 'P')) -- v3.8
 			SET @change = 1
 	END
 

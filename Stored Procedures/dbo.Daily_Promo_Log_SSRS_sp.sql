@@ -37,7 +37,7 @@ BEGIN
             AND o.void = 'N'
             AND o.type = 'I'
             -- and left(o.user_category,2) <> 'RX'		-- CVO excluded 2/27/13 EL (for RX-PC's
-            AND o.user_category NOT IN ( 'RX-RB', 'RX-PL', 'RX-LP', 'RX' ) -- EL
+            AND o.user_category NOT IN ( 'RX-RE','RX-RB', 'RX-PL', 'RX-LP', 'RX' ) -- EL -- 061417 - ADD RX-RE
             AND RIGHT(o.user_category, 2)NOT IN ( 'PM' )
             AND o.who_entered <> 'BACKORDR'
             AND date_entered
@@ -71,7 +71,6 @@ BEGIN
     FROM C
     ;
 
-    --;With C AS ( 
     SELECT
         o.cust_code,
         CASE
@@ -107,7 +106,8 @@ BEGIN
         FULL OUTER JOIN #T2 p
             ON o.promo_id = p.promo_id
                AND o.promo_level = p.promo_level
-    ORDER BY
+	WHERE (o.promo_level NOT IN ('rx','pc')) -- 061417 - don't include revo-rx or pc's (SM)
+	ORDER BY
         promo_id, promo_level
     ;
 --)
@@ -120,6 +120,8 @@ BEGIN
 
 END
 ;
+
+
 
 
 
