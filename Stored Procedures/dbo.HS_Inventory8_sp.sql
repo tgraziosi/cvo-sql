@@ -239,9 +239,14 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
 	 ELSE '' END GENDER, 
 */
 -- 6/28/2016 tweak for BTS 2016
-                CASE WHEN category_2 LIKE '%CHILD%'
-                          AND I.category <> 'dd' /*AND FIELD_2 NOT IN ('843','844')*/
-                     THEN 'BTS'
+                --CASE WHEN category_2 LIKE '%CHILD%'
+                --          AND I.category <> 'dd' /*AND FIELD_2 NOT IN ('843','844')*/
+                --     THEN 'BTS'
+-- 6/26/2017 - bts 2017
+				CASE WHEN category_2 LIKE '%CHILD%'
+						  AND I.category IN ('SM','OP','IZOD')
+					 THEN 'Kids'
+
                      WHEN category_2 NOT LIKE '%child%'
                           AND I.category IN ( 'jc', 'op' )
                           AND field_2 NOT IN ( 'Sundae', 'Smoothie' )
@@ -612,7 +617,9 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                 POMDate ,
                 ReleaseDate ,
                 Status ,
-                GENDER ,
+				-- 6/26/2017 2017 bts program tweeks
+                CASE WHEN GENDER IN ('kids','tween') AND (t1.manufacturer <> 'clearvision' or t1.[category:1] <> 'frame') 
+					THEN '' ELSE GENDER end AS GENDER,
                 SpecialtyFit ,
                 APR ,
                 New ,
@@ -626,7 +633,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                           AND t1.Model IN ( '6001', '6002', '6003', '6004' )
                      THEN t1.qty_avl + ISNULL(t1.NextPOOnOrder, 0)
 		 -- 5/26/16 - SHOW ch QTYS FOR LAST, LAST CHANCE BUYS -- WHEN T1.coll = 'CH' then 0
-                     WHEN t1.COLL = 'CH' THEN 0 -- 9/13/2016 - PUT BACK
+                     -- WHEN t1.COLL = 'CH' THEN 0 -- 9/13/2016 - PUT BACK
                      WHEN sku = 'IZODINTER' THEN 2000 -- ISNULL(T1.QTY_AVL,0) + ISNULL(t1.NextPOOnOrder,0)
                      WHEN Kit = 'Kit' THEN 2000 -- 6/9/2016 - dummy up inventory for all promo kits
                      WHEN t1.APR = 'y'
@@ -925,7 +932,7 @@ sku, mastersku , name, unitprice, minqty, multqty, manufacturer,
 barcode, longdesc, variantdescription, imageurls,
 [category:1],
 [category:2], color, size [|], coll, model, pomdate, releasedate, status, gender,
-specialtyfit, apr, new, sunps, costco, shelfqty, nextpoduedate, hide, masterhide
+specialtyfit, apr, new, sunps, costco,  nextpoduedate, hide, masterhide
 FROM  cvo_hs_inventory_8  ORDER BY sku
 */
  
@@ -951,12 +958,18 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 -- select * from #Data1
 
 -- 9/13/16 - put everything in CH RETURNS instead
---UPDATE dbo.cvo_hs_inventory_8  SET [category:1] = 'LAST CHANCE' 
+-- UPDATE dbo.cvo_hs_inventory_8  SET [category:1] = 'CH LASTCHANCE' 
 --	WHERE [category:1] = 'COLE HAAN' AND ShelfQty > 0
 
-        UPDATE  dbo.cvo_hs_inventory_8
-        SET     [category:1] = 'CH RETURNS'
-        WHERE   [category:1] = 'COLE HAAN'; 
+ -- 6/22/17 - OPEN UP LAST CHANCE CATEGORY AGAIN FOR FINAL 4700 FRAMES
+
+        UPDATE  hsi 
+        SET     [category:1] = CASE WHEN (iav.qty_avl + iav.ReserveQty) <= 0 THEN 'CH RETURNS'
+									ELSE 'CH LASTCHANCE' END
+		FROM dbo.cvo_hs_inventory_8 hsi
+		JOIN dbo.cvo_item_avail_vw AS iav ON iav.part_no = hsi.sku AND location = '001'
+        WHERE   [category:1] = 'COLE HAAN'
+		; 
 
 		UPDATE  dbo.cvo_hs_inventory_8
         SET     Manufacturer = 'CLEARVISION',
@@ -987,6 +1000,9 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 -- SELECT distinct manufacturer, [category:1], [CATEGORY:2] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
+
+
 
 
 

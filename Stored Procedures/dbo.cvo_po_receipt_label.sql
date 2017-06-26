@@ -53,7 +53,10 @@ BEGIN
 			@ean8			varchar(8), 
 			@ean13			varchar(13), 
 			@ean14			varchar(14)
-
+			-- 062317
+			, @reldate DATETIME
+			, @inhouse  DATETIME
+            
 	-- WORKING TABLE
 	CREATE TABLE #cvo_label_data (
 		row_id		int IDENTITY(1,1),
@@ -88,7 +91,9 @@ BEGIN
 			@ean8 = c.ean_8,
 			@ean13 = c.ean_13,
 			@ean14 = c.ean_14,
-			@qc_flag = a.qc_flag
+			@qc_flag = a.qc_flag,
+			@reldate = b.field_26 -- 062317
+
 	FROM	inv_master a (NOLOCK)
 	JOIN	inv_master_add b (NOLOCK)
 	ON		a.part_no = b.part_no
@@ -127,7 +132,20 @@ BEGIN
 		WHERE	order_no = @order_no
 		AND		ext = @order_ext
 	END
+
+	-- 062317 - get inhouse date and release date for receipt tag
+	--                                1         2         3         4 
+    --                       1234567890123456789012345678901234567890
+
+	IF (@order_no = 0)
+	begin
+		SELECT @customer_name = 'Rel Date: mm/dd/rr - Due Date: mm/dd/ii'
+		SELECT @inhouse = r.inhouse_date FROM dbo.releases AS r WHERE r.po_no = @po_no AND r.po_line = @po_line
 	
+		SELECT @customer_name = REPLACE(@customer_name,'mm/dd/rr', CONVERT(VARCHAR(8),@reldate,1))
+		SELECT @customer_name = REPLACE(@customer_name,'mm/dd/ii', CONVERT(VARCHAR(8),@inhouse,1))
+		END
+    
 	SELECT	@vendor = r.vendor,
 			@qc_no = r.qc_no,
 			@vendor_name = a.vendor_name
@@ -319,6 +337,7 @@ BEGIN
 	DROP TABLE #cvo_label_data
 
 END
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_po_receipt_label] TO [public]
 GO

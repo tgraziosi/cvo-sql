@@ -94,7 +94,7 @@ BEGIN
 	AND		a.order_no > 1420973
 	ORDER BY a.order_no, a.ext	
 
-	-- v1.5 Start 
+	-- v1.5 Start - for already allocated orders just release the hold and don't do anything else
 	INSERT	#fl_orders (soft_alloc_no, order_no, order_ext, process, prior_hold, ship_complete, release_only) -- v1.3 v1.5
 	SELECT	DISTINCT 0,
 			a.order_no, 
@@ -133,7 +133,7 @@ BEGIN
 			0,
 			ISNULL(b.prior_hold,''), -- v1.2
 			CASE WHEN a.back_ord_flag = 1 THEN 1 ELSE 0 END, -- v1.3
-			1 -- v1.5
+			0 -- v1.5
 	FROM	orders_all a (NOLOCK)
 	JOIN	cvo_orders_all b (NOLOCK)
 	ON		a.order_no = b.order_no
@@ -645,6 +645,7 @@ BEGIN
 	
 
 END
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_release_alloc_fl_holds_sp] TO [public]

@@ -70,9 +70,10 @@ AS
                 CASE WHEN i.COLL = 'SM'
                           AND '1/23/2017' > GETDATE() ---- 1/4/2017 - fudge SM inventory levels until released
                           THEN 2000
-                     WHEN qty_avl < 0
-                          OR i.COLL = 'ch' THEN 0
-                     ELSE cia.qty_avl
+                     WHEN qty_avl < 0 THEN 0
+--                          OR i.COLL = 'ch' THEN 0
+                     WHEN I.COLL = 'CH' THEN cia.qty_avl + cia.ReserveQty
+					 ELSE cia.qty_avl
                 END AS ShelfQty ,
                 CASE WHEN i.[category:1] IN ( 'EOS', 'EOR', 'QOP', 'RED',
                                               'ME SELL-DOWN' ) -- 2/10/2017
@@ -203,6 +204,7 @@ AS
 
 
 	
+
 
 
 

@@ -8,7 +8,8 @@ AS
 SET NOCOUNT ON 
 
 -- exec cvo_xfer_sort_sp '999' , '06/27/2017'
--- select * From cvo_xfer_sort_tbl
+-- select * From cvo_xfer_sort_tbl where part_no like 'et%'
+SELECT * FROM xfer_list WHERE part_no LIKE 'etalbupur%'
 -- truncate cvo_xfer_sort_tbl
 
 IF (OBJECT_ID('dbo.cvo_xfer_sort_tbl')) is NULL
@@ -85,7 +86,7 @@ WHERE 1=1
 AND x.status < 's'
 AND c.status = 'o'
 and x.from_loc = @from_loc
-AND ia.field_26 = @rel_date
+AND ia.field_26 <= @rel_date
 AND xl.to_loc > '200'
 AND NOT EXISTS ( SELECT 1 FROM cvo_xfer_sort_tbl x WHERE x.xfer_no = xl.xfer_no AND x.part_no = xl.part_no AND x.line_no = xl.line_no)
 
