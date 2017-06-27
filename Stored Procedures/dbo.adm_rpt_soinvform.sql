@@ -560,8 +560,8 @@ BEGIN
 				join #customers tc on c.customer_code = tc.cust_code
 				join cvo_orders_all cvo (nolock) on orders_all.order_no = cvo.order_no and orders_all.ext = cvo.ext
 				where orders_all.status >= ''T'' and orders_all.status < ''V''  and  ' + @date_range + ' and
-				  isnull(orders_all.tax_valid_ind,1) = 1   
-					tc.bg = cvo.buying_group and
+				  isnull(orders_all.tax_valid_ind,1) = 1   and
+					tc.bg = cvo.buying_group 
 				  and orders_all.invoice_no > 0 and orders_all.type < ''X'' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num')  -- v12.3
 			END
 
@@ -1350,6 +1350,7 @@ begin
 end  
 end  
   
+
 GO
 GRANT EXECUTE ON  [dbo].[adm_rpt_soinvform] TO [public]
 GO

@@ -49,7 +49,9 @@ BEGIN
 			@sc_flag		int, -- v7.5
 			@hold_priority	int, -- v7.5
 			@user_category	varchar(20), -- v7.5
-			@status			char(1) -- v7.5
+			@status			char(1), -- v7.5
+			@fs_ordered		decimal(20,8), -- v8.0
+			@fs_allocated	decimal(20,8) -- v8.0
 
 	-- v6.3 Start
 	DECLARE	@cur_con_no		int,
@@ -1191,6 +1193,21 @@ BEGIN
 			AND		c.released = 1
 			-- v5.9 End
 
+			-- v7.9 Start
+			INSERT	#orders_to_consolidate (consolidation_no, order_no, ext)
+			SELECT	a.consolidation_no,
+					b.order_no,
+					b.order_ext
+			FROM	cvo_masterpack_consolidation_hdr a (NOLOCK)
+			JOIN	cvo_masterpack_consolidation_det b (NOLOCK)
+			ON		a.consolidation_no = b.consolidation_no
+			WHERE	b.order_no = @order_no
+			AND		b.order_ext = @order_ext
+			AND		a.type = 'BO'
+			AND		a.shipped = 0
+			-- v7.9 End
+
+
 -- START v4.4 - add back in code removed in v3.1
 -- v3.1 Start
 			-- v2.9 Start
@@ -1568,16 +1585,39 @@ BEGIN
 							'STATUS:A; HOLD REASON: SC'
 					FROM	orders_all a (NOLOCK)
 					WHERE	a.order_no = @order_no
-					AND		a.ext = @order_ext					
+					AND		a.ext = @order_ext		
+
+					EXEC dbo.cvo_unallocate_cons_orders_hold @soft_alloc_no, @order_no, @order_ext, @back_ord_flag -- v8.1
 
 				END
 				ELSE
 				BEGIN
-					-- v7.6 Start
-					SET @fill_rate = -1
-					EXEC dbo.cvo_order_summary_sp @soft_alloc_no, @order_no, @order_ext, 1, NULL, @fill_rate OUTPUT 
+					-- v8.0 Start
+					SELECT	@fs_ordered = SUM(a.ordered)
+					FROM	ord_list a (NOLOCK)
+					JOIN	inv_master b (NOLOCK)
+					ON		a.part_no = b.part_no
+					WHERE	a.order_no = @order_no
+					AND		a.order_ext = @order_ext
+					AND		b.type_code IN ('FRAME','SUN')
 
-					IF ((@fill_rate < @fill_rate_level) AND LEFT(@user_category,2) = 'ST')
+					SELECT	@fs_allocated = SUM(a.qty)
+					FROM	tdc_soft_alloc_tbl a (NOLOCK)
+					JOIN	inv_master b (NOLOCK)
+					ON		a.part_no = b.part_no
+					WHERE	a.order_no = @order_no
+					AND		a.order_ext = @order_ext
+					AND		a.order_type = 'S'
+					AND		b.type_code IN ('FRAME','SUN')
+
+					SET @fill_rate = (@fs_allocated / @fs_ordered) * 100
+					-- v8.0 End
+
+					-- v7.6 Start
+					-- v8.0 SET @fill_rate = -1
+					-- v8.0 EXEC dbo.cvo_order_summary_sp @soft_alloc_no, @order_no, @order_ext, 1, NULL, @fill_rate OUTPUT 
+
+					IF ((@fill_rate < @fill_rate_level) AND LEFT(@user_category,2) = 'ST') AND @order_ext = 0 -- v8.2
 					BEGIN
 						EXEC CVO_UnAllocate_sp @order_no, @order_ext, 0, 'AUTO_ALLOC'
 
@@ -1613,6 +1653,9 @@ BEGIN
 								AND		a.ext = @order_ext
 							END
 						END
+
+						EXEC dbo.cvo_unallocate_cons_orders_hold @soft_alloc_no, @order_no, @order_ext, @back_ord_flag -- v8.1
+
 					END
 					ELSE
 					BEGIN

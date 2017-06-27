@@ -10,6 +10,7 @@ BEGIN
 	SET NOCOUNT ON;
 
 -- Created: 3/2017 - TAG - For Corrie Elder - AP
+-- 6/27/17 - report in currency (USD, EUR, YEN)
 
 -- exec cvo_purchase_receipts_sp
 
@@ -103,7 +104,12 @@ ISNULL(cmi.special_program,'') special_program,
 incl_in_defects = CASE WHEN ISNULL(cmi.special_program,'') 
 	IN ('Compass','Private Label TSO','HVC','Lux Sears','Lux Pearl','JC Penny',
 		'Costco','Retail- BCBG Stores','Retail- Nordstrom')
-	THEN 'NO' ELSE 'YES' end
+	THEN 'NO' ELSE 'YES' END
+, pa.curr_key
+, pa.curr_factor
+, p.curr_cost
+, ext_cost_curr = 	r.curr_cost * r.quantity
+
 
 
 from #vendor AS v
@@ -124,6 +130,7 @@ WHERE r.recv_date BETWEEN @sdate AND @edate
 
   
  END
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_purchase_Receipts_sp] TO [public]

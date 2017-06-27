@@ -12,14 +12,15 @@ AS
 -- Change History
 -- 03/4/2016 - add error checks for existing order/cons to check in and check out
 -- 3/10/16 - IGNORE VOIDS WHEN UPDATING ORDERS
+-- 6/26/2017 - WRITE TO TDC_LOG
 
 
--- exec cvo_pick_cart_process_sp 1, 2350742, 0, 0
+-- exec cvo_pick_cart_process_sp 1, 3105419, 0, 0
 -- select * From cvo_cart_order_parts
 -- select * from cvo_cart_scan_orders
--- exec cvo_pick_cart_process_sp 1, 2350742, 0, 99 -- void
--- exec cvo_pick_cart_process_sp 1, 13416, 0, 0 -- check in
--- exec cvo_pick_cart_process_sp 1, 2931138, 0, 1 -- pick and check out
+-- exec cvo_pick_cart_process_sp 1, 3115082, 0, 99 -- void
+-- exec cvo_pick_cart_process_sp 1, 3115082, 0, 0 -- check in
+-- exec cvo_pick_cart_process_sp 1, 3115082, 0, 1 -- pick and check out
 
 --  select * From dbo.cvo_cart_parts_processed AS cpp WHERE cpp.order_no LIKE '2931138%'
 
@@ -35,7 +36,7 @@ AS
 SET NOCOUNT ON;
 SET ANSI_WARNINGS OFF;
 
-DECLARE @qty DECIMAL(20,8), @qty_to_process DECIMAL(20,8)
+DECLARE @qty DECIMAL(20,8), @qty_to_process DECIMAL(20,8), @ROWS INT
 , @line_no INT, @station_id INT, @user_id VARCHAR(50), @tran_id INT
 , @cart_order_no varchar(20)
 , @asofdate DATETIME, @status VARCHAR(1), @who VARCHAR(50), @order_type VARCHAR(10)
@@ -85,15 +86,16 @@ SELECT @who = @cart_no
 IF(OBJECT_ID('tempdb.dbo.#err') is not null)  drop table #err
 create table #err ( tran_id INT, msg VARCHAR(255) )
 
+SELECT @ROWS = 0
 
-IF @proc_option = 0 
+IF @proc_option = 0  -- check in
 	BEGIN
 
 		IF NOT EXISTS (SELECT 1 FROM dbo.tdc_pick_queue AS tpq 
 			WHERE ((@ISCONS = 0 AND trans_type_no = @order_no AND trans_type_ext = @order_ext)
 		       OR (@ISCONS = 1 AND mp_consolidation_no = @ORDER_NO)) AND tx_lock = 'R')
 			BEGIN
-				SELECT 'Invalid order number or consolidation number', @order_no, @order_ext
+				SELECT 'Invalid order or consolidation number', @order_no, @order_ext
 				RETURN -1
 			END
             
@@ -111,6 +113,8 @@ IF @proc_option = 0
 	UPDATE dbo.tdc_pick_queue with (ROWLOCK) SET tx_lock = 'H', user_id = 'Pick Cart ' + cast (@cart_no AS VARCHAR(20))  
 		WHERE ((@ISCONS = 0 AND trans_type_no = @order_no AND trans_type_ext = @order_ext)
 		       OR (@ISCONS = 1 AND mp_consolidation_no = @ORDER_NO)) AND tx_lock = 'R'
+	
+	SELECT @ROWS = @@ROWCOUNT
 
 	IF @iscons = 0 
 	begin
@@ -154,18 +158,37 @@ IF @proc_option = 0
 	SELECT @status = 'P'   
 
 	IF @iscons = 0
+	BEGIN
   	UPDATE orders   WITH (ROWLOCK)
 		SET status = @status, printed = @status, who_picked = @who, date_shipped = NULL, freight = tot_ord_freight  
 		WHERE order_no = @order_no AND ext = @order_ext AND status <> @status  
 
+		IF @ROWS <> 0
+		INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+		SELECT	GETDATE() , 'PICK CART' , 'VB' , 'PLW' , 'CHECK IN' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
+							'CHECK IN ORDER TO CART ' + @cart_no
+					FROM	orders_all a (NOLOCK)
+					WHERE	a.order_no = @order_no
+					AND		a.ext = @order_ext
+	END
 	IF @iscons = 1
+	BEGIN
 	UPDATE o WITH (rowlock) SET o.status = @status, printed = @status, who_picked = @who,
 								date_shipped = NULL, freight = tot_ord_freight  
 	   FROM orders o WITH (ROWLOCK) JOIN dbo.cvo_masterpack_consolidation_det AS cmcd
 	   ON cmcd.order_no = o.order_no AND cmcd.order_ext = o.ext
 	   WHERE cmcd.consolidation_no = @order_no AND o.status <> @status AND o.status < 'T' -- 3/10/16 - IGNORE VOIDS AND COMPLETED ORDERS
 	
-	end
+	IF @ROWS <> 0
+	INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+		SELECT	GETDATE() , 'PICK CART' , 'VB' , 'PLW' , 'CHECK IN' , O.order_no , O.ext , '' , '' , '' , O.location , '' ,
+							'CHECK IN CONS ' + CAST(@order_no AS VARCHAR(6)) + ' TO CART ' + @cart_no
+		FROM orders o WITH (ROWLOCK) JOIN dbo.cvo_masterpack_consolidation_det AS cmcd
+	   ON cmcd.order_no = o.order_no AND cmcd.order_ext = o.ext
+	   WHERE cmcd.consolidation_no = @order_no AND o.status <> @status AND o.status < 'T' -- 3/10/16 - IGNORE VOIDS AND COMPLETED ORDERS
+	END
+END
+
 
 IF @proc_option = 1 
 begin
@@ -178,15 +201,28 @@ begin
 	UPDATE tdc_pick_queue WITH (ROWLOCK) SET tx_lock = 'R', mfg_batch = NULL 
 		WHERE ((@iscons = 0 AND trans_type_no = @order_no AND trans_type_ext = @order_ext)
 				OR (@iscons = 1 AND mp_consolidation_no = @order_no)) AND tx_lock <> 'R'
+	SELECT @ROWS = @@ROWCOUNT
 
 	IF(@iscons = 0)
+	BEGIN
 	IF EXISTS (SELECT 1 FROM dbo.tdc_soft_alloc_tbl AS tsat WHERE ORDER_NO = @ORDER_NO AND ORDER_EXT = @order_ext	
 			AND USER_HOLD <> 'N')
 	UPDATE dbo.tdc_soft_alloc_tbl WITH (ROWLOCK) SET user_hold = 'N' 
 		WHERE order_no = @order_no AND order_ext = @order_ext
 		AND user_hold <> 'N'
+	IF @ROWS <> 0
+	INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+		SELECT	GETDATE() , 'PICK CART' , 'VB' , 'PLW' , 'CHECK OUT' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
+							'CHECK OUT ORDER'
+					FROM	orders_all a (NOLOCK)
+					WHERE	a.order_no = @order_no
+					AND		a.ext = @order_ext
+
+	END
 
 	IF (@iscons = 1)
+	BEGIN
+
 	IF EXISTS (SELECT 1 
 			   FROM dbo.tdc_soft_alloc_tbl SA WITH (ROWLOCK) JOIN dbo.cvo_masterpack_consolidation_det AS cmcd
 	   ON cmcd.order_no = SA.order_no AND cmcd.order_ext = SA.order_ext
@@ -196,6 +232,16 @@ begin
 	   JOIN dbo.cvo_masterpack_consolidation_det AS cmcd
 	   ON cmcd.order_no = SA.order_no AND cmcd.order_ext = SA.order_ext
 	   WHERE cmcd.consolidation_no = @order_no AND sa.USER_HOLD <> 'N'
+	SELECT @ROWS = @@ROWCOUNT
+	
+	IF @ROWS <> 0
+	INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+		SELECT	GETDATE() , 'PICK CART' , 'VB' , 'PLW' , 'CHECK OUT' , O.order_no , O.ext , '' , '' , '' , O.location , '' ,
+							'CHECK OUT CONS ' + CAST(@order_no AS VARCHAR(6)) 
+		FROM orders o WITH (ROWLOCK) JOIN dbo.cvo_masterpack_consolidation_det AS cmcd
+	   ON cmcd.order_no = o.order_no AND cmcd.order_ext = o.ext
+	   WHERE cmcd.consolidation_no = @order_no AND o.status <> @status AND o.status < 'T' -- 3/10/16 - IGNORE VOIDS AND COMPLETED ORDERS
+	END
 
 
 	SELECT @tran_id = MIN(p.tran_id) FROM tdc_pick_queue p
@@ -256,17 +302,37 @@ begin
 	UPDATE tdc_pick_queue WITH (ROWLOCK) SET tx_lock = 'R', mfg_batch = NULL, user_id = ''
 		WHERE ((@iscons = 0 AND trans_type_no = @order_no AND trans_type_ext = @order_ext)
 				OR (@iscons = 1 AND mp_consolidation_no = @order_no)) AND tx_lock <> 'R'
+	SELECT @ROWS = @@ROWCOUNT
 
 	IF(@iscons = 0)
+	BEGIN
 	UPDATE dbo.tdc_soft_alloc_tbl WITH (ROWLOCK) SET user_hold = 'N' 
 		WHERE order_no = @order_no AND order_ext = @order_ext
 		AND user_hold <> 'N'
+	
+	IF @ROWS <> 0
+	INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+		SELECT	GETDATE() , 'PICK CART' , 'VB' , 'PLW' , 'CHECK IN VOID' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
+							'VOID CHECK IN ORDER TO CART ' + @cart_no
+					FROM	orders_all a (NOLOCK)
+					WHERE	a.order_no = @order_no
+					AND		a.ext = @order_ext
 
+	END
 	IF (@iscons = 1)
+	BEGIN
 	UPDATE sa SET  user_hold = 'N' 
 	   FROM dbo.tdc_soft_alloc_tbl SA WITH (ROWLOCK) JOIN dbo.cvo_masterpack_consolidation_det AS cmcd
 	   ON cmcd.order_no = SA.order_no AND cmcd.order_ext = SA.order_ext
 	   WHERE cmcd.consolidation_no = @order_no AND sa.USER_HOLD <> 'N'
+
+	INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+		SELECT	GETDATE() , 'PICK CART' , 'VB' , 'PLW' , 'CHECK IN VOID' , O.order_no , O.ext , '' , '' , '' , O.location , '' ,
+							'VOID CHECK IN CONS ' + CAST(@order_no AS VARCHAR(6)) + ' TO CART ' + @cart_no
+		FROM orders o WITH (ROWLOCK) JOIN dbo.cvo_masterpack_consolidation_det AS cmcd
+	   ON cmcd.order_no = o.order_no AND cmcd.order_ext = o.ext
+	   WHERE cmcd.consolidation_no = @order_no AND o.status <> @status AND o.status < 'T' -- 3/10/16 - IGNORE VOIDS AND COMPLETED ORDERS
+	END
 
 	DELETE FROM dbo.cvo_cart_order_parts WHERE order_no = @cart_order_no
 	DELETE FROM dbo.cvo_cart_scan_orders WHERE order_no = @cart_order_no
@@ -275,10 +341,11 @@ begin
 		-- put the order back in Open/Print status
 	SELECT @status = 'Q'   
 
-	IF @iscons = 0
+	IF @iscons = 0 
   	UPDATE orders   WITH (ROWLOCK)
 		SET status = @status, printed = @status, who_picked = @who, date_shipped = NULL, freight = tot_ord_freight  
-		WHERE order_no = @order_no AND ext = @order_ext AND status <> @status  
+		WHERE order_no = @order_no AND ext = @order_ext AND status <> @status 
+		AND (SELECT SUM(SHIPPED) FROM ORD_LIST OL WHERE OL.ORDER_NO = @ORDER_NO AND OL.order_ext = @order_ext) = 0
 
 	IF @iscons = 1
 	UPDATE o WITH (rowlock) SET o.status = @status, printed = @status, who_picked = @who,
@@ -286,10 +353,12 @@ begin
 	   FROM orders o WITH (ROWLOCK) JOIN dbo.cvo_masterpack_consolidation_det AS cmcd
 	   ON cmcd.order_no = o.order_no AND cmcd.order_ext = o.ext
 	   WHERE cmcd.consolidation_no = @order_no AND o.status <> @status AND O.STATUS < 'T'
+	   AND (SELECT SUM(SHIPPED) FROM ORD_LIST OL WHERE OL.ORDER_NO = O.ORDER_NO AND OL.order_ext = O.ext) = 0
 
 END -- proc_option = 99
 
  
+
 
 
 
