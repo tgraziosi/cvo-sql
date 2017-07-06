@@ -46,13 +46,15 @@ AS
             @location VARCHAR(10) ,
             @CH DATETIME,
 			@ME DATETIME,
-			@UN datetime;
+			@UN DATETIME,
+			@kodi datetime;
         SET @today = DATEADD(dd, DATEDIFF(dd, 0, GETDATE()), 0);
         SET @location = '001';
         SET @CH = '9/1/2015'; -- START OF CH SELL-DOWN PERIOD
 		SET @ME = '01/31/2017'; -- START OF me SELL-DOWN PERIOD - 10/7 - on hold per JK
 		-- SET @ME = '10/06/2016'; -- START OF me SELL-DOWN PERIOD
 		SET @un = '12/31/2016';
+		SET @kodi = '7/3/2017'; -- KO and DI selldown start
 
         IF ( OBJECT_ID('tempdb.dbo.#EOS') IS NOT NULL )
             DROP TABLE #EOS;
@@ -804,6 +806,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                 WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, 
                 DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY];
 
+				CREATE INDEX IDX_HSINV_COLL ON dbo.cvo_hs_inventory_8 (COLL, SKU);
 
             END;
 
@@ -836,7 +839,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                         t1.New ,
                         t1.SUNPS ,
                         t1.CostCo ,
-                        t1.ShelfQty ,
+                        CASE WHEN t1.ShelfQty < 0 THEN 0 ELSE t1.ShelfQty END ShelfQty,
                         t1.NextPODueDate ,
                         t1.hide ,
                         CASE WHEN ( SELECT  COUNT(*)
@@ -990,6 +993,28 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 		--WHERE ShelfQty <= 0
 		--AND [category:1] = 'ME SELL-DOWN';
 
+		IF @today >= @kodi
+		UPDATE  hsi 
+        SET     [category:1] = 'KODI SELLDWN'
+		-- SELECT * 
+		FROM
+		dbo.cvo_hs_inventory_8 AS hsi 
+		join 
+		(SELECT DISTINCT iav.brand, iav.style
+		FROM dbo.cvo_item_avail_vw AS iav (NOLOCK) 
+	    WHERE iav.location = '001' AND iav.Brand IN ('KO','DI') 
+		GROUP BY iav.Brand, iav.Style
+		HAVING SUM(iav.qty_avl) + SUM(iav.ReserveQty) >= 0 -- was 50
+		) selldown
+		ON hsi.coll = selldown.brand AND hsi.Model = selldown.Style
+		; 
+
+		-- me sell_down is over ... reclass everytHing to ME RETURNS -- 7/5/2017
+		UPDATE hsi SET hsi.[category:1] = 'ME RETURNS'
+		FROM dbo.cvo_hs_inventory_8 AS hsi 
+		WHERE [category:1] = 'ME SELL-DOWN'
+		;
+
     END;
 
 --SELECT distinct manufacturer, [category:1] FROM #data1 ORDER BY manufacturer, [category:1]
@@ -1000,59 +1025,6 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 -- SELECT distinct manufacturer, [category:1], [CATEGORY:2] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

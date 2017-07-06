@@ -33,6 +33,8 @@ CREATE TABLE [dbo].[cvo_hs_inventory_8]
 [MasterHIDE] [int] NOT NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [IDX_HSINV_COLL] ON [dbo].[cvo_hs_inventory_8] ([COLL], [sku]) ON [PRIMARY]
+GO
 CREATE NONCLUSTERED INDEX [idx_inv7] ON [dbo].[cvo_hs_inventory_8] ([Manufacturer], [mastersku], [sku]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [idx_hs_inv_part_no] ON [dbo].[cvo_hs_inventory_8] ([sku]) INCLUDE ([mastersku]) ON [PRIMARY]
