@@ -2081,6 +2081,7 @@ BEGIN
 			field_9, field_10, field_11, field_12, field_13, CONVERT(VARCHAR(255),long_descr), field_17, field_30, 
 			field_18, field_19, field_20, field_21, field_22, field_23, field_24, field_25, field_26, field_27, 
 			field_28, field_32, field_33, field_18_a, field_18_b, field_18_c, field_18_d, field_18_e 
+			
 			from #ia where part_no = @last_part
 			AND NOT EXISTS ( SELECT 1 FROM inv_master_add ia WHERE ia.part_no = @last_part)
 		
@@ -2251,6 +2252,13 @@ BEGIN
 		
 			-- rollback tran
 
+			-- 7/10/2017 - for DD frames only, add the book
+			UPDATE ia SET ia.field_35 = 'DDZBOOK'
+			FROM INV_MASTER_ADD IA 
+			JOIN INV_MASTER I ON I.part_no = IA.part_no
+			WHERE I.CATEGORY = 'DD' AND I.type_code IN ('FRAME','SUN')
+			AND ISNULL(FIELD_35,'') <>'DDZBOOK'
+
 			-- add vendor quote info
 			INSERT INTO #inv_price (rc)
 			exec cvo_createVendorQuote_sp @last_part, @V_CURR, @STD_COST
@@ -2344,6 +2352,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

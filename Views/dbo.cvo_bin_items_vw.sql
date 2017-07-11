@@ -18,17 +18,27 @@ SELECT
 	ISNULL(sbm.units_sold_6m,0) units_sold_6m,
     biv.Is_Assigned,
     biv.maximum_level,
-	biv.status
+	biv.status,
+	alc.alloc_qty
 FROM
+	dbo.CVO_items_vw AS iv
+	LEFT OUTER join
     dbo.cvo_bin_inquiry_vw AS biv
-	LEFT OUTER JOIN cvo_items_vw iv
 	        ON iv.part_no = biv.part_no
 	LEFT OUTER JOIN
     (SELECT location, part_no, SUM(qsales) units_sold_6m
 	FROM cvo_sbm_details sbm WHERE yyyymmdd > DATEADD(m,-6,GETDATE()) 
 	GROUP BY location, sbm.part_no
 	) sbm ON sbm.part_no = biv.part_no AND sbm.location = biv.location
+	LEFT OUTER JOIN
+    (SELECT location, part_no, SUM(qty) alloc_qty
+	FROM tdc_soft_alloc_tbl (NOLOCK) alc
+	GROUP BY location, alc.part_no
+	)
+	alc ON alc.location = biv.location AND alc.part_no = iv.part_no
 ;
+
+
 
 
 

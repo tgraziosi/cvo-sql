@@ -87,7 +87,8 @@ id = Row_Number() over( order by ar.customer_code, ar.ship_to_code )
 , bb.brand
 , bb.attrib
 , bb.first_order_date
-, bb.first_order_ship
+-- , bb.first_order_ship
+, bb.Most_recent_ship_date
 , 0 as fo_units
 , 0 as st_units
 , bb.pc_units
@@ -106,7 +107,7 @@ inner join
 (select b.brand, case when @attrib is null then '' else isnull(ia.field_32,'') end as attrib
 , customer, ship_to
 , min(dateordered) first_order_date
-, MIN(sbm.yyyymmdd) first_order_ship
+, max(sbm.yyyymmdd) Most_recent_ship_date -- change from FO ship date
 , sum(case when isnull(sbm.promo_id,'') in ('pc','ff','style out') 
 	then qsales else 0 end
 	) pc_units
@@ -165,7 +166,7 @@ select @cust = customer_code, @ship_to = ship_to_code
 	, @br = brand
 	, @att = attrib
 	, @fo = first_order_date 
-	, @fos = first_order_ship 
+	, @fos = Most_recent_ship_date 
 	FROM #t where id = @last_id
 	select @promo = null, @level = null, @units = 0
 
@@ -242,7 +243,7 @@ begin
 	, @br = brand
 	, @att = attrib
 	, @fo = first_order_date
-	, @fos = first_order_ship from #t where id = @last_id
+	, @fos = Most_recent_ship_date from #t where id = @last_id
 	select @promo = null, @level = null, @units = 0
 end
 
@@ -262,6 +263,7 @@ select #t.*
 
  --select * From #t where customer_code = '038305'
  --select * From #newrea where customer_code = '038305'
+
 
 
 GO
