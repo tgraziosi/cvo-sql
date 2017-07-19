@@ -268,7 +268,7 @@ AS
             CAST('Posted' AS VARCHAR(10)) AS Loc ,
             salesperson_name ,
             ISNULL(CONVERT(VARCHAR, date_of_hire, 101), '') AS HireDate ,
-            draw_amount
+            CASE WHEN x.territory_code = slp.territory_code THEN draw_amount ELSE 0 END draw_amount -- draw counts for 'home' territory only
 		-- for testing
 		--, clv.brand Brnd
 		--, co.commission_pct comm_pct
@@ -371,7 +371,7 @@ AS
                     'UnPosted' AS Loc ,
                     slp.salesperson_name ,
                     ISNULL(CONVERT(VARCHAR, slp.date_of_hire, 101), '') AS HireDate ,
-                    draw_amount
+                    CASE WHEN x.territory_code = slp.territory_code THEN draw_amount ELSE 0 END draw_amount
 				-- for testing
 		--, clv.brand brnd
 		--, co.commission_pct comm_pct
@@ -445,7 +445,7 @@ AS
                     'AR Posted' AS Loc ,
                     slp.salesperson_name ,
                     ISNULL(CONVERT(VARCHAR, slp.date_of_hire, 101), '') AS HireDate ,
-                    slp.draw_amount
+                    CASE WHEN x.territory_code = slp.territory_code THEN slp.draw_amount ELSE 0 END draw_amount
             FROM    #territory AS t (nolock)
 					INNER JOIN artrx x ( NOLOCK ) ON x.territory_code = t.territory	
                     JOIN artrxcdt d ( NOLOCK ) ON x.trx_ctrl_num = d.trx_ctrl_num
@@ -539,7 +539,7 @@ AS
                     'Posted' AS Loc ,
                     salesperson_name ,
                     ISNULL(CONVERT(VARCHAR, date_of_hire, 101), '') AS HireDate ,
-                    draw_amount
+                    CASE WHEN x.territory_code = slp.territory_code THEN draw_amount ELSE 0 END draw_amount
 		-- for testing
 		--, clv.brand Brnd
 		--, co.commission_pct comm_pct
@@ -647,7 +647,7 @@ AS
                     'UnPosted' AS Loc ,
                     slp.salesperson_name ,
                     ISNULL(CONVERT(VARCHAR, slp.date_of_hire, 101), '') AS HireDate ,
-                    draw_amount
+                    CASE WHEN x.territory_code = slp.territory_code THEN draw_amount ELSE 0 END draw_amount
 				-- for testing
 		--, clv.brand brnd
 		--, co.commission_pct comm_pct
@@ -761,7 +761,7 @@ SELECT  o.salesperson ,
         'Posted' AS Loc ,
         salesperson_name ,
         ISNULL(CONVERT(VARCHAR, date_of_hire, 101), '') AS HireDate ,
-        draw_amount
+        CASE WHEN o.ship_to_region = t3.territory_code THEN draw_amount ELSE 0 END AS draw_amount
 FROM    CVO_debit_promo_customer_det dp
         JOIN CVO_orders_all o2 ON dp.order_no = o2.order_no
                                   AND dp.ext = o2.ext
@@ -803,6 +803,7 @@ GROUP BY o.salesperson ,
         t3.salesperson_name ,
         t3.date_of_hire ,
         t3.draw_amount ,
+		t3.territory_code,
         dh.debit_promo_id ,
         dh.debit_promo_level
 		;      
@@ -832,6 +833,7 @@ GROUP BY o.salesperson ,
             r.HireDate ,
             r.draw_amount
     FROM    #report AS r;
+
 
 
 

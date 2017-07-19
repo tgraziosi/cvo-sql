@@ -11,9 +11,9 @@ AS
 
 SET NOCOUNT ON;
 
--- exec cvo_commiss_bldr_create_summary_sp '08/2016', '50531'
--- exec dbo.cvo_commission_bldr_sp '12/01/2015', '12/31/2015'
--- SELECT * FROM cvo_commission_summary_work_tbl AS ccswt where report_month = '03/2017'
+-- exec cvo_commiss_bldr_create_summary_sp '06/2017', 'keeseela'
+-- exec dbo.cvo_commission_bldr_sp '06/01/2017', '06/30/2017' ,'30336,30337,30338'
+-- SELECT * FROM cvo_commission_summary_work_tbl AS ccswt where report_month = '05/2017' and salesperson = 'garrowjo'
 -- update v set v.rep_code = slp.salesperson_code
 	-- From cvo_commission_promo_values v
 	--LEFT OUTER JOIN arsalesp slp ON slp.salesperson_name = v.rep_code
@@ -94,8 +94,8 @@ rep_type, status_type, promo_detail, promo_sum)
 
 select a.Salesperson ,
        r.salesperson_name ,
-	   r.territory_code,
-	   dbo.calculate_region_fn(r.territory_code) region,
+	   a.territory territory_code,
+	   dbo.calculate_region_fn(a.territory) region,
        dbo.adm_format_pltdate_f(r.date_hired) hiredate ,
        a.amount ,
 	   -- a.comm_amt
@@ -130,6 +130,7 @@ select a.Salesperson ,
 from 
 
 	(select salesperson
+		, Territory
 		, fiscal_period
 		-- , CONVERT(money,SUM(amount)) amount
 		, CONVERT(money,SUM(net_sales)) amount -- 9/12/2016
@@ -138,10 +139,11 @@ from
 	WHERE fiscal_period = @fp
 	AND Salesperson = ISNULL(@slp, Salesperson)
 	GROUP BY Salesperson
+			,Territory
 			,fiscal_period) a
 	LEFT OUTER JOIN
 
-    (SELECT distinct salesperson, draw_amount
+    (SELECT distinct salesperson, Territory, draw_amount
 	FROM dbo.cvo_commission_bldr_work_tbl 
 	WHERE fiscal_period = @fp AND 
 	salesperson = ISNULL(@slp, salesperson)
@@ -149,29 +151,32 @@ from
 	(SELECT max(dateshipped) 
 	FROM dbo.cvo_commission_bldr_work_tbl 
 	WHERE salesperson = ISNULL(@slp, salesperson) AND fiscal_period = @fp)
-	) d ON d.salesperson = a.salesperson
+	) d ON d.salesperson = a.salesperson AND d.territory = a.territory
 
 	JOIN arsalesp r ON r.salesperson_code = a.Salesperson
+
 	LEFT OUTER JOIN -- prior month balance to roll forward, if any
     (SELECT salesperson,
+		ccswt.territory,
 		ccswt.report_month,
 		ccswt.net_pay
 		FROM dbo.cvo_commission_summary_work_tbl AS ccswt
 		WHERE ccswt.report_month = @pfp
 		AND ccswt.salesperson = ISNULL(@slp,ccswt.salesperson)
 		AND ccswt.net_pay <= 0
-	) pfp ON pfp.salesperson = a.salesperson
+	) pfp ON pfp.salesperson = a.salesperson AND pfp.territory = a.territory
 	LEFT OUTER JOIN -- prior month balance to roll forward, if any
     (SELECT salesperson,
+		ccswt.territory,
 		ccswt.report_month,
 		ccswt.net_pay
 		FROM dbo.cvo_commission_history_tbl AS ccswt
 		WHERE ccswt.report_month = @pfp
 		AND ccswt.salesperson = ISNULL(@slp,ccswt.salesperson)
 		AND ccswt.net_pay <= 0
-	) pfphist ON pfphist.salesperson = a.salesperson
+	) pfphist ON pfphist.salesperson = a.salesperson AND pfphist.territory = a.territory
 	LEFT OUTER JOIN -- promo/incentive information
-    (SELECT ccpv.rep_code , 
+    (SELECT ccpv.rep_code , ccpv.territory,
 		STUFF(( SELECT DISTINCT '; ' + ccpv2.comments 
 				FROM dbo.cvo_commission_promo_values AS ccpv2
 				WHERE ccpv2.rep_code = ccpv.rep_code AND ccpv2.recorded_month = @fp
@@ -187,10 +192,10 @@ from
 		AND ISNULL(ccpv.line_type,'')  NOT LIKE  '%adj 3%'
 		AND ISNULL(ccpv.line_type,'') <> 'special payment'
 		AND ccpv.incentive_amount > 0
-		GROUP BY ccpv.rep_code
-	) promo_details ON (promo_details.rep_code = a.salesperson OR promo_details.rep_code = r.salesperson_name)
+		GROUP BY ccpv.rep_code, ccpv.territory
+	) promo_details ON (promo_details.rep_code = a.salesperson OR promo_details.rep_code = r.salesperson_name) AND promo_details.territory = a.territory
 		LEFT OUTER JOIN -- other additions nformation
-    (SELECT ccpv.rep_code , 
+    (SELECT ccpv.rep_code , ccpv.territory, 
 		STUFF(( SELECT DISTINCT '; ' + ISNULL(ccpv2.comments ,'')
 				FROM dbo.cvo_commission_promo_values AS ccpv2
 				WHERE ccpv2.rep_code = ccpv.rep_code 
@@ -206,10 +211,11 @@ from
 		AND ccpv.rep_code = ISNULL(@slp, ccpv.rep_code)
 		AND ISNULL(ccpv.incentive_amount,0) > 0 
 		AND ISNULL(ccpv.line_type,'') LIKE '%adj 3%'
-		GROUP BY ccpv.rep_code
-	) addition_details ON addition_details.rep_code = a.salesperson OR addition_details.rep_code = r.salesperson_name
+		GROUP BY ccpv.rep_code, ccpv.territory
+	) addition_details ON (addition_details.rep_code = a.salesperson OR addition_details.rep_code = r.salesperson_name) 
+						AND addition_details.territory = a.territory
 		LEFT OUTER JOIN -- other deductions information
-    (SELECT ccpv.rep_code , 
+    (SELECT ccpv.rep_code , ccpv.territory,
 		STUFF(( SELECT DISTINCT '; ' + ccpv2.comments 
 				FROM dbo.cvo_commission_promo_values AS ccpv2
 				WHERE ccpv2.rep_code = ccpv.rep_code 
@@ -223,22 +229,23 @@ from
 		WHERE ccpv.recorded_month = @fp 
 		AND ccpv.incentive_amount < 0 
 		AND ISNULL(line_type,'') like '%manual reduction%'
-		GROUP BY ccpv.rep_code
-	) deduction_details ON deduction_details.rep_code = a.salesperson OR deduction_details.rep_code = r.salesperson_name
+		GROUP BY ccpv.rep_code, ccpv.territory
+	) deduction_details ON (deduction_details.rep_code = a.salesperson OR deduction_details.rep_code = r.salesperson_name) 
+				AND deduction_details.territory = a.territory
 		LEFT OUTER JOIN -- draw overrides
-    (SELECT ccpv.rep_code, SUM(ccpv.qty) qty, SUM(ccpv.incentive_amount) draw_amount
+    (SELECT ccpv.rep_code, ccpv.territory, SUM(ccpv.qty) qty, SUM(ccpv.incentive_amount) draw_amount
         FROM dbo.cvo_commission_promo_values AS ccpv
 		WHERE ccpv.recorded_month = @fp 
 		AND ISNULL(line_type,'') IN ('Draw_Over') 
-		GROUP BY ccpv.rep_code
-	) draw_over ON draw_over.rep_code = a.salesperson 
+		GROUP BY ccpv.rep_code, ccpv.territory
+	) draw_over ON draw_over.rep_code = a.salesperson  AND draw_over.territory = a.territory
 		LEFT OUTER JOIN -- commission overrides - 05/03/2017
-    (SELECT ccpv.rep_code, SUM(ccpv.incentive_amount) comm_amt
+    (SELECT ccpv.rep_code, ccpv.territory, SUM(ccpv.incentive_amount) comm_amt
         FROM dbo.cvo_commission_promo_values AS ccpv
 		WHERE ccpv.recorded_month = @fp 
 		AND ISNULL(line_type,'') IN ('Comm Override') 
-		GROUP BY ccpv.rep_code
-	) comm_over ON comm_over.rep_code = a.salesperson 
+		GROUP BY ccpv.rep_code, ccpv.territory
+	) comm_over ON comm_over.rep_code = a.salesperson  AND comm_over.territory = a.territory
 
 
 UPDATE d SET 
@@ -250,6 +257,7 @@ UPDATE d SET
 		AND d.salesperson = ISNULL(@slp, d.salesperson)
 
 -- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt where report_month = '09/2016'
+
 
 
 

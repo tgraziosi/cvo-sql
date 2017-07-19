@@ -1936,7 +1936,7 @@ INSERT  #pp
         )
         SELECT DISTINCT
                 c.part_no ,
-                CASE WHEN CHARINDEX(c.part_no,'SUN') > 0 THEN @sunlen_price ELSE 0 END AS wholesale_price ,
+                CASE WHEN CHARINDEX(c.part_no,'SUN') > 0 AND c.part_type = 'demolen' THEN @sunlen_price ELSE 0 END AS wholesale_price ,
                 ROUND(CASE WHEN c.part_type = 'demolen' AND CHARINDEX(c.part_no,'SUN') > 0 THEN @sunlen_cost
 						   WHEN c.part_type = 'demolen' THEN @demolen_cost
 						   WHEN c.part_type = 'pattern' THEN @pattern_cost
@@ -2352,6 +2352,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

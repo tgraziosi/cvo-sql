@@ -43,8 +43,8 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
               status_desc VARCHAR(10) NULL ,
               carrier VARCHAR(12) NULL ,
               tracking VARCHAR(255) NULL ,
-              total_invoice DECIMAL(20, 8) NULL
-            );
+              total_invoice DECIMAL(20, 8) NULL,
+			  hs_order_no VARCHAR(20) null           );
  
         IF OBJECT_ID('tempdb..#aging') IS NOT NULL
             DROP TABLE #aging;
@@ -162,7 +162,8 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
                                                             AND c.order_ext = o.ext
                                                     ORDER BY c.date_shipped DESC
                                                   ), 'N/A') ,
-                                o.total_invoice
+                                o.total_invoice,
+								ISNULL(o.user_def_fld4,'') hs_order_no
                         FROM    orders o
                         WHERE   status <> 'v'
                                 AND type = 'I'
@@ -199,7 +200,8 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
                                                             AND c.order_ext = o.ext
                                                     ORDER BY c.date_shipped DESC
                                                   ), 'N/A') ,
-                                o.total_invoice
+                                o.total_invoice,
+								ISNULL(o.user_def_fld4,'') hs_order_no
                         FROM    orders o
                         WHERE   status <> 'v'
                                 AND type = 'I'
@@ -226,7 +228,8 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
                                 END AS status_desc ,
                                 '' carrier ,
                                 tracking = '' ,
-                                o.total_invoice
+                                o.total_invoice,
+								ISNULL(o.user_def_fld4,'') hs_order_no
                         FROM    orders o
                         WHERE   status <> 'v'
                                 AND type = 'C'
@@ -264,6 +267,7 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
                                WHERE    age_bucket <> 0 -- dont include future due amounts
                              ) AS money) ,
 			-- SPACE(30) AS AR_Status , -- future
+			designations.desig Active_designations,
             i.Info ,
             i.cust_code ,
             i.ship_to ,
@@ -273,12 +277,13 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
             i.date_entered ,
             i.user_category ,
             i.status_desc ,
-            CASE WHEN i.tracking > ''
+            CASE WHEN i.tracking > '' AND tracking <> 'N/A'
                  THEN dbo.f_cvo_get_tracking_url(i.tracking, i.carrier)
                  ELSE 'N/A'
             END tracking ,
             i.total_invoice ,
-            oi.doc_ctrl_num
+            oi.doc_ctrl_num,
+			i.hs_order_no
     FROM    #info AS i
             JOIN armaster ar ON ar.customer_code = i.cust_code
                                 AND ar.ship_to_code = i.ship_to
@@ -294,7 +299,22 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
                                                               @today)
                             ) rxe ON rxe.customer_code = ar.customer_code
             LEFT OUTER JOIN dbo.orders_invoice AS oi ON oi.order_no = i.order_no
-                                                        AND oi.order_ext = i.ext;
+                                                        AND oi.order_ext = i.ext
+			LEFT OUTER JOIN ( SELECT  distinct RIGHT(c.customer_code, 5) MergeCust ,
+                            STUFF(( SELECT  ', ' + code
+                                    FROM    cvo_cust_designation_codes (NOLOCK)
+                                    WHERE   customer_code = c.customer_code
+                                            AND ISNULL(start_date, @today) <= @today
+                                            AND ISNULL(end_date, @today) >= @today
+                                    FOR
+                                    XML PATH('')
+                                    ), 1, 1, '') desig
+                    FROM      dbo.cvo_cust_designation_codes (NOLOCK) c
+                ) AS designations ON designations.MergeCust = RIGHT(ar.customer_code,5)											
+														
+			;
+
+
 
 
 

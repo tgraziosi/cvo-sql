@@ -20,22 +20,27 @@ CREATE procedure [dbo].[cvo_inv_fcst_r3_sp]
 , @Season_start int = NULL
 , @Season_end int = NULL
 , @Season_mult DECIMAL (20,8) = NULL
-, @spread VARCHAR(10) = null
+, @spread VARCHAR(10) = NULL
+-- 7/11/17
+, @WksOnHandGTLT CHAR(5) = 'ALL'
+, @WksOnHand INT = 0
 , @debug INT = 0
 --
 /*
  exec cvo_inv_fcst_r3_sp
 
- @asofdate = '06/01/2017', 
- @endrel = '06/01/2017', 
+ @asofdate = '07/01/2017', 
+ @endrel = '07/01/2017', 
  @current = 0, 
- @collection = NULL, 
- @style = NULL, 
+ @collection = 'AS', 
+ @style = 'EXPRESSIVE,MUSICAL', 
  @specfit = null,
  @usg_option = 'o',
  @debug = 1, -- debug
- @location = 'CASES',
- @restype = 'CASE'
+ @location = '001',
+ @restype = 'FRAME,SUN',
+ @WKSONHANDGTLT = '<=',
+ @WKSONHAND = 6
 
  select * From cvo_ifp_rank
 
@@ -857,7 +862,7 @@ declare @inv int, @last_inv int, @last_loc VARCHAR(10),  @INV_AVL INT, @drp int,
 
 create index idx_f on #SKU (sku ASC, location asc)
 
-create index idx_sku_line_sort ON #SKU (sku ASC, LINE_TYPE ASC, location ASC, sort_seq asc)
+create index idx_sku_line_sort ON #SKU (sku ASC, LINE_TYPE ASC, sort_seq ASC, location ASC)
 
 select @sku = min(sku) from #SKU
 SELECT @last_loc = MIN(s.location) FROM #sku s WHERE s.sku = @sku
@@ -910,7 +915,6 @@ SELECT
 					alloc_qty = 0,
 					non_alloc_qty = 0
 					FROM #T WHERE #T.PART_NO = @SKU AND #T.location = @last_loc AND #t.SORT_SEQ = 1
-
 
 
 
@@ -1136,147 +1140,247 @@ BEGIN
 		)
 END
 
+--=iif(Parameters!WksOnHandGTLT.Value="ALL",true,iif(Parameters!WksOnHandGTLT.Value=">=",
+--iif(Fields!p_e12_wu.Value<= 0,Parameters!WksOnHand.Value+1,Fields!qoh.Value/Fields!p_e12_wu.Value) >= Parameters!WksOnHand.Value,
+--iif(Fields!p_e12_wu.Value<= 0,Parameters!WksOnHand.Value+1,Fields!qoh.Value/Fields!p_e12_wu.Value) <= Parameters!WksOnHand.Value)
+--)
+-- GET WEEKS ON HAND FOR FILTER
+
+SELECT
+    #t.brand,
+    #t.style,
+    #t.location,
+    #t.p_e12_wu,
+    #sku.QOH,
+    CASE
+		WHEN p_e12_wu <= 0 THEN 999
+        WHEN p_e12_wu <> 0 THEN
+            QOH / p_e12_wu
+        ELSE
+            0
+    END WOH
+INTO #WOH
+FROM
+    #t
+    JOIN #sku
+        ON #sku.location = #t.location
+           AND sku = #t.part_no
+;
+
+UPDATE #WOH
+SET WOH = 9999
+WHERE
+    (
+        WOH >= @WksOnHand
+        AND @WksOnHandGTLT = '>='
+    )
+    OR (
+           WOH <= @WksOnHand
+           AND @WksOnHandGTLT = '<='
+       )
+    OR @WksOnHandGTLT = 'ALL'
+;
+
 -- fixup
-select distinct
--- #style.*
-#style.brand
-,#style.style
-,specs.vendor
-,specs.type_code
-,specs.gender
-,specs.material
-,specs.moq
-,specs.watch
-,specs.sf
-,CASE WHEN specs.rel_date = '1/1/1900' THEN NULL ELSE specs.rel_date END AS rel_date
- --= (select min(release_date) From cvo_inv_master_r2_vw where collection = i.category
-	--	and model = ia.field_2)
-,case when #style.pom_date = '1/1/1900' then null else #style.pom_date end as pom_date
-,#style.mth_since_rel
-,#style.[Sales m1-3] s_sales_m1_3
-,#style.[Sales m1-12] s_sales_m1_12
-,#style.s_e4_wu
-,#style.s_e12_wu
-,#style.s_e52_wu
-,#style.s_promo_w4
-,#style.s_promo_w12
-,#style.s_gross_w4
-,#style.s_gross_w12
--- , #SKU.*
-,#sku.line_type
-,#sku.sku
-,#sku.location
-,#sku.mm
-,case when #style.rel_date <> isnull(ia.field_26,#style.rel_date) 
-	then ia.field_26 end as  p_rel_date
-,case when #style.pom_date <> isnull(ia.field_28,#style.pom_date)
-		then ia.field_28 end as p_pom_date
-, (select lead_time from inv_list il 
-	where il.part_no = #sku.sku and il.location = '001') lead_time
-,#sku.bucket
-,#sku.qoh
-,#sku.atp
-,#sku.reserve_qty
-,#sku.quantity
-,#sku.mult
-,#sku.s_mult
-,#sku.sort_seq
-,#sku.alloc_qty
-,#sku.non_alloc_qty
-,#t.pct_of_style
-,#t.pct_First_po
-,#t.pct_sales_style_m1_3
-,#t.p_e4_wu
-,#t.p_e12_wu
-,#t.p_e52_wu
-,#t.p_subs_w4
-,#t.p_subs_w12
-,#t.s_mth_usg
-,#t.p_mth_usg
-,#t.s_mth_usg_mult
-,#t.p_sales_m1_3
-
-, p_po_qty_y1 = 
-case when #sku.line_type = 'V' and #sku.sort_seq = 1 then
-isnull((select sum(qty_ordered)  
-From pur_list p (nolock)
-inner join inv_master i (nolock) on i.part_no = p.part_no
-inner join inv_master_add ia (nolock) on ia.part_no = i.part_no
-where 1=1
-and i.void = 'n'
-AND P.VOID <> 'V' -- 8/3/2016
-and p.part_no = #sku.sku 
-and p.rel_date <= dateadd(yy,1,ia.field_26)
-and p.type = 'p' and p.location = '001'
-), 0) else 0 END,
-CASE WHEN #style.pom_date IS NULL OR #style.pom_date = '1/1/1900' THEN r.ORDER_THRU_DATE 
-	WHEN  #style.pom_date < r.ORDER_THRU_DATE THEN #style.pom_date
-	ELSE r.order_thru_date END AS ORDER_THRU_DATE,
-r.TIER, -- 7/8/2016
-i.type_code p_type_code, -- res type of sku, not style - 11/1/2016
-#t.s_rx_w4, -- 12/5/2016
-#t.s_rx_w12,
-#t.p_rx_w4,
-#t.p_rx_w12,
-#t.s_Ret_w4,
-#t.s_ret_w12,
-#t.p_ret_w4,
-#t.p_ret_w12,
-#t.s_wty_w4,
-#t.s_wty_w12,
-#t.p_wty_w4,
-#t.p_wty_w12,
-#t.p_gross_w4,
-#t.p_gross_w12,
-specs.price,
-specs.frame_type
-
-from #SKU 
-inner join #t on #t.part_no = #sku.sku and #t.mm = #sku.mm AND #t.location= #sku.location
-				AND #t.mult = #sku.mult and #t.sort_seq = #sku.sort_seq
-INNER JOIN INV_LIST IL ON IL.location = #t.location AND IL.part_no = #t.part_no
-inner join inv_master i (nolock) on #SKU.sku = i.part_no
-inner join inv_master_add ia (nolock) on #SKU.sku = ia.part_no
-inner join #style on #style.brand = i.category and #style.style = ia.field_2 
-				AND #style.location = #sku.location
-LEFT OUTER join
-(
-SELECT  i.category brand ,
-        ia.field_2 style ,
-        i.vendor ,
-        MAX(i.type_code) type_code ,
-        MAX(category_2) gender ,
-        -- MAX(i.cmdty_code) material ,
-		MAX(ISNULL(ia.field_10,i.cmdty_code)) material, -- 12/12/2016
-		MAX(ISNULL(ia.field_11,'UNKNOWN')) frame_type,
-        MAX(ISNULL(ia.category_1, '')) watch ,
-        ( SELECT TOP 1
-                    MOQ_info
-          FROM      cvo_Vendor_MOQ
-          WHERE     Vendor_Code = i.vendor
-        ) moq ,
-        MAX(ISNULL(ia.field_32, '')) sf ,
-        MIN(ISNULL(ia.field_26, '1/1/1900')) rel_date,
-		MAX(pp.price_a) price
-FROM    inv_master i ( NOLOCK )
-		JOIN #type AS t ON t.type_code = i.type_code
-        INNER JOIN inv_master_add ia ( NOLOCK ) ON ia.part_no = i.part_no
-		INNER JOIN part_price pp (NOLOCK) ON pp.part_no = i.part_no	
-WHERE   1 = 1
-        -- AND i.type_code IN ( 'frame', 'sun', 'bruit' )
-        AND i.void = 'n'
-        AND ISNULL(ia.field_32, '') <> 'SpecialOrd'
-GROUP BY i.category ,
-         ia.field_2 ,
-         i.vendor
-) as specs
-on specs.brand = #style.brand and specs.style = #style.style
-
-LEFT OUTER JOIN
-cvo_ifp_rank r ON r.brand = #style.brand AND r.style = #style.style
-
+SELECT DISTINCT
+    -- #style.*
+    #style.brand,
+    #style.style,
+    specs.vendor,
+    specs.type_code,
+    specs.gender,
+    specs.material,
+    specs.moq,
+    specs.watch,
+    specs.sf,
+    CASE
+        WHEN specs.rel_date = '1/1/1900' THEN
+            NULL
+        ELSE
+            specs.rel_date
+    END AS rel_date,
+                             --= (select min(release_date) From cvo_inv_master_r2_vw where collection = i.category
+                             --	and model = ia.field_2)
+    CASE
+        WHEN #style.pom_date = '1/1/1900' THEN
+            NULL
+        ELSE
+            #style.pom_date
+    END AS pom_date,
+    #style.mth_since_rel,
+    #style.[Sales M1-3] s_sales_m1_3,
+    #style.[Sales M1-12] s_sales_m1_12,
+    #style.s_e4_wu,
+    #style.s_e12_wu,
+    #style.s_e52_wu,
+    #style.s_promo_w4,
+    #style.s_promo_w12,
+    #style.s_gross_w4,
+    #style.s_gross_w12,
+                             -- , #SKU.*
+    #sku.LINE_TYPE,
+    #sku.sku,
+    #sku.location,
+    #sku.mm,
+    CASE
+        WHEN #style.rel_date <> ISNULL(ia.field_26, #style.rel_date) THEN
+            ia.field_26
+    END AS p_rel_date,
+    CASE
+        WHEN #style.pom_date <> ISNULL(ia.field_28, #style.pom_date) THEN
+            ia.field_28
+    END AS p_pom_date,
+    (
+        SELECT lead_time
+        FROM inv_list il
+        WHERE
+            il.part_no = #sku.sku
+            AND il.location = '001'
+    ) lead_time,
+    #sku.bucket,
+    #sku.QOH,
+    #sku.atp,
+    #sku.reserve_qty,
+    #sku.quantity,
+    #sku.mult,
+    #sku.s_mult,
+    #sku.sort_seq,
+    #sku.alloc_qty,
+    #sku.non_alloc_qty,
+    #t.pct_of_style,
+    #t.pct_first_po,
+    #t.pct_sales_style_m1_3,
+    #t.p_e4_wu,
+    #t.p_e12_wu,
+    #t.p_e52_wu,
+    #t.p_subs_w4,
+    #t.p_subs_w12,
+    #t.s_mth_usg,
+    #t.p_mth_usg,
+    #t.s_mth_usg_mult,
+    #t.p_sales_m1_3,
+    p_po_qty_y1 = CASE
+                      WHEN #sku.LINE_TYPE = 'V'
+                           AND #sku.sort_seq = 1 THEN
+                          ISNULL(
+                          (
+                              SELECT SUM(qty_ordered)
+                              FROM
+                                  pur_list p (NOLOCK)
+                                  INNER JOIN inv_master i (NOLOCK)
+                                      ON i.part_no = p.part_no
+                                  INNER JOIN inv_master_add ia (NOLOCK)
+                                      ON ia.part_no = i.part_no
+                              WHERE
+                                  1 = 1
+                                  AND i.void = 'n'
+                                  AND p.void <> 'V' -- 8/3/2016
+                                  AND p.part_no = #sku.sku
+                                  AND p.rel_date <= DATEADD(yy, 1, ia.field_26)
+                                  AND p.type = 'p'
+                                  AND p.location = '001'
+                          ),
+                                    0
+                                )
+                      ELSE
+                          0
+                  END,
+    CASE
+        WHEN #style.pom_date IS NULL
+             OR #style.pom_date = '1/1/1900' THEN
+            r.ORDER_THRU_DATE
+        WHEN #style.pom_date < r.ORDER_THRU_DATE THEN
+            #style.pom_date
+        ELSE
+            r.ORDER_THRU_DATE
+    END AS ORDER_THRU_DATE,
+    r.TIER,                  -- 7/8/2016
+    i.type_code p_type_code, -- res type of sku, not style - 11/1/2016
+    #t.s_rx_w4,              -- 12/5/2016
+    #t.s_rx_w12,
+    #t.p_rx_w4,
+    #t.p_rx_w12,
+    #t.s_ret_w4,
+    #t.s_ret_w12,
+    #t.p_ret_w4,
+    #t.p_ret_w12,
+    #t.s_wty_w4,
+    #t.s_wty_w12,
+    #t.p_wty_w4,
+    #t.p_wty_w12,
+    #t.p_gross_w4,
+    #t.p_gross_w12,
+    specs.price,
+    specs.frame_type
+FROM
+    #sku
+    INNER JOIN #t
+        ON #t.part_no = #sku.sku
+           AND #t.mm = #sku.mm
+           AND #t.location = #sku.location
+           AND #t.mult = #sku.mult
+           AND #t.sort_seq = #sku.sort_seq
+    INNER JOIN inv_list IL
+        ON IL.location = #t.location
+           AND IL.part_no = #t.part_no
+    INNER JOIN inv_master i (NOLOCK)
+        ON #sku.sku = i.part_no
+    INNER JOIN inv_master_add ia (NOLOCK)
+        ON #sku.sku = ia.part_no
+    INNER JOIN #style
+        ON #style.brand = i.category
+           AND #style.style = ia.field_2
+           AND #style.location = #sku.location
+    LEFT OUTER JOIN
+    (
+        SELECT
+            i.category brand,
+            ia.field_2 style,
+            i.vendor,
+            MAX(i.type_code) type_code,
+            MAX(category_2) gender,
+                                                             -- MAX(i.cmdty_code) material ,
+            MAX(ISNULL(ia.field_10, i.cmdty_code)) material, -- 12/12/2016
+            MAX(ISNULL(ia.field_11, 'UNKNOWN')) frame_type,
+            MAX(ISNULL(ia.category_1, '')) watch,
+            (
+                SELECT TOP 1 MOQ_info FROM cvo_Vendor_MOQ WHERE Vendor_Code = i.vendor
+            ) moq,
+            MAX(ISNULL(ia.field_32, '')) sf,
+            MIN(ISNULL(ia.field_26, '1/1/1900')) rel_date,
+            MAX(pp.price_a) price
+        FROM
+            inv_master i (NOLOCK)
+            JOIN #type AS t
+                ON t.type_code = i.type_code
+            INNER JOIN inv_master_add ia (NOLOCK)
+                ON ia.part_no = i.part_no
+            INNER JOIN part_price pp (NOLOCK)
+                ON pp.part_no = i.part_no
+        WHERE
+            1 = 1
+            -- AND i.type_code IN ( 'frame', 'sun', 'bruit' )
+            AND i.void = 'n'
+            AND ISNULL(ia.field_32, '') <> 'SpecialOrd'
+        GROUP BY
+            i.category,
+            ia.field_2,
+            i.vendor
+    ) AS specs
+        ON specs.brand = #style.brand
+           AND specs.style = #style.style
+    INNER JOIN
+    (SELECT DISTINCT brand, style FROM #WOH
+		WHERE woh <> 9999) WOH
+        ON WOH.brand = #style.brand
+           AND WOH.style = #style.style
+    LEFT OUTER JOIN cvo_ifp_rank r
+        ON r.brand = #style.brand
+           AND r.style = #style.style
+;
 
 end
+
 
 
 

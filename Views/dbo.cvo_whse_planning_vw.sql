@@ -24,18 +24,23 @@ AS
             ISNULL(pb.[primary], 'N') primary_bin ,
 			bm.maximum_level, -- 1/18/2017 - per KM request
 			bm.status,
+			tbr.replenish_max_lvl,
 			ia.field_26 rel_date,
 			ia.field_28 pom_date
     FROM    inv_master i ( NOLOCK ) 
 			INNER JOIN inv_master_add ia (nolock) ON ia.part_no = i.part_no
 		    INNER JOIN inv_list il ( NOLOCK ) ON il.part_no = i.part_no AND location = '001'
 			LEFT OUTER JOIN lot_bin_stock b ( NOLOCK ) ON b.part_no = i.part_no AND b.location = il.location
+			LEFT OUTER JOIN tdc_bin_master (NOLOCK) bm ON bm.bin_no = b.bin_no
+                                                          AND bm.location = b.location
 			LEFT OUTER JOIN tdc_bin_part_qty pb ON pb.location = il.location
                                                    AND pb.part_no = i.part_no
 												   AND pb.bin_no = b.bin_no
+			LEFT OUTER JOIN dbo.tdc_bin_replenishment AS tbr ON tbr.location = il.location
+													AND tbr.part_no = i.part_no
+													AND tbr.bin_no = b.bin_no
             
-            LEFT OUTER JOIN tdc_bin_master (NOLOCK) bm ON bm.bin_no = b.bin_no
-                                                          AND bm.location = b.location
+
     WHERE   1 = 1
 		AND i.void = 'n'
     UNION -- assigned bins with no inventory
@@ -56,6 +61,7 @@ AS
             s.[primary] ,
 			m.maximum_level,
 			m.status,
+			tbr.replenish_max_lvl,
 			ia.field_26 rel_date,
 			ia.field_28 pom_date
     FROM    tdc_bin_part_qty s ( NOLOCK )
@@ -68,6 +74,9 @@ AS
             LEFT JOIN lot_bin_stock l ( NOLOCK ) ON s.location = l.location
                                                     AND s.part_no = l.part_no
                                                     AND s.bin_no = l.bin_no
+			LEFT OUTER JOIN dbo.tdc_bin_replenishment AS tbr ON tbr.location = il.location
+													AND tbr.part_no = i.part_no
+													AND tbr.bin_no = l.bin_no
     WHERE   l.location IS NULL
             AND l.part_no IS NULL
             AND l.bin_no IS NULL
@@ -89,6 +98,7 @@ AS
             'N' [primary] ,
 			m.maximum_level,
 			m.status,
+			0 AS max_replenish,
 			NULL AS rel_date,
 			NULL AS pom_date
     FROM    tdc_bin_master m (NOLOCK)
@@ -99,6 +109,7 @@ AS
 			
 			;
     
+
 
 
 

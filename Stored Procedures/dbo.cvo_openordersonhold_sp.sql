@@ -2,13 +2,15 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[cvo_openordersonhold_sp] @ToDate DATETIME, @FutShip INT = 0
+CREATE PROCEDURE [dbo].[cvo_openordersonhold_sp] @ToDate DATETIME = null, @FutShip INT = 0
 
 AS
 BEGIN
  --declare @ToDate datetime
  --select  @ToDate = getdate()
  -- exec cvo_openordersonhold_sp '05/11/2016', 0
+
+IF @todate IS NULL SELECT @todate = begindate FROM dbo.cvo_date_range_vw AS drv WHERE period = 'yesterday'
 
 select oo.order_no ,
        oo.ext ,
@@ -108,6 +110,7 @@ AND ((oo.date_sch_ship < dateadd(d,1,@ToDate)  )
 
 
 END
+
 
 
 

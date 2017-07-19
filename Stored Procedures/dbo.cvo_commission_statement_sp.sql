@@ -6,7 +6,7 @@ CREATE PROCEDURE [dbo].[cvo_commission_statement_sp]
     @FiscalPeriod VARCHAR(10)
 AS 
 
--- exec cvo_commission_statement_sp '03/2017'
+-- exec cvo_commission_statement_sp '06/2017'
 
     SET NOCOUNT ON;
 
@@ -21,7 +21,7 @@ AS
             @month INT;
 
 --DECLARE @fiscalperiod VARCHAR(10)
--- SELECT @fiscalperiod = '03/2017'
+-- SELECT @fiscalperiod = '06/2017'
 
         SELECT  @fp = @FiscalPeriod;
 
@@ -70,7 +70,7 @@ AS
                           mm
                         )
                         SELECT DISTINCT
-                                salesperson ,
+                                ccswt.salesperson ,
                                 sp.salesperson_name ,
                                 ccswt.territory ,
                                 dbo.calculate_region_fn(ccswt.territory) region ,
@@ -81,6 +81,7 @@ AS
                                 RIGHT('00' + CAST(@i AS VARCHAR(2)), 2) mm
                         FROM    dbo.cvo_commission_summary_work_tbl AS ccswt
 						JOIN arsalesp sp ON ccswt.salesperson = sp.salesperson_code 
+						-- AND ccswt.territory = sp.territory_code
 						UNION ALL
                         SELECT DISTINCT
                                 sp.salesperson_code salesperson ,
@@ -95,7 +96,8 @@ AS
                         FROM    arsalesp sp
 						WHERE sp.status_type = 1 AND NOT EXISTS 
 						(SELECT 1 FROM dbo.cvo_commission_summary_work_tbl AS ccswt WHERE ccswt.salesperson = sp.salesperson_code
-							AND RIGHT(@FiscalPeriod,4) = RIGHT(ccswt.report_month,4))
+							AND RIGHT(@FiscalPeriod,4) = RIGHT(ccswt.report_month,4)
+							AND ccswt.territory = sp.territory_code) -- 7/17
 						;
                 SELECT  @i = @i + 1;
             END;
@@ -183,7 +185,9 @@ AS
                                                               2) AS INT)
                                 ) ty ON ty.salesperson = #mm.salesperson
                                         AND #mm.mm = LEFT(ty.report_month, 2)
-                LEFT OUTER JOIN ( SELECT    c.salesperson ,
+										AND #mm.territory = ty.territory -- 7/17
+                 LEFT OUTER JOIN ( SELECT    c.salesperson ,
+											 c.territory,
                                             LEFT(c.report_month, 2) month_num ,
                                             c.total_earnings
                                   FROM      cvo_commission_history_tbl c
@@ -192,21 +196,27 @@ AS
                                                               2) AS INT)
                                 ) tyhist ON #mm.salesperson = tyhist.salesperson
                                             AND #mm.mm = tyhist.month_num
+											AND #mm.territory = tyhist.territory
                 LEFT OUTER JOIN ( SELECT    c.salesperson ,
+											c.territory,
                                             LEFT(c.report_month, 2) month_num ,
                                             ISNULL(total_earnings, 0.00) total_earnings
                                   FROM      cvo_commission_summary_work_tbl c
                                   WHERE     CAST(RIGHT(c.report_month, 4) AS INT) = @prior_year
                                 ) ly ON #mm.salesperson = ly.salesperson
                                         AND #mm.mm = ly.month_num
+										AND #mm.territory = ly.territory -- 7/17
                 LEFT OUTER JOIN ( SELECT    c.salesperson ,
+											c.territory,
                                             LEFT(c.report_month, 2) month_num ,
                                             c.total_earnings
                                   FROM      cvo_commission_history_tbl c
                                   WHERE     CAST(RIGHT(c.report_month, 4) AS INT) = @prior_year
                                 ) lyhist ON #mm.salesperson = lyhist.salesperson
                                             AND lyhist.month_num = #mm.mm
+											AND lyhist.territory = #mm.territory
 				LEFT OUTER JOIN ( SELECT	cpv.rep_code, 
+											cpv.territory,
 											LEFT(cpv.recorded_month,2) month_num,
 											SUM(ISNULL(incentive_amount, 0)) addition1,
 											MAX(ISNULL(cpv.comments,'')) additionrsn1
@@ -216,11 +226,14 @@ AS
                               WHERE   cpv.line_type = 'Close Out Adj'
 									  AND RIGHT(cpv.recorded_month, 4) = @year
 							  GROUP BY cpv.rep_code ,
+									cpv.territory,
 									   LEFT(cpv.recorded_month,2)
                               HAVING    SUM(ISNULL(incentive_amount, 0)) > 0
                             ) addition1 ON #mm.salesperson = addition1.rep_code
-										AND  #mm.mm = addition1.month_num 
+										AND  #mm.mm = addition1.month_num
+										AND #mm.territory = addition1.territory 
 				LEFT OUTER JOIN ( SELECT	cpv.rep_code, 
+											cpv.territory,
 											LEFT(cpv.recorded_month,2) month_num,
 											SUM(ISNULL(incentive_amount, 0)) addition2
 											 -- closeouts
@@ -231,12 +244,15 @@ AS
                                         'Adj/Additional Adj 1',
                                         'Adj/Additional Adj 2' )
 							  GROUP BY cpv.rep_code ,
+									   cpv.territory,
 									   LEFT(cpv.recorded_month,2)
                               HAVING    SUM(ISNULL(incentive_amount, 0)) > 0
                             ) addition2 ON #mm.salesperson = addition2.rep_code
 										AND  #mm.mm = addition2.month_num 
+										AND #mm.territory = addition2.territory
 
 				 LEFT OUTER JOIN ( SELECT	cpv.rep_code, 
+											cpv.territory,
 											LEFT(cpv.recorded_month,2) month_num,
 											SUM(ISNULL(incentive_amount, 0)) addition3
 											 -- closeouts
@@ -245,13 +261,16 @@ AS
                               WHERE     RIGHT(cpv.recorded_month, 4) = @year
                                         AND LTRIM(RTRIM(cpv.line_type)) IN ('Adj/Additional Adj 3' )
 							  GROUP BY cpv.rep_code ,
+									   cpv.territory, 
 									   LEFT(cpv.recorded_month,2)
                               HAVING    SUM(ISNULL(incentive_amount, 0)) > 0
                             ) addition3 ON #mm.salesperson = addition3.rep_code
 										AND  #mm.mm = addition3.month_num 
+										AND #mm.territory = addition3.territory
 
                 LEFT OUTER JOIN ( SELECT DISTINCT
                                             c.rep_code ,
+											c.territory,
                                             LEFT(c.recorded_month, 2) month_num ,
                                             REPLACE(STUFF(( SELECT DISTINCT
                                                               '; '
@@ -262,6 +281,7 @@ AS
                                                               AS ccpv2
                                                             WHERE
                                                               c.rep_code = ccpv2.rep_code
+															  AND c.territory = ccpv2.territory
                                                               AND ISNULL(ccpv2.line_type,
                                                               '') IN (
                                                               'Adj/Additional Adj 1',
@@ -280,8 +300,10 @@ AS
                                             AND c.recorded_month <= @FiscalPeriod
                                 ) additionalrsn2 ON #mm.salesperson = additionalrsn2.rep_code
                                                     AND #mm.mm = additionalrsn2.month_num
+													AND #mm.territory = additionalrsn2.territory
                 LEFT OUTER JOIN ( SELECT DISTINCT
                                             c.rep_code ,
+											c.territory,
                                             LEFT(c.recorded_month, 2) month_num ,
                                             REPLACE(STUFF(( SELECT DISTINCT
                                                               '; '
@@ -292,6 +314,7 @@ AS
                                                               AS ccpv2
                                                             WHERE
                                                               c.rep_code = ccpv2.rep_code
+															  AND c.territory = ccpv2.territory
                                                               AND ISNULL(ccpv2.line_type,
                                                               '') IN (
                                                               'Adj/Additional Adj 3' )
@@ -309,8 +332,10 @@ AS
                                             AND c.recorded_month <= @FiscalPeriod
                                 ) additionalrsn3 ON #mm.salesperson = additionalrsn3.rep_code
                                                     AND #mm.mm = additionalrsn3.month_num
+													AND #mm.territory = additionalrsn3.territory
                 LEFT OUTER JOIN ( SELECT DISTINCT
                                             c.rep_code ,
+											c.territory,
                                             LEFT(c.recorded_month, 2) month_num ,
 											SUM(ISNULL(c.incentive_amount,0)) reduction1,
                                             REPLACE(STUFF(( SELECT DISTINCT '; ' + ISNULL(ccpv2.comments, '')
@@ -318,6 +343,7 @@ AS
                                                               dbo.cvo_commission_promo_values AS ccpv2
                                                             WHERE
                                                               c.rep_code = ccpv2.rep_code
+															  AND c.territory = ccpv2.territory
                                                               AND ISNULL(ccpv2.line_type, '') IN ( 'manual reduction' )
                                                               AND ISNULL(ccpv2.incentive_amount, 0) < 0
                                                               AND LEFT(ccpv2.recorded_month,2) = LEFT(c.recorded_month, 2)
@@ -332,43 +358,51 @@ AS
                                             AND c.recorded_month <= @FiscalPeriod
 											AND ISNULL(c.line_type, '') IN ( 'manual reduction' )
 								  GROUP BY LEFT(c.recorded_month, 2) ,
-                                           c.rep_code 
+                                           c.rep_code ,
+										   c.territory
                                 ) reductionrsn1 ON #mm.salesperson = reductionrsn1.rep_code
                                                     AND #mm.mm = reductionrsn1.month_num
+													AND #mm.territory = reductionrsn1.territory
 
 
                 LEFT OUTER JOIN ( SELECT DISTINCT
 										g.rep_code,
+										g.territory,
 										g.comments
 									FROM
 										dbo.cvo_commission_promo_values g
 										JOIN
 										( SELECT
-												rep_code, MAX(date) max_date
+												rep_code, cpv.territory, MAX(date) max_date
 											FROM dbo.cvo_commission_promo_values AS cpv
 											WHERE cpv.line_type = 'General'
-											GROUP BY rep_code
+											GROUP BY rep_code, cpv.territory
 										) gg
 											ON gg.rep_code = g.rep_code
+												AND gg.territory = g.territory
 											   AND gg.max_date = g.date
 									WHERE g.line_type = 'General'
 
                                 ) general ON #mm.salesperson = general.rep_code
+											AND #mm.territory = general.territory
                 LEFT OUTER JOIN ( SELECT    rep_code ,
+											territory, 
                                             LEFT(recorded_month, 2) month_num ,
                                             SUM(ISNULL(incentive_amount, 0)) spec_pay
                                   FROM      dbo.cvo_commission_promo_values
                                   WHERE     line_type = 'special payment'
                                             AND @year = CAST(RIGHT(recorded_month,4) AS INT)
                                   GROUP BY  LEFT(recorded_month, 2) ,
-                                            rep_code
+                                            rep_code,
+											 territory
                                 ) spec_pay ON #mm.salesperson = spec_pay.rep_code
                                               AND #mm.mm = spec_pay.month_num
+											  AND #mm.territory = spec_pay.territory
 		;
 
 		DELETE FROM #final WHERE 
-		#final.salesperson IN 
-		(SELECT salesperson FROM #final GROUP BY salesperson HAVING SUM(amount) = 0);
+		#final.salesperson+#final.territory IN 
+		(SELECT salesperson+territory FROM #final GROUP BY salesperson, territory HAVING SUM(amount) = 0);
 
 		SELECT id ,
                salesperson ,
@@ -409,7 +443,6 @@ AS
                spec_pay FROM #final;
 
     END;
-
 
 
 

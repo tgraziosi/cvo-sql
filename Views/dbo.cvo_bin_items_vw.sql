@@ -31,12 +31,13 @@ FROM
 	GROUP BY location, sbm.part_no
 	) sbm ON sbm.part_no = biv.part_no AND sbm.location = biv.location
 	LEFT OUTER JOIN
-    (SELECT location, part_no, SUM(qty) alloc_qty
+    (SELECT location, part_no, bin_no, SUM(qty) alloc_qty
 	FROM tdc_soft_alloc_tbl (NOLOCK) alc
-	GROUP BY location, alc.part_no
+	GROUP BY location, alc.part_no, alc.bin_no
 	)
-	alc ON alc.location = biv.location AND alc.part_no = iv.part_no
+	alc ON alc.location = biv.location AND alc.part_no = biv.part_no AND alc.bin_no = biv.bin_no
 ;
+
 
 
 
