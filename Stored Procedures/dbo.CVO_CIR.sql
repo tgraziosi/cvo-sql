@@ -20,7 +20,7 @@ select territory_code, * From armaster where customer_code = '044057'
 
 */
 
-CREATE PROCEDURE [dbo].[CVO_CIR]
+CREATE PROCEDURE [dbo].[CVO_CIR] @pom_asof DATETIME =  null
 AS
     SET NOCOUNT ON;
 
@@ -32,7 +32,7 @@ AS
     DECLARE @f24 DATETIME; --v3.3
     DECLARE @LYstart DATETIME;
     DECLARE @TYstart DATETIME;
-    DECLARE @pom_asof DATETIME;
+    -- DECLARE @pom_asof DATETIME;
 
 /**
 	3/12/2012 - TAG - Rewrite                    
@@ -74,11 +74,13 @@ AS
 -- get the first and last day of this month                                 
 --SET @first=(SELECT CONVERT(VARCHAR(25),DATEADD(dd,-(DAY(getdate())-1),getdate()),101))      
     SET @first = ( SELECT   CONVERT(VARCHAR(25), GETDATE(), 101)
-                 ); -- today       
+                 ); -- today   
+				 
+IF @pom_asof IS NULL     
     SET @pom_asof = @first;
 
 -- UNCOMMENT FOR THE PRINTED CIR RUN
--- set @pom_asof = '04/25/2017'
+-- set @pom_asof = '07/25/2017'
           
 -- set @first = '08/28/2013'
                   
@@ -961,6 +963,7 @@ AS
     FROM    cvo_carbi;
 
 -- 
+
 
 
 

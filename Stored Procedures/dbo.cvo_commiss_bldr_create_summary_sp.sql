@@ -11,13 +11,17 @@ AS
 
 SET NOCOUNT ON;
 
--- exec cvo_commiss_bldr_create_summary_sp '06/2017', 'keeseela'
--- exec dbo.cvo_commission_bldr_sp '06/01/2017', '06/30/2017' ,'30336,30337,30338'
--- SELECT * FROM cvo_commission_summary_work_tbl AS ccswt where report_month = '05/2017' and salesperson = 'garrowjo'
+-- exec cvo_commiss_bldr_create_summary_sp '06/2017', 'bassetbo'
+-- exec dbo.cvo_commission_bldr_sp '06/01/2017', '06/30/2017' ,'30399,30310'
+-- SELECT * FROM cvo_commission_bldr_work_tbl AS ccswt where fiscal_period = '06/2017' and salesperson = 'bassetbo'
 -- update v set v.rep_code = slp.salesperson_code
 	-- From cvo_commission_promo_values v
 	--LEFT OUTER JOIN arsalesp slp ON slp.salesperson_name = v.rep_code
--- select * From cvo_commission_promo_values 
+--select * From cvo_commission_promo_values  WHERE rep_code = 'bassetbo'
+----SELECT * FROM dbo.cvo_commission_summary_work_tbl AS cswt WHERE cswt.territory = '30399'
+-- = 'bassetbo'
+
+--SELECT * FROM arsalesp WHERE salesperson_code = 'bassetbo'
 
 DECLARE @start_date DATETIME, @end_date DATETIME, @fp VARCHAR(10), @drawweeks INT, @pfp VARCHAR(10)
 
@@ -100,9 +104,9 @@ select a.Salesperson ,
        a.amount ,
 	   -- a.comm_amt
 	   ISNULL(comm_over.comm_amt, ISNULL( a.comm_amt, 0)) comm_amt -- 5/3/2017
-	   , ISNULL(draw_over.draw_amount, ISNULL( d.draw_amount, r.draw_amount)) draw_amount
+	   , ISNULL(draw_over.draw_amount, ISNULL( d.draw_amount, CASE WHEN a.Territory = r.territory_code THEN r.draw_amount ELSE 0 end)) draw_amount
 	   , ISNULL(draw_over.qty, @drawweeks) drawweeks
-	   , total_draw = ISNULL(draw_over.draw_amount, ISNULL( d.draw_amount, r.draw_amount)) * ISNULL(draw_over.qty, @drawweeks)
+	   , total_draw = ISNULL(draw_over.draw_amount, ISNULL( d.draw_amount, CASE WHEN a.Territory = r.territory_code THEN r.draw_amount ELSE 0 end)) * ISNULL(draw_over.qty, @drawweeks)
 	   --, pfp.net_pay, pfphist.net_pay
 	   , prior_month_bal = CASE WHEN pfphist.net_pay IS NULL OR pfphist.net_pay = 0 THEN ISNULL(pfp.net_pay,0)
 							ELSE pfphist.net_pay
@@ -143,14 +147,19 @@ from
 			,fiscal_period) a
 	LEFT OUTER JOIN
 
-    (SELECT distinct salesperson, Territory, draw_amount
-	FROM dbo.cvo_commission_bldr_work_tbl 
-	WHERE fiscal_period = @fp AND 
-	salesperson = ISNULL(@slp, salesperson)
-	AND DateShipped = 
+    (SELECT distinct salesperson, Territory, wrk.draw_amount
+	FROM dbo.cvo_commission_bldr_work_tbl wrk
+	JOIN arsalesp slp ON slp.salesperson_code = @slp 
+	WHERE fiscal_period = @fp 
+	AND wrk.salesperson = ISNULL(@slp, salesperson)
+	AND wrk.Territory = slp.territory_code
+	AND wrk.DateShipped = 
 	(SELECT max(dateshipped) 
-	FROM dbo.cvo_commission_bldr_work_tbl 
-	WHERE salesperson = ISNULL(@slp, salesperson) AND fiscal_period = @fp)
+	FROM dbo.cvo_commission_bldr_work_tbl w
+	JOIN arsalesp slpp ON slpp.salesperson_code = w.Salesperson
+	WHERE salesperson = ISNULL(@slp, salesperson) AND fiscal_period = @fp
+	AND slpp.territory_code = w.Territory
+	)
 	) d ON d.salesperson = a.salesperson AND d.territory = a.territory
 
 	JOIN arsalesp r ON r.salesperson_code = a.Salesperson

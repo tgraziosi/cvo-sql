@@ -3,13 +3,40 @@ GO
 SET ANSI_NULLS ON
 GO
 CREATE PROCEDURE [dbo].[cvo_brand_release_analyze_sp] 
-	(@coll VARCHAR(10) = NULL, @rel_start DATETIME, @rel_end DATETIME, @wk1 INT = null, @wk2 INT = null)
+	(@coll VARCHAR(1024) = NULL, @gender VARCHAR(512),
+	 @rel_start DATETIME, @rel_end DATETIME, @wk1 INT = null, @wk2 INT = null)
 
 AS 
 
--- exec cvo_brand_release_analyze_sp 'as', '1/1/2015', '12/7/2016'
+-- exec cvo_brand_release_analyze_sp 'as,pt', '1/1/2015', '12/7/2016'
 
 SET NOCOUNT ON;
+
+
+CREATE TABLE #coll ([coll] VARCHAR(20))
+if @coll is null
+begin
+	insert into #coll
+	select distinct kys from category where void = 'n'
+end
+else
+begin
+	INSERT INTO #coll ([coll])
+	SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@coll)
+END
+
+
+CREATE TABLE #gender ([gender] VARCHAR(20))
+if @gender is null
+begin
+	insert into #gender
+	select distinct kys from cvo_gender where void = 'n'
+end
+else
+begin
+	INSERT INTO #gender ([gender])
+	SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@gender)
+END
 
 IF @wk1 IS NULL SET @wk1 = 6
 IF @wk2 IS NULL SET @wk2 = 10
@@ -30,15 +57,17 @@ SUM(CASE WHEN sbm.return_code <> 'exc' THEN sbm.qreturns ELSE 0 END) return_qty,
 SUM(qsales) sales_qty,
 SUM(CASE WHEN sbm.promo_id <> '' AND DATEDIFF(MONTH,ia.field_26,sbm.yyyymmdd) <=3 THEN qsales ELSE 0 end) qty_on_promo_m1_3
 
-FROM inv_master_add ia
+FROM #coll c
+JOIN inv_master i ON i.category = c.coll
+JOIN inv_master_add ia ON ia.part_no = i.part_no
+JOIN #gender g ON g.gender = ia.category_2
 JOIN cvo_sbm_details sbm ON sbm.part_no = ia.part_no
 JOIN dbo.CVO_armaster_all AS car ON car.ship_to = sbm.ship_to AND car.customer_code = sbm.customer
 JOIN ARMASTER AR ON AR.customer_code = car.customer_code AND AR.ship_to_code = car.ship_to
-JOIN inv_master i ON i.part_no = sbm.part_no
 WHERE 
 ia.field_26 BETWEEN @rel_start AND @rel_end
 AND sbm.yyyymmdd >= @rel_start
-AND i.category = CASE WHEN @coll IS NULL THEN i.category ELSE @coll end
+-- AND i.category = CASE WHEN @coll IS NULL THEN i.category ELSE @coll end
 AND i.type_code IN ('frame','sun')
 AND ISNULL(ia.field_32,'') NOT IN ('hvc','retail','specialord')
 GROUP BY ar.customer_code + CASE WHEN car.door = 1 THEN '-' + ar.ship_to_code
@@ -70,12 +99,14 @@ rel AS
 			   MAX(ISNULL(ccv.front_material, ISNULL(ia.field_10,''))) Material,
 			   MAX(ISNULL(ccv.PrimaryDemographic,ISNULL(ia.category_2,''))) PrimaryDemographic, 
 			   MAX(ISNULL(ccv.frame_category, ISNULL(ia.field_11,''))) Frame_type
-	     FROM inv_master_add ia 
-	    JOIN inv_master i ON i.part_no = ia.part_no 
+	     FROM #coll c
+	    JOIN inv_master i ON i.category = c.coll
+		JOIN inv_master_add ia ON ia.part_no = i.part_no
+		JOIN #gender g ON g.gender = ia.category_2
 		LEFT OUTER JOIN dbo.cvo_cmi_catalog_view AS ccv ON ccv.upc_code = i.upc_code
 		WHERE ISNULL(void,'N') =  'N'
 		and ia.field_26 BETWEEN @rel_start AND @rel_end
-		AND i.category = CASE WHEN @coll IS NULL THEN i.category ELSE @coll end
+		-- AND i.category = CASE WHEN @coll IS NULL THEN i.category ELSE @coll end
 		AND i.type_code IN ('frame','sun')
 		GROUP BY 
 				 --ISNULL(ccv.eye_shape, '') ,
@@ -132,6 +163,7 @@ SELECT CONVERT(DATETIME,MIN(cte.rel_date),110) rel_date,
                 rel.Material ,
                 rel.PrimaryDemographic ,
                 rel.Frame_type
+
 
 
 
