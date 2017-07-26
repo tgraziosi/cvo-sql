@@ -585,7 +585,7 @@ BEGIN
 				 trx_ctrl_num,    
 				 'status_code' = ISNULL(status_code, '  '),    
 				 'status_date' = CASE WHEN date_doc > 639906 THEN CONVERT(varchar(12), DATEADD(dd, status_date - 639906, '1/1/1753'),101) ELSE '  ' END,    
-				 RIGHT(ISNULL(cust_po_num,'   '),10), -- 7/21 TAG    
+				 cust_po_num,     
 				 age_bucket,    
 				 'date_due' = CASE WHEN date_due > 639906 THEN CONVERT(varchar(12), DATEADD(dd, date_due - 639906, '1/1/1753'),101)     
 			--      ELSE 'Invalid Date' END,    
@@ -606,6 +606,7 @@ BEGIN
     
 	DROP TABLE #bg_data
 END
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cc_open_inv_sp] TO [public]

@@ -20,7 +20,11 @@ BEGIN
 
 	SET NOCOUNT ON;
 	
-	IF(OBJECT_ID('#AllTerr') is not null) DROP table t#AllTerr
+	DECLARE @today DATETIME
+	SELECT @today  = GETDATE()
+
+	
+	IF(OBJECT_ID('#userGroup') is not null) DROP table t#AllTerr
       ;WITH C AS 
 			( SELECT DISTINCT ar.territory_code, ar.customer_code 
 			from
@@ -35,34 +39,34 @@ BEGIN
                               FROM armaster (nolock)
                               WHERE customer_code = C.customer_code
                              FOR XML PATH ('') ), 1, 1, ''  ) AS AllTerr
-      INTO #AllTerr
+      INTO #userGroup
       FROM C
 
 	  -- add sales rep customers too - 8/19/2015
-	  INSERT INTO #allterr  (customer_code, AllTerr)
+	  INSERT INTO #userGroup  (customer_code, AllTerr)
 	  SELECT DISTINCT ISNULL(employee_code,'') customer_code, territory_code
 	  FROM arsalesp (NOLOCK) 
 	  WHERE ISNULL(employee_code,'') > ''
 	  AND status_type = 1
-	  AND NOT EXISTS(SELECT 1 FROM #allterr WHERE #allterr.customer_code = ISNULL(employee_code,'') )
+	  AND NOT EXISTS(SELECT 1 FROM #userGroup WHERE #userGroup.customer_code = ISNULL(employee_code,'') )
 
 	  -- 2/3/2017 - updated territory list
 	  -- 3/16/2017 - new list per email
 
-	  UPDATE #allterr SET AllTerr = allterr + ',I-Sales'
+	  UPDATE #userGroup SET AllTerr = allterr + ',I-Sales'
 	  WHERE allterr LIKE '%50534%'
 		 OR customer_code = '052931'
 		 OR customer_code = '053318'
 		 OR customer_code = '014910'
 
 -- for Phil for VE - 032717
-	  UPDATE #allterr SET AllTerr = allterr + ',20206'
+	  UPDATE #userGroup SET AllTerr = allterr + ',20206'
 	  WHERE customer_code = '014443'
 
-	  --UPDATE #allterr SET allterr = allterr + ',50530' -- removed 6/14/17 - territory no longer empty KM will not be servicing
+	  --UPDATE #userGroup SET allterr = allterr + ',50530' -- removed 6/14/17 - territory no longer empty KM will not be servicing
 	  --WHERE AllTerr LIKE '%50510%'
 
-	  -- SELECT * FROM #allterr
+	  -- SELECT * FROM #userGroup
 
 -- PULL LIST FOR CUSTOMERS
 --IF(OBJECT_ID('dbo.hs_cust_tbl') is not null)
@@ -72,7 +76,7 @@ IF(OBJECT_ID('#hs') is not null) DROP table #hs
 
 
 
-SELECT t1.customer_code as id, 
+SELECT ar.customer_code as id, 
 addr1 as name,
 contact_name as contact,
 email = CASE WHEN (contact_email LIKE '%cvoptical.com'
@@ -101,16 +105,47 @@ CASE WHEN ( isnull(VALID_SHIPTO_FLAG,1) = 1) THEN tlx_twx ELSE '' END as ship_fa
 UPPER(terms_code) as paymentTerms,
 ship_via_code as shippingMethod,
 'CVO' as customerGroup,
-#allterr.allterr as userGroup,
+#userGroup.allterr as userGroup,
 '' as taxID,
+ISNULL(ar.addr_sort1,'') AccountType,
+openar = CASE WHEN saat.BG_CODE <> '' THEN 'Buying Group: '+saat.BG_CODE
+			  WHEN saat.bal > saat.CREDIT_LIMIT THEN 'Over Credit Limit'
+			  WHEN saat.bal < 0 THEN 'Credit Balance'
+			  WHEN saat.ar30+saat.ar60+ar90+ar120+ar150 <> 0 THEN 'Past Due > 30 Days'
+			  ELSE 'Current' end	,
+designations.desig AS designations,
+lastst.laststdate laststdate,
+
 -- 071213 - tag -  add for HS sync
 added_by_date,
 modified_by_date
 
 INTO #hs
 
-FROM armaster t1 (nolock)
-INNER JOIN #allterr (nolock) on t1.customer_code = #allterr.customer_code
+FROM armaster ar (nolock)
+INNER JOIN #userGroup (nolock) on ar.customer_code = #userGroup.customer_code
+LEFT OUTER JOIN dbo.SSRS_ARAging_Temp AS saat on saat.CUST_CODE = ar.customer_code
+LEFT OUTER JOIN ( SELECT    c.customer_code ,
+                            RIGHT(c.customer_code, 5) MergeCust ,
+                            STUFF(( SELECT  '; ' + code
+                                    FROM    cvo_cust_designation_codes (NOLOCK)
+                                    WHERE   customer_code = c.customer_code
+                                            AND ISNULL(start_date, @today) <= @today
+                                            AND ISNULL(end_date, @today) >= @today
+                                    FOR
+                                    XML PATH('')
+                                    ), 1, 1, '') desig
+                    FROM      dbo.cvo_cust_designation_codes (NOLOCK) c
+                ) AS designations ON designations.MergeCust = RIGHT(ar.customer_code,5)
+LEFT OUTER JOIN
+( SELECT cust_code, MAX(date_entered) laststdate
+FROM orders o 
+WHERE status = 't' AND type = 'i' 
+	AND LEFT(o.USER_category,2) = 'st' 
+	AND RIGHT(o.user_category,2) <> 'rb'
+GROUP BY o.cust_code
+) lastst ON lastst.cust_code = ar.customer_code
+
 WHERE 1=1
 AND STATUS_TYPE=1
 AND ADDRESS_TYPE=0
@@ -142,6 +177,10 @@ UPDATE h SET
        h.customerGroup = #hs.customergroup,
        h.userGroup = #hs.usergroup,
        h.taxID = #hs.taxid,
+	   h.accounttype = #hs.AccountType,
+	   h.openar = #hs.openar,
+	   h.designations = #hs.designations,
+	   h.laststdate =  #hs.laststdate,
        -- h.added_by_date,
 	   h.modified_by_date = GETDATE()
 -- SELECT *
@@ -172,7 +211,11 @@ WHERE
        h.shippingMethod <> #hs.shippingmethod or
        h.customerGroup <> #hs.customergroup or
        h.userGroup <> #hs.usergroup or
-       h.taxID <> #hs.taxid 
+       h.taxID <> #hs.taxid OR 
+	   ISNULL(h.accounttype,'') <> ISNULL(#hs.AccountType,'') OR
+			   ISNULL(h.openar,'') <> ISNULL(#hs.openar,'') or
+	   ISNULL(h.designations,'') <> ISNULL(#hs.designations,'') OR 
+	   ISNULL(h.laststdate,'1/1/1900') <>  ISNULL(#hs.laststdate,'1/1/1900') 
 
 
 INSERT INTO dbo.hs_cust_tbl
@@ -202,6 +245,10 @@ INSERT INTO dbo.hs_cust_tbl
           customerGroup ,
           userGroup ,
           taxID ,
+		  accounttype,
+		  openar,
+		  designations,
+		  laststdate,
           added_by_date ,
           modified_by_date
         )
@@ -231,6 +278,10 @@ SELECT h.id ,
        h.customerGroup ,
        h.userGroup ,
        h.taxID ,
+	   h.AccountType,
+	   h.openar,
+	   h.designations,
+	   h.laststdate,
        GETDATE() added_by_date ,
        NULL modified_by_date
 	   FROM dbo.#hs AS h
@@ -240,6 +291,7 @@ SELECT h.id ,
 
 
 END
+
 
 
 

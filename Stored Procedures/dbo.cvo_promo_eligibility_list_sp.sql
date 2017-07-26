@@ -235,6 +235,24 @@ WHILE @row_id IS NOT NULL
     END;
 */
 
+IF ( OBJECT_ID('dbo.cvo_promo_eligibility_list_tbl') IS NULL ) 
+begin
+	CREATE TABLE dbo.cvo_promo_eligibility_list_tbl
+		( cust_code VARCHAR(10),
+			num_promos INT,
+			promo_list VARCHAR(1024)
+		);
+	CREATE INDEX idx_promo_elig_cust ON dbo.cvo_promo_eligibility_list_tbl (cust_code);
+END
+
+TRUNCATE TABLE dbo.cvo_promo_eligibility_list_tbl;
+
+INSERT INTO dbo.cvo_promo_eligibility_list_tbl
+(
+    cust_code,
+    num_promos,
+    promo_list
+)
 SELECT  DISTINCT
         r.cust_code ,
         COUNT(DISTINCT r.promo_id+r.promo_level) num_promos ,
@@ -249,6 +267,9 @@ SELECT  DISTINCT
 FROM    #r AS r
 WHERE   reason = 'OK'
 GROUP BY r.cust_code;
+
+
+
 
 
 

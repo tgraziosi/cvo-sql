@@ -9,9 +9,9 @@ CREATE PROCEDURE [dbo].[cvo_hello_customer_sp]
     @debug INT = 0
 AS /*
 
-exec cvo_hello_customer_sp '030774', '5599984076', null, null
+exec cvo_hello_customer_sp '010879', '5599984076', null, null
 
-exec cvo_hello_customer_sp '016585', '8024425530', null, null
+exec cvo_hello_customer_sp '039226', '8024425530', null, null
 
 exec cvo_hello_customer_sp '012808', '41673985399', null, null
 
@@ -65,7 +65,7 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
               trx_ctrl_num VARCHAR(16) ,
               status_code VARCHAR(5) ,
               status_date VARCHAR(12) ,
-              [No column name] VARCHAR(20) ,
+              cust_po_num VARCHAR(20) ,
               age_bucket SMALLINT ,
               date_due VARCHAR(12) ,
               order_ctrl_num VARCHAR(16) ,
@@ -89,7 +89,7 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
                   trx_ctrl_num ,
                   status_code ,
                   status_date ,
-                  [No column name] ,
+                  cust_po_num ,
                   age_bucket ,
                   date_due ,
                   order_ctrl_num ,
@@ -262,10 +262,13 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
             slp.salesperson_name ,
             ar.territory_code ,
             ISNULL(rxe.code, 'No') RXE ,
-            AR_Status = CAST(( SELECT   ROUND(SUM(balance),2)
-                               FROM     #aging
-                               WHERE    age_bucket <> 0 -- dont include future due amounts
-                             ) AS money) ,
+            AR_Status = CASE WHEN dbo.f_cvo_get_buying_group(ar.customer_code, @today) > '' 
+								THEN 'Buying Group: '+dbo.f_cvo_get_buying_group(ar.customer_code, @today)
+									+ CASE WHEN cc.CC_Status='BG' THEN ': On Hold' ELSE '' end
+							 WHEN arbal.Ar_balance > ar.credit_limit AND ar.check_credit_limit = 1 THEN 'Over Credit Limit'
+							 WHEN arbal.Ar_balance < 0 THEN 'Credit Balance'
+							 WHEN arbal.pd_balance > 0 THEN 'Past Due > 30 Days'
+							 ELSE 'Current' END,
 			-- SPACE(30) AS AR_Status , -- future
 			designations.desig Active_designations,
             i.Info ,
@@ -310,9 +313,22 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
                                     XML PATH('')
                                     ), 1, 1, '') desig
                     FROM      dbo.cvo_cust_designation_codes (NOLOCK) c
-                ) AS designations ON designations.MergeCust = RIGHT(ar.customer_code,5)											
-														
+                ) AS designations ON designations.MergeCust = RIGHT(ar.customer_code,5)		
+			LEFT OUTER JOIN
+			( SELECT  customer_code, SUM(balance) Ar_balance, 
+									 SUM(CASE WHEN age_bucket > 1 THEN balance ELSE 0 end) pd_balance
+							   FROM     #aging
+                               WHERE    age_bucket <> 0 -- dont include future due amounts
+							   GROUP BY customer_code
+             ) arbal ON arbal.customer_code = ar.customer_code
+			LEFT OUTER JOIN
+			(SELECT customer_code, 	CC_Status = IsNull(status_code,'') 
+				FROM	cc_cust_status_hist (NOLOCK) 
+				WHERE	clear_date is NULL 
+				AND		customer_code = @cust  
+			) cc ON cc.customer_code = ar.customer_code					
 			;
+
 
 
 

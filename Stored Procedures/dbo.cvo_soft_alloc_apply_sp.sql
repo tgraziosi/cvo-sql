@@ -513,11 +513,11 @@ BEGIN
 	JOIN	cvo_ord_list b (NOLOCK)
 	ON		a.order_no = b.order_no
 	AND		a.order_ext = b.order_ext
-	AND		a.line_no = b.from_line_no
+	AND		a.line_no = b.line_no -- v3.9 b.from_line_no
 	JOIN	ord_list c (NOLOCK)
 	ON		b.order_no = c.order_no
 	AND		b.order_ext = c.order_ext
-	AND		b.line_no = c.line_no
+	AND		b.line_no = c.cust_po -- v3.9 c.line_no
 	JOIN	cvo_ord_list d (NOLOCK)
 	ON		a.order_no = d.order_no
 	AND		a.order_ext = d.order_ext

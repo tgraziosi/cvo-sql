@@ -27,7 +27,11 @@ CREATE TABLE [dbo].[hs_cust_tbl]
 [userGroup] [nvarchar] (max) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [taxID] [varchar] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [added_by_date] [datetime] NULL,
-[modified_by_date] [datetime] NULL
+[modified_by_date] [datetime] NULL,
+[accounttype] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[openAR] [varchar] (100) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[Designations] [varchar] (512) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[LastSTDate] [datetime] NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
 GRANT REFERENCES ON  [dbo].[hs_cust_tbl] TO [public]

@@ -33,7 +33,7 @@ BEGIN
         -- AND i.type_code IN ('frame','sun')
 		AND i.part_no = ISNULL(@sku, '')
         AND ol.shipped <> 0
-        AND o.date_shipped >= DATEADD(MONTH, -1, GETDATE())
+        AND o.date_shipped >= DATEADD(MONTH, -2, GETDATE())
         AND o.status = 'T'
         -- AND o.type = 'i'
         AND o.user_category LIKE 'ST%'

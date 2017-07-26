@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -14,6 +13,7 @@ SELECT
 i.category AS Brand,
 ia.field_2 AS Model,
 i.type_code type,
+ia.category_2 Gender,
 MIN(ia.field_26) rel_date,
 MIN(ia.field_28) pom_date,
 DATEPART(yyyy,yyyymmdd) AS [year],
@@ -37,8 +37,9 @@ INNER JOIN inv_master i (NOLOCK) ON i.part_no = a.part_no
 INNER JOIN inv_master_add ia (NOLOCK) ON ia.part_no = a.part_no
 WHERE i.type_code IN ('frame','sun') 
 
-GROUP BY i.category, ia.field_2, i.type_code, DATEPART(yyyy,a.yyyymmdd), location
+GROUP BY i.category, ia.field_2, ia.category_2, i.type_code, DATEPART(yyyy,a.yyyymmdd), location
 -- group by brand, model, type_code, datepart(yyyy,yyyymmdd)
+
 
 
 

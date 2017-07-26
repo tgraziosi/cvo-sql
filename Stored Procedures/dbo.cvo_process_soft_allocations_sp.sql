@@ -82,6 +82,54 @@ BEGIN
 	DELETE	dbo.cvo_process_soft_allocations_audit WHERE error_messages = 'ALLOCATING' -- Unlock all records
 	-- v4.9 End
 
+	-- v8.3 Start
+	-- Remove records that are already allocated and do have changes
+	CREATE TABLE #oa_alloc (
+		soft_alloc_no	int,
+		order_no		int,
+		order_ext		int,
+		line_no			int,
+		part_no			varchar(30),
+		qty				decimal(20,8))
+
+	INSERT	#oa_alloc
+	SELECT	a.soft_alloc_no,
+			b.order_no,
+			b.order_ext,
+			b.line_no,
+			b.part_no,
+			SUM(b.qty)
+	FROM	dbo.cvo_soft_alloc_hdr a (NOLOCK)
+	JOIN	tdc_soft_alloc_tbl b (NOLOCK)
+	ON		a.order_no = b.order_no
+	AND		a.order_ext = b.order_ext
+	WHERE	a.status IN (0, -3)
+	AND		b.order_type = 'S'
+	GROUP BY a.soft_alloc_no,
+			b.order_no,
+			b.order_ext,
+			b.line_no,
+			b.part_no
+
+	DELETE	a
+	FROM	cvo_soft_alloc_det a
+	JOIN	#oa_alloc b
+	ON		a.soft_alloc_no = b.soft_alloc_no
+	AND		a.line_no = b.line_no
+	AND		a.part_no = b.part_no
+	WHERE	a.quantity = b.qty
+
+	DELETE	a
+	FROM	cvo_soft_alloc_hdr a
+	JOIN	#oa_alloc b
+	ON		a.soft_alloc_no = b.soft_alloc_no
+	WHERE	a.soft_alloc_no NOT IN (
+			SELECT soft_alloc_no FROM cvo_soft_alloc_det (NOLOCK))
+
+	DROP TABLE #oa_alloc
+
+	-- v8.3 End
+
 	-- START v3.9
 	CREATE TABLE #snapshot (
 		soft_alloc_no	int,

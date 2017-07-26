@@ -223,6 +223,7 @@ AS
                 ISNULL(tlx_twx, '') tlx_twx ,
                 CASE WHEN contact_email IS NULL THEN ''
                      WHEN contact_email LIKE '%@cvoptical%' THEN ''
+					 WHEN contact_email LIKE '%refused%' THEN ''
                      ELSE contact_email
                 END AS contact_email ,
                 ISNULL(addr_sort1, '') AS CustType ,
@@ -1007,6 +1008,7 @@ AS
                                 ) ar ON T1.customer = ar.customer; 
 
     END;
+
 
 
 

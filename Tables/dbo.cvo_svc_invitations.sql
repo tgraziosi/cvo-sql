@@ -63,6 +63,11 @@ CREATE TABLE [dbo].[cvo_svc_invitations]
 [me_order] [int] NULL,
 [kd] [tinyint] NULL CONSTRAINT [DF__cvo_svc_invi__kd__5DE7EB34] DEFAULT ('0'),
 [kd_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__kd_sh__5EDC0F6D] DEFAULT ('0'),
-[kd_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__kd_or__5FD033A6] DEFAULT ('0')
+[kd_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__kd_or__5FD033A6] DEFAULT ('0'),
+[bs] [tinyint] NULL,
+[cst_kd] [tinyint] NULL,
+[cst_bs] [tinyint] NULL,
+[bs_show] [int] NULL,
+[bs_order] [int] NULL
 ) ON [PRIMARY]
 GO

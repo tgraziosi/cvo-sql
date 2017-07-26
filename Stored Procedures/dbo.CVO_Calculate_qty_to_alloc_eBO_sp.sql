@@ -27,6 +27,7 @@ v10.2 CB 07/06/2013 - Issue #1289 - Frame/case relationship at order entry
 v10.3 CB 05/06/2014 - Fix issue when case has been fully unallocated due to change but does not fully allocate qty
 v10.4 CB 26/01/2016 - #1581 2nd Polarized Option
 v10.5 CB 23/08/2016 - CVO-CF-49 - Dynamic Custom Frames
+v10.6 CB 16/06/2017 - Fix issue with frame allocating when polarized (lens options) not available
 */
 CREATE PROCEDURE  [dbo].[CVO_Calculate_qty_to_alloc_eBO_sp]	@order_no	int,
 													@order_ext	int 
@@ -192,6 +193,24 @@ BEGIN
 	AND		b.polarized_part <> ''
 	AND		b.alloc_qty = 0
 	-- v10.1 End
+
+
+	-- v10.6 Start
+	UPDATE	a
+	SET		alloc_qty = b.alloc_qty
+	FROM	#splits a
+	JOIN	#splits b
+	ON		a.order_no = b.order_no
+	AND		a.order_ext = b.order_ext
+	AND		a.polarized_part = b.part_no
+	AND		a.line_no = b.from_line_no
+	WHERE	a.order_no = @order_no
+	AND		a.order_ext = @order_ext
+	AND		b.polarized_part = ''
+	AND		a.polarized_part <> ''
+	AND		b.alloc_qty < a.alloc_qty
+	-- v10.6 End
+
 	
 	-- v10.3 Start
 	UPDATE	a

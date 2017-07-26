@@ -32,6 +32,7 @@ v10.6 CB 18/06/2013 - Fix for when order is partially picked and then unallocate
 v10.7 CB 26/01/2016 - #1581 2nd Polarized Option
 v10.8 CB 23/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 v10.9 CB 30/05/2017 - #1628 Items added after picked 
+v11.0 CB 16/06/2017 - Fix issue with frame allocating when polarized (lens options) not available
 */
 CREATE PROCEDURE [dbo].[CVO_Calculate_qty_to_alloc_sp] AS
 BEGIN				  	
@@ -295,8 +296,6 @@ BEGIN
 		END
 		-- v10.3 End
 
-
-
 		-- v10.4 Start
 		UPDATE	a
 		SET		alloc_qty = b.alloc_qty
@@ -313,6 +312,21 @@ BEGIN
 		AND		b.alloc_qty = 0
 		-- v10.4 End
 
+		-- v11.0 Start
+		UPDATE	a
+		SET		alloc_qty = b.alloc_qty
+		FROM	#splits a
+		JOIN	#splits b
+		ON		a.order_no = b.order_no
+		AND		a.order_ext = b.order_ext
+		AND		a.polarized_part = b.part_no
+		AND		a.line_no = b.from_line_no
+		WHERE	a.order_no = @order_no
+		AND		a.order_ext = @order_ext
+		AND		b.polarized_part = ''
+		AND		a.polarized_part <> ''
+		AND		b.alloc_qty < a.alloc_qty
+		-- v11.0 End
 
 		-- Update back to the processing table
 		UPDATE	a

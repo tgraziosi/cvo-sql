@@ -1,0 +1,5 @@
+IF NOT EXISTS (SELECT * FROM master.dbo.syslogins WHERE loginname = N'CVOPTICAL\tsciarrone')
+CREATE LOGIN [CVOPTICAL\tsciarrone] FROM WINDOWS
+GO
+CREATE USER [CVOPTICAL\tsciarrone] FOR LOGIN [CVOPTICAL\tsciarrone] WITH DEFAULT_SCHEMA=[CVOPTICAL\tsciarrone]
+GO
