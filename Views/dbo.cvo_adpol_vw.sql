@@ -6,7 +6,7 @@ GO
 
 
 
--- select * From cvo_adpol_vw
+-- select * From cvo_adpol_vw WHERE LOCATION = '001' AND STATUS_DESC = 'OPEN'
 
 CREATE view [dbo].[cvo_adpol_vw] as
 -- tag - 013013 - add release date and po header note
@@ -81,10 +81,10 @@ select
 	x_ext_cost=curr_cost * qty_ordered,
 
 	-- tag - 031813 -- add drp info
-	cast(isnull(drp.e4_wu,0) as varchar(10)) e4_wu,
-	cast(isnull(drp.e12_wu,0) as varchar(10)) e12_wu,
-	cast(isnull(drp.on_hand,0) as varchar(10)) on_hand,
-	cast(isnull(drp.backorder,0) as varchar(10)) backorder,
+	cast(isnull(drp.e4_wu,0) as varchar(12)) e4_wu,
+	cast(isnull(drp.e12_wu,0) as varchar(12)) e12_wu,
+	cast(isnull(iav.in_stock,0) as varchar(12)) on_hand,
+	cast(CAST(ISNULL(iav.backorder,0) AS INTEGER) as varchar(12)) backorder,
 	
 	-- EL - 050914 -- Air or Ocean Delivery Method
 	Case when p.ship_via_method IS NULL and pa.ship_via_method IS NULL THEN 'NA'
@@ -108,10 +108,16 @@ on p.po_key = r.po_key and p.line = r.po_line
 left join inv_master_add ia (nolock) on p.part_no = ia.part_no
 left join inv_master i (nolock) on i.part_no = p.part_no
 -- tag - 031813
-left join dpr_report drp (nolock) 
-on p.part_no = drp.part_no and p.location = drp.location
+LEFT OUTER JOIN dbo.cvo_item_avail_vw AS iav ON iav.location = p.location AND iav.part_no = p.part_no
+LEFT OUTER JOIN
+(SELECT part_no, location, e4_wu, e12_wu FROM dbo.f_cvo_calc_weekly_usage('o'))
+ AS drp ON drp.location = p.location AND drp.part_no = p.part_no
+--left join dpr_report drp (nolock) 
+--on p.part_no = drp.part_no and p.location = drp.location
 where p.po_key = p.po_no and pa.po_no = pa.po_key
 and r.po_key = r.po_no
+
+
 
 
 

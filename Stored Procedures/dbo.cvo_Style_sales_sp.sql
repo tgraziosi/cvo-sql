@@ -496,13 +496,8 @@ select drp.part_no,
 0 as UnitsSoldwoCL, 
 0 as UnitsSoldwoCLLA,
 0 as UnitsSoldRX,  
-sum(isnull(drp.on_hand,0)) as Avail,
-sum(drp.non_allocated_po + drp.allocated_po +
-	drp.non_allocated_po2 + drp.allocated_po2 +
-	drp.non_allocated_po3 + drp.allocated_po3 +
-	drp.non_allocated_po4 + drp.allocated_po4 +
-	drp.non_allocated_po5 + drp.allocated_po5 +
-	drp.non_allocated_po6 + drp.allocated_po6) as po_on_order,
+sum(isnull(drp.in_stock,0)) as Avail,
+sum(ISNULL(drp.po_on_order,0)) as po_on_order,
 0 as Qty_returned,
 0 as QtyRetDef,
 'drp' as Customer_code,
@@ -512,8 +507,12 @@ sum(isnull(drp.backorder,0)) as backorder_qty,
 'd' as source,
 0,
 0
-from dpr_report drp (nolock), inv_master i (nolock), inv_master_add a (nolock)
-where drp.part_no = i.part_no and i.part_no = a.part_no
+-- from dpr_report drp (nolock), inv_master i (nolock), inv_master_add a (nolock)
+from cvo_item_avail_vw drp (nolock)
+join inv_master i (nolock) ON i.part_no = drp.part_no
+JOIN inv_master_add a (nolock) ON a.part_no = drp.part_no
+where 1=1
+-- AND i.part_no = drp.part_no and a.part_no = drp.part_no
 and i.type_code in ('FRAME', 'SUN')
 and ( (a.field_28  >= @dateBegYear) or (a.field_28 is null and i.obsolete=0) )
 -- pom date is in current year or nullwhere 
@@ -1115,6 +1114,7 @@ begin
 */
 
 end
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_Style_sales_sp] TO [public]

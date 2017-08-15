@@ -123,10 +123,11 @@ so_priority_code
 , co.add_pattern -- 1/18/2017 - for Lilian - on size patterns for some styles
 , ol.ordered
 
-From  ord_list ol (nolock)
- INNER JOIN dbo.cvo_item_avail_vw AS iav ON iav.location = ol.location AND iav.part_no = ol.part_no
- inner join orders o (nolock) on  ol.order_no = o.order_no and ol.order_ext = o.ext 
+From
+ orders o (nolock)
  inner join cvo_orders_all co (nolock) on co.order_no = o.order_no and co.ext = o.ext
+ INNER JOIN ord_list ol (nolock)  on  ol.order_no = o.order_no and ol.order_ext = o.ext 
+ INNER JOIN dbo.cvo_item_avail_vw (NOLOCK) AS iav ON iav.location = ol.location AND iav.part_no = ol.part_no
  inner join inv_master i (nolock) on i.part_no = ol.part_no
  inner join inv_master_add ia (nolock) on ia.part_no = ol.part_no
  left outer join cvo_promotions p (nolock) on p.promo_id = co.promo_id and p.promo_level = co.promo_level
@@ -145,7 +146,7 @@ GROUP BY sof.order_no, sof.order_ext, sof.line_no
 
 where 1=1
 -- cvo_item_avail_vw cia (nolock)
-and ol.status < 'R' 
+and o.status < 'R' 
 and ol.ordered > ol.shipped
 
 -- and ol.part_no = cia.part_no AND ol.location = cia.location
@@ -155,6 +156,7 @@ and ol.ordered > ol.shipped
 --and not exists (select * from tdc_soft_alloc_tbl (nolock) where part_no = ol.part_no and
 --order_no = ol.order_no and order_ext = ol.order_ext and line_no = ol.line_no)
 --and cia.style = 'portia'
+
 
 
 

@@ -162,6 +162,8 @@ lbr.location = t3.location AND lbr.part_no = t1.part_no),0)
 
 , future_ord_qty = ISNULL(fo.future_open_qty,0)
 
+, backorder = ISNULL(bo.bo_open_qty,0)
+
 -- select top 10 * from lot_bin_recv
         
 ---- 2/8/16
@@ -202,8 +204,34 @@ WHERE   o.status < 'r'
         AND ol.part_type = 'P'
 GROUP BY ol.part_no, ol.location) fo 
 	ON fo.part_no = t3.part_no AND fo.location = t3.location
+
+LEFT OUTER JOIN
+-- backorders
+(SELECT  ol.part_no , ol.location,
+        bo_open_qty = SUM(ol.ordered - ol.shipped - ISNULL(ha.qty, 0))
+		FROM    orders o ( NOLOCK )
+        INNER JOIN ord_list ol ( NOLOCK ) ON ol.order_no = o.order_no
+                                             AND ol.order_ext = o.ext
+        LEFT OUTER JOIN dbo.cvo_hard_allocated_vw ha ( NOLOCK ) ON ha.line_no = ol.line_no
+                                                              AND ha.order_ext = ol.order_ext
+                                                              AND ha.order_no = ol.order_no
+        LEFT OUTER JOIN cvo_soft_alloc_det sa ( NOLOCK ) ON sa.order_no = ol.order_no
+                                                            AND sa.order_ext = ol.order_ext
+                                                            AND sa.line_no = ol.line_no
+                                                            AND sa.part_no = ol.part_no
+WHERE   o.status < 'r'
+		AND o.status <> 'c'  -- 07/29/2015 - dont include credit hold orders
+        AND o.type = 'i'
+        AND ol.ordered > ol.shipped + ISNULL(ha.qty, 0)
+        AND o.who_entered = 'backordr'
+		-- AND ISNULL(sa.status, -3) = -3 -- future orders not yet soft allocated
+        AND ol.part_type = 'P'
+GROUP BY ol.part_no, ol.location) bo
+	ON bo.part_no = t3.part_no AND bo.location = t3.location
+
 WHERE  t3.void<>'V'
 -- and T3.LOCATION = '001'
+
 
 
 

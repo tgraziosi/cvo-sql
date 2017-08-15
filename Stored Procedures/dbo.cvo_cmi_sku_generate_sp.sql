@@ -1936,20 +1936,20 @@ INSERT  #pp
         )
         SELECT DISTINCT
                 c.part_no ,
-                CASE WHEN CHARINDEX(c.part_no,'SUN') > 0 AND c.part_type = 'demolen' THEN @sunlen_price ELSE 0 END AS wholesale_price ,
-                ROUND(CASE WHEN c.part_type = 'demolen' AND CHARINDEX(c.part_no,'SUN') > 0 THEN @sunlen_cost
+                CASE WHEN c.part_no LIKE '%SUN%' AND c.part_type = 'demolen' THEN @sunlen_price ELSE 0 END AS wholesale_price ,
+                ROUND(CASE WHEN c.part_type = 'demolen' AND c.part_no LIKE '%SUN%' THEN @sunlen_cost
 						   WHEN c.part_type = 'demolen' THEN @demolen_cost
 						   WHEN c.part_type = 'pattern' THEN @pattern_cost
 						   WHEN c.part_type = 'hangtag' THEN @hangtag_cost
 						   WHEN c.part_type = 'upc' THEN @upc_cost
  						   ELSE 0 END, 2) ,
-                ROUND(CASE WHEN c.part_type = 'demolen' AND CHARINDEX(c.part_no,'SUN') > 0 THEN @sunlen_cost
+                ROUND(CASE WHEN c.part_type = 'demolen' AND c.part_no LIKE '%SUN%'THEN @sunlen_cost
 						   WHEN c.part_type = 'demolen' THEN @demolen_cost
 						   WHEN c.part_type = 'pattern' THEN @pattern_cost
 						   WHEN c.part_type = 'hangtag' THEN @hangtag_cost
 						   WHEN c.part_type = 'upc' THEN @upc_cost
 						   ELSE 0 END * @ovhd_pct,2) ,
-                CASE WHEN CASE WHEN c.part_type = 'demolen' AND CHARINDEX(c.part_no,'SUN') > 0 THEN @sunlen_cost 
+                CASE WHEN CASE WHEN c.part_type = 'demolen' AND c.part_no LIKE '%SUN%' THEN @sunlen_cost 
 						   WHEN c.part_type = 'demolen' THEN @demolen_cost
 						   WHEN c.part_type = 'pattern' THEN @pattern_cost
 						   ELSE 0 END > 1 THEN @util_cost
@@ -2258,6 +2258,7 @@ BEGIN
 			JOIN INV_MASTER I ON I.part_no = IA.part_no
 			WHERE I.CATEGORY = 'DD' AND I.type_code IN ('FRAME','SUN')
 			AND ISNULL(FIELD_35,'') <>'DDZBOOK'
+			AND I.part_no = @last_part -- 8/14/2017
 
 			-- add vendor quote info
 			INSERT INTO #inv_price (rc)
@@ -2352,6 +2353,8 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
+
 
 
 

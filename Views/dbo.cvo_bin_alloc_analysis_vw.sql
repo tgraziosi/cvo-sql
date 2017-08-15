@@ -29,7 +29,8 @@ ISNULL(W.QTY,0) w_qty,
  order by date_tran desc) as last_trn_date,
  (select top 1 qty From lot_bin_tran where direction = 1 and tran_code = 'I' and location = a.location and part_no = a.part_no and bin_no = a.bin_no
  order by date_tran desc) as last_trn_in,
-(select top 1 isnull(e4_wu,0) from dpr_report where part_no = a.part_no and location = a.location) as e4_wu, 
+drp.e4_wu,
+-- (select top 1 isnull(e4_wu,0) from drp where part_no = a.part_no and location = a.location) as e4_wu, 
 isnull(br.replenish_min_lvl,0) replen_min,
 isnull(br.replenish_max_lvl,0) replen_max,
 isnull(br.replenish_qty,0) replen_qty,
@@ -63,9 +64,14 @@ LEFT OUTER JOIN
   group by lb.location, lb.part_no) w 
 on W.part_no = a.part_no and W.location = a.location
 
+LEFT OUTER JOIN
+( SELECT part_no, e4_wu FROM dbo.f_cvo_calc_weekly_usage('o') AS fccwu
+	WHERE fccwu.location = '001' ) drp ON drp.part_no = a.part_no
+
 where  1=1
 and e.group_code = 'PICKAREA' AND E.USAGE_TYPE_CODE = 'REPLENISH'
 --order by PCT_ALLOC DESC, a.part_no ASC
+
 
 
 GO

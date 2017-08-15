@@ -15,7 +15,8 @@ CREATE TABLE [dbo].[cvo_bcode_log]
 [void_date] [datetime] NULL,
 [void_user] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [void_reason] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[cat] [varchar] (4) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[cat] [varchar] (4) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[isADHOC] [tinyint] NULL CONSTRAINT [DF__cvo_bcode__isADH__4F2FB789] DEFAULT ('0')
 ) ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_bcode_log] ADD CONSTRAINT [PK__cvo_bcode_log__58CE305C] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

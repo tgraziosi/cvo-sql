@@ -11,18 +11,43 @@ GO
 
 CREATE VIEW [dbo].[cvo_CustDesignationReport_vw]
 AS
-SELECT     TOP (100) PERCENT 
-T2.territory_code, t1.customer_code, t2.address_name, t2.addr2
-, CASE WHEN t2.addr3 LIKE '%, __ %' THEN '' ELSE T2.ADDR3 END AS	addr3
-, City, State, Postal_Code as Zip, country_code as CC
-, t1.code, t3.description, case when primary_flag = 1 THEN 'Y' ELSE '' END AS Pri
-, t1.start_date, t1.end_date
-, t2.price_code price_class -- 042015 - LF request
-FROM         dbo.cvo_cust_designation_codes AS t1 INNER JOIN
-                      dbo.armaster AS t2 ON t1.customer_code = t2.customer_code INNER JOIN
-                      dbo.cvo_designation_codes AS t3 ON t1.code = t3.code
-WHERE     (t2.address_type = 0)
-ORDER BY t1.code, t1.customer_code
+SELECT TOP (100) PERCENT
+    t2.territory_code,
+    t1.customer_code,
+    t2.address_name,
+    t2.addr2,
+    CASE
+        WHEN t2.addr3 LIKE '%, __ %' THEN
+            ''
+        ELSE
+            t2.addr3
+    END AS addr3,
+    city,
+    state,
+    postal_code AS Zip,
+    country_code AS CC,
+    t1.code,
+    t3.description,
+    CASE
+        WHEN primary_flag = 1 THEN
+            'Y'
+        ELSE
+            ''
+    END AS Pri,
+    t1.start_date,
+    t1.end_date,
+    t2.price_code price_class -- 042015 - LF request
+FROM
+    dbo.cvo_cust_designation_codes AS t1
+    INNER JOIN dbo.armaster AS t2
+        ON t1.customer_code = t2.customer_code
+    INNER JOIN dbo.cvo_designation_codes AS t3
+        ON t1.code = t3.code
+WHERE (t2.address_type = 0)
+ORDER BY
+    t1.code, t1.customer_code
+;
+
 
 
 GO

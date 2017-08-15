@@ -9,7 +9,8 @@ as
 -- exec cvo_bo_to_subst_st
 -- 6/15/2015 - tag - update to look at only stock with min 10 ATP
 
-set nocount on
+set nocount ON
+SET ANSI_WARNINGS off
 
 declare @today datetime
 select @today = dateadd(dd, datediff(dd,0,getdate()), 0)
@@ -49,8 +50,8 @@ inner join ord_list ol (nolock) on o.order_no = ol.order_no and o.ext = ol.order
 inner join cvo_ord_list col (nolock) on col.order_no = ol.order_no and col.order_ext = ol.order_ext and col.line_no = ol.line_no
 inner join inv_master i (nolock) on ol.part_no = i.part_no
 inner join inv_master_add ia (nolock) on ol.part_no = ia.part_no
-inner join dpr_report drp (nolock) on 
-	ol.part_no =  drp.part_no and o.location = drp.location
+inner join dbo.cvo_item_avail_vw  iav (nolock) on 
+	ol.part_no =  iav.part_no and o.location = iav.location
 join cvo_armaster_all car (nolock) on car.customer_code = o.cust_code and car.ship_to = o.ship_to
 left outer join cvo_hard_allocated_vw alloc (nolock) 
 	on alloc.order_no = o.order_no 
@@ -59,7 +60,7 @@ left outer join cvo_hard_allocated_vw alloc (nolock)
 	and alloc.order_type = 'S'
 where o.status = 'n' 
 and ia.field_26 <= @today
-and isnull(drp.sa_allocated,0) <= 0 
+and isnull(iav.qty_avl,0) <= 0 
 and isnull(car.allow_substitutes,0) = 1
 and o.type = 'i' 
 -- and o.who_entered in ('backordr','outofstock')
@@ -76,21 +77,23 @@ create index idx_t on #orders (order_no, ext, location, part_no) include (open_q
 
 IF OBJECT_ID('tempdb..#subs') IS NOT NULL DROP TABLE #subs
 
-select distinct drp.[collection] brand, drp.style,  ia.category_5 color, ia.field_17 size, 
-	            drp.part_no sub_part_no, drp.location, drp.sa_allocated qty_avl_to_sub
+select distinct iav.brand, iav.style,  ia.category_5 color, ia.field_17 size, 
+	            iav.part_no sub_part_no, iav.location, iav.sof qty_avl_to_sub
 into #subs
 from #orders 
-inner join dpr_report drp (nolock) on #orders.brand = drp.collection and #orders.style = drp.style
-inner join inv_master_add ia on ia.part_no = drp.part_no
+inner join dbo.cvo_item_avail_vw iav (nolock) on #orders.brand = iav.Brand  and #orders.style = iav.style
+	AND iav.location = #orders.location
+inner join inv_master_add ia on ia.part_no = iav.part_no
 where 1=1
 and ia.field_26 <= @today
-and (av4end > 0 and av8end > 0 and av12end > 0 and av16end > 0 and av20end > 0)
+-- and (av4end > 0 and av8end > 0 and av12end > 0 and av16end > 0 and av20end > 0)
 -- and sa_allocated > 0 -- sa_allocated is qty avl now
 -- 061515 - min 10 atp required
-AND sa_allocated >= 10 -- sa_allocated is qty avl now
-and drp.type_code = 'frame/sun'
-and drp.location = #orders.location
-and #orders.part_no <> drp.part_no
+AND iav.future_ord_qty = 0
+AND iav.qty_avl >= 10 -- sa_allocated is qty avl now
+and iav.type_code IN ('frame','sun') 
+-- and iav.location = #orders.location
+and #orders.part_no <> iav.part_no
 
 -- select * from dpr_report where style = 'brynn'
 
@@ -234,6 +237,7 @@ from #orders
 where 1=1
 -- and qty_to_sub > 0 
 order by part_NO, order_no
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_bo_to_subst_st] TO [public]

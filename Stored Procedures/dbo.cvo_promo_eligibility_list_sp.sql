@@ -2,7 +2,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[cvo_promo_eligibility_list_sp] @terr VARCHAR(1024) = null
+CREATE PROCEDURE [dbo].[cvo_promo_eligibility_list_sp] @terr VARCHAR(12) , @customer VARCHAR(12) , @promolist VARCHAR(1024) output
 AS
 BEGIN
 
@@ -89,7 +89,7 @@ FROM    CVO_promotions
 WHERE   promo_end_date > GETDATE()
         AND promo_start_date <= GETDATE()
         AND 'N' = ISNULL(void, 'N')
-		AND promo_id IN ('6+2','9+3')
+		-- AND promo_id IN ('6+2','9+3')
 		-- AND season_program = 1
 		-- AND review_ship_to = 1
 		;
@@ -116,6 +116,7 @@ WHERE   1 = 1
         AND status_type = 1 -- active only
         AND address_type IN ( 0, 1 ) -- bill-to and ship-to
         AND valid_shipto_flag = 1
+		AND ar.customer_code = ISNULL(@customer,ar.customer_code)
 
 SELECT  @c_row_id = MIN(customer_code+ship_to_code) FROM #c AS c;
 
@@ -235,43 +236,41 @@ WHILE @row_id IS NOT NULL
     END;
 */
 
-IF ( OBJECT_ID('dbo.cvo_promo_eligibility_list_tbl') IS NULL ) 
-begin
-	CREATE TABLE dbo.cvo_promo_eligibility_list_tbl
-		( cust_code VARCHAR(10),
-			num_promos INT,
-			promo_list VARCHAR(1024)
-		);
-	CREATE INDEX idx_promo_elig_cust ON dbo.cvo_promo_eligibility_list_tbl (cust_code);
-END
+--IF ( OBJECT_ID('dbo.cvo_promo_eligibility_list_tbl') IS NULL ) 
+--begin
+--	CREATE TABLE dbo.cvo_promo_eligibility_list_tbl
+--		( cust_code VARCHAR(10),
+--			num_promos INT,
+--			promo_list VARCHAR(1024)
+--		);
+--	CREATE INDEX idx_promo_elig_cust ON dbo.cvo_promo_eligibility_list_tbl (cust_code);
+--END
 
-TRUNCATE TABLE dbo.cvo_promo_eligibility_list_tbl;
+--TRUNCATE TABLE dbo.cvo_promo_eligibility_list_tbl;
 
-INSERT INTO dbo.cvo_promo_eligibility_list_tbl
-(
-    cust_code,
-    num_promos,
-    promo_list
-)
-SELECT  DISTINCT
-        r.cust_code ,
-        COUNT(DISTINCT r.promo_id+r.promo_level) num_promos ,
-        REPLACE(STUFF(( SELECT DISTINCT
+--INSERT INTO dbo.cvo_promo_eligibility_list_tbl
+--(
+--    cust_code,
+--    num_promos,
+--    promo_list
+--)
+
+SELECT  @promolist = 
+        --r.cust_code ,
+        --COUNT(DISTINCT r.promo_id+r.promo_level) num_promos ,
+        ISNULL(REPLACE(STUFF(( SELECT DISTINCT
                         ':' + rr.promo_id + ',' + rr.promo_level
                 FROM    #r rr
                 WHERE   rr.cust_code = r.cust_code
                         AND reason = 'OK'
               FOR
                 XML PATH('')
-              ), 1, 1, ''),'&amp;','&') promo_list
+              ), 1, 1, ''),'&amp;','&'),'') 
 FROM    #r AS r
 WHERE   reason = 'OK'
 GROUP BY r.cust_code;
 
-
-
-
-
+-- SELECT @promolist
 
 
 

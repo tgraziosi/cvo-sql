@@ -303,8 +303,9 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                 LEFT OUTER JOIN cvo_apr_tbl #apr ON #apr.sku = I.part_no
                                                     AND @today BETWEEN #apr.eff_date AND #apr.obs_date -- 3/2/2015 tag
 -- 032615 use drp 4 week usage as safety stock
-                LEFT OUTER JOIN DPR_Report drp ( NOLOCK ) ON drp.part_no = I.part_no
-                                                             AND drp.location = @location
+                --LEFT OUTER JOIN DPR_Report drp ( NOLOCK ) ON drp.part_no = I.part_no
+                --                                             AND drp.location = @location
+				LEFT OUTER JOIN dbo.f_cvo_calc_weekly_usage('o') AS drp ON drp.location = @location AND drp.part_no = I.part_no
         WHERE   I.void <> 'V'
                 AND category NOT IN ( 'CORP', 'FP' )
                 AND ( ISNULL(field_32, '') NOT IN ( 'HVC', 'RETAIL', 'COSTCO',
@@ -1025,6 +1026,7 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 -- SELECT distinct manufacturer, [category:1], [CATEGORY:2] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
 
 
 

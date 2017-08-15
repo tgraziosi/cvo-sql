@@ -3,6 +3,9 @@ GO
 SET ANSI_NULLS ON
 GO
 
+-- SELECT * fROM DBO.F_CVO_CALC_WEEKLY_USAGE_COLL('O','SM') WHERE PART_NO LIKE 'SMFANT%'
+-- 8/1/2017 - update to include items with no orders or shipments yet
+
 CREATE FUNCTION [dbo].[f_cvo_calc_weekly_usage_coll]
     (
       @usg_option CHAR(1) = 'o' ,
@@ -166,8 +169,8 @@ select * from dbo.f_cvo_calc_weekly_usage_coll ('O', null)
                         gross_w12 = CAST (SUM(CASE WHEN bucket <= 12 THEN gross_Qty
                                                  ELSE 0
                                             END) AS INT)
-                FROM    ( SELECT    ol.location ,
-                                    part_no = ol.part_no ,
+                FROM    ( SELECT    ISNULL(ol.location,'001') location ,
+                                    part_no = i.part_no ,
                                     subs_qty = 0 , -- ISNULL( subs.quantity, 0) ,
                                     promo_qty = CASE WHEN ISNULL(promo_id, '') > ''
                                                      THEN CASE
@@ -256,21 +259,21 @@ select * from dbo.f_cvo_calc_weekly_usage_coll ('O', null)
                                                   ELSE 99
                                              END
                           FROM      inv_master i ( NOLOCK )
-                                    JOIN ord_list ol ( NOLOCK ) ON ol.part_no = i.part_no
-                                    INNER JOIN orders o ( NOLOCK ) ON o.order_no = ol.order_no
+                                    LEFT OUTER JOIN ord_list ol ( NOLOCK ) ON ol.part_no = i.part_no
+                                    LEFT OUTER JOIN orders o ( NOLOCK ) ON o.order_no = ol.order_no
                                                               AND o.ext = ol.order_ext
-                                    INNER JOIN dbo.CVO_orders_all co ( NOLOCK ) ON co.ext = o.ext
+                                    LEFT OUTER JOIN dbo.CVO_orders_all co ( NOLOCK ) ON co.ext = o.ext
                                                               AND co.order_no = o.order_no
                           WHERE     i.category = ISNULL(@coll, i.category)
-                                    AND o.status <> 'V'
+                                    AND 'V' <> ISNULL(o.status,'X') 
                         -- AND o.date_entered >= @w52
                                     AND ( CASE WHEN @usg_option = 's'
-                                               THEN o.date_shipped
+                                               THEN ISNULL(o.date_shipped,@asofdate)
                                                ELSE ISNULL(co.allocation_date,
-                                                           o.date_entered)
+                                                           ISNULL(o.date_entered,@asofdate))
                                           END ) BETWEEN @w52
                                                 AND     @asofdate
-                                    AND o.who_entered <> ( CASE
+                                    AND ISNULL(o.who_entered,'No Orders') <> ( CASE
                                                               WHEN @usg_option = 's'
                                                               THEN ''
                                                               ELSE 'BACKORDR'

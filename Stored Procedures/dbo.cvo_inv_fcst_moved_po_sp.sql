@@ -6,7 +6,7 @@ CREATE procedure [dbo].[cvo_inv_fcst_moved_po_sp]  @DateFrom DATETIME  , @DaysTh
 
 as
 
--- exec cvo_inv_fcst_moved_po_sp '05/03/2017' 
+-- exec cvo_inv_fcst_moved_po_sp '08/01/2017' 
 
 -- 021815 - tag - only call out items where the shipment is not yet intransit
 -- 030615 -- incorporate new line level packing list setting
@@ -77,7 +77,8 @@ select @rankdate = '12/23/2013'
 IF(OBJECT_ID('tempdb.dbo.#mpo') is not null)  drop table #mpo
 
 create table #mpo
-(     brand VARCHAR(10),
+(
+    brand VARCHAR(10),
     style VARCHAR(40),
     vendor VARCHAR(12),
     type_code VARCHAR(10),
@@ -98,7 +99,7 @@ create table #mpo
     s_promo_w12 INT,
     s_gross_w4 INT,
     s_gross_w12 INT,
-    line_type VARCHAR(3),
+    LINE_TYPE VARCHAR(3),
     sku VARCHAR(30),
     location VARCHAR(12),
     mm INT,
@@ -106,15 +107,17 @@ create table #mpo
     p_pom_date DATETIME,
     lead_time INT,
     bucket DATETIME,
-    qoh INT,
+    QOH INT,
     atp INT,
     reserve_qty INT,
     quantity INT,
     mult DECIMAL(20, 8),
     s_mult DECIMAL(20, 8),
     sort_seq INT,
+    alloc_qty INT,
+    non_alloc_qty INT,
     pct_of_style DECIMAL(37, 19),
-    pct_First_po FLOAT(8),
+    pct_first_po FLOAT(8),
     pct_sales_style_m1_3 FLOAT(8),
     p_e4_wu INT,
     p_e12_wu INT,
@@ -124,6 +127,7 @@ create table #mpo
     s_mth_usg INT,
     p_mth_usg INT,
     s_mth_usg_mult DECIMAL(31, 8),
+    p_sales_m1_3 INT,
     p_po_qty_y1 DECIMAL(38, 8),
     ORDER_THRU_DATE DATETIME,
     TIER VARCHAR(1),
@@ -132,7 +136,7 @@ create table #mpo
     s_rx_w12 INT,
     p_rx_w4 INT,
     p_rx_w12 INT,
-    s_Ret_w4 INT,
+    s_ret_w4 INT,
     s_ret_w12 INT,
     p_ret_w4 INT,
     p_ret_w12 INT,
@@ -144,6 +148,7 @@ create table #mpo
     p_gross_w12 INT,
     price DECIMAL(20, 8),
     frame_type VARCHAR(40)
+
 )
 
 insert into #mpo
@@ -183,7 +188,76 @@ AND max_date.style = #matlfcst.style
 AND max_date.max_date = #matlfcst.date_field_to
 
 
-select #mpo.*,
+select #mpo.brand,
+       #mpo.style,
+       #mpo.vendor,
+       #mpo.type_code,
+       #mpo.gender,
+       #mpo.material,
+       #mpo.moq,
+       #mpo.watch,
+       #mpo.sf,
+       #mpo.rel_date,
+       #mpo.pom_date,
+       #mpo.mth_since_rel,
+       #mpo.s_sales_m1_3,
+       #mpo.s_sales_m1_12,
+       #mpo.s_e4_wu,
+       #mpo.s_e12_wu,
+       #mpo.s_e52_wu,
+       #mpo.s_promo_w4,
+       #mpo.s_promo_w12,
+       #mpo.s_gross_w4,
+       #mpo.s_gross_w12,
+       #mpo.LINE_TYPE,
+       #mpo.sku,
+       #mpo.location,
+       #mpo.mm,
+       #mpo.p_rel_date,
+       #mpo.p_pom_date,
+       #mpo.lead_time,
+       #mpo.bucket,
+       #mpo.QOH,
+       #mpo.atp,
+       #mpo.reserve_qty,
+       #mpo.quantity,
+       #mpo.mult,
+       #mpo.s_mult,
+       #mpo.sort_seq,
+       #mpo.alloc_qty,
+       #mpo.non_alloc_qty,
+       #mpo.pct_of_style,
+       #mpo.pct_first_po,
+       #mpo.pct_sales_style_m1_3,
+       #mpo.p_e4_wu,
+       #mpo.p_e12_wu,
+       #mpo.p_e52_wu,
+       #mpo.p_subs_w4,
+       #mpo.p_subs_w12,
+       #mpo.s_mth_usg,
+       #mpo.p_mth_usg,
+       #mpo.s_mth_usg_mult,
+       #mpo.p_sales_m1_3,
+       #mpo.p_po_qty_y1,
+       #mpo.ORDER_THRU_DATE,
+       #mpo.TIER,
+       #mpo.p_type_code,
+       #mpo.s_rx_w4,
+       #mpo.s_rx_w12,
+       #mpo.p_rx_w4,
+       #mpo.p_rx_w12,
+       #mpo.s_ret_w4,
+       #mpo.s_ret_w12,
+       #mpo.p_ret_w4,
+       #mpo.p_ret_w12,
+       #mpo.s_wty_w4,
+       #mpo.s_wty_w12,
+       #mpo.p_wty_w4,
+       #mpo.p_wty_w12,
+       #mpo.p_gross_w4,
+       #mpo.p_gross_w12,
+       #mpo.price,
+       #mpo.frame_type,
 m.po_no, m.date_field_from date_from, m.date_field_to date_to
 From #mpo
 inner join 
@@ -197,6 +271,7 @@ and #mpo.bucket between dateadd(mm,datediff(mm, 0, m.date_field_from), 0) and
 ) 
 as x on x.brand = #mpo.brand and x.style = #mpo.style
 left outer join #mfcst m on m.brand = #mpo.brand and m.style = #mpo.style
+
 
 
 

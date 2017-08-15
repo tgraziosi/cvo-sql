@@ -29,18 +29,18 @@ CREATE procedure [dbo].[cvo_inv_fcst_r3_sp]
 /*
  exec cvo_inv_fcst_r3_sp
 
- @asofdate = '07/01/2017', 
- @endrel = '07/01/2017', 
+ @asofdate = '08/01/2017', 
+ @endrel = '09/01/2017', 
  @current = 0, 
- @collection = 'AS', 
- @style = 'EXPRESSIVE,MUSICAL', 
+ @collection = 'SM', 
+ @style = 'fantassia', 
  @specfit = null,
  @usg_option = 'o',
- @debug = 1, -- debug
+ @debug = 5, -- debug
  @location = '001',
  @restype = 'FRAME,SUN',
- @WKSONHANDGTLT = '<=',
- @WKSONHAND = 6
+ @WKSONHANDGTLT = 'all',
+ @WKSONHAND = 0
 
  select * From cvo_ifp_rank
 
@@ -361,8 +361,8 @@ inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
 inner join #coll on #coll.coll = i.category
 inner join #style_list on #style_list.style = ia.field_2
 INNER JOIN #type t ON t.type_code = i.type_code
-INNER JOIN #usage u ON u.part_no = i.part_no 
-INNER JOIN #loc l ON l.location = u.location
+LEFT OUTER JOIN #usage u ON u.part_no = i.part_no 
+INNER JOIN #loc l ON l.location = ISNULL(u.location,l.location)
 
 LEFT outer join cvo_sbm_details s (nolock) on s.part_no = i.part_no AND s.location = l.location
 left outer join armaster a (nolock) on a.customer_code = s.customer and a.ship_to_code = s.ship_to
@@ -881,7 +881,7 @@ SELECT
     @atp = ISNULL(qty_avl, 0),
     @reserve_inv = ISNULL(cia.ReserveQty, 0),
 	@alloc_qty = ISNULL(cia.SOF, 0) + ISNULL(cia.Allocated, 0),
-	@non_alloc_qty = ISNULL(cia.Quarantine,0) + ISNULL(cia.Non_alloc,0) - ISNULL(cia.ReserveQty,0)
+	@non_alloc_qty = ISNULL(cia.Quarantine,0) + ISNULL(cia.Non_alloc,0) - ISNULL(cia.ReserveQty,0) + ISNULL(cia.QcQty2, 0)
 	 -- 12/5/2016
 FROM cvo_item_avail_vw cia
 WHERE
@@ -1167,6 +1167,8 @@ FROM
            AND sku = #t.part_no
 ;
 
+IF @debug = 5 SELECT * FROM #WOH AS w
+
 UPDATE #WOH
 SET WOH = 9999
 WHERE
@@ -1180,6 +1182,9 @@ WHERE
        )
     OR @WksOnHandGTLT = 'ALL'
 ;
+
+IF @debug = 5 SELECT * FROM #WOH AS w
+
 
 -- fixup
 SELECT DISTINCT
@@ -1370,8 +1375,9 @@ FROM
         ON specs.brand = #style.brand
            AND specs.style = #style.style
     INNER JOIN
-    (SELECT DISTINCT brand, style FROM #WOH
-		WHERE woh <> 9999) WOH
+    (SELECT DISTINCT brand, style 
+		FROM #WOH
+		WHERE woh = 9999 ) WOH
         ON WOH.brand = #style.brand
            AND WOH.style = #style.style
     LEFT OUTER JOIN cvo_ifp_rank r
@@ -1380,6 +1386,9 @@ FROM
 ;
 
 end
+
+
+
 
 
 

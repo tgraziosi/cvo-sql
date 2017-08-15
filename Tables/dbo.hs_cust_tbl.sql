@@ -31,7 +31,8 @@ CREATE TABLE [dbo].[hs_cust_tbl]
 [accounttype] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [openAR] [varchar] (100) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [Designations] [varchar] (512) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[LastSTDate] [datetime] NULL
+[LastSTDate] [datetime] NULL,
+[Modified_flag] [tinyint] NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
 GRANT REFERENCES ON  [dbo].[hs_cust_tbl] TO [public]

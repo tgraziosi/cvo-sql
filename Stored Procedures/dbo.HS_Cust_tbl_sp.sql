@@ -182,7 +182,8 @@ UPDATE h SET
 	   h.designations = #hs.designations,
 	   h.laststdate =  #hs.laststdate,
        -- h.added_by_date,
-	   h.modified_by_date = GETDATE()
+	   h.modified_by_date = GETDATE(),
+	   modified_flag = 1
 -- SELECT *
 FROM #hs 
 JOIN dbo.hs_cust_tbl AS h ON h.id = #hs.id
@@ -250,7 +251,8 @@ INSERT INTO dbo.hs_cust_tbl
 		  designations,
 		  laststdate,
           added_by_date ,
-          modified_by_date
+          modified_by_date,
+		  modified_flag
         )
 SELECT h.id ,
        h.name ,
@@ -283,7 +285,8 @@ SELECT h.id ,
 	   h.designations,
 	   h.laststdate,
        GETDATE() added_by_date ,
-       NULL modified_by_date
+       NULL modified_by_date,
+	   1 modified_flag
 	   FROM dbo.#hs AS h
 	WHERE NOT EXISTS (SELECT 1 FROM dbo.hs_cust_tbl AS hct WHERE hct.id = h.id)
 
@@ -291,6 +294,7 @@ SELECT h.id ,
 
 
 END
+
 
 
 

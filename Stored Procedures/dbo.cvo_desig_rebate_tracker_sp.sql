@@ -2,16 +2,19 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[cvo_desig_rebate_tracker_sp] @sdate DATETIME, @edate DATETIME, @terr VARCHAR(1024) = null
+CREATE PROCEDURE [dbo].[cvo_desig_rebate_tracker_sp] @sdate DATETIME, @edate DATETIME, @terr VARCHAR(1024) = NULL, @single_email INT = 0
 AS 
 BEGIN
 
--- exec cvo_desig_rebate_tracker_sp '1/1/2016', '11/20/2016', '40438'
+SET NOCOUNT ON 
+SET ANSI_WARNINGS OFF
+
+-- exec cvo_desig_rebate_tracker_sp '1/1/2017', '11/20/2017', '40438', 0
 
 
 -- DECLARE @sdate DATETIME, @edate DATETIME, @today DATETIME, @terr VARCHAR(1024)
 
-DECLARE @progyear INT, @today datetime
+DECLARE @progyear INT, @today DATETIME, @lastcust VARCHAR(12), @emails VARCHAR(1024)
 
 SELECT @today = GETDATE()
 IF @sdate IS NULL OR @edate IS NULL
@@ -53,17 +56,46 @@ ELSE
 --HAVING COUNT(xx.customer_code) > 1   
 
 IF ( OBJECT_ID('tempdb.dbo.#email') IS NOT NULL ) DROP TABLE #email; 
+IF ( OBJECT_ID('tempdb.dbo.#single_email') IS NOT NULL ) DROP TABLE #single_email; 
+
+
 SELECT DISTINCT email.mergecust, CAST(email.contact_email AS VARCHAR(255)) contact_email
 INTO #email
 FROM 
 (
- --SELECT distinct RIGHT(customer_code,5) mergecust, contact_email, 'Customer'
- --FROM armaster WHERE contact_email IS NOT NULL AND CHARINDEX('@',contact_email) > 0
- --UNION 
+ SELECT distinct RIGHT(customer_code,5) mergecust, contact_email
+ FROM armaster WHERE contact_email IS NOT NULL AND CHARINDEX('@',contact_email) > 0
+ UNION 
  SELECT DISTINCT RIGHT(customer_code,5) mergecust, contact_email
  FROM adm_arcontacts WHERE contact_email IS NOT NULL AND CHARINDEX('@',contact_email) > 0
  AND contact_code = 'Dr.'
  ) email
+
+ -- parse out multiple emails
+ SELECT DISTINCT mergecust, REPLACE(contact_email,';',',') contact_email
+ INTO #single_email
+ FROM #email
+ WHERE CHARINDEX(',',REPLACE(contact_email,';',','),1) > 0
+
+ DELETE FROM #email WHERE CHARINDEX(',',REPLACE(contact_email,';',','),1) > 0
+
+ SELECT @lastcust = MIN(mergecust) FROM #single_email AS se
+
+ WHILE @lastcust IS NOT NULL
+ BEGIN
+	
+	SELECT @emails = contact_Email FROM #single_email AS se WHERE se.mergecust = @lastcust
+
+	INSERT #email (mergecust, contact_email)
+	SELECT @lastcust, ListItem 
+	FROM dbo.f_comma_list_to_table(@emails) 
+	
+	SELECT @lastcust = MIN(mergecust) FROM #single_email AS se WHERE mergecust > @lastcust
+
+ END	
+
+
+ -- end
 
 SELECT cdr.progyear, cdr.interval ,cdr.code, facts.description, cdr.goal1, cdr.rebatepct1, cdr.goal2, cdr.rebatepct2 , cdr.RRLess, 
 	ar.past_due, cust.mergecust ,
@@ -72,6 +104,7 @@ SELECT cdr.progyear, cdr.interval ,cdr.code, facts.description, cdr.goal1, cdr.r
         		 cust.address_name,
 				 contact_email = cust.contact_email,
 				 dr_email = emails.contact_emails,
+				 email = emails.email_each,
                  facts.grosssales ,
                  facts.netsales ,
                  facts.rareturns ,
@@ -134,17 +167,20 @@ FROM arcust GROUP BY RIGHT(customer_code, 5) ,
 JOIN #terr t ON t.terr = cust.territory_code
 
 LEFT OUTER JOIN
+
 (SELECT RIGHT(cust_code,5) mergecust, past_due = SUM(ar30+ar60+ar90+ar120+ar150)
 FROM dbo.SSRS_ARAging_Temp
 GROUP BY RIGHT(cust_code, 5)
 ) AS ar ON ar.mergecust = cust.mergecust
 
-LEFT OUTER join
+LEFT OUTER JOIN
+
 (SELECT DISTINCT e.mergecust, 
 		STUFF (( SELECT DISTINCT ';' + ee.contact_email 
 				FROM #email AS ee
 				WHERE ee.mergecust = e.mergecust
-				FOR XML PATH ('')), 1, 1, '') contact_emails
+				FOR XML PATH ('')), 1, 1, '') contact_emails,
+		email_each = CASE WHEN @single_email = 1 THEN e.contact_email ELSE '' END
  FROM #email e) emails ON emails.mergecust = cust.mergecust
 
 WHERE cdr.progyear = @progyear
@@ -153,6 +189,7 @@ AND t.region IS NOT NULL
 -- SELECT * FROM dbo.cvo_designation_codes AS ccdc
 
 END
+
 
 
 

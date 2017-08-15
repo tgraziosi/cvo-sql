@@ -14,16 +14,13 @@ EXEC cvo_backorder_processing_allocate_stock_sp
 -- v1.5 CT 29/11/2013 - Issue #1406 - Stock no longer ringfenced, qty allocated may not be qty required
 -- v1.6 CT 03/04/2014 - Issue #572 - Changes for Masterpack order consolidation
 -- v1.7 CB 18/12/2015 - Issue #1582 - If nothing allocated then do not add record to print table
+-- v1.8 CB 28/07/2017 - Reset print
 */
 
 CREATE PROC [dbo].[cvo_backorder_processing_allocate_stock_sp]
 
 AS
 BEGIN
-
-	SET NOCOUNT ON 
-	SET ANSI_WARNINGS OFF
-    
 	DECLARE @rec_id			INT,
 			@retval			SMALLINT,
 			@order_no		INT,
@@ -225,6 +222,22 @@ BEGIN
 
 				-- START v1.4
 				-- Add the order to the table of pick tickets to be printed
+				-- v1.8 Start
+				IF EXISTS (SELECT 1 FROM CVO_backorder_processing_pick_tickets (NOLOCK) WHERE template_code = @template_code AND order_no = @order_no AND ext = @ext 
+								AND is_transfer = @is_transfer)
+				BEGIN
+					UPDATE	CVO_backorder_processing_pick_tickets
+					SET		printed = 0,
+							printed_date = NULL,
+							reason = NULL
+					WHERE	template_code = @template_code 
+					AND		order_no = @order_no 
+					AND		ext = @ext 
+					AND		is_transfer = @is_transfer
+				END
+				-- v1.8 End
+
+
 				IF NOT EXISTS (SELECT 1 FROM CVO_backorder_processing_pick_tickets WHERE template_code = @template_code AND order_no = @order_no AND ext = @ext 
 								AND is_transfer = @is_transfer AND printed = 0)
 				BEGIN
@@ -396,7 +409,6 @@ BEGIN
 
 	RETURN 0
 END
-
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_backorder_processing_allocate_stock_sp] TO [public]

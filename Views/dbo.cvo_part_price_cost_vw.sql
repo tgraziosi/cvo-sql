@@ -21,19 +21,19 @@ from
 select i.part_no,
 case when i.type_code in ('frame','sun','chassis') then ISNULL(p.price_a,0) else 0 end as frame_price,
 case when i.type_code in ('frame','sun','chassis') then ISNULL(ila.std_cost,0) else 0 end as frame_cost
-,cast(round(case when iia.category_3 = 'temple-l' 
+,cast(round(case when iia.category_3 = 'temple-l' AND ISNULL(bom.active,'a') = 'a'
 	then ISNULL(pp.price_a,0) else 0 end,2) as decimal(8,2)) 
 	as temple_price
-,cast(round(case when iia.category_3 = 'front' 
+,cast(round(case when iia.category_3 = 'front' AND ISNULL(bom.active,'a') = 'a'
 	then ISNULL(pp.price_a,0) else 0 end,2) as decimal(8,2)) 
 	as Front_price
-,cast(round(case when iia.category_3 = 'temple-l' and iia.part_no like '%ls%'
+,cast(round(case when iia.category_3 = 'temple-l' AND ISNULL(bom.active,'a') = 'a' and iia.part_no like '%ls%'
 		then ISNULL(iil.std_cost,0) else 0 end,2) as decimal(8,2))
 		 as temple_cost
-,cast(round(case when iia.category_3 = 'temple-l' and iia.part_no like '%lc%'
+,cast(round(case when iia.category_3 = 'temple-l' AND ISNULL(bom.active,'a') = 'a' AND iia.part_no like '%lc%'
 		then ISNULL(iil.std_cost,0) else 0 end,2) as decimal(8,2))
 		 as cable_cost
-,cast(round(case when iia.category_3 = 'front' 
+,cast(round(case when iia.category_3 = 'front' AND ISNULL(bom.active,'a') = 'a'
 		then ISNULL(iil.std_cost,0) else 0 end,2) as decimal(8,2))
 		 as front_cost
 , p.last_system_upd_date Last_price_upd_date
@@ -54,15 +54,17 @@ from
 	where 1=1
 	and i.void = 'N'
 	AND I.TYPE_code in ('frame','sun')
+	-- AND i.part_no = 'DDSPRICOB4214'
 	-- and exists ( select 1 from what_part where asm_no = i.part_no)
-	and ISNULL(ii.void,'n') = 'n' 
+	--and ISNULL(ii.void,'n') = 'n' 
 	and ISNULL(ii.type_code,'parts') in ('parts') 
-	and ISNULL(bom.active,'a') = 'a'
+	-- and ISNULL(bom.active,'a') = 'a'
 ) as bp
 
  -- where bp.part_no like 're%'
 group by bp.part_no
 -- order by bp.part_no
+
 
 
 

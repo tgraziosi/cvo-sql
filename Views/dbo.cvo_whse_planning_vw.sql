@@ -8,25 +8,31 @@ GO
 
 CREATE VIEW [dbo].[cvo_whse_planning_vw]
 AS
-    SELECT  bm.usage_type_code ,
-            bm.group_code ,
-            b.location ,
+    SELECT  
+			i.part_no ,
             b.bin_no ,
 			i.category Brand,
 			ia.field_2 model,
-            i.part_no ,
-            i.upc_code ,
             i.description ,
             i.type_code ,
-            b.lot_ser ,
             b.qty ,
 			CASE WHEN ISNULL(pb.bin_no,'N') = 'N' THEN 'No' ELSE 'Yes' END AS Is_Assigned,
             ISNULL(pb.[primary], 'N') primary_bin ,
-			bm.maximum_level, -- 1/18/2017 - per KM request
 			bm.status,
+			bm.maximum_level, -- 1/18/2017 - per KM request
+			tbr.replenish_min_lvl,
 			tbr.replenish_max_lvl,
+			tbr.replenish_qty,
 			ia.field_26 rel_date,
-			ia.field_28 pom_date
+			ia.field_28 pom_date,
+			bm.usage_type_code ,
+            bm.group_code ,
+            b.location ,
+			i.upc_code,
+			aisle = LEFT(b.bin_no,3),
+			section = SUBSTRING(b.bin_no,4,1),
+			block = SUBSTRING(b.bin_no,6,2),
+			slot = RIGHT(b.bin_no,2)
     FROM    inv_master i ( NOLOCK ) 
 			INNER JOIN inv_master_add ia (nolock) ON ia.part_no = i.part_no
 		    INNER JOIN inv_list il ( NOLOCK ) ON il.part_no = i.part_no AND location = '001'
@@ -45,28 +51,35 @@ AS
 		AND i.void = 'n'
     UNION -- assigned bins with no inventory
     SELECT	DISTINCT
-            m.usage_type_code ,
-            m.group_code ,
-            m.location ,
-            m.bin_no ,
-			i.category brand,
+			i.part_no ,
+            bm.bin_no ,
+			i.category Brand,
 			ia.field_2 model,
-            s.part_no ,
-            i.upc_code ,
             i.description ,
             i.type_code ,
-            '' lot_ser ,
-            0 qty ,
+            ISNULL(l.qty,0) qty ,
 			CASE WHEN ISNULL(s.bin_no,'N') = 'N' THEN 'No' ELSE 'Yes' END AS Is_Assigned,
-            s.[primary] ,
-			m.maximum_level,
-			m.status,
+            ISNULL(s.[primary], 'N') primary_bin ,
+			bm.status,
+			bm.maximum_level, -- 1/18/2017 - per KM request
+			tbr.replenish_min_lvl,
 			tbr.replenish_max_lvl,
+			tbr.replenish_qty,
 			ia.field_26 rel_date,
-			ia.field_28 pom_date
+			ia.field_28 pom_date,
+			bm.usage_type_code ,
+            bm.group_code ,
+            bm.location ,
+			i.upc_code,	
+			aisle = LEFT(bm.bin_no,3),
+			section = SUBSTRING(bm.bin_no,4,1),
+			block = SUBSTRING(bm.bin_no,6,2),
+			slot = RIGHT(bm.bin_no,2)
+
+
     FROM    tdc_bin_part_qty s ( NOLOCK )
-            INNER JOIN tdc_bin_master m ( NOLOCK ) ON s.location = m.location
-                                                      AND s.bin_no = m.bin_no
+            INNER JOIN tdc_bin_master bm ( NOLOCK ) ON s.location = bm.location
+                                                      AND s.bin_no = bm.bin_no
             INNER JOIN inv_master i ( NOLOCK ) ON i.part_no = s.part_no
 			INNER JOIN inv_master_add ia (nolock) ON ia.part_no = i.part_no
             INNER JOIN inv_list il ( NOLOCK ) ON il.part_no = i.part_no
@@ -82,33 +95,44 @@ AS
             AND l.bin_no IS NULL
 	UNION -- empty bins not assigned to parts
     SELECT	DISTINCT
-            m.usage_type_code ,
-            m.group_code ,
-            m.location ,
-            m.bin_no ,
-			'' brand,
+
+			'' part_no ,
+            bm.bin_no ,
+			'' Brand,
 			'' model,
-            '' part_no ,
-            '' upc_code ,
-            '' description ,
+            bm.description ,
             '' type_code ,
-            '' lot_ser ,
-            0 qty ,
-			'Empty' AS Is_Assigned,
-            'N' [primary] ,
-			m.maximum_level,
-			m.status,
-			0 AS max_replenish,
-			NULL AS rel_date,
-			NULL AS pom_date
-    FROM    tdc_bin_master m (NOLOCK)
+             0 qty ,
+			'Empty' AS  Is_Assigned,
+            'N' primary_bin ,
+			bm.status,
+			bm.maximum_level, -- 1/18/2017 - per KM request
+			0 replenish_min_lvl,
+			0 replenish_max_lvl,
+			0 replenish_qty,
+			NULL rel_date,
+			NULL pom_date,
+			bm.usage_type_code ,
+            bm.group_code ,
+            bm.location ,
+			'' upc_code,
+			aisle = LEFT(bm.bin_no,3),
+			section = SUBSTRING(bm.bin_no,4,1),
+			block = SUBSTRING(bm.bin_no,6,2),
+			slot = RIGHT(bm.bin_no,2)
+
+    FROM    tdc_bin_master bm (NOLOCK)
 			WHERE 
-			NOT EXISTS (SELECT 1 FROM tdc_bin_part_qty s ( NOLOCK ) WHERE s.location = m.location AND s.bin_no = m.bin_no)
-			AND NOT EXISTS (SELECT 1 FROM lot_bin_stock l (NOLOCK ) WHERE l.location = m.location AND l.bin_no = m.bin_no)
+			NOT EXISTS (SELECT 1 FROM tdc_bin_part_qty s ( NOLOCK ) WHERE s.location = bm.location AND s.bin_no = bm.bin_no)
+			AND NOT EXISTS (SELECT 1 FROM lot_bin_stock l (NOLOCK ) WHERE l.location = bm.location AND l.bin_no = bm.bin_no)
 
 			
 			;
     
+
+
+
+
 
 
 

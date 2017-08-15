@@ -34,7 +34,7 @@ union all
 select 
 	Convert(varchar(100),'Yesterday') as [Period]
 	,convert(datetime,datediff(dd,0,getdate()))-1 as BeginDate
-	,convert(datetime,datediff(dd,0,getdate()))-1 as EndDate
+	,convert(datetime,DATEADD(ms,-3,DATEDIFF(dd,0,getdate()))) as EndDate
 UNION ALL
 SELECT 
 	Convert(varchar(100),'This Week - Mon') as [Period]
@@ -172,6 +172,7 @@ select
 --	Convert(varchar(100),'Next Year to Date') as [Period]
 --	,Convert(datetime,'1/1/' + cast(YEAR(GETDATE())+1 as varchar(4))) as BeginDate
 --	,Convert(datetime,cast(MONTH(GETDATE()) as varchar(2)) + '/' + cast(DAY(GETDATE()) as varchar(2)) + '/' + cast(YEAR(GETDATE())+1 as varchar(4)))  as EndDate
+
 
 
 

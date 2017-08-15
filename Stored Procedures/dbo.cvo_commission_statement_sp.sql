@@ -50,6 +50,7 @@ AS
 			  termdate DATETIME,
 			  status_Type INT,
 			  rep_type INT,
+			  commission DECIMAL(5,2),
               mm VARCHAR(2)
             );
 
@@ -67,6 +68,7 @@ AS
 						  termdate,
 						  status_Type,
 						  rep_type,
+						  commission,
                           mm
                         )
                         SELECT DISTINCT
@@ -78,6 +80,7 @@ AS
 								ISNULL(dbo.adm_format_pltdate_f(sp.date_terminated),'12/31/2099') termdate,
 								sp.status_type,
 								sp.salesperson_type,
+								ccswt.commission,
                                 RIGHT('00' + CAST(@i AS VARCHAR(2)), 2) mm
                         FROM    dbo.cvo_commission_summary_work_tbl AS ccswt
 						JOIN arsalesp sp ON ccswt.salesperson = sp.salesperson_code 
@@ -92,6 +95,7 @@ AS
 								ISNULL(dbo.adm_format_pltdate_f(sp.date_terminated),'12/31/2099') termdate,
 								sp.status_type,
 								sp.salesperson_type,
+								sp.commission,
                                 RIGHT('00' + CAST(@i AS VARCHAR(2)), 2) mm
                         FROM    arsalesp sp
 						WHERE sp.status_type = 1 AND NOT EXISTS 
@@ -111,7 +115,7 @@ AS
                 ISNULL(ty.comm_amt, 0) comm_amt ,
                 ISNULL(ty.draw_amount, 0.00) draw_amount ,
                 ty.draw_weeks ,
-                ISNULL(ty.commission, 0) commission ,
+                ISNULL(ty.commission, #mm.commission) commission ,
                 ISNULL(ty.incentivePC, 0) incentivePC ,
                 ISNULL(ty.incentive, 0) incentive ,
                 addition1 = addition1.addition1,
@@ -404,7 +408,7 @@ AS
 		#final.salesperson+#final.territory IN 
 		(SELECT salesperson+territory FROM #final GROUP BY salesperson, territory HAVING SUM(amount) = 0);
 
-		SELECT id ,
+		SELECT DISTINCT id ,
                salesperson ,
                salesperson_name ,
                hiredate ,
@@ -443,6 +447,7 @@ AS
                spec_pay FROM #final;
 
     END;
+
 
 
 
