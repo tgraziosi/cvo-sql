@@ -4,73 +4,75 @@ SET ANSI_NULLS ON
 GO
 
 
-CREATE view [dbo].[cvo_bin_alloc_analysis_vw] as 
+
+CREATE VIEW [dbo].[cvo_bin_alloc_analysis_vw] AS 
 -- select * from [cvo_bin_alloc_analysis_vw]
-Select 
+SELECT 
 a.part_no,
 c.description, 
 c.type_code,
-isnull(convert(varchar(12),ia.field_28,101),'Current') as pom_date,
+ISNULL(CONVERT(VARCHAR(12),ia.field_28,101),'Current') AS pom_date,
 e.group_code,
 e.usage_type_code,
 a.bin_no, 
 a.numallocs,
-cast(a.qty as decimal(10,0)) as allocated,
-cast(isnull(d.qty,0) as decimal(10,0)) as bin_qty,
-case when d.qty = 0 or d.qty is null then 0 else cast(round((a.qty/d.qty)*100,0) as decimal(10,0))  end as pct_alloc,
+CAST(a.qty AS DECIMAL(10,0)) AS allocated,
+CAST(ISNULL(d.qty,0) AS DECIMAL(10,0)) AS bin_qty,
+CASE WHEN d.qty = 0 OR d.qty IS NULL THEN 0 ELSE CAST(ROUND((a.qty/d.qty)*100,0) AS DECIMAL(10,0))  END AS pct_alloc,
 e.maximum_level max_lvl,
-case when e.maximum_level = 0 then 0 else cast((a.qty/e.maximum_level*100) as integer) end as pct_max,
-case when e.maximum_level = 0 then 0 else cast((d.qty/e.maximum_level*100) as integer) end as pct_bin_full,
-isnull((select sum(aa.qty) qty from tdc_soft_alloc_tbl (nolock) aa where aa.location = a.location and aa.part_no = a.part_no and aa.order_no = 0), 0) open_replen_qty,
+CASE WHEN e.maximum_level = 0 THEN 0 ELSE CAST((a.qty/e.maximum_level*100) AS INTEGER) END AS pct_max,
+CASE WHEN e.maximum_level = 0 THEN 0 ELSE CAST((d.qty/e.maximum_level*100) AS INTEGER) END AS pct_bin_full,
+ISNULL((SELECT SUM(aa.qty) qty FROM tdc_soft_alloc_tbl (NOLOCK) aa WHERE aa.location = a.location AND aa.part_no = a.part_no AND aa.order_no = 0), 0) open_replen_qty,
 ISNULL(hb.bin_no,'') hb_bin_no,
-isnull(hb.qty,0) hb_qty,
+ISNULL(hb.qty,0) hb_qty,
 ISNULL(W.QTY,0) w_qty,
-(select top 1 convert(varchar(12), date_tran, 101) From lot_bin_tran where direction = 1 and tran_code = 'I' and location = a.location and part_no = a.part_no and bin_no = a.bin_no
- order by date_tran desc) as last_trn_date,
- (select top 1 qty From lot_bin_tran where direction = 1 and tran_code = 'I' and location = a.location and part_no = a.part_no and bin_no = a.bin_no
- order by date_tran desc) as last_trn_in,
+(SELECT TOP 1 CONVERT(VARCHAR(12), date_tran, 101) FROM lot_bin_tran WHERE direction = 1 AND tran_code = 'I' AND location = a.location AND part_no = a.part_no AND bin_no = a.bin_no
+ ORDER BY date_tran DESC) AS last_trn_date,
+ (SELECT TOP 1 qty FROM lot_bin_tran WHERE direction = 1 AND tran_code = 'I' AND location = a.location AND part_no = a.part_no AND bin_no = a.bin_no
+ ORDER BY date_tran DESC) AS last_trn_in,
 drp.e4_wu,
 -- (select top 1 isnull(e4_wu,0) from drp where part_no = a.part_no and location = a.location) as e4_wu, 
-isnull(br.replenish_min_lvl,0) replen_min,
-isnull(br.replenish_max_lvl,0) replen_max,
-isnull(br.replenish_qty,0) replen_qty,
-isnull(br.auto_replen,0) auto_replen
+ISNULL(br.replenish_min_lvl,0) replen_min,
+ISNULL(br.replenish_max_lvl,0) replen_max,
+ISNULL(br.replenish_qty,0) replen_qty,
+ISNULL(br.auto_replen,0) auto_replen
 
 
-from 
-(select part_no, location, bin_no, SUM(ISNULL(qty,0)) qty, count(qty) numallocs from tdc_soft_alloc_tbl (nolock) 
-  where location = '001' and (order_no <>0 OR (order_no = 0 and dest_bin = 'CUSTOM'))
-  group by part_no, location, bin_no) a 
-inner join inv_master c (nolock) on a.part_no = c.part_no 
-inner join inv_master_add ia (nolock) on a.part_no = ia.part_no
-inner join tdc_bin_master e (nolock) on a.bin_no = e.bin_no and a.location = e.location
-left outer join lot_bin_stock d (nolock) on a.part_no = d.part_no and a.bin_no = d.bin_no and a.location = d.location
-left outer join tdc_bin_replenishment br (nolock) on a.part_no = br.part_no and a.bin_no = br.bin_no and a.location = br.location
+FROM 
+(SELECT part_no, location, bin_no, SUM(ISNULL(qty,0)) qty, COUNT(qty) numallocs FROM tdc_soft_alloc_tbl (NOLOCK) 
+  WHERE location = '001' AND (order_no <>0 OR (order_no = 0 AND dest_bin = 'CUSTOM'))
+  GROUP BY part_no, location, bin_no) a 
+INNER JOIN inv_master c (NOLOCK) ON a.part_no = c.part_no 
+INNER JOIN inv_master_add ia (NOLOCK) ON a.part_no = ia.part_no
+INNER JOIN tdc_bin_master e (NOLOCK) ON a.bin_no = e.bin_no AND a.location = e.location
+LEFT OUTER JOIN lot_bin_stock d (NOLOCK) ON a.part_no = d.part_no AND a.bin_no = d.bin_no AND a.location = d.location
+LEFT OUTER JOIN tdc_bin_replenishment br (NOLOCK) ON a.part_no = br.part_no AND a.bin_no = br.bin_no AND a.location = br.location
 LEFT OUTER JOIN
-(select bp.location, bp.part_no, bp.bin_no, sum(isnull(lb.qty,0)) qty from tdc_bin_part_qty bp (nolock) 
-  inner join tdc_bin_master bm (nolock) on bp.location = bm.location and bp.bin_no = bm.bin_no 
-  LEFT OUTER join lot_bin_stock lb (nolock) on bp.location = lb.location and bp.bin_no = lb.bin_no and bp.part_no = lb.part_no
-  where group_code = 'HIGHBAY'
-  group by bp.location, bp.part_no, bp.bin_no) hb 
-on hb.part_no = a.part_no and hb.location = a.location
+(SELECT bp.location, bp.part_no, bp.bin_no, SUM(ISNULL(lb.qty,0)) qty FROM tdc_bin_part_qty bp (NOLOCK) 
+  INNER JOIN tdc_bin_master bm (NOLOCK) ON bp.location = bm.location AND bp.bin_no = bm.bin_no 
+  LEFT OUTER JOIN lot_bin_stock lb (NOLOCK) ON bp.location = lb.location AND bp.bin_no = lb.bin_no AND bp.part_no = lb.part_no
+  WHERE group_code = 'HIGHBAY'
+  GROUP BY bp.location, bp.part_no, bp.bin_no) hb 
+ON hb.part_no = a.part_no AND hb.location = a.location
 
 -- add whse qty
 
 LEFT OUTER JOIN
-(select lb.location, lb.part_no, sum(isnull(lb.qty,0)) qty from 
-  lot_bin_stock lb (nolock)  
-  LEFT OUTER join tdc_bin_master bm (nolock) on BM.location = lb.location and BM.bin_no =lb.bin_no
-  where BM.group_code = 'BULK' and bm.usage_type_code in ('replenish','open')
-  group by lb.location, lb.part_no) w 
-on W.part_no = a.part_no and W.location = a.location
+(SELECT lb.location, lb.part_no, SUM(ISNULL(lb.qty,0)) qty FROM 
+  lot_bin_stock lb (NOLOCK)  
+  LEFT OUTER JOIN tdc_bin_master bm (NOLOCK) ON BM.location = lb.location AND BM.bin_no =lb.bin_no
+  WHERE BM.group_code = 'BULK' AND bm.usage_type_code IN ('replenish','open')
+  GROUP BY lb.location, lb.part_no) w 
+ON W.part_no = a.part_no AND W.location = a.location
 
 LEFT OUTER JOIN
-( SELECT part_no, e4_wu FROM dbo.f_cvo_calc_weekly_usage('o') AS fccwu
+( SELECT part_no, e4_wu FROM dbo.f_cvo_calc_weekly_usage_coll('o',null) AS fccwu
 	WHERE fccwu.location = '001' ) drp ON drp.part_no = a.part_no
 
-where  1=1
-and e.group_code = 'PICKAREA' AND E.USAGE_TYPE_CODE = 'REPLENISH'
+WHERE  1=1
+AND e.group_code = 'PICKAREA' AND E.USAGE_TYPE_CODE = 'REPLENISH'
 --order by PCT_ALLOC DESC, a.part_no ASC
+
 
 
 

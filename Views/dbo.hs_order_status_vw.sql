@@ -16,7 +16,7 @@ CREATE VIEW [dbo].[hs_order_status_vw] AS
 -- 2/26/2016  - include credits too
 -- 3/8/16 - include voided orders that have not been replaced
 
-SELECT
+SELECT distinct
 o.user_def_fld4 HS_order_no, 
 o.order_no, 
 CASE WHEN o.status BETWEEN 'A' AND 'Q' THEN 'Processing'
@@ -71,6 +71,7 @@ AND o.user_def_fld4 <> ''
 AND o.date_entered > '01/01/2013'
 AND NOT EXISTS(SELECT 1 FROM orders oo (NOLOCK) WHERE oo.order_no = o.order_no AND oo.ext > o.ext 
 AND oo.status <> 'V')
+
 
 
 

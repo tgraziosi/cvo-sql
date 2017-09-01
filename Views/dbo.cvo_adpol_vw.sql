@@ -6,14 +6,15 @@ GO
 
 
 
+
 -- select * From cvo_adpol_vw WHERE LOCATION = '001' AND STATUS_DESC = 'OPEN'
 
-CREATE view [dbo].[cvo_adpol_vw] as
+CREATE VIEW [dbo].[cvo_adpol_vw] AS
 -- tag - 013013 - add release date and po header note
 -- tag - 031813 -- add drp info
 -- tag - 5/3/2013 -- add po category
 -- tag - 2/24/2015 - add line level PL flag
-select 
+SELECT 
 	p.po_key ,
 	pa.user_category category,
 	pa.date_of_order,
@@ -37,24 +38,24 @@ select
 	qty_ordered ,
 	qty_received ,
 	ext_cost=curr_cost * qty_ordered,
-	qty_open = case when qty_ordered-qty_received < 0 then 0
-					else qty_ordered-qty_received
-				end,
-	ext_cost_open = case when qty_ordered-qty_received < 0 then 0 
-					     else curr_cost * (qty_ordered-qty_received)
-					end,
+	qty_open = CASE WHEN qty_ordered-qty_received < 0 THEN 0
+					ELSE qty_ordered-qty_received
+				END,
+	ext_cost_open = CASE WHEN qty_ordered-qty_received < 0 THEN 0 
+					     ELSE curr_cost * (qty_ordered-qty_received)
+					END,
 	vend_sku ,
 	account_no ,
 	p.tax_code, 
 	r.due_date,
 	r.confirm_date,
  	-- add new SA fields - 040513
-	isnull(r.departure_date, r.confirm_date) departure_date,
-	isnull(r.inhouse_date, r.confirm_date) inhouse_date,
+	ISNULL(r.departure_date, r.confirm_date) departure_date,
+	ISNULL(r.inhouse_date, r.confirm_date) inhouse_date,
 	-- 2/24/15 - 
-	case when isnull(p.plrecd,0) = 1 then 'Yes-L'
-		 when isnull(pa.expedite_flag,0) = 1 then 'Yes-H' 
-		 else 'No' end as Pk_lst,
+	CASE WHEN ISNULL(p.plrecd,0) = 1 THEN 'Yes-L'
+		 WHEN ISNULL(pa.expedite_flag,0) = 1 THEN 'Yes-H' 
+		 ELSE 'No' END AS Pk_lst,
 	-- case when pa.expedite_flag = 1 then 'Yes' else 'No' end as Pk_lst, -- 06/17/2013 for TB request
 	p.status ,  
 	status_desc =   
@@ -69,9 +70,9 @@ select
 	--   WHEN 'V' THEN 'Void'  pre-SCR 28228 KJC Jan 24 2002  
 		ELSE ''  
     END,   
-    '' as [Shipping (Y/N)],
-    '' as [Vendor Comments],
-    '' as [CVO Ship Method],
+    '' AS [Shipping (Y/N)],
+    '' AS [Vendor Comments],
+    '' AS [CVO Ship Method],
 	x_po_key=p.po_key ,
 	x_line=p.line ,
 	x_unit_cost=unit_cost,
@@ -81,41 +82,42 @@ select
 	x_ext_cost=curr_cost * qty_ordered,
 
 	-- tag - 031813 -- add drp info
-	cast(isnull(drp.e4_wu,0) as varchar(12)) e4_wu,
-	cast(isnull(drp.e12_wu,0) as varchar(12)) e12_wu,
-	cast(isnull(iav.in_stock,0) as varchar(12)) on_hand,
-	cast(CAST(ISNULL(iav.backorder,0) AS INTEGER) as varchar(12)) backorder,
+	CAST(ISNULL(drp.e4_wu,0) AS VARCHAR(12)) e4_wu,
+	CAST(ISNULL(drp.e12_wu,0) AS VARCHAR(12)) e12_wu,
+	CAST(ISNULL(iav.in_stock,0) AS VARCHAR(12)) on_hand,
+	CAST(CAST(ISNULL(iav.backorder,0) AS INTEGER) AS VARCHAR(12)) backorder,
 	
 	-- EL - 050914 -- Air or Ocean Delivery Method
-	Case when p.ship_via_method IS NULL and pa.ship_via_method IS NULL THEN 'NA'
+	CASE WHEN p.ship_via_method IS NULL AND pa.ship_via_method IS NULL THEN 'NA'
 		WHEN p.ship_via_method = 0 THEN 'None'
 			WHEN p.ship_via_method = 1 THEN 'Air'
 				WHEN p.ship_via_method = 2 THEN 'Ocean'
-		WHEN p.ship_via_method IS NULL and pa.ship_via_method = 0 THEN 'None'
-			WHEN p.ship_via_method IS NULL and pa.ship_via_method = 1 THEN 'Air'
-				WHEN p.ship_via_method IS NULL and pa.ship_via_method = 2 THEN 'Ocean'
+		WHEN p.ship_via_method IS NULL AND pa.ship_via_method = 0 THEN 'None'
+			WHEN p.ship_via_method IS NULL AND pa.ship_via_method = 1 THEN 'Air'
+				WHEN p.ship_via_method IS NULL AND pa.ship_via_method = 2 THEN 'Ocean'
 					ELSE 'XXXXXXXX' END AS Method,
 	
-	isnull(dbo.cvo_fn_rem_crlf(pa.note),'') as note
+	ISNULL(dbo.cvo_fn_rem_crlf(pa.note),'') AS note
 	--isnull(ltrim(rtrim(left(pa.note,60))),'') note
 	, i.type_code
 
-from pur_list p (nolock) 
-inner join purchase_all pa (nolock)
-on pa.po_key = p.po_key
-left join releases r (nolock)
-on p.po_key = r.po_key and p.line = r.po_line
-left join inv_master_add ia (nolock) on p.part_no = ia.part_no
-left join inv_master i (nolock) on i.part_no = p.part_no
+FROM pur_list p (NOLOCK) 
+INNER JOIN purchase_all pa (NOLOCK)
+ON pa.po_key = p.po_key
+LEFT JOIN releases r (NOLOCK)
+ON p.po_key = r.po_key AND p.line = r.po_line
+LEFT JOIN inv_master_add ia (NOLOCK) ON p.part_no = ia.part_no
+LEFT JOIN inv_master i (NOLOCK) ON i.part_no = p.part_no
 -- tag - 031813
 LEFT OUTER JOIN dbo.cvo_item_avail_vw AS iav ON iav.location = p.location AND iav.part_no = p.part_no
 LEFT OUTER JOIN
-(SELECT part_no, location, e4_wu, e12_wu FROM dbo.f_cvo_calc_weekly_usage('o'))
+(SELECT part_no, location, e4_wu, e12_wu FROM dbo.f_cvo_calc_weekly_usage_coll('o',null))
  AS drp ON drp.location = p.location AND drp.part_no = p.part_no
 --left join dpr_report drp (nolock) 
 --on p.part_no = drp.part_no and p.location = drp.location
-where p.po_key = p.po_no and pa.po_no = pa.po_key
-and r.po_key = r.po_no
+WHERE p.po_key = p.po_no AND pa.po_no = pa.po_key
+AND r.po_key = r.po_no
+
 
 
 

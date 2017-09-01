@@ -246,7 +246,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                 --     THEN 'BTS'
 -- 6/26/2017 - bts 2017
 				CASE WHEN category_2 LIKE '%CHILD%'
-						  AND I.category IN ('SM','OP','IZOD')
+						  AND I.category IN ('SM','OP','IZOD','BT') -- added BT 8/28/17 per PG request (not BTS)
 					 THEN 'Kids'
 
                      WHEN category_2 NOT LIKE '%child%'
@@ -1026,6 +1026,7 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 -- SELECT distinct manufacturer, [category:1], [CATEGORY:2] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
 
 
 

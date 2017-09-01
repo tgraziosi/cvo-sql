@@ -68,22 +68,27 @@ BEGIN
 
     -- SELECT @cart_order_no, @order, @ext
 
-    IF EXISTS
-    (
-        SELECT 1
-        FROM
-            dbo.tdc_soft_alloc_tbl a
-            JOIN tdc_pick_queue p
-                ON a.order_no = p.trans_type_no
-                   AND a.order_ext = p.trans_type_ext
-                   AND p.location = a.location
-                   AND p.line_no = a.line_no
-                   AND p.bin_no = a.bin_no
-                   AND p.part_no = a.part_no
-        WHERE
-            a.order_no = @order
-            AND a.order_ext = @ext
-    )
+   -- IF EXISTS
+   -- (
+   --     SELECT 1
+   --     FROM
+			
+			--dbo.tdc_pick_queue AS p
+   --         -- dbo.tdc_soft_alloc_tbl a
+
+   --         --JOIN tdc_pick_queue p
+   --         --    ON a.order_no = p.trans_type_no
+   --         --       AND a.order_ext = p.trans_type_ext
+   --         --       AND p.location = a.location
+   --         --       AND p.line_no = a.line_no
+   --         --       AND p.bin_no = a.bin_no
+   --         --       AND p.part_no = a.part_no
+   --     WHERE
+   --         (p.trans_type_no = @order
+   --         AND p.trans_type_ext = @ext
+			--AND p.mp_consolidation_no IS NULL)
+			--OR p.mp_consolidation_no = @cart_order_no
+   -- )
         EXEC dbo.cvo_pick_cart_process_sp
             @cart_no = 0, @order_no = @order, @order_ext = @ext, @proc_option = 1
         ;
@@ -102,6 +107,8 @@ END
 ;
 
 -- SELECT * FROM dbo.cvo_cart_parts_processed AS ccpp WHERE ORDER_no = '13452'
+
+
 
 
 GO

@@ -12,8 +12,8 @@ select
 	o.ext,
 	isnull(j.order_no, 0) as orders_in_pack,
 	case when m.pack_no is null then 'NO' else 'YES' end as is_pack,
-	isnull(m.pack_no,0) as pack_no,
-	isnull(m.carton_no,0)as carton_no,
+	CAST(ISNULL(m.pack_no,0) AS VARCHAR(12)) as pack_no,
+	CAST(ISNULL(m.carton_no,0) AS VARCHAR(12)) AS carton_no,
 	isnull(c.carton_type,'NONE')as carton_type,
 	o.cust_code,
 	o.date_shipped,
@@ -28,6 +28,7 @@ from
 	left outer join tdc_master_pack_ctn_tbl z (nolock) on m.pack_no = z.pack_no
 	left outer join tdc_carton_tx t (nolock) on z.carton_no = t.carton_no
 	left outer join orders j (nolock) on j.order_no = t.order_no and  j.ext = t.order_ext
+
 
 
 

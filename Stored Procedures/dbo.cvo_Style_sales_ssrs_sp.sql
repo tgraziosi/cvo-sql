@@ -488,7 +488,7 @@ select drp.part_no,
 FROM
 (SELECT part_no, 
 		SUM(e12_wu) AS e12_wu
-FROM dbo.f_cvo_calc_weekly_usage('o') 
+FROM dbo.f_cvo_calc_weekly_usage_coll('o',null) 
 GROUP BY part_no
 ) drp
 join inv_master i (nolock) ON i.part_no = drp.part_no

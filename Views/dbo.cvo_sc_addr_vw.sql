@@ -37,7 +37,8 @@ slp.salesperson_type,
 slp.sales_mgr_code,
 rsm.salesperson_name sales_mgr_name,
 rsm.addr_sort2 sales_mgr_email,
-CASE WHEN ISNULL(rsm.territory_code,'') = '' THEN ISNULL(slp.sales_mgr_code,'900') ELSE rsm.territory_code END AS rsm_territory_code
+CASE WHEN ISNULL(rsm.territory_code,'') = '' THEN ISNULL(slp.sales_mgr_code,'900') ELSE rsm.territory_code END AS rsm_territory_code,
+dbo.calculate_region_fn(slp.territory_code) region
 
 from arsalesp slp (nolock)
 left outer join cvo_territoryxref x (nolock) on x.territory_code = slp.territory_code 
@@ -50,6 +51,7 @@ and (slp.status_type = 1) -- active
 -- or (slp.status_type = 0 and x.status = 1))
 -- and slp.salesperson_name not like '%default%'
 -- order by slp.territory_code
+
 
 
 

@@ -234,7 +234,7 @@ CREATE TABLE #parts_list
       id INT IDENTITY(1, 1) ,
       collection VARCHAR(30) ,
       model VARCHAR(40) ,
-      short_model VARCHAR(5) ,
+      short_model VARCHAR(6) ,
       colorname VARCHAR(40) NULL ,
       eye_size DECIMAL(20, 8) NULL ,
       temple_size DECIMAL(18, 1) NULL ,
@@ -2353,6 +2353,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

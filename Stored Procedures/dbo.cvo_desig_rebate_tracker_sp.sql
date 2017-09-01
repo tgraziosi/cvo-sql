@@ -14,7 +14,9 @@ SET ANSI_WARNINGS OFF
 
 -- DECLARE @sdate DATETIME, @edate DATETIME, @today DATETIME, @terr VARCHAR(1024)
 
-DECLARE @progyear INT, @today DATETIME, @lastcust VARCHAR(12), @emails VARCHAR(1024)
+DECLARE @progyear INT, @today DATETIME, @lastcust VARCHAR(12), @emails VARCHAR(1024), @debug int
+
+SELECT @debug = 0
 
 SELECT @today = GETDATE()
 IF @sdate IS NULL OR @edate IS NULL
@@ -59,7 +61,7 @@ IF ( OBJECT_ID('tempdb.dbo.#email') IS NOT NULL ) DROP TABLE #email;
 IF ( OBJECT_ID('tempdb.dbo.#single_email') IS NOT NULL ) DROP TABLE #single_email; 
 
 
-SELECT DISTINCT email.mergecust, CAST(email.contact_email AS VARCHAR(255)) contact_email
+SELECT DISTINCT email.mergecust, CAST(email.contact_email AS VARCHAR(255)) contact_email, 0 email_id
 INTO #email
 FROM 
 (
@@ -72,7 +74,7 @@ FROM
  ) email
 
  -- parse out multiple emails
- SELECT DISTINCT mergecust, REPLACE(contact_email,';',',') contact_email
+ SELECT DISTINCT mergecust, REPLACE(contact_email,';',',') contact_email, 0 AS email_id
  INTO #single_email
  FROM #email
  WHERE CHARINDEX(',',REPLACE(contact_email,';',','),1) > 0
@@ -86,14 +88,23 @@ FROM
 	
 	SELECT @emails = contact_Email FROM #single_email AS se WHERE se.mergecust = @lastcust
 
-	INSERT #email (mergecust, contact_email)
-	SELECT @lastcust, ListItem 
+	INSERT #email (mergecust, contact_email, email_id)
+	SELECT @lastcust, ListItem, 0
 	FROM dbo.f_comma_list_to_table(@emails) 
 	
 	SELECT @lastcust = MIN(mergecust) FROM #single_email AS se WHERE mergecust > @lastcust
 
  END	
 
+ UPDATE ee SET ee.email_id  = e_id.email_id
+ FROM #email ee
+ JOIN
+ (SELECT e.mergecust, e.contact_email, 
+ DENSE_RANK() OVER(PARTITION BY mergecust ORDER BY contact_email asc) email_id
+  FROM #email AS e
+) e_id ON e_id.contact_email = ee.contact_email AND e_id.mergecust = ee.mergecust
+
+IF @debug = 1 SELECT * FROM #email AS e
 
  -- end
 
@@ -105,6 +116,7 @@ SELECT cdr.progyear, cdr.interval ,cdr.code, facts.description, cdr.goal1, cdr.r
 				 contact_email = cust.contact_email,
 				 dr_email = emails.contact_emails,
 				 email = emails.email_each,
+				 email_id,
                  facts.grosssales ,
                  facts.netsales ,
                  facts.rareturns ,
@@ -180,7 +192,8 @@ LEFT OUTER JOIN
 				FROM #email AS ee
 				WHERE ee.mergecust = e.mergecust
 				FOR XML PATH ('')), 1, 1, '') contact_emails,
-		email_each = CASE WHEN @single_email = 1 THEN e.contact_email ELSE '' END
+		email_each = CASE WHEN @single_email = 1 THEN e.contact_email ELSE '' END,
+		email_id = CASE WHEN @single_email = 1 THEN e.email_id ELSE 0 end
  FROM #email e) emails ON emails.mergecust = cust.mergecust
 
 WHERE cdr.progyear = @progyear
@@ -189,6 +202,7 @@ AND t.region IS NOT NULL
 -- SELECT * FROM dbo.cvo_designation_codes AS ccdc
 
 END
+
 
 
 

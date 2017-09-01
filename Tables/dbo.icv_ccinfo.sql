@@ -10,10 +10,10 @@ CREATE TABLE [dbo].[icv_ccinfo]
 [prompt2] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [prompt3] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [prompt4] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[trx_ctrl_num] [varchar] (16) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
-[trx_type] [smallint] NOT NULL,
-[order_no] [int] NOT NULL,
-[order_ext] [int] NOT NULL,
+[trx_ctrl_num] [varchar] (16) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[trx_type] [smallint] NULL,
+[order_no] [int] NULL,
+[order_ext] [int] NULL,
 [preload] [smallint] NOT NULL
 ) ON [PRIMARY]
 GO

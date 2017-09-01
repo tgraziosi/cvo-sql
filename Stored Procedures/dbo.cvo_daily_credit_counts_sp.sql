@@ -6,10 +6,12 @@ CREATE PROCEDURE [dbo].[cvo_daily_credit_counts_sp]
 	@sdate DATETIME, @edate datetime
 AS 
 
+-- EXEC cvo_daily_credit_counts_sp '08/15/2017', '08/16/2017'
+
 SET NOCOUNT ON
 SET ANSI_WARNINGS OFF
 
-SELECT credits.who_processed, CASE WHEN credits.who_entered <> who_processed THEN 'RMA' ELSE 'Manual' end as Credit_type, COUNT(order_no) num_credits, SUM(num_skus) total_skus, AVG(num_skus) avg_skus
+SELECT credits.who_processed, CASE WHEN credits.who_entered <> who_processed THEN 'RMA Credit' ELSE 'Manual Credit' end as Credit_type, COUNT(order_no) num_credits, SUM(num_skus) total_skus, AVG(num_skus) avg_skus
 from
 (SELECT o.who_entered, REVERSE(SUBSTRING(REVERSE(o.user_def_fld3), 1, 
                CHARINDEX(' ', REVERSE(o.user_def_fld3)) - 1)) who_processed, 
@@ -25,11 +27,25 @@ GROUP BY o.who_entered, REVERSE(SUBSTRING(REVERSE(o.user_def_fld3), 1,
 ) credits
 GROUP BY CASE
          WHEN credits.who_entered <> who_processed THEN
-         'RMA'
+         'RMA Credit'
          ELSE
-         'Manual'
+         'Manual Credit'
          END,
          credits.who_processed 
+
+UNION ALL
+
+SELECT REPLACE(wms.UserID,'cvoptical\','') who_processed,
+		trans,
+		count (wms.tran_no) num_activity,
+		COUNT(DISTINCT wms.part_no) total_skus,
+		0 AS avg_skus
+		 FROM TDC_LOG wms (NOLOCK)
+		 WHERE wms.tran_date BETWEEN @sdate AND @edate
+		 AND trans IN ('qcrelease','poptwy')
+		 GROUP BY REPLACE(wms.UserID, 'cvoptical\', ''), wms.trans
+
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_daily_credit_counts_sp] TO [public]

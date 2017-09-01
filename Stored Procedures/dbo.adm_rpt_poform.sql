@@ -308,15 +308,7 @@ end
 close pickcursor
 deallocate pickcursor
 
---
--- Set the Project field to the UPC Code for Printing
---
-update #rpt_poform														-- V1.0  /  McGrady
-set l_project1 = SUBSTRING(u.upc,1,1)+'-'+SUBSTRING(u.upc,2,5)+'-'+		-- V1.0  /  McGrady
-				 SUBSTRING(u.upc,7,5)+'-'+SUBSTRING(u.upc,12,1)			-- V1.0  /  McGrady
-from #rpt_poform r, uom_id_code u (nolock)								-- V1.0  /  McGrady
-where r.l_part_no = u.part_no											-- V1.0  /  McGrady
---
+
 
 --v2.0 Reset Line sequencing based on Product Type
 update #rpt_poform														--v2.0
@@ -341,6 +333,15 @@ ON		c.asm_no = d.part_no
 WHERE	b.status = 'Q'
 -- v2.1 End
 
+--
+-- Set the Project field to the UPC Code for Printing
+--
+update #rpt_poform														-- V1.0  /  McGrady
+set l_project1 = SUBSTRING(u.upc,1,1)+'-'+SUBSTRING(u.upc,2,5)+'-'+		-- V1.0  /  McGrady
+				 SUBSTRING(u.upc,7,5)+'-'+SUBSTRING(u.upc,12,1)			-- V1.0  /  McGrady
+from #rpt_poform r, uom_id_code u (nolock)								-- V1.0  /  McGrady
+where r.l_part_no = u.part_no											-- V1.0  /  McGrady
+--
 
 select * from #rpt_poform
 order by 
@@ -348,6 +349,7 @@ case when @order = 0 then p_vendor_no else '' end,
 p_po_key,l_shipto_code, l_shipto_name, l_addr1, l_addr2,l_addr3,l_addr4,l_addr5,l_project3,l_part_no		--v2.0
 
 end
+
 GO
 
 GRANT EXECUTE ON  [dbo].[adm_rpt_poform] TO [public]

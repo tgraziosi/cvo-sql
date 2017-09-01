@@ -13,7 +13,7 @@ exec cvo_hello_customer_sp '010879', '5599984076', null, null
 
 exec cvo_hello_customer_sp '039226', '8024425530', null, null
 
-exec cvo_hello_customer_sp '012808', '41673985399', null, null
+exec cvo_hello_customer_sp '054421' , '41673985399', null, null
 
 */
 
@@ -21,9 +21,11 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
         SET NOCOUNT ON;
 
         DECLARE @ship_to VARCHAR(12);
-        DECLARE @today DATETIME;
+        DECLARE @today DATETIME, @r12start DATETIME, @r12end datetime;
 
-        SET @today = GETDATE();
+        SELECT @today = enddate FROM cvo_date_range_vw WHERE period = 'today'
+		SELECT @r12start = begindate, @r12end = enddate FROM dbo.cvo_date_range_vw AS drv WHERE period = 'rolling 12 ty'
+
 		
         IF OBJECT_ID('tempdb..#cust') IS NOT NULL
             DROP TABLE #cust;
@@ -40,7 +42,7 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
               who_entered VARCHAR(20) NULL ,
               date_entered DATETIME NULL ,
               user_category VARCHAR(10) NULL ,
-              status_desc VARCHAR(10) NULL ,
+              status_desc VARCHAR(80) NULL ,
               carrier VARCHAR(12) NULL ,
               tracking VARCHAR(255) NULL ,
               total_invoice DECIMAL(20, 8) NULL,
@@ -147,7 +149,7 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
                                 DATEADD(d, DATEDIFF(d, 0, date_entered), 0) date_entered ,
                                 user_category ,
                                 CASE WHEN o.status IN ( 'a', 'b', 'c' )
-                                     THEN 'On Hold'
+                                     THEN 'On Hold '+ ISNULL((SELECT ao.hold_reason FROM dbo.adm_oehold AS ao WHERE AO.hold_code = O.HOLD_REASON),'')
                                      WHEN o.status IN ( 'n', 'p', 'q' )
                                      THEN 'In Process'
                                      WHEN o.status IN ( 'r', 's', 't' )
@@ -164,7 +166,7 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
                                                   ), 'N/A') ,
                                 o.total_invoice,
 								ISNULL(o.user_def_fld4,'') hs_order_no
-                        FROM    orders o
+                        FROM    orders o (NOLOCK)
                         WHERE   status <> 'v'
                                 AND type = 'I'
                                 AND o.user_category LIKE 'rx%'
@@ -185,7 +187,7 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
                                 DATEADD(d, DATEDIFF(d, 0, date_entered), 0) date_entered ,
                                 user_category ,
                                 CASE WHEN o.status IN ( 'a', 'b', 'c' )
-                                     THEN 'On Hold'
+                                     THEN 'On Hold '+ ISNULL((SELECT ao.hold_reason FROM dbo.adm_oehold AS ao WHERE AO.hold_code = O.HOLD_REASON),'')
                                      WHEN o.status IN ( 'n', 'p', 'q' )
                                      THEN 'In Process'
                                      WHEN o.status IN ( 'r', 's', 't' )
@@ -202,7 +204,7 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
                                                   ), 'N/A') ,
                                 o.total_invoice,
 								ISNULL(o.user_def_fld4,'') hs_order_no
-                        FROM    orders o
+                        FROM    orders o (NOLOCK)
                         WHERE   status <> 'v'
                                 AND type = 'I'
                                 AND o.user_category LIKE 'st%'
@@ -262,15 +264,24 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
             slp.salesperson_name ,
             ar.territory_code ,
             ISNULL(rxe.code, 'No') RXE ,
-            AR_Status = CASE WHEN dbo.f_cvo_get_buying_group(ar.customer_code, @today) > '' 
-								THEN 'Buying Group: '+dbo.f_cvo_get_buying_group(ar.customer_code, @today)
+            AR_Status = CASE WHEN dbo.f_cvo_get_buying_group_name(dbo.f_cvo_get_buying_group(ar.customer_code, @today)) > '' 
+								THEN 'Buying Group: '+dbo.f_cvo_get_buying_group_name(dbo.f_cvo_get_buying_group(ar.customer_code, @today))
 									+ CASE WHEN cc.CC_Status='BG' THEN ': On Hold' ELSE '' end
 							 WHEN arbal.Ar_balance > ar.credit_limit AND ar.check_credit_limit = 1 THEN 'Over Credit Limit'
 							 WHEN arbal.Ar_balance < 0 THEN 'Credit Balance'
 							 WHEN arbal.pd_balance > 0 THEN 'Past Due > 30 Days'
 							 ELSE 'Current' END,
+			arbal.Ar_balance,
 			-- SPACE(30) AS AR_Status , -- future
 			designations.desig Active_designations,
+			CASE WHEN ISNULL(cl.CL_Status,0) = 1 THEN 'Yes' ELSE 'No' END AS  cl_status,
+			cl.prog_frames_sold,
+			ar.ship_via_code st_carrier,
+			car.rx_carrier,
+			car.bo_carrier,
+			ar.price_code discount_code,
+			rr.RAretpct,
+			--
             i.Info ,
             i.cust_code ,
             i.ship_to ,
@@ -288,10 +299,12 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
             oi.doc_ctrl_num,
 			i.hs_order_no
     FROM    #info AS i
-            JOIN armaster ar ON ar.customer_code = i.cust_code
+            JOIN armaster ar (nolock) ON ar.customer_code = i.cust_code
                                 AND ar.ship_to_code = i.ship_to
-            JOIN arsalesp slp ON slp.salesperson_code = ar.salesperson_code
-            LEFT OUTER JOIN ( SELECT DISTINCT
+			JOIN dbo.CVO_armaster_all AS car (nolock) ON car.customer_code = ar.customer_code AND car.ship_to = ar.ship_to_code
+            JOIN arsalesp slp (NOLOCK) ON slp.salesperson_code = ar.salesperson_code
+            LEFT OUTER JOIN 
+			( SELECT DISTINCT
                                         customer_code ,
                                         code
                               FROM      dbo.cvo_cust_designation_codes AS cdc
@@ -300,10 +313,11 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
                                                               @today)
                                                    AND     ISNULL(cdc.end_date,
                                                               @today)
-                            ) rxe ON rxe.customer_code = ar.customer_code
+            ) rxe ON rxe.customer_code = ar.customer_code
             LEFT OUTER JOIN dbo.orders_invoice AS oi ON oi.order_no = i.order_no
                                                         AND oi.order_ext = i.ext
-			LEFT OUTER JOIN ( SELECT  distinct RIGHT(c.customer_code, 5) MergeCust ,
+			LEFT OUTER JOIN 
+			( SELECT  distinct RIGHT(c.customer_code, 5) MergeCust ,
                             STUFF(( SELECT  ', ' + code
                                     FROM    cvo_cust_designation_codes (NOLOCK)
                                     WHERE   customer_code = c.customer_code
@@ -313,7 +327,7 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
                                     XML PATH('')
                                     ), 1, 1, '') desig
                     FROM      dbo.cvo_cust_designation_codes (NOLOCK) c
-                ) AS designations ON designations.MergeCust = RIGHT(ar.customer_code,5)		
+            ) AS designations ON designations.MergeCust = RIGHT(ar.customer_code,5)		
 			LEFT OUTER JOIN
 			( SELECT  customer_code, SUM(balance) Ar_balance, 
 									 SUM(CASE WHEN age_bucket > 1 THEN balance ELSE 0 end) pd_balance
@@ -326,16 +340,31 @@ exec cvo_hello_customer_sp '012808', '41673985399', null, null
 				FROM	cc_cust_status_hist (NOLOCK) 
 				WHERE	clear_date is NULL 
 				AND		customer_code = @cust  
-			) cc ON cc.customer_code = ar.customer_code					
+			) cc ON cc.customer_code = ar.customer_code		
+			LEFT OUTER JOIN
+			(SELECT customer, CL_Status = MAX(iscl), SUM(CASE WHEN promo_id <> '' THEN qsales ELSE 0 END) prog_frames_sold
+			FROM cvo_sbm_details (nolock)
+			JOIN inv_master i (NOLOCK) ON i.part_no = dbo.cvo_sbm_details.part_no
+			WHERE yyyymmdd >= DATEADD(YEAR,-1,@today) 
+			AND i.type_code IN ('frame','sun')
+			GROUP BY customer
+			) cl ON cl.customer = ar.customer_code
+			LEFT OUTER JOIN
+            (SELECT 	customer, RAretpct = CASE WHEN facts.grosssales = 0 THEN 0 ELSE facts.rareturns/facts.grosssales END
+				from	
+				(
+				SELECT customer,
+				SUM(ISNULL(sbm.asales,0)) - SUM(ISNULL((CASE WHEN return_code='exc' THEN sbm.areturns ELSE 0 end),0))  grosssales, 
+				SUM(CASE WHEN ISNULL(sbm.return_code,'') = '' THEN ISNULL(sbm.areturns,0) ELSE 0 END) rareturns
+				from
+				cvo_sbm_details sbm (NOLOCK)
+				WHERE 1=1 
+				AND sbm.yyyymmdd BETWEEN @r12start AND @r12end
+				GROUP BY sbm.customer
+				) AS facts 
+			) rr ON rr.customer = ar.customer_code
+
 			;
-
-
-
-
-
-
-
-
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_hello_customer_sp] TO [public]

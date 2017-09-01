@@ -6,6 +6,7 @@ CREATE procedure [dbo].[cvo_inv_fcst_r3_sp]
 
 -- re-write for y1 figures not pulling enough history to properly generate
 -- 3/21/2017 - pull out the ranking features; clean up; multi-location reporting; RA %
+-- 8/31/2017 - switch to get usage by location and collection to correctly fill in items with 0 usage
 
 @asofdate datetime, 
 @location VARCHAR(1000),
@@ -32,12 +33,12 @@ CREATE procedure [dbo].[cvo_inv_fcst_r3_sp]
  @asofdate = '08/01/2017', 
  @endrel = '09/01/2017', 
  @current = 0, 
- @collection = 'SM', 
- @style = 'fantassia', 
+ @collection = 'bcbg', 
+ @style = 'ashlyn', 
  @specfit = null,
  @usg_option = 'o',
- @debug = 5, -- debug
- @location = '001',
+ @debug = 0, -- debug
+ @location = 'visionwork',
  @restype = 'FRAME,SUN',
  @WKSONHANDGTLT = 'all',
  @WKSONHAND = 0
@@ -293,43 +294,55 @@ CREATE TABLE #usage
 
 -- 10/24/2016 - switch over to usage by collection for performance
 
-DECLARE @co VARCHAR(20)
+DECLARE @co VARCHAR(20), @lo VARCHAR(10)
 SELECT @co = MIN(coll) FROM #coll AS c
-WHILE @co IS NOT NULL
+SELECT @lo = MIN(location) FROM #loc AS l
+
+WHILE @co IS NOT NULL 
 BEGIN
-	INSERT INTO #usage 
-	(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12,
-	ret_w4, ret_w12, wty_w4, wty_w12, gross_w4, gross_w12)
-	select location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12,
-	ret_w4, ret_w12, wty_w4, wty_w12, gross_w4, gross_w12
-	from dbo.f_cvo_calc_weekly_usage_COLL (@usg_option, @CO)
+
+	WHILE @lo IS NOT NULL
+    begin
+		INSERT INTO #usage 
+		(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, 
+		subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12,
+		ret_w4, ret_w12, wty_w4, wty_w12, gross_w4, gross_w12)
+		select location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, 
+		subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12,
+		ret_w4, ret_w12, wty_w4, wty_w12, gross_w4, gross_w12
+		from dbo.f_cvo_calc_weekly_usage_COLL_loc (@usg_option, @CO, @lo)
+
+		SELECT @lo = MIN(location) FROM #loc WHERE location > @lo
+	end
 
 	SELECT @CO = MIN(COLL) FROM #COLL WHERE COLL > @co
-END
-
-DELETE FROM #usage 
-	WHERE NOT EXISTS (SELECT 1 FROM #loc WHERE #loc.location = #usage.location)
-	OR NOT EXISTS (SELECT 1 FROM inv_list il WHERE il.part_no = #usage.part_no AND il.location = #usage.location)
-
--- fill in for locations with no usage
-
-DECLARE @lo VARCHAR(20)
-SELECT @lo = MIN(#loc.location) FROM #loc WHERE NOT EXISTS (SELECT 1 FROM #usage WHERE #loc.location = #usage.location)
-WHILE @lo IS NOT NULL
-begin
-	INSERT INTO #usage 
-	(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12,
-	ret_w4, ret_w12, wty_w4, wty_w12, gross_w4, gross_w12)
-	select DISTINCT @lo, #usage.part_no, usg_option, asofdate, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-	FROM #usage
-	WHERE EXISTS (SELECT 1 FROM inv_list WHERE location = @lo AND part_no = #usage.part_no)
-
-	SELECT @lo = MIN(#loc.location) 
-				FROM #loc
-			    LEFT OUTER JOIN #usage  ON #usage.location = #loc.location
-				WHERE #loc.location > @lo AND #usage.location IS NULL
+	SELECT @lo = MIN(location) FROM #loc AS l
 
 END
+
+--DELETE FROM #usage 
+--	WHERE NOT EXISTS (SELECT 1 FROM #loc WHERE #loc.location = #usage.location)
+--	OR NOT EXISTS (SELECT 1 FROM inv_list il WHERE il.part_no = #usage.part_no AND il.location = #usage.location)
+
+---- fill in for locations with no usage
+
+--DECLARE @lo VARCHAR(20)
+--SELECT @lo = MIN(#loc.location) FROM #loc WHERE NOT EXISTS (SELECT 1 FROM #usage WHERE #loc.location = #usage.location)
+--WHILE @lo IS NOT NULL
+--begin
+--	INSERT INTO #usage 
+--	(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12,
+--	ret_w4, ret_w12, wty_w4, wty_w12, gross_w4, gross_w12)
+--	select DISTINCT @lo, #usage.part_no, usg_option, asofdate, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+--	FROM #usage
+--	WHERE EXISTS (SELECT 1 FROM inv_list WHERE location = @lo AND part_no = #usage.part_no)
+
+--	SELECT @lo = MIN(#loc.location) 
+--				FROM #loc
+--			    LEFT OUTER JOIN #usage  ON #usage.location = #loc.location
+--				WHERE #loc.location > @lo AND #usage.location IS NULL
+
+--END
 
 IF @debug = 5 SELECT * FROM #usage AS u
 
@@ -1129,16 +1142,18 @@ IF @debug = 1
 	end
 
 
-IF @loc = 'cases'
-BEGIN
+-- IF @loc = 'cases'
+-- BEGIN
 		DELETE FROM #sku 
 		WHERE sku+location in
         (SELECT sku+location s_key
 		FROM #sku
+		WHERE location <> '001'
 		GROUP BY sku+location
 		HAVING SUM(quantity) = 0
 		)
-END
+-- END
+
 
 --=iif(Parameters!WksOnHandGTLT.Value="ALL",true,iif(Parameters!WksOnHandGTLT.Value=">=",
 --iif(Fields!p_e12_wu.Value<= 0,Parameters!WksOnHand.Value+1,Fields!qoh.Value/Fields!p_e12_wu.Value) >= Parameters!WksOnHand.Value,
@@ -1386,6 +1401,7 @@ FROM
 ;
 
 end
+
 
 
 

@@ -72,9 +72,11 @@ set @evenyear = datepart(yy,@todate) % 2 -- 1 = odd, 0 = even
 		end,
 		ar.salesperson_code,
 		ar.territory_code,
-		(select top 1 cd.code from cvo_cust_designation_codes cd (nolocK)
+		(select top 1 cd.code FROM cvo_cust_designation_codes cd (nolocK)
+			JOIN dbo.cvo_designation_codes AS dc (nolock) ON dc.code = cd.code
 			where cd.customer_code = co.customer_code and 
-			cd.code in ('BBG') AND
+			(cd.code in ('BBG') OR cd.primary_flag = 1 ) -- 8/23/17
+			AND
 			cd.start_date <= getdate() and isnull(cd.end_date,'1/1/2099') >=getdate())
 			as desig_code
   into #coop_cust_info
@@ -295,6 +297,7 @@ where cte.customer_code = ci.customer_code
 
 
 END
+
 
 
 GO

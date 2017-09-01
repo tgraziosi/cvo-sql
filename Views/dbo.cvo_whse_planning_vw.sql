@@ -144,4 +144,15 @@ AS
 
 
 
+
+GO
+GRANT REFERENCES ON  [dbo].[cvo_whse_planning_vw] TO [public]
+GO
+GRANT SELECT ON  [dbo].[cvo_whse_planning_vw] TO [public]
+GO
+GRANT INSERT ON  [dbo].[cvo_whse_planning_vw] TO [public]
+GO
+GRANT DELETE ON  [dbo].[cvo_whse_planning_vw] TO [public]
+GO
+GRANT UPDATE ON  [dbo].[cvo_whse_planning_vw] TO [public]
 GO

@@ -11,7 +11,7 @@ BEGIN
 
     --declare @ToDate datetime
     --select  @ToDate = getdate()
-    -- exec cvo_openordersonhold_sp '07/25/2017', 0, 1
+    -- exec cvo_openordersonhold_sp '08/21/2017', 0, 1
 
     IF @ToDate IS NULL
         SELECT @ToDate = BeginDate
@@ -111,6 +111,7 @@ BEGIN
                              'Today'
                      END,
         r12.net_sales
+		
     INTO #ooh
     FROM
         cvo_adord_vw oo (NOLOCK)
@@ -285,6 +286,10 @@ BEGIN
                 DaysToShip VARCHAR(20),
                 net_sales FLOAT(8),
                 salesperson_name VARCHAR(40),
+				email_address VARCHAR(60),
+				slp_phone VARCHAR(20),
+				contact_phone varchar(20),
+				fill_pct DECIMAL(8,2),
                 action_rep TINYINT,
                 action_cus TINYINT,
                 note VARCHAR(1024)
@@ -368,13 +373,19 @@ BEGIN
             o.DaysToShip,
             o.net_sales,
             slp.salesperson_name,
+			slp.email_address,
+			slp.phone slp_phone,
+			ar.contact_phone,
+			0 AS fill_pct,
             notes.action_rep,
             notes.action_cus,
             notes.note
         FROM
             #ooh AS o
-            LEFT OUTER JOIN arsalesp slp
+            LEFT OUTER JOIN dbo.cvo_sc_addr_vw AS  slp
                 ON slp.salesperson_code = o.salesperson
+			LEFT OUTER JOIN armaster ar 
+				ON ar.customer_code = o.cust_code AND ar.ship_to_code = o.ship_to
             LEFT OUTER JOIN
             (
                 SELECT
@@ -404,6 +415,7 @@ BEGIN
 
 END
 ;
+
 
 
 

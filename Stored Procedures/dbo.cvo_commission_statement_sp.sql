@@ -18,8 +18,9 @@ AS
             @drawweeks INT ,
             @year INT ,
             @prior_year INT ,
-            @month INT;
-
+            @month INT,
+			@i INT;
+        
 --DECLARE @fiscalperiod VARCHAR(10)
 -- SELECT @fiscalperiod = '06/2017'
 
@@ -54,9 +55,14 @@ AS
               mm VARCHAR(2)
             );
 
-        DECLARE @i INT;
-        SELECT  @i = 1;
 
+
+		-- rebuild the summary too - 8/28/2017
+
+		exec cvo_commiss_bldr_create_summary_sp @fp
+
+		 
+        SELECT  @i = 1;
         WHILE @i < 13
             BEGIN
                 INSERT  #mm
@@ -447,6 +453,7 @@ AS
                spec_pay FROM #final;
 
     END;
+
 
 
 

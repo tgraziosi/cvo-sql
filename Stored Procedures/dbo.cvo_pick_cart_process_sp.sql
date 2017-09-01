@@ -258,6 +258,16 @@ begin
 		SELECT @qty = CASE WHEN scanned > @qty_to_process THEN @qty_To_process ELSE scanned END
         FROM dbo.cvo_cart_parts_processed WHERE @tran_id = tran_id
 
+		-- make sure there are still allocations on the consolidation
+
+		IF @iscons = 1 AND 
+			NOT EXISTS (SELECT 1 
+			   FROM dbo.tdc_soft_alloc_tbl SA WITH (ROWLOCK) JOIN dbo.cvo_masterpack_consolidation_det AS cmcd
+				ON cmcd.order_no = SA.order_no AND cmcd.order_ext = SA.order_ext
+				WHERE cmcd.consolidation_no = @order_no ) 
+				
+				SELECT @qty = 0
+	  
 		IF ISNULL(@qty,0) > 0 
 		BEGIN
 			IF @ISCONS = 0
@@ -270,6 +280,7 @@ begin
 				@station_id , -- int
 				@user_id = '' -- varchar(50)
 			IF @ISCONS = 1
+
 				EXEC dbo.cvo_masterpack_pick_consolidated_transaction_sp 
 				@tran_id,
 				@QTY,
@@ -358,6 +369,7 @@ begin
 END -- proc_option = 99
 
  
+
 
 
 

@@ -324,6 +324,10 @@ BEGIN
 			BEGIN				
 				INSERT	tdc_bin_part_qty
 				VALUES  (@location, @part_no, @bin_no, @fill_qty_max, 'Y', 0) -- v1.1
+
+			-- tag - 8/24/2017
+				UPDATE tdc_bin_master SET maximum_level = @fill_qty_max WHERE 
+					location = @location AND bin_no = @bin_no AND maximum_level <> @fill_qty_max
 			END
 			IF (CHARINDEX('D',@rec_action) > 0)
 			BEGIN				
@@ -391,6 +395,7 @@ BEGIN
 	END
 	
 END
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_maint_utility_process_sp] TO [public]
 GO

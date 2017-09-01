@@ -99,7 +99,10 @@ BEGIN
 			AND  part_no = @part_no
 			AND	order_no <> 0 -- v1.3
 		
-
+		-- v1.1 Start
+		IF @alloc_to_this_order IS NULL
+			SET @alloc_to_this_order = 0
+		-- v1.1 End
 
 		SET @qty_picked = 0
 
@@ -126,6 +129,12 @@ BEGIN
 		UPDATE	@returndata
 		SET		avail_quantity = CASE WHEN @available >= quantity THEN quantity ELSE @available END
 		WHERE	row_id = @row_id
+
+		-- v1.1 Start
+		UPDATE	@returndata
+		SET		avail_quantity = CASE WHEN @alloc_to_this_order = quantity THEN @alloc_to_this_order ELSE avail_quantity END
+		WHERE	row_id = @row_id
+		-- v1.1 End
 
 		SET @last_row_id = @row_id
 

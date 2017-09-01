@@ -191,7 +191,7 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
             END;
 	
         IF NOT EXISTS ( SELECT  1
-                        FROM    tdc_bin_master
+                        FROM    tdc_bin_master (NOLOCK)
                         WHERE   location = @loc
                                 AND bin_no = @bin )
             BEGIN 
@@ -329,7 +329,7 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
                     BEGIN
                         SELECT  @bin_qty = 0;
                         SELECT  @bin_qty = SUM(ISNULL(qty, 0))
-                        FROM    lot_bin_stock
+                        FROM    lot_bin_stock (nolock)
                         WHERE   location = @loc
                                 AND bin_no = @bin
                                 AND part_no = @part_no;
@@ -412,7 +412,7 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 							;
 
 
-							SELECT @tdc_data = dbo.f_create_tdc_log_bin2bin_data_string(@part_no, @qty_to_adj, @bin_no)
+							SELECT @tdc_data = dbo.f_create_tdc_log_bin2bin_data_string (@part_no, @qty_to_adj, @bin_no)
 							;
 
 							INSERT INTO tdc_log
@@ -504,6 +504,7 @@ SELECT * fROM ISSUES (NOLOCK) WHERE ISSUE_NO >=4641583
 	-- IF (SELECT COUNT(*) FROM cvo_upc_upload) > 0 AND @debug = 0 TRUNCATE TABLE CVO_UPC_UPLOAD
 
     END;
+
 
 
 

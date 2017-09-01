@@ -2923,13 +2923,14 @@ CREATE UNIQUE CLUSTERED INDEX [ordlst1] ON [dbo].[ord_list] ([order_no], [order_
 GO
 CREATE NONCLUSTERED INDEX [ordlst3] ON [dbo].[ord_list] ([order_no], [order_ext], [location]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [cvo_ol_orig_part] ON [dbo].[ord_list] ([orig_part_no]) INCLUDE ([order_no], [order_ext], [line_no]) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [cvo_ol_orig_part] ON [dbo].[ord_list] ([orig_part_no]) INCLUDE ([line_no], [order_ext], [order_no]) ON [PRIMARY]
+GO
+CREATE NONCLUSTERED INDEX [idx_ordlst_partno_usage] ON [dbo].[ord_list] ([part_no]) INCLUDE ([cr_ordered], [cr_shipped], [location], [order_ext], [order_no], [ordered], [shipped]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [ordlst3m] ON [dbo].[ord_list] ([part_no], [location], [status], [part_type], [shipped], [conv_factor]) WITH (FILLFACTOR=80) ON [PRIMARY]
 GO
 CREATE UNIQUE NONCLUSTERED INDEX [ordlst2] ON [dbo].[ord_list] ([row_id]) ON [PRIMARY]
 GO
-
 GRANT REFERENCES ON  [dbo].[ord_list] TO [public]
 GO
 GRANT SELECT ON  [dbo].[ord_list] TO [public]

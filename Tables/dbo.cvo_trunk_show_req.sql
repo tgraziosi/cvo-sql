@@ -32,7 +32,7 @@ CREATE TABLE [dbo].[cvo_trunk_show_req]
 [tracking] [varchar] (200) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [ship_via] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [sc_contacted] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[rtn_tracking] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[rtn_tracking] [varchar] (200) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [received] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [credit_memo] [varchar] (100) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [rep_email] [varchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_trunk__rep_e__1BE45256] DEFAULT (NULL)

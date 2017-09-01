@@ -3,10 +3,15 @@ GO
 SET ANSI_NULLS ON
 GO
 
+
 CREATE PROC [dbo].[cvo_check_fl_stock_pre_allocation_sp_test]	@order_no_in int,
+
 														@order_ext_in int														
+
 AS
+
 BEGIN
+
 	-- Directives
 	SET NOCOUNT ON
 
@@ -29,7 +34,8 @@ BEGIN
 			@soft_alloc_no	int, -- v1.1
 			@total_ordered	decimal(20,8), -- v1.2
 			@total_available decimal(20,8), -- v1.2
-			@perc			decimal(20,8) -- v1.2
+			@perc			decimal(20,8), -- v1.2
+			@bin_to_bin_qty	decimal(20,8) -- v1.7
 
 	-- Create working tables 
 	CREATE TABLE #order_hdr (
@@ -104,7 +110,6 @@ BEGIN
 		WHILE (@@ROWCOUNT <> 0)
 		BEGIN
 
-			
 			SET @in_stock = 0
 			SET @in_stock_ex = 0
 			SET @alloc_qty = 0
@@ -159,6 +164,23 @@ BEGIN
 			IF (@quar_qty IS NULL)  
 			 SET @quar_qty = 0  
 
+			SET @bin_to_bin_qty = 0
+
+			-- v1.7 Start
+			SELECT	@bin_to_bin_qty = SUM(qty) 
+			FROM	tdc_soft_alloc_tbl (NOLOCK)
+			WHERE	location = @location 
+			AND		part_no = @part_no
+			AND		order_no = 0
+			AND		(bin_no <> 'CUSTOM' OR dest_bin <> 'CUSTOM')
+			
+			IF (@bin_to_bin_qty IS NULL)
+				SET @bin_to_bin_qty = 0
+			
+			SET @alloc_qty = @alloc_qty + @bin_to_bin_qty
+			-- v1.7
+			
+
 			-- v1.1 Start
 			 SELECT @soft_alloc_no = soft_alloc_no
 			 FROM	cvo_soft_alloc_hdr (NOLOCK)
@@ -180,21 +202,10 @@ BEGIN
   
 			IF (@sa_qty IS NULL)  
 			 SET @sa_qty = 0  
-
-			 SELECT '@part_no',@part_no
-			 SELECT '@line_no',@line_no
-			 SELECT '@in_stock',@in_stock
-			 SELECT '@alloc_qty',@alloc_qty
-			 SELECT '@quar_qty',@quar_qty
-			 SELECT '@sa_qty',@sa_qty
-			 SELECT '@qty',@qty
 		  
 			-- Compare - if no stock available then mark the record  
 			IF ((@in_stock - (@alloc_qty + @quar_qty + @sa_qty)) < @qty) 
 			BEGIN  
-
-				SELECT 'Part: ' + @part_no + ' not available'
-
 				UPDATE #order_det  
 				SET  no_stock = 1  
 				WHERE line_row_id = @line_row_id  
@@ -226,9 +237,6 @@ BEGIN
 			SELECT	@total_available = SUM(qty)
 			FROM	#order_det
 			WHERE	no_stock = 0
-
-			SELECT '@total_ordered',@total_ordered
-			SELECT '@total_available',@total_available
 
 
 			IF (@total_available > 0)
