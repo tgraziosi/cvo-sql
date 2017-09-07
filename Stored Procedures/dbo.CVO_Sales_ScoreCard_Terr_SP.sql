@@ -29,7 +29,7 @@ declare @DateFrom datetime,
 
 -- uncomment for testing
 --DECLARE @DF datetime, @DT datetime
---select @df = '01/01/2015', @dt = '3/31/2015'
+--select @df = '01/01/2017', @dt = '08/31/2017'
 
 SELECT @datefrom = @df, @dateto = @dt, @territory = null
 
@@ -211,10 +211,13 @@ having @numBrands <= count(distinct brand)
 IF(OBJECT_ID('tempdb.dbo.#ProgramData') is not null)  drop table #ProgramData
 IF(OBJECT_ID('tempdb.dbo.#Progsummary') is not null)  drop table #Progsummary
 SELECT t.territory, o.order_no, o.ext, 
-o.promo_id, o.promo_level, o.total_invoice
+o.promo_id, o.promo_level, 
+CASE WHEN ISNULL(p.season_program,0) = 1 THEN 'S' WHEN ISNULL(p.annual_program,0) = 1 THEN 'A' ELSE 'Z' END ProgType,
+o.total_invoice
 into #programdata
 FROM  #territory t 
 inner join cvo_adord_vw o (nolock) on t.territory = o.territory
+JOIN cvo_promotions p ON p.promo_id = o.promo_id AND p.promo_level = o.promo_level
 where 1=1
 and isnull(o.promo_id,'') <> '' -- 10/31/2013
 AND o.date_entered between @Datefrom and @dateto
@@ -229,18 +232,27 @@ and not exists (select 1 from orders r (nolock)
 					and r.orig_no = o.order_no and r.orig_ext = o.ext 
 					and r.status = 't' and r.type = 'c')
 					
--- select * from #ProgramData
 
-select territory
-,AnnualProg = sum(case when promo_id in ('AAP','APR','BEP','RCP','ROT64','FOD','SS','award') then 1 else 0 end)
-,SeasonalProg = sum(case when promo_id IN
- ('ASPIRE','BOGO','DOR','ME','PURITI','IZOD','KIDS','SUN','sunps','ar','CH','CVO','BCBG', 'ET','SUN SPRING','IZOD CLEAR'
- ,'BLUE','JMC','REVO') then 1 else 0 end)
-,rxeprog = sum(case when promo_id in ('rxe') then 1 else 0 end)
-,aspireprog = SUM(CASE WHEN promo_id IN ('aspire') THEN 1 ELSE 0 END)
+UPDATE #programdata SET progtype = 'X' 
+WHERE promo_id  IN ('pc','ff','rxe','rx1') 
+	OR promo_level IN ('rx','try','free','pc')
+	OR (promo_id = 've aspire' AND promo_level = 'custom')
+
+
+-- select promo_id, promo_level, progtype, count(order_no) from #ProgramData group by promo_id, promo_level, progtype
+
+select pd.territory
+-- ,AnnualProg = sum(case when promo_id in ('AAP','APR','BEP','RCP','ROT64','FOD','SS','award') then 1 else 0 end)
+,AnnualProg = SUM(CASE WHEN pd.progtype = 'A' THEN 1 ELSE 0 end)
+--,SeasonalProg = sum(case when promo_id IN
+-- ('ASPIRE','BOGO','DOR','ME','PURITI','IZOD','KIDS','SUN','sunps','ar','CH','CVO','BCBG', 'ET','SUN SPRING','IZOD CLEAR'
+-- ,'BLUE','JMC','REVO') then 1 else 0 end)
+,SeasonalProg = SUM(CASE WHEN pd.progtype = 'S' THEN 1 ELSE 0 end)
+,rxeprog = sum(case when pd.promo_id in ('rxe') then 1 else 0 end)
+,aspireprog = SUM(CASE WHEN pd.promo_id IN ('aspire') THEN 1 ELSE 0 END)
 into #progsummary
-from #programdata
-group by territory
+from #programdata pd
+group by pd.territory
 
 
 -- BUILD STOCK ORDERS SUB REPORT
@@ -653,4 +665,5 @@ END
 -- GROUP BY X_MONTH, YEAR, ship_to
  
 -- SELECT * FROM dbo.armaster WHERE customer_code = '032056'
+
 GO

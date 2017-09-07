@@ -28,6 +28,9 @@ GO
 -- v3.9 CB 23/10/15 - #1541 - Promo rolling periods
 -- v4.0 CB 19/04/2016 - #1584 - Add min, max and number of pieces for stock order. Add min and for RX reorders.
 -- v4.1 CB 12/06/2017 - #1593 - Designation Codes - Ship To	
+-- v4.2 CB 	19/07/2017 - #1631 - Promotions - Multiple Designation Codes
+-- v4.3 CB 	05/09/2017 - #1631 - Promotions - Multiple Designation Codes - If not primary then all designation codes must exist
+
 
 -- EXEC [CVO_verify_customer_quali_sp] 'CB','1','045911', 1418426, 0
 
@@ -101,7 +104,9 @@ BEGIN
 				@max_rx_orders		smallint, -- v4.0
 				@order_cnt			int, -- v4.0
 				@ship_to_code		varchar(10), -- v4.1
-				@useCustDC			varchar(10) -- v4.1
+				@useCustDC			varchar(10), -- v4.1
+				@DC_Count			int, -- v4.2
+				@CDC_Count			int -- v4.3
 
 		SET @fail_reason = '' -- v1.1
 		SET @frequency_fail = 0
@@ -188,6 +193,14 @@ BEGIN
 			rec_count	int)
 		-- v4.0 End
 
+		-- v4.2 Start
+		SET @DC_Count = 0
+
+		SELECT	@DC_Count = COUNT(1)
+		FROM	CVO_promotions_designation_codes (NOLOCK)
+		WHERE	promo_id = @promo_id
+		AND		promo_level = @promo_level
+
 		-- START v3.2
 		-- If promo header contains a promo designation code then check if customer has it
 		SELECT
@@ -199,7 +212,12 @@ BEGIN
 			promo_id = @promo_id
 			AND promo_level = @promo_level
 
-		IF ISNULL(@promo_designation_code, '') <> ''
+		-- v4.3 Start
+		IF (@promo_designation_code = '[MULTIPLE]')
+			SET @promo_designation_code = ''
+		-- v4.3 End
+
+		IF ((ISNULL(@promo_designation_code, '') <> '') OR @DC_Count > 0) -- v4.2
 		BEGIN
 			-- v4.1 Start
 			SET @useCustDC = 'Y'
@@ -211,7 +229,10 @@ BEGIN
 			IF @primary_only = 1
 			BEGIN
 				IF NOT EXISTS (SELECT 1 FROM dbo.cvo_cust_designation_codes (NOLOCK) WHERE customer_code = @customer AND ship_to = @ship_to_code -- v4.1
-								AND code = @promo_designation_code AND ISNULL(primary_flag,0) = 1 AND (date_reqd = 0 OR (date_reqd = 1 AND start_date <= GETDATE() 
+								-- v4.2 Start AND code = @promo_designation_code 
+								AND code IN (SELECT designation_code FROM CVO_promotions_designation_codes (NOLOCK) 
+											WHERE promo_id = @promo_id AND promo_level = @promo_level) -- v4.2 End
+								AND ISNULL(primary_flag,0) = 1 AND (date_reqd = 0 OR (date_reqd = 1 AND start_date <= GETDATE() 
 								AND ISNULL(end_date,GETDATE()) >= GETDATE())))
 				BEGIN
 					IF (@useCustDC = 'Y')
@@ -220,13 +241,33 @@ BEGIN
 			END
 			ELSE
 			BEGIN
-				IF NOT EXISTS (SELECT 1 FROM dbo.cvo_cust_designation_codes (NOLOCK) WHERE customer_code = @customer AND ship_to = @ship_to_code -- v4.1
-								AND code = @promo_designation_code AND (date_reqd = 0 OR (date_reqd = 1 AND start_date <= GETDATE() 
-								AND ISNULL(end_date,GETDATE()) >= GETDATE())))
+				-- v4.3 Start
+				SET @CDC_Count = 0
+
+				SELECT	@CDC_Count = COUNT(1) FROM dbo.cvo_cust_designation_codes (NOLOCK) WHERE customer_code = @customer AND ship_to = @ship_to_code -- v4.1
+								-- v4.2 Start AND code = @promo_designation_code 
+								AND code IN (SELECT designation_code FROM CVO_promotions_designation_codes (NOLOCK) 
+											WHERE promo_id = @promo_id AND promo_level = @promo_level) -- v4.2 End
+								AND (date_reqd = 0 OR (date_reqd = 1 AND start_date <= GETDATE() 
+								AND ISNULL(end_date,GETDATE()) >= GETDATE()))
+
+				IF (@CDC_Count <> @DC_Count)
 				BEGIN
 					IF (@useCustDC = 'Y')
 						SET @ship_to_code = ''
 				END
+
+--				IF NOT EXISTS (SELECT 1 FROM dbo.cvo_cust_designation_codes (NOLOCK) WHERE customer_code = @customer AND ship_to = @ship_to_code -- v4.1
+--								-- v4.2 Start AND code = @promo_designation_code 
+--								AND code IN (SELECT designation_code FROM CVO_promotions_designation_codes (NOLOCK) 
+--											WHERE promo_id = @promo_id AND promo_level = @promo_level) -- v4.2 End
+--								AND (date_reqd = 0 OR (date_reqd = 1 AND start_date <= GETDATE() 
+--								AND ISNULL(end_date,GETDATE()) >= GETDATE())))
+--				BEGIN
+--					IF (@useCustDC = 'Y')
+--						SET @ship_to_code = ''
+--				END
+				-- v4.3 End
 			END
 			-- v4.1 End
 
@@ -235,7 +276,9 @@ BEGIN
 			IF @primary_only = 1
 			BEGIN
 				IF NOT EXISTS (SELECT 1 FROM dbo.cvo_cust_designation_codes (NOLOCK) WHERE customer_code = @customer AND ship_to = @ship_to_code -- v4.1
-								AND code = @promo_designation_code 
+								-- v4.2 Start AND code = @promo_designation_code 
+								AND code IN (SELECT designation_code FROM CVO_promotions_designation_codes (NOLOCK) 
+											WHERE promo_id = @promo_id AND promo_level = @promo_level) -- v4.2 End 
 								AND ISNULL(primary_flag,0) = 1 AND (date_reqd = 0 OR (date_reqd = 1 AND start_date <= GETDATE() AND ISNULL(end_date,GETDATE()) >= GETDATE())))
 				BEGIN
 					IF @sub_check = 0
@@ -251,10 +294,22 @@ BEGIN
 			END
 			ELSE
 			BEGIN
+				-- v4.3 Start
+				SET @CDC_Count = 0
 
-				IF NOT EXISTS (SELECT 1 FROM dbo.cvo_cust_designation_codes (NOLOCK) WHERE customer_code = @customer AND ship_to = @ship_to_code -- v4.1
-								AND code = @promo_designation_code 
-								AND (date_reqd = 0 OR (date_reqd = 1 AND start_date <= GETDATE() AND ISNULL(end_date,GETDATE()) >= GETDATE())))
+				SELECT	@CDC_Count = COUNT(1)FROM dbo.cvo_cust_designation_codes (NOLOCK) WHERE customer_code = @customer AND ship_to = @ship_to_code -- v4.1
+								-- v4.2 Start AND code = @promo_designation_code 
+								AND code IN (SELECT designation_code FROM CVO_promotions_designation_codes (NOLOCK) 
+											WHERE promo_id = @promo_id AND promo_level = @promo_level) -- v4.2 End 
+								AND (date_reqd = 0 OR (date_reqd = 1 AND start_date <= GETDATE() AND ISNULL(end_date,GETDATE()) >= GETDATE()))
+
+--				IF NOT EXISTS (SELECT 1 FROM dbo.cvo_cust_designation_codes (NOLOCK) WHERE customer_code = @customer AND ship_to = @ship_to_code -- v4.1
+--								-- v4.2 Start AND code = @promo_designation_code 
+--								AND code IN (SELECT designation_code FROM CVO_promotions_designation_codes (NOLOCK) 
+--											WHERE promo_id = @promo_id AND promo_level = @promo_level) -- v4.2 End 
+--								AND (date_reqd = 0 OR (date_reqd = 1 AND start_date <= GETDATE() AND ISNULL(end_date,GETDATE()) >= GETDATE())))
+
+				IF (@CDC_Count <> @DC_Count)
 				BEGIN
 					IF @sub_check = 0
 					BEGIN
@@ -266,6 +321,7 @@ BEGIN
 						RETURN 0
 					END
 				END
+				-- v4.3 End
 			END
 			-- END v3.6
 		END

@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -6,6 +5,7 @@ GO
 -- v1.3 13/03/2013 - Fix issues with due date calculation
 -- v1.4 15/05/2014 - Further fix
 -- v1.5 27/01/2016 - February again!!
+-- v1.6 31/08/2017 - Fix issue with month not incrementing correctly
 CREATE PROC [dbo].[CVO_CalcDueDate_sp]  @customer_code varchar(8),  
          @date_doc  int,  
          @date_due  int OUTPUT,  
@@ -63,6 +63,10 @@ BEGIN
     SET @year = @year + 1  
     SET @month = 1  
    END  
+
+	-- If we have incremented the dates then rebuild the date_doc
+	EXEC dbo.appjuldt_sp @year, @month, @day, @date_doc OUTPUT -- v1.6
+
   END  
   
 
@@ -113,7 +117,6 @@ BEGIN
    EXEC dbo.appdtjul_sp @year OUTPUT, @month OUTPUT, @day OUTPUT, @date_doc
    IF (	@orig_month = 2 and @max_days = 28) -- v1.4
 		SET @day = @statement_day -- -- v1.3
-
 
 
    -- Calculate the next statement date  

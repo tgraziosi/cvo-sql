@@ -4,7 +4,7 @@ SET ANSI_NULLS ON
 GO
 
 -- select * from cvo_whse_planning_vw where isnull(location,'001') = '001' and  isnull(rel_date,'8/29/2017') = '8/29/2017'
--- select * From cvo_whse_planning_vw where location = '001' and type_code in ('frame','sun') and bin_no like 'f01%'
+-- select * From cvo_whse_planning_vw where location = '001' and type_code in ('frame','sun','') and bin_no like 'f00%'
 
 CREATE VIEW [dbo].[cvo_whse_planning_vw]
 AS
@@ -15,7 +15,7 @@ AS
 			ia.field_2 model,
             i.description ,
             i.type_code ,
-            b.qty ,
+            CAST(b.qty AS INTEGER) qty ,
 			CASE WHEN ISNULL(pb.bin_no,'N') = 'N' THEN 'No' ELSE 'Yes' END AS Is_Assigned,
             ISNULL(pb.[primary], 'N') primary_bin ,
 			bm.status,
@@ -32,7 +32,33 @@ AS
 			aisle = LEFT(b.bin_no,3),
 			section = SUBSTRING(b.bin_no,4,1),
 			block = SUBSTRING(b.bin_no,6,2),
-			slot = RIGHT(b.bin_no,2)
+			slot = RIGHT(b.bin_no,2),
+			-- add label info fields
+			CASE
+				WHEN ISNULL(i.part_no, '') = '' THEN
+					''
+				ELSE
+					'SKU: ' + UPPER(i.part_no)
+			END AS lbl_part_no,
+			CASE WHEN ISNULL(b.bin_no,'') = '' THEN
+					''
+			ELSE UPPER(b.bin_no)
+			END AS lbl_bin_no,
+			CASE
+				WHEN ia.field_26 IS NULL THEN
+					''
+				ELSE
+					'REL: ' + RIGHT(CONVERT(VARCHAR(8), ia.field_26, 5), 5)
+			END lbl_release_date,
+			CASE
+				WHEN ia.field_28 IS NOT NULL THEN
+					'POM: ' + RIGHT(CONVERT(VARCHAR(8), ia.field_28, 5), 5)
+				ELSE
+					''
+			END lbl_pom_date,
+			bm.relative_point_x column_num,
+			bm.relative_point_y row_num
+
     FROM    inv_master i ( NOLOCK ) 
 			INNER JOIN inv_master_add ia (nolock) ON ia.part_no = i.part_no
 		    INNER JOIN inv_list il ( NOLOCK ) ON il.part_no = i.part_no AND location = '001'
@@ -57,7 +83,7 @@ AS
 			ia.field_2 model,
             i.description ,
             i.type_code ,
-            ISNULL(l.qty,0) qty ,
+            CAST(ISNULL(l.qty,0) AS INTEGER) qty ,
 			CASE WHEN ISNULL(s.bin_no,'N') = 'N' THEN 'No' ELSE 'Yes' END AS Is_Assigned,
             ISNULL(s.[primary], 'N') primary_bin ,
 			bm.status,
@@ -74,7 +100,32 @@ AS
 			aisle = LEFT(bm.bin_no,3),
 			section = SUBSTRING(bm.bin_no,4,1),
 			block = SUBSTRING(bm.bin_no,6,2),
-			slot = RIGHT(bm.bin_no,2)
+			slot = RIGHT(bm.bin_no,2),
+						-- add label info fields
+			CASE
+				WHEN ISNULL(i.part_no, '') = '' THEN
+					''
+				ELSE
+					'SKU: ' + UPPER(i.part_no)
+			END AS lbl_part_no,
+			CASE WHEN ISNULL(bm.bin_no,'') = '' THEN
+					''
+			ELSE UPPER(bm.bin_no)
+			END AS lbl_bin_no,
+			CASE
+				WHEN ia.field_26 IS NULL THEN
+					''
+				ELSE
+					'REL: ' + RIGHT(CONVERT(VARCHAR(8), ia.field_26, 5), 5)
+			END lbl_release_date,
+			CASE
+				WHEN ia.field_28 IS NOT NULL THEN
+					'POM: ' + RIGHT(CONVERT(VARCHAR(8), ia.field_28, 5), 5)
+				ELSE
+					''
+			END lbl_pom_date,
+			bm.relative_point_x column_num,
+			bm.relative_point_y row_num
 
 
     FROM    tdc_bin_part_qty s ( NOLOCK )
@@ -119,7 +170,17 @@ AS
 			aisle = LEFT(bm.bin_no,3),
 			section = SUBSTRING(bm.bin_no,4,1),
 			block = SUBSTRING(bm.bin_no,6,2),
-			slot = RIGHT(bm.bin_no,2)
+			slot = RIGHT(bm.bin_no,2),
+			-- add label info fields
+			'' as lbl_part_no,
+			CASE WHEN ISNULL(bm.bin_no,'') = '' THEN
+					''
+			ELSE UPPER(bm.bin_no)
+			END AS lbl_bin_no,
+			'' as lbl_release_date,
+			'' AS lbl_pom_date,
+			bm.relative_point_x column_num,
+			bm.relative_point_y row_num
 
     FROM    tdc_bin_master bm (NOLOCK)
 			WHERE 
@@ -129,6 +190,8 @@ AS
 			
 			;
     
+
+
 
 
 

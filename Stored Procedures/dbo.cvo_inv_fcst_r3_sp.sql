@@ -7,6 +7,7 @@ CREATE procedure [dbo].[cvo_inv_fcst_r3_sp]
 -- re-write for y1 figures not pulling enough history to properly generate
 -- 3/21/2017 - pull out the ranking features; clean up; multi-location reporting; RA %
 -- 8/31/2017 - switch to get usage by location and collection to correctly fill in items with 0 usage
+-- 9/5/17 - fix PO line where there was a past due open po.  it did not total the current month total open po correctly.  was only showing the past due qty
 
 @asofdate datetime, 
 @location VARCHAR(1000),
@@ -715,9 +716,12 @@ insert into #SKU
 select -- 
 'PO' as line_type
 
-,#t.part_no sku
+, #t.part_no sku
 , #t.location
-,#t.mm
+, CASE when DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < @asofdate
+	 THEN month(@asofdate) 
+	 ELSE month(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) END
+-- ,#t.mm
 , bucket = dateadd(m,#t.sort_seq-1, @asofdate)
 ,QOH = 0
 ,atp = 0
@@ -740,8 +744,13 @@ and  #t.mm = case when DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < @asofdate
 and r.status = 'o' and r.part_type = 'p' -- and r.location = @loc
 and inv.void = 'N'
 AND DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < DATEADD(YEAR,1,@asofdate)
-group BY inv.category, i.field_2, #t.part_no, #t.location, DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)
-	, MONTH(r.inhouse_date), #t.mm, #t.mult, #t.s_mult, #t.sort_seq
+group BY inv.category, i.field_2, #t.part_no, #t.location
+-- , DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)
+, CASE when DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < @asofdate
+	 THEN month(@asofdate) 
+	 ELSE month(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) end
+-- , MONTH(r.inhouse_date), #t.mm
+, #t.mult, #t.s_mult, #t.sort_seq
 
 IF @debug = 1 select * From #SKU  WHERE LINE_TYPE = 'po' ORDER by sku, sort_seq
 
@@ -1401,6 +1410,7 @@ FROM
 ;
 
 end
+
 
 
 

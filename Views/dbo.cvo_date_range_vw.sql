@@ -47,6 +47,11 @@ SELECT
 	,Convert(varchar, DateAdd(dd, 1-(DatePart(dw,getdate() + 0)),getdate()), 101) Begindate
 	,Convert(varchar, DateAdd(dd, (7 - DatePart(dw, getdate())),getdate()), 101) EndDate
 
+UNION ALL
+SELECT 
+	Convert(varchar(100),'Last Week - Sun') as [Period]
+	,Convert(varchar, DATEADD(WEEK,-1,DATEADD(dd, 1-(DatePart(dw,getdate() + 0)),getdate())), 101) Begindate
+	,Convert(varchar, DATEADD(WEEK,-1,DATEADD(dd, (7 - DatePart(dw, getdate())),getdate())), 101) EndDate
 union all
 -- the Fiscal year is assumed to start on October 1.  You can change the constant to another fiscal year.
 --select 
@@ -172,6 +177,7 @@ select
 --	Convert(varchar(100),'Next Year to Date') as [Period]
 --	,Convert(datetime,'1/1/' + cast(YEAR(GETDATE())+1 as varchar(4))) as BeginDate
 --	,Convert(datetime,cast(MONTH(GETDATE()) as varchar(2)) + '/' + cast(DAY(GETDATE()) as varchar(2)) + '/' + cast(YEAR(GETDATE())+1 as varchar(4)))  as EndDate
+
 
 
 

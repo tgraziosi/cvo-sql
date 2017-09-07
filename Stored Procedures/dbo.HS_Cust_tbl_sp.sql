@@ -50,6 +50,8 @@ BEGIN
 	  AND status_type = 1
 	  AND NOT EXISTS(SELECT 1 FROM #userGroup WHERE #userGroup.customer_code = ISNULL(employee_code,'') )
 
+	  INSERT INTO #userGroup (customer_code, allterr) VALUES ('052834','I-Sales')
+
 	  -- 2/3/2017 - updated territory list
 	  -- 3/16/2017 - new list per email
 
@@ -294,6 +296,7 @@ SELECT h.id ,
 
 
 END
+
 
 
 

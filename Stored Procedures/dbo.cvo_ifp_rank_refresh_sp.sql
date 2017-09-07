@@ -12,9 +12,9 @@ CREATE PROCEDURE [dbo].[cvo_ifp_rank_refresh_sp]
 AS 
 BEGIN
 
--- exec cvo_ifp_rank_refresh_sp null, 'kids'
+-- exec cvo_ifp_rank_refresh_sp 'jc', 'frame',null,4,1
 -- SELECT * fROM CVO_IFP_CONFIG
--- select * from cvo_ifp_rank where brand = 'rr'
+-- select * from cvo_ifp_rank where brand = 'jc'
 
 -- 8/30/2016 - add 4th month of sales
 
@@ -177,7 +177,7 @@ IF(OBJECT_ID('tempdb.dbo.#t') is not null)  drop table #t
 
 SELECT  c.brand, c.tier, c.threshold, c.order_thru_date
 , count(s.style) brand_tot_qty
-, tier_qty = CAST(ROUND(CAST(c.threshold AS FLOAT)/100.00 * count(s.style),0) AS INT)
+, tier_qty = CAST(CEILING(CAST(c.threshold AS FLOAT)/100.00 * count(s.style)) AS INT)
 
 INTO #t
 from #brand b
@@ -369,6 +369,7 @@ FROM            cvo_ifp_rank
 
 
 end
+
 
 
 
