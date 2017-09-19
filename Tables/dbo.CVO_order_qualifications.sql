@@ -23,7 +23,8 @@ CREATE TABLE [dbo].[CVO_order_qualifications]
 [ff_min_sun] [smallint] NULL,
 [ff_max_free_qty] [int] NULL,
 [ff_max_free_frame] [smallint] NULL,
-[ff_max_free_sun] [smallint] NULL
+[ff_max_free_sun] [smallint] NULL,
+[combine] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__CVO_order__combi__75DF7056] DEFAULT ('N')
 ) ON [PRIMARY]
 GO
 SET QUOTED_IDENTIFIER ON
@@ -125,13 +126,13 @@ END
 GO
 CREATE UNIQUE CLUSTERED INDEX [idx_CVO_order_qualifications] ON [dbo].[CVO_order_qualifications] ([promo_ID], [line_no], [promo_level]) ON [PRIMARY]
 GO
-GRANT REFERENCES ON  [dbo].[CVO_order_qualifications] TO [public]
-GO
-GRANT SELECT ON  [dbo].[CVO_order_qualifications] TO [public]
+GRANT DELETE ON  [dbo].[CVO_order_qualifications] TO [public]
 GO
 GRANT INSERT ON  [dbo].[CVO_order_qualifications] TO [public]
 GO
-GRANT DELETE ON  [dbo].[CVO_order_qualifications] TO [public]
+GRANT REFERENCES ON  [dbo].[CVO_order_qualifications] TO [public]
+GO
+GRANT SELECT ON  [dbo].[CVO_order_qualifications] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[CVO_order_qualifications] TO [public]
 GO

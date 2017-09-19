@@ -5,6 +5,7 @@ GO
 
 -- select * from cvo_whse_planning_vw where isnull(location,'001') = '001' and  isnull(rel_date,'8/29/2017') = '8/29/2017'
 -- select * From cvo_whse_planning_vw where location = '001' and type_code in ('frame','sun','') and bin_no like 'f00%'
+-- =CONCATENATE("update tdc_bin_master set relative_point_y = '",D2,"', relative_point_x = '",E2,"' where bin_no = '",F2,"' and location = '001'")
 
 CREATE VIEW [dbo].[cvo_whse_planning_vw]
 AS
@@ -25,9 +26,13 @@ AS
 			tbr.replenish_qty,
 			ia.field_26 rel_date,
 			ia.field_28 pom_date,
+			POM_age = CASE WHEN DATEDIFF(DAY,ISNULL(ia.field_28,GETDATE()),GETDATE()) <=0 THEN 'CURRENT'
+							WHEN DATEDIFF(year,ISNULL(ia.field_28,GETDATE()),GETDATE()) <2 THEN 'Y1 POM'
+							ELSE 'Y2+ POM'
+							END,
 			bm.usage_type_code ,
             bm.group_code ,
-            b.location ,
+            il.location ,
 			i.upc_code,
 			aisle = LEFT(b.bin_no,3),
 			section = SUBSTRING(b.bin_no,4,1),
@@ -56,8 +61,8 @@ AS
 				ELSE
 					''
 			END lbl_pom_date,
-			bm.relative_point_x column_num,
-			bm.relative_point_y row_num
+			bm.relative_point_x,
+			bm.relative_point_y 
 
     FROM    inv_master i ( NOLOCK ) 
 			INNER JOIN inv_master_add ia (nolock) ON ia.part_no = i.part_no
@@ -93,6 +98,10 @@ AS
 			tbr.replenish_qty,
 			ia.field_26 rel_date,
 			ia.field_28 pom_date,
+			POM_age = CASE WHEN DATEDIFF(DAY,ISNULL(ia.field_28,GETDATE()),GETDATE()) <=0 THEN 'CURRENT'
+				WHEN DATEDIFF(year,ISNULL(ia.field_28,GETDATE()),GETDATE()) <2 THEN 'Y1 POM'
+				ELSE 'Y2 POM'
+				END,
 			bm.usage_type_code ,
             bm.group_code ,
             bm.location ,
@@ -124,8 +133,8 @@ AS
 				ELSE
 					''
 			END lbl_pom_date,
-			bm.relative_point_x column_num,
-			bm.relative_point_y row_num
+			bm.relative_point_x,
+			bm.relative_point_y 
 
 
     FROM    tdc_bin_part_qty s ( NOLOCK )
@@ -163,6 +172,8 @@ AS
 			0 replenish_qty,
 			NULL rel_date,
 			NULL pom_date,
+			POM_age = 'CURRENT',
+
 			bm.usage_type_code ,
             bm.group_code ,
             bm.location ,
@@ -179,8 +190,8 @@ AS
 			END AS lbl_bin_no,
 			'' as lbl_release_date,
 			'' AS lbl_pom_date,
-			bm.relative_point_x column_num,
-			bm.relative_point_y row_num
+			bm.relative_point_x ,
+			bm.relative_point_y 
 
     FROM    tdc_bin_master bm (NOLOCK)
 			WHERE 
@@ -190,6 +201,11 @@ AS
 			
 			;
     
+
+
+
+
+
 
 
 

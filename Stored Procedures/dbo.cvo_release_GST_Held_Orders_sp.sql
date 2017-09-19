@@ -252,7 +252,7 @@ BEGIN
 	WHILE (@@ROWCOUNT <> 0)
 	BEGIN
 
-		EXEC dbo.cvo_print_pick_ticket_sp @order_no, @order_ext
+		EXEC dbo.cvo_print_pick_ticket_sp @order_no, @order_ext, 0, 1 -- v1.6
 
 		-- v1.5 Start
 		SELECT	@status = status

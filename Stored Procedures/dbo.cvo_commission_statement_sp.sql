@@ -22,7 +22,7 @@ AS
 			@i INT;
         
 --DECLARE @fiscalperiod VARCHAR(10)
--- SELECT @fiscalperiod = '06/2017'
+-- SELECT @fiscalperiod = '08/2017'
 
         SELECT  @fp = @FiscalPeriod;
 
@@ -59,8 +59,7 @@ AS
 
 		-- rebuild the summary too - 8/28/2017
 
-		exec cvo_commiss_bldr_create_summary_sp @fp
-
+		-- exec cvo_commiss_bldr_create_summary_sp @fp
 		 
         SELECT  @i = 1;
         WHILE @i < 13
@@ -414,8 +413,8 @@ AS
 		#final.salesperson+#final.territory IN 
 		(SELECT salesperson+territory FROM #final GROUP BY salesperson, territory HAVING SUM(amount) = 0);
 
-		SELECT DISTINCT id ,
-               salesperson ,
+		SELECT DISTINCT f.id ,
+               f.salesperson ,
                salesperson_name ,
                hiredate ,
                termdate ,
@@ -436,13 +435,13 @@ AS
                reductionrsn1 ,
                rep_type ,
                status_Type ,
-               territory ,
+               f.territory ,
                region ,
                total_earnings ,
                total_draw ,
                prior_month_bal ,
                net_pay ,
-               report_month ,
+               f.report_month ,
                current_flag ,
                promo_detail ,
                promo_sum ,
@@ -450,9 +449,15 @@ AS
                year_ly ,
                total_earnings_ly ,
                general_note ,
-               spec_pay FROM #final;
+               spec_pay FROM #final f
+			   LEFT OUTER JOIN 
+			   (SELECT MAX(fin.id) id, fin.salesperson, fin.territory, fin.report_month FROM #final fin 
+			   GROUP BY fin.salesperson, fin.territory, fin.report_month) ff
+			   ON ff.id = f.id AND ff.salesperson = f.salesperson AND ff.territory = f.territory AND ff.report_month = f.report_month
+			   ;
 
     END;
+
 
 
 

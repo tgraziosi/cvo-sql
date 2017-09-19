@@ -8,7 +8,7 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT * FROM dbo.cvo_hs_inventory_8 where sku = 'btzsuns' or [category:2] = 'blutech'
+-- SELECT * FROM dbo.cvo_hs_inventory_8 where  mastersku = 'etpar'
 -- DROP TABLE dbo.cvo_hs_inventory_8
 -- 		
 -- 072814 - tag - 1) add special values, 2) performance updates
@@ -138,6 +138,7 @@ AS
                 1 AS minQty ,
                 1 AS multQty ,
                 CASE WHEN i.category IN ('LS') THEN 'LONESTAR' -- 9/30/2016 - per JB request
+					 when ia.field_32 = 'Pogocam' THEN 'POGOTEC' -- 9/11/2017
 					 WHEN I.type_code IN ( 'other', 'POP' ) THEN 'POP'
 				     ELSE 'CLEARVISION'
                 END AS manufacturer ,
@@ -181,6 +182,7 @@ AS
                 [category:1] = CASE WHEN I.part_no = 'OPZSUNSKIT' THEN 'SUN'
 									WHEN @today >= @me AND i.category = 'me' THEN 'ME SELL-DOWN' -- 10/6/2016
 									WHEN @today >= @UN AND i.category = 'UN' THEN 'ME SELL-DOWN' -- 10/6/2016
+									WHEN I.CATEGORY = 'BCBG' AND IA.FIELD_32 = 'RETAIL' THEN 'BCBGR SELLDWN'
                                     WHEN I.type_code IN ( 'OTHER', 'POP' )
                                     THEN 'POP'
 	 -- 1/11/2016
@@ -319,7 +321,9 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                          ) -- add Lonestar
 					  OR (category IN ('un') -- 3/13/2017
 							AND i.type_code = 'FRAME'
-							AND GETDATE() >= @UN
+							AND GETDATE() >= @UN)
+					  OR (field_32 = 'retaiL' AND CATEGORY IN ('BCBG') and cia.ReleaseDate <=@today
+						AND ((cia.qty_avl >=10 and cia.location = '001') )
 						)
                     )
                 AND ( I.type_code IN ( 'SUN', 'FRAME' )
@@ -433,6 +437,23 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                 Size = ''--, model = 'READER'
         WHERE   sku IN ( 'BTZSUNS'); -- 9/8/2016 
 
+		
+		UPDATE  #Data1
+        SET     [category:1] = 'SUN' ,
+                manufacturer = 'POGOTEC' ,
+                longDesc = variantdescription ,
+                name = variantdescription ,
+                Size = ''--, model = 'READER'
+        WHERE   sku IN ( 'PTSUN'); -- 9/12/17
+
+				UPDATE  #Data1
+        SET     [category:1] = 'FRAME' ,
+                manufacturer = 'POGOTEC' ,
+                longDesc = variantdescription ,
+                name = variantdescription ,
+                Size = ''--, model = 'READER'
+        WHERE   sku IN ( 'PTOPTICAL','POGOCAM'); -- 9/12/17
+
         UPDATE  #Data1
         SET     longDesc = REPLACE(longDesc, 'PERFORMX ', 'IZOD PERFORMX ') ,
                 name = REPLACE(name, 'PERFORMX ', 'IZOD PERFORMX ') ,
@@ -469,19 +490,19 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                 Num ,
                 Spec
         INTO    #Spec
-        FROM    ( SELECT    mastersku ,
+        FROM    ( SELECT    DISTINCT mastersku ,
                             1 AS Num ,
                             GENDER AS Spec
                   FROM      #Data1
                   WHERE     GENDER <> ''
                   UNION ALL
-                  SELECT    mastersku ,
+                  SELECT    DISTINCT mastersku ,
                             2 AS Num ,
                             SpecialtyFit
                   FROM      #Data1
                   WHERE     SpecialtyFit <> ''
                   UNION ALL
-                  SELECT    mastersku ,
+                  SELECT    DISTINCT mastersku ,
                             3 AS Num ,
                             CASE WHEN APR = 'Y' THEN 'APR'
                                  ELSE ''
@@ -490,7 +511,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                   WHERE     APR <> ''
                             AND SUNPS <> 'sunps'
                   UNION ALL
-                  SELECT    mastersku ,
+                  SELECT    DISTINCT mastersku ,
                             4 AS Num ,
                             New
                   FROM      #Data1
@@ -508,11 +529,18 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
 		-- 02/27/2015 - if it's already qop it can't be a spv too
                             AND [category:1] <> 'QOP'
                   UNION ALL
-                  SELECT    mastersku ,
+                  SELECT   distinct mastersku ,
                             5 AS Num ,
                             SUNPS
                   FROM      #Data1
                   WHERE     SUNPS <> ''
+				  UNION ALL
+                  SELECT DISTINCT mastersku,
+						 6 AS num ,
+						 'Selldown'
+				  FROM #data1 d
+				  WHERE [category:1] IN ('qop','eor') AND coll IN ('bcbg','et')
+				  AND NOT EXISTS (SELECT 1 FROM #data1 dd WHERE d.mastersku = dd.mastersku AND dd.[category:1] NOT IN ('qop','eor'))
   --UNION ALL
   --SELECT mastersku, 6 AS num, '1.1' FROM #data1 WHERE ReleaseDate = '11/2/2015' AND COLL = 'AS'
   --UNION ALL
@@ -1026,6 +1054,10 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 -- SELECT distinct manufacturer, [category:1], [CATEGORY:2] FROM dbo.cvo_hs_inventory_8 ORDER BY manufacturer, [category:1]
 
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
+
+-- SELECT * FROM #data1 WHERE mastersku = 'bcesm'
+
+
 
 
 

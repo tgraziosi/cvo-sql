@@ -84,6 +84,7 @@ o.user_category,
 cl.promo_item, 
 cl.free_frame, 
 o.terms,
+ol.return_code,
 'Posted' as source 
 FROM ord_list ol (NOLOCK)
 INNER JOIN orders o (NOLOCK) ON ol.order_no = o.order_no AND ol.order_ext = o.ext       
@@ -188,6 +189,7 @@ o.user_category,
 cl.promo_item, 
 cl.free_frame, 
 o.terms,
+ol.return_code,
 'UnPosted' as source 
 FROM ord_list ol (NOLOCK)
 INNER JOIN orders o (NOLOCK) ON ol.order_no = o.order_no AND ol.order_ext = o.ext       
@@ -292,6 +294,7 @@ o.user_category,
 cl.promo_item,
 cl.free_frame,
 o.terms,
+ol.return_code,
 'Open' as source 
 FROM ord_list ol (NOLOCK)
 INNER JOIN orders o (NOLOCK) ON ol.order_no = o.order_no AND ol.order_ext = o.ext       
@@ -365,6 +368,7 @@ o.user_category,
 'X' AS promo_item,
 0 AS free_frame,
 o.terms,
+'ST' AS return_code,
 'Hist' as source
 FROM CVO_ORDERS_ALL_HIST O (NOLOCK)    
 INNER JOIN CVO_ORD_LIST_HIST ol(NOLOCK) ON O.order_no = ol.order_no AND O.ext = ol.order_ext       
@@ -379,6 +383,7 @@ where 1=1
 --and (o.user_def_fld3 is null 
 --	or o.user_def_fld3 not in ('don','eag','eor','qop','eos','ff','survey','si','ca','sv','pc'))
 --and user_category not in ('st-sa')
+
 
 
 

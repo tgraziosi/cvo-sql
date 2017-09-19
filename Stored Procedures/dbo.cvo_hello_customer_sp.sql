@@ -223,9 +223,9 @@ exec cvo_hello_customer_sp '054421' , '41673985399', null, null
                                 who_entered ,
                                 DATEADD(d, DATEDIFF(d, 0, date_entered), 0) date_entered ,
                                 user_category ,
-                                CASE WHEN o.status < 'r' THEN o.hold_reason
+                                CASE WHEN o.status < 'r' THEN o.hold_reason+ ' - Pending'
                                      WHEN o.status IN ( 'r', 's', 't' )
-                                     THEN 'Received'
+                                     THEN 'Received - Complete'
                                      ELSE ''
                                 END AS status_desc ,
                                 '' carrier ,
@@ -365,6 +365,7 @@ exec cvo_hello_customer_sp '054421' , '41673985399', null, null
 			) rr ON rr.customer = ar.customer_code
 
 			;
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_hello_customer_sp] TO [public]

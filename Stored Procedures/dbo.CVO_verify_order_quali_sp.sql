@@ -28,6 +28,7 @@ GO
 -- v1.23	CT	07/01/14 - Issue #1435 - For 2 colour check, only evaluate order lines which are FRAME/SUN if there is no category specified in the query
 -- v1.24	CB	12/05/2016 - Fix issue with attribute check
 -- v1.25	CB	05/04/2017 - Fix issue with multiple free frame layers
+-- v1.26	CB	12/09/2017 - #1648 - Combine promo lines
 
 CREATE PROCEDURE [dbo].[CVO_verify_order_quali_sp]	@order_no INT = 0, 
 													@ext INT = 0,  
@@ -78,8 +79,9 @@ BEGIN
 				@excluded_gender	INT,			-- v1.9
 				-- START v1.16
 				@attribute			SMALLINT,		
-				@line_no			INT
+				@line_no			INT,
 				-- END v1.16
+				@combine			char(1) -- v1.26
 				
 
 		SET NOCOUNT ON
@@ -110,8 +112,9 @@ BEGIN
 			ff_max_free_qty		INT,
 			ff_max_free_frame	SMALLINT,
 			ff_max_free_sun		SMALLINT,
-			ff_actual_qty		DECIMAL(20,8)
+			ff_actual_qty		DECIMAL(20,8),
 			-- END v1.19
+			combine				char(1) -- v1.26
 		)
 
 		CREATE TABLE #ord_list (
@@ -157,8 +160,9 @@ where a.order_no = @order_no and a.order_ext = @ext
 				ff_min_sun,
 				ff_max_free_qty,
 				ff_max_free_frame,
-				ff_max_free_sun	
+				ff_max_free_sun,	
 				-- END v1.19
+				combine -- v1.26
 		)
 		SELECT	line_no,		brand,		category,
 				IsNull(min_qty,-9999999),	IsNull(max_qty,999999999),	two_colors, -- v1.13
@@ -173,8 +177,9 @@ where a.order_no = @order_no and a.order_ext = @ext
 				ISNULL(ff_min_sun,0),
 				ISNULL(ff_max_free_qty,0),
 				ISNULL(ff_max_free_frame,0),
-				ISNULL(ff_max_free_sun,0)	
+				ISNULL(ff_max_free_sun,0),	
 				-- END v1.19
+				ISNULL(combine,'N') -- v1.26
 		FROM	CVO_order_qualifications (NOLOCK)
 		WHERE	promo_id = @promo_id AND
 				promo_level = @promo_level
@@ -229,8 +234,9 @@ where a.order_no = @order_no and a.order_ext = @ext
 					-- END v1.18
 					-- START v1.16
 					@attribute = attribute, 
-					@line_no = line_no
+					@line_no = line_no,
 					-- END v1.16
+					@combine = combine -- v1.26
 			FROM 	#cvo_order_qualifications
 			WHERE	id = @id
 
@@ -405,7 +411,8 @@ where a.order_no = @order_no and a.order_ext = @ext
 			
 
 			-- Check category only
-			IF (LTRIM(RTRIM(ISNULL(@category,''))) <> '') AND (LTRIM(RTRIM(ISNULL(@brand,''))) = '') 
+-- v1.26	IF (LTRIM(RTRIM(ISNULL(@category,''))) <> '') AND (LTRIM(RTRIM(ISNULL(@brand,''))) = '') 
+			IF (LTRIM(RTRIM(ISNULL(@category,''))) <> '') AND (LTRIM(RTRIM(ISNULL(@brand,''))) = '' AND @combine = 'N') -- v1.26 
 			BEGIN
 				-- check if the order contains the category
 				SELECT @category_found = COUNT(*) FROM #ord_list WHERE category = @category
@@ -560,7 +567,8 @@ where a.order_no = @order_no and a.order_ext = @ext
 			END
 					
 			-- Check brand/category
-			IF (LTRIM(RTRIM(ISNULL(@category,''))) <> '') AND (LTRIM(RTRIM(ISNULL(@brand,''))) <> '') 
+-- v1.26	IF (LTRIM(RTRIM(ISNULL(@category,''))) <> '') AND (LTRIM(RTRIM(ISNULL(@brand,''))) <> '') 
+			IF (LTRIM(RTRIM(ISNULL(@category,''))) <> '') AND (LTRIM(RTRIM(ISNULL(@brand,''))) <> '' AND @combine = 'N') -- v1.26 
 			BEGIN
 				-- check if the order contains the combo
 				SELECT @combo_found = COUNT(*) FROM #ord_list WHERE category = @category and brand = @brand
@@ -844,6 +852,367 @@ where a.order_no = @order_no and a.order_ext = @ext
 				END
 				-- END v1.7
 			END
+
+			-- v1.26 Start Implement Combine
+			IF (LTRIM(RTRIM(ISNULL(@category,''))) <> '') AND (LTRIM(RTRIM(ISNULL(@brand,''))) = '' AND @combine = 'Y') -- v1.26 
+			BEGIN
+				-- check if the order contains the category
+				SELECT @category_found = COUNT(*) FROM #ord_list WHERE category IN (
+					SELECT category FROM cvo_promo_order_category (NOLOCK) WHERE promo_id = @promo_id AND promo_level = @promo_level AND line_no = @line_no)
+				
+				-- START v1.16 - combine gender and attribute check
+				-- START v1.7 - check order for gender
+				-- START v1.18
+				IF (ISNULL(@gender_check,0) <> 0) OR (ISNULL(@attribute,0) <> 0)
+				--IF (ISNULL(@gender,'') <> '') OR (ISNULL(@attribute,0) <> 0)
+				-- END v1.18
+				--IF ISNULL(@gender,'') <> '' 
+				BEGIN
+					IF @category_exclude = 'N'
+					BEGIN
+						SELECT 
+							@gender_found = COUNT(1) 
+						FROM 
+							#ord_list 
+						WHERE 
+							category IN (SELECT category FROM cvo_promo_order_category (NOLOCK) WHERE promo_id = @promo_id AND promo_level = @promo_level AND line_no = @line_no) 
+							-- START v1.18
+							AND ((ISNULL(@gender_check,0) = 0) OR (gender IN (SELECT gender FROM dbo.cvo_promotions_gender (NOLOCK) 
+																			  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O'))) 
+							--AND ((ISNULL(@gender,'') = '') OR (gender = @gender)) 
+							-- END v1.18
+							AND ((ISNULL(@attribute,0) = 0) OR (attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
+																			  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O')))
+						--SELECT @gender_found = COUNT(1) FROM #ord_list WHERE category = @category AND gender = @gender
+					END
+					ELSE
+					BEGIN
+						SELECT 
+							@gender_found = COUNT(1) 
+						FROM 
+							#ord_list 
+						WHERE 
+							--category <> @category 
+							(category NOT IN (SELECT category FROM cvo_promo_order_category (NOLOCK) WHERE promo_id = @promo_id AND promo_level = @promo_level AND line_no = @line_no))
+							-- START v1.18
+							AND ((ISNULL(@gender_check,0) = 0) OR (gender IN (SELECT gender FROM dbo.cvo_promotions_gender (NOLOCK) 
+																			  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O'))) 
+							--AND ((ISNULL(@gender,'') = '') OR (gender = @gender)) 
+							-- END v1.18
+							AND ((ISNULL(@attribute,0) = 0) OR (attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
+																			  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O')))
+						--SELECT @gender_found = COUNT(1) FROM #ord_list WHERE category <> @category AND gender = @gender
+					END
+				END
+				-- END v1.16
+				ELSE
+				BEGIN
+					SET @gender_found = 1
+				END
+				-- END v1.7
+
+				IF @category_found > 0 
+				BEGIN
+					SET @category_on_order	= 'Y'
+				END
+				ELSE
+				BEGIN
+					SET @category_on_order	= 'N'
+				END
+				IF @category_on_order <> @category_exclude
+				BEGIN
+					-- START v1.7 - Gender
+					IF ISNULL(@gender_found,0) = 0
+					BEGIN
+						SELECT @achived = 0
+						IF @and = 'Y'
+						BEGIN
+							-- START v1.16
+							-- START v1.18
+							IF ISNULL(@gender_check,0) <> 0
+							--IF ISNULL(@gender,'') <> ''
+							-- END v1.18
+							BEGIN
+								--SET @and_fail_reason = 'Order does not qualify for promotion - order does not contain required gender (' + UPPER(@gender) + ').'
+								-- START v1.18
+								SET @and_fail_reason = 'Order does not qualify for promotion - order does not contain required attribute/gender combination.'
+								-- SET @and_fail_reason = 'Order does not qualify for promotion - order does not contain required attribute/gender (' + UPPER(@gender) + ') combination.'
+								-- END v1.18
+							END
+							ELSE
+							BEGIN
+								SET @and_fail_reason = 'Order does not qualify for promotion - order does not contain required attribute.'
+							END
+						END
+						ELSE
+						BEGIN
+							-- START v1.18
+							IF ISNULL(@gender_check,0) <> 0
+							--IF ISNULL(@gender,'') <> ''
+							-- END v1.18
+							BEGIN
+								IF ISNULL(@or_fail_reason,'') = '' -- v1.11
+									-- START v1.18
+									SET @or_fail_reason = 'Order does not qualify for promotion - order does not contain required attribute/gender combination.'
+									--SET @or_fail_reason = 'Order does not qualify for promotion - order does not contain required attribute/gender (' + UPPER(@gender) + ') combination.'
+								ELSE
+									SET @or_fail_reason = @or_fail_reason + CHAR(13) + CHAR(10) + 'Order does not qualify for promotion - order does not contain required attribute/gender combination.'
+									-- SET @or_fail_reason = @or_fail_reason + CHAR(13) + CHAR(10) + 'Order does not qualify for promotion - order does not contain required attribute/gender (' + UPPER(@gender) + ') combination.'
+									-- END v1.18
+							END
+							ELSE
+							BEGIN	
+								IF ISNULL(@or_fail_reason,'') = '' -- v1.11
+									SET @or_fail_reason = 'Order does not qualify for promotion - order does not contain required attribute.'
+								ELSE
+									SET @or_fail_reason = @or_fail_reason + CHAR(13) + CHAR(10) + 'Order does not qualify for promotion - order does not contain required attribute.'
+							END
+							-- END v1.16
+						END
+					END	
+					ELSE
+					BEGIN
+						SELECT @achived = 1
+					END	
+					-- END v1.7
+				END
+				ELSE
+				BEGIN
+					SELECT @achived = 0
+					IF @category_on_order = 'Y'
+					BEGIN
+						IF @and = 'Y'
+						BEGIN
+							SET @and_fail_reason = 'Order does not qualify for promotion - order contains an excluded category (' + UPPER(@category) + ').'
+						END
+						ELSE
+						BEGIN
+							IF ISNULL(@or_fail_reason,'') = '' -- v1.11
+								SET @or_fail_reason = 'Order does not qualify for promotion - order contains an excluded category (' + UPPER(@category) + ').'
+							ELSE
+								SET @or_fail_reason = @or_fail_reason + CHAR(13) + CHAR(10) + 'Order does not qualify for promotion - order contains an excluded category (' + UPPER(@category) + ').'
+						END
+					END
+					ELSE
+					BEGIN
+						IF @and = 'Y'
+						BEGIN
+							SET @and_fail_reason = 'Order does not qualify for promotion - order does not contain a required category (' + UPPER(@category) + ').'
+						END
+						ELSE
+						BEGIN
+							IF ISNULL(@or_fail_reason,'') = '' -- v1.11
+								SET @or_fail_reason = 'Order does not qualify for promotion - order does not contain a required category (' + UPPER(@category) + ').'
+							ELSE
+								SET @or_fail_reason = @or_fail_reason + CHAR(13) + CHAR(10) + 'Order does not qualify for promotion - order does not contain a required category (' + UPPER(@category) + ').'
+						END
+					END
+				END
+			END
+
+			IF (LTRIM(RTRIM(ISNULL(@category,''))) <> '') AND (LTRIM(RTRIM(ISNULL(@brand,''))) <> '' AND @combine = 'Y') 
+			BEGIN
+				-- check if the order contains the combo
+				SELECT @combo_found = COUNT(*) FROM #ord_list WHERE brand = @brand AND category IN (
+					SELECT category FROM cvo_promo_order_category (NOLOCK) WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no)
+
+				-- START v1.16 - combine gender and attribute check
+				-- START v1.7 - check order for gender
+				-- START v1.18
+				IF (ISNULL(@gender_check,0) <> 0) OR (ISNULL(@attribute,0) <> 0)
+				--IF (ISNULL(@gender,'') <> '') OR (ISNULL(@attribute,0) <> 0)
+				-- END v1.18
+				--IF ISNULL(@gender,'') <> '' 
+				BEGIN
+					IF @category_exclude = 'N' AND @brand_exclude = 'N'
+					BEGIN
+						SELECT 
+							@gender_found = COUNT(1) 
+						FROM 
+							#ord_list 
+						WHERE 
+							brand = @brand 
+							AND category IN (SELECT category FROM cvo_promo_order_category (NOLOCK) WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no)
+							-- START v1.18
+							AND ((ISNULL(@gender_check,0) = 0) OR (gender IN (SELECT gender FROM dbo.cvo_promotions_gender (NOLOCK) 
+																			  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O'))) 
+							--AND ((ISNULL(@gender,'') = '') OR (gender = @gender)) 
+							-- END v1.18
+							AND ((ISNULL(@attribute,0) = 0) OR (attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
+																			  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O')))
+
+						--SELECT @gender_found = COUNT(1) FROM #ord_list WHERE category = @category AND brand = @brand AND gender = @gender
+					END
+
+					IF @category_exclude = 'N' AND @brand_exclude = 'Y'
+					BEGIN
+						SELECT 
+							@gender_found = COUNT(1) 
+						FROM 
+							#ord_list 
+						WHERE 
+							brand <> @brand 
+							AND category IN (SELECT category FROM cvo_promo_order_category (NOLOCK) WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no)
+							-- START v1.18
+							AND ((ISNULL(@gender_check,0) = 0) OR (gender IN (SELECT gender FROM dbo.cvo_promotions_gender (NOLOCK) 
+																			  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O'))) 
+							--AND ((ISNULL(@gender,'') = '') OR (gender = @gender)) 
+							-- END v1.18
+							AND ((ISNULL(@attribute,0) = 0) OR (attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
+																			  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O')))
+
+						--SELECT @gender_found = COUNT(1) FROM #ord_list WHERE category = @category AND brand <> @brand AND gender = @gender
+					END
+
+					IF @category_exclude = 'Y' AND @brand_exclude = 'N'
+					BEGIN
+						SELECT 
+							@gender_found = COUNT(1) 
+						FROM 
+							#ord_list 
+						WHERE 
+							brand = @brand 
+							AND category NOT IN (SELECT category FROM cvo_promo_order_category (NOLOCK) WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no)
+							-- START v1.18
+							AND ((ISNULL(@gender_check,0) = 0) OR (gender IN (SELECT gender FROM dbo.cvo_promotions_gender (NOLOCK) 
+																			  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O'))) 
+							--AND ((ISNULL(@gender,'') = '') OR (gender = @gender)) 
+							-- END v1.18
+							AND ((ISNULL(@attribute,0) = 0) OR (attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
+																			  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O')))
+						--SELECT @gender_found = COUNT(1) FROM #ord_list WHERE category <> @category AND brand = @brand AND gender = @gender
+					END
+				
+					IF @category_exclude = 'Y' AND @brand_exclude = 'Y'
+					BEGIN
+						SELECT 
+							@gender_found = COUNT(1) 
+						FROM 
+							#ord_list 
+						WHERE 
+							brand <> @brand 
+							AND category NOT IN (SELECT category FROM cvo_promo_order_category (NOLOCK) WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no)
+							-- START v1.18
+							AND ((ISNULL(@gender_check,0) = 0) OR (gender IN (SELECT gender FROM dbo.cvo_promotions_gender (NOLOCK) 
+																			  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O'))) 
+							--AND ((ISNULL(@gender,'') = '') OR (gender = @gender)) 
+							-- END v1.18
+							AND ((ISNULL(@attribute,0) = 0) OR (attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
+																			  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O')))
+
+						--SELECT @gender_found = COUNT(1) FROM #ord_list WHERE category <> @category AND brand <> @brand AND gender = @gender
+					END		
+				END
+				-- END v1.16
+				ELSE
+				BEGIN
+					SET @gender_found = 1
+				END
+				-- END v1.7
+
+				IF @combo_found > 0 
+				BEGIN
+					SET @combo_on_order	= 'Y'
+				END
+				ELSE
+				BEGIN
+					SET @combo_on_order	= 'N'
+				END
+
+				IF (@combo_on_order <> @category_exclude AND @combo_on_order <> @brand_exclude) OR (@combo_on_order = 'N' AND (@category_exclude = 'Y' OR @brand_exclude = 'Y'))
+				BEGIN
+					-- START v1.7 - Gender
+					IF ISNULL(@gender_found,0) = 0
+					BEGIN
+						SELECT @achived = 0
+						IF @and = 'Y'
+						BEGIN
+							-- START v1.16
+							-- START v1.18
+							IF ISNULL(@gender_check,0) <> 0
+							--IF ISNULL(@gender,'') <> ''
+							-- END v1.18
+							BEGIN
+								--SET @and_fail_reason = 'Order does not qualify for promotion - order does not contain required gender (' + UPPER(@gender) + ').'
+								-- START v1.18
+								SET @and_fail_reason = 'Order does not qualify for promotion - order does not contain required attribute/gender combination.'
+								--SET @and_fail_reason = 'Order does not qualify for promotion - order does not contain required attribute/gender (' + UPPER(@gender) + ') combination.'
+								-- END v1.18
+							END
+							ELSE
+							BEGIN
+								SET @and_fail_reason = 'Order does not qualify for promotion - order does not contain required attribute.'
+							END	
+						END
+						ELSE
+						BEGIN
+							-- START v1.18
+							IF ISNULL(@gender_check,0) <> 0
+							--IF ISNULL(@gender,'') <> ''
+							-- END v1.18
+							BEGIN
+								IF ISNULL(@or_fail_reason,'') = '' -- v1.11
+									-- START v1.18
+									SET @or_fail_reason = 'Order does not qualify for promotion - order does not contain required attribute/gender combination.'
+									--SET @or_fail_reason = 'Order does not qualify for promotion - order does not contain required attribute/gender (' + UPPER(@gender) + ') combination.'
+								ELSE
+									SET @or_fail_reason = @or_fail_reason + CHAR(13) + CHAR(10) + 'Order does not qualify for promotion - order does not contain required attribute/gender combination.'
+									--SET @or_fail_reason = @or_fail_reason + CHAR(13) + CHAR(10) + 'Order does not qualify for promotion - order does not contain required attribute/gender (' + UPPER(@gender) + ') combination.'
+									-- END v1.18
+							END
+							ELSE
+							BEGIN	
+								IF ISNULL(@or_fail_reason,'') = '' -- v1.11
+									SET @or_fail_reason = 'Order does not qualify for promotion - order does not contain required attribute.'
+								ELSE
+									SET @or_fail_reason = @or_fail_reason + CHAR(13) + CHAR(10) + 'Order does not qualify for promotion - order does not contain required attribute.'
+							END
+							-- END v1.16
+						END
+					END	
+					ELSE
+					BEGIN
+						SELECT @achived = 1
+					END	
+					-- END v1.7
+				END
+				ELSE
+				BEGIN
+					SELECT @achived = 0
+					IF @combo_on_order = 'Y'
+					BEGIN
+						IF @and = 'Y' 
+						BEGIN
+							SET @and_fail_reason = 'Order does not qualify for promotion - order contains an excluded brand/category combination.'
+						END
+						ELSE
+						BEGIN
+							IF ISNULL(@or_fail_reason,'') = '' -- v1.11
+								SET @or_fail_reason = 'Order does not qualify for promotion - order contains an excluded brand/category combination.'
+							ELSE
+								SET @or_fail_reason = @or_fail_reason + CHAR(13) + CHAR(10) + 'Order does not qualify for promotion - order contains an excluded brand/category combination.'
+						END
+					END
+					ELSE
+					BEGIN
+						IF @and = 'Y'
+						BEGIN
+							SET @and_fail_reason = 'Order does not qualify for promotion - order does not contain a required brand/category combination.'
+						END
+						ELSE
+						BEGIN
+							IF ISNULL(@or_fail_reason,'') = '' -- v1.11
+								SET @or_fail_reason = 'Order does not qualify for promotion - order does not contain a required brand/category combination.'
+							ELSE
+								SET @or_fail_reason = @or_fail_reason + CHAR(13) + CHAR(10) + 'Order does not qualify for promotion - order does not contain a required brand/category combination.'
+						END
+					END
+				END
+			END
+
+
+			-- v1.26 End
+
 			
 			/*
 
@@ -907,9 +1276,32 @@ where a.order_no = @order_no and a.order_ext = @ext
 
 			--	Does the entered order have a minimum or maximum ordered quantity of the selected brand or category
 			SELECT @total_qty_brand = IsNull(SUM(ordered),0) FROM #ord_list WHERE brand = @brand
-			SELECT @total_qty_categoty = IsNull(SUM(ordered),0) FROM #ord_list WHERE category = @category
+
+			-- v1.26 Start
+			IF (@combine = 'Y')
+			BEGIN
+				SELECT @total_qty_categoty = IsNull(SUM(ordered),0) FROM #ord_list WHERE category IN (
+					SELECT category FROM cvo_promo_order_category (NOLOCK) WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no)
+			END
+			ELSE
+			BEGIN
+				SELECT @total_qty_categoty = IsNull(SUM(ordered),0) FROM #ord_list WHERE category = @category
+			END
+			-- v1.26 End
+
 			SELECT @total_qty_all = IsNull(SUM(ordered),0) FROM #ord_list WHERE category IN ('FRAME','SUN')	-- v1.8
-			SELECT @total_qty_combo = IsNull(SUM(ordered),0) FROM #ord_list WHERE brand = @brand AND category = @category	-- v1.5
+
+			-- v1.26 Start
+			IF (@combine = 'Y')
+			BEGIN
+				SELECT @total_qty_combo = IsNull(SUM(ordered),0) FROM #ord_list WHERE brand = @brand AND category IN (
+					SELECT category FROM cvo_promo_order_category (NOLOCK) WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no)
+			END
+			ELSE
+			BEGIN
+				SELECT @total_qty_combo = IsNull(SUM(ordered),0) FROM #ord_list WHERE brand = @brand AND category = @category	-- v1.5
+			END
+			-- v1.26 End
 
 			IF @achived = 1 OR @qty_only = 1
 			BEGIN
@@ -1046,7 +1438,18 @@ where a.order_no = @order_no and a.order_ext = @ext
 				-- Category Only
 				IF ISNULL(@brand,'') = '' AND ISNULL(@category,'') <> ''
 				BEGIN
-					SELECT TOP 1 @category_found = COUNT(DISTINCT(color)) FROM #ord_list WHERE category = @category GROUP BY style ORDER BY COUNT(DISTINCT(color)) ASC -- v1.20 Change from DESC
+					-- v1.26 Start
+					IF (@combine = 'Y')
+					BEGIN
+						SELECT TOP 1 @category_found = COUNT(DISTINCT(color)) FROM #ord_list WHERE category IN (
+							SELECT category FROM cvo_promo_order_category (NOLOCK) WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no)
+						GROUP BY style ORDER BY COUNT(DISTINCT(color)) ASC -- v1.20 Change from DESC
+					END
+					ELSE
+					BEGIN
+						SELECT TOP 1 @category_found = COUNT(DISTINCT(color)) FROM #ord_list WHERE category = @category GROUP BY style ORDER BY COUNT(DISTINCT(color)) ASC -- v1.20 Change from DESC
+					END
+					-- v1.26 End
 
 					IF @category_found >= 2
 					BEGIN
@@ -1080,7 +1483,18 @@ where a.order_no = @order_no and a.order_ext = @ext
 					-- END v1.23
 					GROUP BY style ORDER BY COUNT(DISTINCT(color)) ASC -- v1.20 Change from DESC
 					
-					SELECT TOP 1 @category_found = COUNT(DISTINCT(color)) FROM #ord_list WHERE category = @category GROUP BY style ORDER BY COUNT(DISTINCT(color)) ASC -- v1.20 Change from DESC
+					-- v1.26 Start
+					IF (@combine = 'Y')
+					BEGIN
+						SELECT TOP 1 @category_found = COUNT(DISTINCT(color)) FROM #ord_list WHERE category IN (
+							SELECT category FROM cvo_promo_order_category (NOLOCK) WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no)
+						GROUP BY style ORDER BY COUNT(DISTINCT(color)) ASC -- v1.20 Change from DESC
+					END
+					ELSE
+					BEGIN
+						SELECT TOP 1 @category_found = COUNT(DISTINCT(color)) FROM #ord_list WHERE category = @category GROUP BY style ORDER BY COUNT(DISTINCT(color)) ASC -- v1.20 Change from DESC
+					END
+					-- v1.26 End
 					
 					IF (@brand_found >= 2 AND @category_found >= 2)
 					BEGIN
@@ -1381,7 +1795,8 @@ where a.order_no = @order_no and a.order_ext = @ext
 			promo_id,
 			promo_level,
 			min_qty, -- v1.25
-			max_qty) -- v1.25
+			max_qty, -- v1.25
+			combine) -- v1.26
 		SELECT DISTINCT -- v1.21
 			@@SPID,
 			line_no,
@@ -1400,7 +1815,8 @@ where a.order_no = @order_no and a.order_ext = @ext
 			@promo_id,
 			@promo_level,
 			min_qty, -- v1.25
-			max_qty -- v1.25
+			max_qty, -- v1.25
+			combine -- v1.26
 		FROM 
 			#cvo_order_qualifications 
 		WHERE 

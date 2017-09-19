@@ -31,20 +31,21 @@ CREATE procedure [dbo].[cvo_inv_fcst_r3_sp]
 /*
  exec cvo_inv_fcst_r3_sp
 
- @asofdate = '08/01/2017', 
+ @asofdate = '09/01/2017', 
  @endrel = '09/01/2017', 
  @current = 0, 
- @collection = 'bcbg', 
- @style = 'ashlyn', 
+ @collection = 'REVO', 
+ @style = 'RELAY', 
  @specfit = null,
  @usg_option = 'o',
- @debug = 0, -- debug
- @location = 'visionwork',
+ @debug = 1, -- debug
+ @location = '001',
  @restype = 'FRAME,SUN',
  @WKSONHANDGTLT = 'all',
  @WKSONHAND = 0
 
  select * From cvo_ifp_rank
+ SELECT * fROM RELEASES WHERE PART_NO LIKE 'RE1014%'
 
 */
 -- 090314 - tag
@@ -188,6 +189,7 @@ begin
 	INSERT INTO #type (type_code)
 	SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@type_code)
 END
+
 
 --select * from #style_list
 --select @style_list
@@ -733,18 +735,22 @@ select --
 alloc_qty = 0,
 non_alloc_qty = 0
 From #t 
-inner join inv_master_add i (nolock) on i.part_no = #t.part_no
+-- 9/15/2017 - SUPPORT FOR OUTSOURCING
+inner join inv_master_add i (nolock) on i.part_no = #t.part_no OR  I.PART_NO =  #t.part_no+'-MAKE'
 inner join inv_master inv (nolock) on inv.part_no = i.part_no
-inner join #type t on t.type_code = inv.type_code
-left outer join releases r (nolock) on #t.part_no = r.part_no AND #t.location = r.location
+-- inner join #type t on t.type_code = inv.type_code 
+left outer join releases r (nolock) on I.part_no = r.part_no AND #t.location = CASE WHEN i.part_no LIKE '%-make' THEN #t.location ELSE r.location end
 where 1=1
+and EXISTS (SELECT 1 FROM #type WHERE inv.type_code = #type.type_code OR inv.type_code = 'OUT')
 and  #t.mm = case when DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < @asofdate
 	 THEN month(@asofdate) 
 	 ELSE month(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) end
 and r.status = 'o' and r.part_type = 'p' -- and r.location = @loc
 and inv.void = 'N'
 AND DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < DATEADD(YEAR,1,@asofdate)
-group BY inv.category, i.field_2, #t.part_no, #t.location
+group BY 
+-- inv.category, i.field_2, 
+#t.part_no, #t.location
 -- , DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)
 , CASE when DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < @asofdate
 	 THEN month(@asofdate) 
@@ -1410,6 +1416,7 @@ FROM
 ;
 
 end
+
 
 
 

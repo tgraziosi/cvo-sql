@@ -70,6 +70,7 @@ SET NOCOUNT ON
 -- v12.1 CB 20/06/2016 - Issue #1602 - Must Go Today flag
 -- v12.2 CB 12/07/2016 - Issue #1602 - Default Must Go Today flag to zero for backorders
 -- v12.3 CB 06/03/2017 - For backorders clean out the freight_allow_type ifthe carrier is not 3rd party
+-- v12.4 CB 19/09/2017 - Check for customers set for no freight charge
   
 exec @err = fs_updordtots @ordno, @ordext  
  if @@error != 0  
@@ -170,7 +171,8 @@ BEGIN
 END
 -- v12.3 End
 
-IF EXISTS(SELECT 1 FROM dbo.cvo_armaster_all (NOLOCK) WHERE customer_code = @cust_code AND address_type = 0 AND ISNULL(freight_charge,1) = 2)
+-- v12.4 IF EXISTS(SELECT 1 FROM dbo.cvo_armaster_all (NOLOCK) WHERE customer_code = @cust_code AND address_type = 0 AND ISNULL(freight_charge,1) = 2)
+IF EXISTS(SELECT 1 FROM dbo.cvo_armaster_all (NOLOCK) WHERE customer_code = @cust_code AND address_type = 0 AND ISNULL(freight_charge,1) IN (2,3)) -- v12.4
 BEGIN
 	SET @freight_allow_type = 'FRTOVRID'
 END

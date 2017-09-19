@@ -6,7 +6,7 @@ CREATE PROCEDURE [dbo].[cvo_hello_brandsales_sp]
     @customer VARCHAR(10) = NULL, @ship_to VARCHAR(10) = NULL
 AS
 
--- exec cvo_hello_brandsales_sp '039226'
+-- exec cvo_hello_brandsales_sp '013748'
 
 BEGIN
 
@@ -21,6 +21,7 @@ BEGIN
 
     SELECT
         @sdatety = BeginDate, @edatety = EndDate
+		-- select * 
     FROM dbo.cvo_date_range_vw AS drv
     WHERE Period = 'rolling 12 ty'
     ;
@@ -53,7 +54,7 @@ BEGIN
         BETWEEN DATEADD(YEAR, -1, @sdatety) AND DATEADD(YEAR, -1, @edatety)
         )
         AND customer = ISNULL(@customer, '')
-        AND sd.ship_to = ISNULL(@ship_to, '')
+        AND sd.ship_to = ISNULL(@ship_to, sd.ship_to)
     GROUP BY i.category
     ;
 
@@ -64,6 +65,7 @@ GRANT EXECUTE
 ON dbo.cvo_hello_brandsales_sp
 TO  PUBLIC
 ;
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_hello_brandsales_sp] TO [public]

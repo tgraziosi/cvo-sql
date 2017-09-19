@@ -1490,6 +1490,7 @@ INSERT  #i
 						CASE WHEN c.part_type = 'frame'
                                    THEN ISNULL(c.Collection,'') + ' ' + ISNULL(c.model,'') + ' '
                                         + UPPER(ISNULL(ia.field_3,'')) + ' '
+										+ CASE WHEN C.RES_TYPE = 'SUN' THEN UPPER(ISNULL(IA.FIELD_23,'')) else '' END + ' '
                                         + CAST(ROUND(ISNULL(c.eye_size,0), 0) AS VARCHAR(2))
                                         + '/'
                                         + CAST(ROUND(ISNULL(c.dbl_size,0), 0) AS VARCHAR(2))
@@ -2353,6 +2354,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

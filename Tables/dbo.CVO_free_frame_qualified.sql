@@ -18,18 +18,19 @@ CREATE TABLE [dbo].[CVO_free_frame_qualified]
 [promo_id] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [promo_level] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [min_qty] [int] NULL,
-[max_qty] [int] NULL
+[max_qty] [int] NULL,
+[combine] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__CVO_free___combi__74EB4C1D] DEFAULT ('N')
 ) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [CVO_free_frame_qualified_inx01] ON [dbo].[CVO_free_frame_qualified] ([SPID], [rec_id]) ON [PRIMARY]
 GO
-GRANT REFERENCES ON  [dbo].[CVO_free_frame_qualified] TO [public]
-GO
-GRANT SELECT ON  [dbo].[CVO_free_frame_qualified] TO [public]
+GRANT DELETE ON  [dbo].[CVO_free_frame_qualified] TO [public]
 GO
 GRANT INSERT ON  [dbo].[CVO_free_frame_qualified] TO [public]
 GO
-GRANT DELETE ON  [dbo].[CVO_free_frame_qualified] TO [public]
+GRANT REFERENCES ON  [dbo].[CVO_free_frame_qualified] TO [public]
+GO
+GRANT SELECT ON  [dbo].[CVO_free_frame_qualified] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[CVO_free_frame_qualified] TO [public]
 GO

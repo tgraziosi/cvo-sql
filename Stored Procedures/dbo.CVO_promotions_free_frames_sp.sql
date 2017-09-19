@@ -7,6 +7,7 @@ GO
 -- v1.1 CT 04/03/2013 - Corrected calculation for number of free frames
 -- v1.2 CT 16/08/2013 - Issue #1360 - use correct field for gender
 -- v1.3 CB 05/04/2017 - Fix issue with multiple free frame layers
+-- v1.4 CB 13/09/2017 - #1648 - Combine promo lines
 
 
 CREATE PROC [dbo].[CVO_promotions_free_frames_sp] ( @promo_id			VARCHAR(30),	
@@ -36,7 +37,8 @@ BEGIN
 			@split				SMALLINT,
 			@qty				DECIMAL(20,8),
 			@min_qty			int, -- v1.3
-			@max_qty			int -- v1.3
+			@max_qty			int, -- v1.3
+			@combine			char(1) -- v1.4
 
 	-- Create temp tables for ord_list records
 	CREATE TABLE #ff_ord_list (
@@ -109,7 +111,8 @@ BEGIN
 			brand_exclude,
 			category_exclude,
 			promo_id,
-			promo_level)
+			promo_level,
+			combine) -- v1.4
 		SELECT
 			@spid,
 			line_no,
@@ -126,7 +129,8 @@ BEGIN
 			brand_exclude,
 			category_exclude,
 			@promo_id,
-			@promo_level
+			@promo_level,
+			combine -- v1.4
 		FROM 
 			dbo.cvo_order_qualifications (NOLOCK)
 		WHERE 
@@ -156,7 +160,8 @@ BEGIN
 			@attribute = attribute,
 			@promo_line_no = line_no,
 			@min_qty = min_qty, -- v1.3
-			@max_qty = max_qty -- v1.3
+			@max_qty = max_qty, -- v1.3
+			@combine = combine -- v1.4
 		FROM
 			dbo.CVO_free_frame_qualified (NOLOCK)
 		WHERE
@@ -173,49 +178,100 @@ BEGIN
 		-- Clear temp ord_list table
 		DELETE FROM #selected_ord_list
 
-		-- Load order lines which match
-		INSERT INTO	#selected_ord_list(
-			part_no,
-			line_no,
-			brand,
-			category,
-			ordered,				
-			gender,							
-			attribute)
-		SELECT
-			part_no,
-			line_no,
-			brand,
-			category,
-			ordered,
-			gender,							
-			attribute	
-		FROM
-			#ff_ord_list (NOLOCK)
-		WHERE
-			((ISNULL(@brand_exclude,'N') = 'N' AND ISNULL(@brand,'') <> '' AND brand = @brand) 
-					OR (ISNULL(@brand_exclude,'N') <> 'N' AND ISNULL(@brand,'') <> '' AND brand <> @brand) 
-					OR (ISNULL(@brand,'') = ''))
-			AND ((ISNULL(@category_exclude,'N') = 'N' AND ISNULL(@category,'') <> '' AND category = @category) 
-					OR (ISNULL(@category_exclude,'N') <> 'N' AND ISNULL(@category,'') <> '' AND category <> @category) 
-					OR (ISNULL(@category,'') = ''))
-			AND ((ISNULL(@gender_check,0) = 0) OR (gender IN (SELECT gender FROM dbo.cvo_promotions_gender (NOLOCK) 
-																			  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @promo_line_no AND line_type = 'O'))) 
-			AND ((ISNULL(@attribute,0) = 0) OR (attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
-																			  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @promo_line_no AND line_type = 'O')))
-		
-		-- Remove lines which don't meet the min qty frame/sun setting
-		DELETE FROM #selected_ord_list WHERE category NOT IN ('FRAME','SUN')
-		
-		IF @ff_min_frame = 0
+		-- v1.4 Start
+		IF (@combine = 'N')
 		BEGIN
-			DELETE FROM #selected_ord_list WHERE category = 'FRAME'
+			-- Load order lines which match
+			INSERT INTO	#selected_ord_list(
+				part_no,
+				line_no,
+				brand,
+				category,
+				ordered,				
+				gender,							
+				attribute)
+			SELECT
+				part_no,
+				line_no,
+				brand,
+				category,
+				ordered,
+				gender,							
+				attribute	
+			FROM
+				#ff_ord_list (NOLOCK)
+			WHERE
+				((ISNULL(@brand_exclude,'N') = 'N' AND ISNULL(@brand,'') <> '' AND brand = @brand) 
+						OR (ISNULL(@brand_exclude,'N') <> 'N' AND ISNULL(@brand,'') <> '' AND brand <> @brand) 
+						OR (ISNULL(@brand,'') = ''))
+				AND ((ISNULL(@category_exclude,'N') = 'N' AND ISNULL(@category,'') <> '' AND category = @category) 
+						OR (ISNULL(@category_exclude,'N') <> 'N' AND ISNULL(@category,'') <> '' AND category <> @category) 
+						OR (ISNULL(@category,'') = ''))
+				AND ((ISNULL(@gender_check,0) = 0) OR (gender IN (SELECT gender FROM dbo.cvo_promotions_gender (NOLOCK) 
+																				  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @promo_line_no AND line_type = 'O'))) 
+				AND ((ISNULL(@attribute,0) = 0) OR (attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
+																				  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @promo_line_no AND line_type = 'O')))
 		END
+		ELSE
+		BEGIN
+			-- Load order lines which match
+			INSERT INTO	#selected_ord_list(
+				part_no,
+				line_no,
+				brand,
+				category,
+				ordered,				
+				gender,							
+				attribute)
+			SELECT
+				part_no,
+				line_no,
+				brand,
+				category,
+				ordered,
+				gender,							
+				attribute	
+			FROM
+				#ff_ord_list (NOLOCK)
+			WHERE
+				((ISNULL(@brand_exclude,'N') = 'N' AND ISNULL(@brand,'') <> '' AND brand = @brand) 
+						OR (ISNULL(@brand_exclude,'N') <> 'N' AND ISNULL(@brand,'') <> '' AND brand <> @brand) 
+						OR (ISNULL(@brand,'') = ''))
+				AND ((ISNULL(@category_exclude,'N') = 'N' AND ISNULL(@category,'') <> '' AND category IN (
+					 SELECT category FROM cvo_promo_order_category (NOLOCK) WHERE promo_id = @promo_id AND promo_level = @promo_level AND line_no = @promo_line_no)) 
+						OR (ISNULL(@category_exclude,'N') <> 'N' AND ISNULL(@category,'') <> '' AND category NOT IN (
+						 SELECT category FROM cvo_promo_order_category (NOLOCK) WHERE promo_id = @promo_id AND promo_level = @promo_level AND line_no = @promo_line_no)) 
+						OR (ISNULL(@category,'') = ''))
+				AND ((ISNULL(@gender_check,0) = 0) OR (gender IN (SELECT gender FROM dbo.cvo_promotions_gender (NOLOCK) 
+																				  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @promo_line_no AND line_type = 'O'))) 
+				AND ((ISNULL(@attribute,0) = 0) OR (attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
+																				  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @promo_line_no AND line_type = 'O')))
+		END
+		-- v1.4 End
+		
+		-- v1.4 Start
+		IF (@combine = 'N')
+		BEGIN		
+			-- Remove lines which don't meet the min qty frame/sun setting
+			DELETE FROM #selected_ord_list WHERE category NOT IN ('FRAME','SUN')
 
-		IF @ff_min_sun = 0
-		BEGIN
-			DELETE FROM #selected_ord_list WHERE category = 'SUN'
+			IF @ff_min_frame = 0
+			BEGIN
+				DELETE FROM #selected_ord_list WHERE category = 'FRAME'
+			END
+
+			IF @ff_min_sun = 0
+			BEGIN
+				DELETE FROM #selected_ord_list WHERE category = 'SUN'
+			END
 		END
+		ELSE
+		BEGIN
+			DELETE FROM #selected_ord_list WHERE category NOT IN (
+				SELECT category FROM cvo_promo_order_category (NOLOCK) WHERE promo_id = @promo_id AND promo_level = @promo_level AND line_no = @promo_line_no)
+		END
+		-- v1.4 End
+
 		
 		-- Get qty on order
 		SELECT

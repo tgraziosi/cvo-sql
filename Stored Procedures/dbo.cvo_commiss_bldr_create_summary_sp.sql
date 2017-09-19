@@ -11,7 +11,7 @@ AS
 
 SET NOCOUNT ON;
 
--- exec cvo_commiss_bldr_create_summary_sp '06/2017', 'bassetbo'
+-- exec cvo_commiss_bldr_create_summary_sp '08/2017', ''
 -- exec dbo.cvo_commission_bldr_sp '06/01/2017', '06/30/2017' ,'30399,30310'
 -- SELECT * FROM cvo_commission_bldr_work_tbl AS ccswt where fiscal_period = '06/2017' and salesperson = 'bassetbo'
 -- update v set v.rep_code = slp.salesperson_code
@@ -22,6 +22,7 @@ SET NOCOUNT ON;
 -- = 'bassetbo'
 
 --SELECT * FROM arsalesp WHERE salesperson_code = 'bassetbo'
+--SELECT * FROM dbo.cvo_commission_summary_work_tbl AS cswt WHERE cswt.report_month = '08/2017'
 
 DECLARE @start_date DATETIME, @end_date DATETIME, @fp VARCHAR(10), @drawweeks INT, @pfp VARCHAR(10)
 
@@ -266,6 +267,7 @@ UPDATE d SET
 		AND d.salesperson = ISNULL(@slp, d.salesperson)
 
 -- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt where report_month = '09/2016'
+
 
 
 

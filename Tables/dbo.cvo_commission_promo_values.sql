@@ -8,7 +8,7 @@ CREATE TABLE [dbo].[cvo_commission_promo_values]
 [date] [datetime] NOT NULL,
 [recorded_month] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [promo_desc] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_commi__promo__35960A05] DEFAULT (NULL),
-[comments] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_commi__comme__368A2E3E] DEFAULT (NULL),
+[comments] [varchar] (2000) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_commi__comme__368A2E3E] DEFAULT (NULL),
 [line_type] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO

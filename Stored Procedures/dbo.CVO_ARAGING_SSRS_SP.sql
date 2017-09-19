@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -23,39 +22,107 @@ select dbo.adm_format_pltdate_f(735173)
 
 CREATE PROCEDURE [dbo].[CVO_ARAGING_SSRS_SP] -- (@WHERECLAUSE VARCHAR(1024))
 AS
+SET NOCOUNT OFF
+;
 
 
-SET NOCOUNT OFF	
 
+IF (OBJECT_ID('dbo.SSRS_ARAging_Temp') IS NOT NULL)
+    TRUNCATE TABLE SSRS_ARAging_Temp
+    ;
 
-
-if(object_id('dbo.SSRS_ARAging_Temp') is not null)
- TRUNCATE table SSRS_ARAging_Temp
-
-insert into ssrs_araging_temp
-(cust_code, [key], attn_email, sls, terr, region, name, bg_code,
-bg_name, tms, r12sales, avgdayslate, bal, fut, cur, ar30, ar60,
-ar90, ar120, ar150, credit_limit, onorder, lpmtdt, amount, ytdcreds, ytdsales, lyrsales, hold,
-date_asof, date_type_string, date_type)
- exec cvo_araging_sp ''
+INSERT INTO SSRS_ARAging_Temp
+(
+    CUST_CODE,
+    [KEY],
+    attn_email,
+    SLS,
+    TERR,
+    REGION,
+    NAME,
+    BG_CODE,
+    BG_NAME,
+    TMS,
+    r12sales,
+    AVGDAYSLATE,
+    BAL,
+    FUT,
+    CUR,
+    AR30,
+    AR60,
+    AR90,
+    AR120,
+    AR150,
+    CREDIT_LIMIT,
+    ONORDER,
+    lpmtdt,
+    AMOUNT,
+    YTDCREDS,
+    YTDSALES,
+    LYRSALES,
+    HOLD,
+    date_asof,
+    date_type_string,
+    date_type
+)
+EXEC CVO_ARAGING_SP ''
+;
 
 DECLARE @asofdate DATETIME
-SELECT @asofdate = CONVERT(varchar(30), dateadd(d,-1, convert(datetime,MAX(date_asof),101)), 101)
-					FROM dbo.SSRS_ARAging_Temp AS saat
+;
+SELECT @asofdate = CONVERT(VARCHAR(30), DATEADD(d, -1, CONVERT(DATETIME, MAX(date_asof), 101)), 101)
+FROM dbo.SSRS_ARAging_Temp AS saat
+;
 
-if datepart(day,getdate()) = 1
+IF DATEPART(DAY, GETDATE()) = 1
 BEGIN
-	IF EXISTS (SELECT 1 FROM dbo.cvo_ARAging_month AS caam WHERE date_asof = @asofdate)
-			DELETE FROM dbo.cvo_ARAging_month WHERE date_asof = @asofdate
+    IF EXISTS
+    (
+        SELECT 1
+        FROM dbo.cvo_ARAging_month AS caam
+        WHERE date_asof = @asofdate
+    )
+        DELETE FROM dbo.cvo_ARAging_month
+        WHERE date_asof = @asofdate
+        ;
 
-    insert into cvo_araging_month -- month-end save for fin reporting
-    select 
-    cust_code, [key], attn_email, sls, terr, region, name, bg_code,
-    bg_name, tms, avgdayslate, bal, fut, cur, ar30, ar60,
-    ar90, ar120, ar150, credit_limit, onorder, lpmtdt, amount, ytdcreds, ytdsales, lyrsales, 
-    r12sales, hold,
-    @asofdate date_asof, date_type_string, date_type
-    from ssrs_araging_temp
-end
+    INSERT INTO cvo_ARAging_month -- month-end save for fin reporting
+    SELECT
+        CUST_CODE,
+        [KEY],
+        attn_email,
+        SLS,
+        TERR,
+        REGION,
+        NAME,
+        BG_CODE,
+        BG_NAME,
+        TMS,
+        AVGDAYSLATE,
+        BAL,
+        FUT,
+        CUR,
+        AR30,
+        AR60,
+        AR90,
+        AR120,
+        AR150,
+        CREDIT_LIMIT,
+        ONORDER,
+        lpmtdt,
+        AMOUNT,
+        YTDCREDS,
+        YTDSALES,
+        LYRSALES,
+        r12sales,
+        HOLD,
+        @asofdate date_asof,
+        date_type_string,
+        date_type
+    FROM SSRS_ARAging_Temp
+    ;
+END
+;
+
 
 GO

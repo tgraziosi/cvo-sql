@@ -11,7 +11,7 @@ CREATE TABLE [dbo].[cvo_expo_appointments]
 [appt_duration] [varchar] (6) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [account_no] [varchar] (12) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [hs_order_no] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[customer_contact] [varchar] (120) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[customer_contact] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [customer_email] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [location] [varchar] (80) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [status] [varchar] (12) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
