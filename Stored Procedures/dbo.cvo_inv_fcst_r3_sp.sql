@@ -719,7 +719,7 @@ select --
 'PO' as line_type
 
 , #t.part_no sku
-, #t.location
+,  #t.location
 , CASE when DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < @asofdate
 	 THEN month(@asofdate) 
 	 ELSE month(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) END
@@ -739,7 +739,7 @@ From #t
 inner join inv_master_add i (nolock) on i.part_no = #t.part_no OR  I.PART_NO =  #t.part_no+'-MAKE'
 inner join inv_master inv (nolock) on inv.part_no = i.part_no
 -- inner join #type t on t.type_code = inv.type_code 
-left outer join releases r (nolock) on I.part_no = r.part_no AND #t.location = CASE WHEN i.part_no LIKE '%-make' THEN #t.location ELSE r.location end
+left outer join releases r (nolock) on I.part_no = r.part_no AND #t.location = CASE WHEN i.part_no LIKE '%-make' THEN '001' ELSE r.location end
 where 1=1
 and EXISTS (SELECT 1 FROM #type WHERE inv.type_code = #type.type_code OR inv.type_code = 'OUT')
 and  #t.mm = case when DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < @asofdate
@@ -1416,6 +1416,7 @@ FROM
 ;
 
 end
+
 
 
 

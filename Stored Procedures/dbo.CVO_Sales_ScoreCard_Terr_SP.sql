@@ -29,7 +29,7 @@ declare @DateFrom datetime,
 
 -- uncomment for testing
 --DECLARE @DF datetime, @DT datetime
---select @df = '01/01/2017', @dt = '08/31/2017'
+--select @df = '01/01/2017', @dt = '09/29/2017'
 
 SELECT @datefrom = @df, @dateto = @dt, @territory = null
 
@@ -392,7 +392,7 @@ join cvo_sbm_details t3 on right(t3.customer,5)=right(t1.customer_code,5) and t3
 inner join #territory on #territory.territory = t1.territory_code
  WHERE t1.address_type <> 9 and T2.door = 1
 -- AND yyyymmdd BETWEEN @DateFrom AND @DateTo
-group by t1.territory_code, t1.customer_code, ship_to_code, t2.door, added_by_date
+GROUP BY t1.territory_code, t1.customer_code, ship_to_code, t2.door, added_by_date
 -- select * from #Data WHERE CUSTOMER_CODE = '047859'
 -- select * from #INVOICES WHERE CUST_CODE = '047859' ORDER BY DATE_SHIPPED DESC
 
@@ -665,5 +665,7 @@ END
 -- GROUP BY X_MONTH, YEAR, ship_to
  
 -- SELECT * FROM dbo.armaster WHERE customer_code = '032056'
+
+--SELECT * FROM #data2 AS s WHERE (s.Territory='20203' and stat='rea') OR s.customer_code = '013853'
 
 GO

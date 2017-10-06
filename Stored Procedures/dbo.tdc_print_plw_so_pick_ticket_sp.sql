@@ -31,6 +31,7 @@ GO
 -- v6.8 CB 15/06/2016 - Fix issue with multiple case lines
 -- v6.9 CB 11/07/2016 - Need to recalc line count if order has manual case quantities
 -- v7.0 CB 23/08/2016 - CVO-CF-49 - Dynamic Custom Frames
+-- v7.1 CB 25/09/2017 - Fix issue with manual case qty
 
 CREATE PROCEDURE [dbo].[tdc_print_plw_so_pick_ticket_sp]  
  @user_id     varchar(50),  
@@ -68,7 +69,8 @@ DECLARE @printed_on_the_page int,
  @polarized_line varchar(40), -- v6.6
  @man_case int, -- v6.7
  @man_count int, -- v6.9
- @kit_count int -- v7.0
+ @kit_count int, -- v7.0
+ @man_qty decimal(20,8) -- v7.1
    
 DECLARE @sku_code VARCHAR(16), @height DECIMAL(20,8), @width DECIMAL(20,8), @cubic_feet DECIMAL(20,8),  
   @length DECIMAL(20,8), @cmdty_code VARCHAR(8), @weight_ea DECIMAL(20,8), @so_qty_increment DECIMAL(20,8),   
@@ -857,7 +859,9 @@ END
 	AND		b.man_qty > 0
 
 	UPDATE	a
-	SET		pick_qty = a.pick_qty - b.man_qty
+	SET		pick_qty = a.pick_qty - b.man_qty,
+			ord_qty = a.ord_qty - b.man_qty, -- v7.1
+			seq_no = b.man_qty -- v7.1
 	FROM	#so_pick_ticket a
 	JOIN	#man_cases b
 	ON		a.order_no = b.order_no
@@ -977,6 +981,20 @@ END
 			SELECT	@ConQty = CAST(pcsn AS DECIMAL(20,8)) 
 			FROM	tdc_pick_queue (NOLOCK)
 			WHERE	tran_id = CAST(@tran_id AS INT)
+		
+			-- v7.1 Start
+			SELECT	@man_qty = CAST(seq_no as decimal(20,8))
+			FROM	#so_pick_ticket
+			WHERE	tran_id = CAST(@tran_id AS INT)
+			AND		ISNULL(kit_caption,'') <> 'NEW'
+
+			IF (@man_qty IS NULL)
+				SET @man_qty = 0
+
+			SET		@ConQty = @ConQty - @man_qty
+	
+			-- v7.1 End
+
 		END
 		-- END v5.2
 	END
@@ -1221,8 +1239,18 @@ END
    -- v1.1 Case Part Consolidation
   IF @ConSet = 1 --AND @is_autopack = 0	-- v5.1 -- v5.2 removed
   BEGIN
-	  INSERT INTO #tdc_print_ticket (print_value) SELECT 'LP_ORD_QTY_'      + RTRIM(CAST(@printed_on_the_page AS char(4))) + ',' + isnull(CAST(@ConQty AS varchar(20)),           '')  
-	  INSERT INTO #tdc_print_ticket (print_value) SELECT 'LP_TOPICK_'       + RTRIM(CAST(@printed_on_the_page AS char(4))) + ',' + isnull(CAST(@ConQty AS varchar(20)),           '')  
+		-- v7.1 Start
+		IF (@man_case = 0)
+		BEGIN
+			INSERT INTO #tdc_print_ticket (print_value) SELECT 'LP_ORD_QTY_'      + RTRIM(CAST(@printed_on_the_page AS char(4))) + ',' + isnull(CAST(@ConQty AS varchar(20)),           '')  
+			INSERT INTO #tdc_print_ticket (print_value) SELECT 'LP_TOPICK_'       + RTRIM(CAST(@printed_on_the_page AS char(4))) + ',' + isnull(CAST(@ConQty AS varchar(20)),           '')  
+		END
+		ELSE
+		BEGIN
+		  INSERT INTO #tdc_print_ticket (print_value) SELECT 'LP_ORD_QTY_'      + RTRIM(CAST(@printed_on_the_page AS char(4))) + ',' + isnull(@ord_qty,           '')  
+		  INSERT INTO #tdc_print_ticket (print_value) SELECT 'LP_TOPICK_'       + RTRIM(CAST(@printed_on_the_page AS char(4))) + ',' + isnull(@topick,           '')  
+		END
+		-- v7.1 End
   END
   ELSE
   BEGIN

@@ -131,6 +131,47 @@ BEGIN
 		AND		e.consolidation_no IN (SELECT consolidation_no FROM cvo_stc_hold_user_vw WHERE who_entered like @who_entered)
 	END
 	-- v1.2 End	 
+
+	-- v1.4 Start
+	INSERT  #thold  
+	SELECT  0,
+			b.order_no, 
+			b.ext, 
+			b.cust_code, 
+			null, 0, 0,  
+			b.ship_to, 
+			b.ship_to_name, 
+			b.salesperson,
+			b.routing,
+			b.sch_ship_date, 
+			b.who_entered,   
+			b.date_entered, 
+			b.curr_factor, 
+			'H', 
+			b.status, 
+			b.hold_reason, 
+			b.blanket,  
+			b.multiple_flag,
+			0
+	FROM    orders_entry_vw b (NOLOCK)
+	JOIN	adm_cust c (NOLOCK)
+	ON		b.cust_code = c.customer_code
+	JOIN	cvo_orders_all cvo (NOLOCK)
+	ON		b.order_no = cvo.order_no
+	AND		b.ext = cvo.ext
+	LEFT JOIN cvo_masterpack_consolidation_det a (NOLOCK)
+	ON		b.order_no = a.order_no
+	AND		b.ext = a.order_ext
+	WHERE   b.status IN ('N','A') 
+	AND		b.cust_code like @cust 
+	AND		(@ship_to = '%' or b.ship_to like @ship_to)  
+	AND		b.type = 'I'
+	AND		a.order_no IS NULL
+	AND		a.order_ext IS NULL
+	AND		ISNULL(cvo.st_consolidate,0) = 0
+	AND		b.hold_reason = 'STC'
+	-- v1.4 End
+
   
 	UPDATE #thold set customer_name=adm_cust.customer_name  
 	FROM   adm_cust (NOLOCK)  

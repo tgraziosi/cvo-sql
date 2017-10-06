@@ -694,7 +694,7 @@ CREATE NONCLUSTERED INDEX [armaster_all_ind_7] ON [dbo].[armaster_all] ([addr_so
 GO
 CREATE NONCLUSTERED INDEX [armaster_all_ind_1] ON [dbo].[armaster_all] ([address_name]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [armaster_all_ind_addrtype] ON [dbo].[armaster_all] ([address_type]) INCLUDE ([ship_to_code], [customer_code]) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [armaster_all_ind_addrtype] ON [dbo].[armaster_all] ([address_type]) INCLUDE ([addr_sort1], [customer_code], [ship_to_code]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [armaster_all_ind_2] ON [dbo].[armaster_all] ([address_type], [status_type]) ON [PRIMARY]
 GO
@@ -706,13 +706,13 @@ CREATE NONCLUSTERED INDEX [armaster_all_ind_4] ON [dbo].[armaster_all] ([salespe
 GO
 CREATE NONCLUSTERED INDEX [armaster_all_terr_032814] ON [dbo].[armaster_all] ([territory_code]) ON [PRIMARY]
 GO
-GRANT REFERENCES ON  [dbo].[armaster_all] TO [public]
-GO
-GRANT SELECT ON  [dbo].[armaster_all] TO [public]
+GRANT DELETE ON  [dbo].[armaster_all] TO [public]
 GO
 GRANT INSERT ON  [dbo].[armaster_all] TO [public]
 GO
-GRANT DELETE ON  [dbo].[armaster_all] TO [public]
+GRANT REFERENCES ON  [dbo].[armaster_all] TO [public]
+GO
+GRANT SELECT ON  [dbo].[armaster_all] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[armaster_all] TO [public]
 GO

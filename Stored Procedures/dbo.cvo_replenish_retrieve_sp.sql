@@ -38,13 +38,16 @@ BEGIN
 			@last_part_no			varchar(30),
 			@part_no				varchar(30),
 			@qty					decimal(20,8),
-			@debug					int -- v1.4
+			@debug					int, -- v1.4
+			@entry_date				datetime -- v2.1
 
 	SET @debug = 1 -- v1.4
 	
 
 	IF (@review = 1)
 		DELETE	#temp_repl_display
+
+	SET @entry_date = GETDATE() -- v2.1
 
 	-- v1.2 Start
 	CREATE TABLE #bins_to_include (
@@ -80,12 +83,11 @@ BEGIN
 	-- v1.5 Start
 	DELETE	#bins_to_include
 	WHERE	in_stock >= max_level
-	
+
 	DELETE	#bins_to_include
 	WHERE	((in_stock * 50.00) / 100.00) > allocated
 	-- v1.5 End
 	-- v1.2 End
-
 
 	-- Retrieve info from the replenishment group config
 	SET @last_replen_group = ''
@@ -208,6 +210,7 @@ BEGIN
 			AND		d.part_no IS NULL
 			GROUP BY a.location, a.group_code, a.bin_no, b.part_no, b.replenish_min_lvl, b.replenish_max_lvl, b.replenish_qty  
 
+
 			UPDATE	#temp_repl_display
 			SET		isforced = 1
 			FROM	#temp_repl_display a
@@ -217,21 +220,50 @@ BEGIN
 			AND		a.part_no = b.part_no
 
 -- v1.2 End
+			
+-- v2.2 Start
+			CREATE TABLE #queue_qtys (
+				location	varchar(10),
+				part_no		varchar(30),
+				bin_no		varchar(20),
+				qty			decimal(20,8))
+
+			INSERT	#queue_qtys
+			SELECT	a.location, a.part_no, b.bin_no, SUM(b.qty_to_process)
+			FROM	#temp_repl_display a
+			JOIN	tdc_pick_queue b (NOLOCK)
+			ON		a.location = b.location 
+			AND		a.part_no = b.part_no
+			WHERE	(a.bin_no = b.bin_no and a.bin_no != b.next_op)
+			AND		a.location = @location
+			AND		b.trans <> 'MGTB2B'
+			AND		a.replen_group = @curr_replen_group
+			GROUP BY a.location, a.part_no, b.bin_no
+
+			UPDATE	a
+			SET		inqueue = inqueue + b.qty
+			FROM	#temp_repl_display a
+			JOIN	#queue_qtys b
+			ON		a.location = b.location
+			AND		a.part_no = b.part_no
+			AND		a.bin_no = b.bin_no
+
+			TRUNCATE TABLE #queue_qtys
 
 			-- Get the in queue figures for picks
-			UPDATE	#temp_repl_display 
-			SET		inqueue = inqueue + qty_to_process 
-			FROM	#temp_repl_display a
-			JOIN	tdc_pick_queue b (NOLOCK)
-			ON		a.location = b.location 
-			AND		a.part_no = b.part_no
-			WHERE	(a.bin_no = b.bin_no and a.bin_no != b.next_op)
-			AND		a.location = @location
-			AND		b.trans <> 'MGTB2B'
-			AND		a.replen_group = @curr_replen_group
+--			UPDATE	#temp_repl_display 
+--			SET		inqueue = inqueue + qty_to_process 
+--			FROM	#temp_repl_display a
+--			JOIN	tdc_pick_queue b (NOLOCK)
+--			ON		a.location = b.location 
+--			AND		a.part_no = b.part_no
+--			WHERE	(a.bin_no = b.bin_no and a.bin_no != b.next_op)
+--			AND		a.location = @location
+--			AND		b.trans <> 'MGTB2B'
+--			AND		a.replen_group = @curr_replen_group
 
-			UPDATE	#temp_repl_display 
-			SET		inqueue = inqueue + qty_to_process 
+			INSERT	#queue_qtys
+			SELECT	a.location, a.part_no, b.bin_no, SUM(b.qty_to_process)
 			FROM	#temp_repl_display a
 			JOIN	tdc_pick_queue b (NOLOCK)
 			ON		a.location = b.location 
@@ -240,9 +272,31 @@ BEGIN
 			AND		a.location = @location
 			AND		b.trans <> 'MGTB2B'
 			AND		a.replen_group = @curr_replen_group
+			GROUP BY a.location, a.part_no, b.bin_no
 
-			UPDATE	#temp_repl_display 
-			SET		inqueue = inqueue + qty_to_process 
+			UPDATE	a
+			SET		inqueue = inqueue + b.qty
+			FROM	#temp_repl_display a
+			JOIN	#queue_qtys b
+			ON		a.location = b.location
+			AND		a.part_no = b.part_no
+			AND		a.bin_no = b.bin_no
+
+			TRUNCATE TABLE #queue_qtys
+
+--			UPDATE	#temp_repl_display 
+--			SET		inqueue = inqueue + qty_to_process 
+--			FROM	#temp_repl_display a
+--			JOIN	tdc_pick_queue b (NOLOCK)
+--			ON		a.location = b.location 
+--			AND		a.part_no = b.part_no 
+--			WHERE	(a.bin_no = b.next_op and a.bin_no != b.bin_no)
+--			AND		a.location = @location
+--			AND		b.trans <> 'MGTB2B'
+--			AND		a.replen_group = @curr_replen_group
+
+			INSERT	#queue_qtys
+			SELECT	a.location, a.part_no, b.bin_no, SUM(b.qty_to_process)
 			FROM	#temp_repl_display a
 			JOIN	tdc_pick_queue b (NOLOCK)
 			ON		a.location = b.location 
@@ -251,21 +305,65 @@ BEGIN
 			AND		a.location = @location
 			AND		b.trans <> 'MGTB2B'
 			AND		a.replen_group = @curr_replen_group
+			GROUP BY a.location, a.part_no, b.bin_no
+
+			UPDATE	a
+			SET		inqueue = inqueue + b.qty
+			FROM	#temp_repl_display a
+			JOIN	#queue_qtys b
+			ON		a.location = b.location
+			AND		a.part_no = b.part_no
+			AND		a.bin_no = b.bin_no
+
+			TRUNCATE TABLE #queue_qtys
+
+--			UPDATE	#temp_repl_display 
+--			SET		inqueue = inqueue + qty_to_process 
+--			FROM	#temp_repl_display a
+--			JOIN	tdc_pick_queue b (NOLOCK)
+--			ON		a.location = b.location 
+--			AND		a.part_no = b.part_no 
+--			WHERE	(a.bin_no = b.bin_no and a.bin_no = b.next_op)
+--			AND		a.location = @location
+--			AND		b.trans <> 'MGTB2B'
+--			AND		a.replen_group = @curr_replen_group
+
+			INSERT	#queue_qtys
+			SELECT	a.location, a.part_no, b.bin_no, SUM(b.qty_to_process)
+			FROM	#temp_repl_display a
+			JOIN	tdc_pick_queue b (NOLOCK)
+			ON		a.location = b.location 
+			AND		a.part_no = b.part_no
+			WHERE	(a.bin_no = b.bin_no and a.bin_no != b.next_op)
+			AND		a.location = @location
+			AND		b.trans = 'MGTB2B'
+			AND		a.replen_group = @curr_replen_group
+			GROUP BY a.location, a.part_no, b.bin_no
+
+			UPDATE	a
+			SET		inqueue_b2b = inqueue_b2b + b.qty
+			FROM	#temp_repl_display a
+			JOIN	#queue_qtys b
+			ON		a.location = b.location
+			AND		a.part_no = b.part_no
+			AND		a.bin_no = b.bin_no
+
+			TRUNCATE TABLE #queue_qtys
 
 			-- Get the in queue figures for MGTB2B
-			UPDATE	#temp_repl_display 
-			SET		inqueue_b2b = inqueue_b2b + qty_to_process 
-			FROM	#temp_repl_display a
-			JOIN	tdc_pick_queue b (NOLOCK)
-			ON		a.location = b.location 
-			AND		a.part_no = b.part_no
-			WHERE	(a.bin_no = b.bin_no and a.bin_no != b.next_op)
-			AND		a.location = @location
-			AND		b.trans = 'MGTB2B'
-			AND		a.replen_group = @curr_replen_group
+--			UPDATE	#temp_repl_display 
+--			SET		inqueue_b2b = inqueue_b2b + qty_to_process 
+--			FROM	#temp_repl_display a
+--			JOIN	tdc_pick_queue b (NOLOCK)
+--			ON		a.location = b.location 
+--			AND		a.part_no = b.part_no
+--			WHERE	(a.bin_no = b.bin_no and a.bin_no != b.next_op)
+--			AND		a.location = @location
+--			AND		b.trans = 'MGTB2B'
+--			AND		a.replen_group = @curr_replen_group
 
-			UPDATE	#temp_repl_display 
-			SET		inqueue_b2b = inqueue_b2b + qty_to_process 
+			INSERT	#queue_qtys
+			SELECT	a.location, a.part_no, b.bin_no, SUM(b.qty_to_process)
 			FROM	#temp_repl_display a
 			JOIN	tdc_pick_queue b (NOLOCK)
 			ON		a.location = b.location 
@@ -274,9 +372,32 @@ BEGIN
 			AND		a.location = @location
 			AND		b.trans = 'MGTB2B'
 			AND		a.replen_group = @curr_replen_group
+			GROUP BY a.location, a.part_no, b.bin_no
 
-			UPDATE	#temp_repl_display 
-			SET		inqueue_b2b = inqueue_b2b + qty_to_process 
+
+			UPDATE	a
+			SET		inqueue_b2b = inqueue_b2b + b.qty
+			FROM	#temp_repl_display a
+			JOIN	#queue_qtys b
+			ON		a.location = b.location
+			AND		a.part_no = b.part_no
+			AND		a.bin_no = b.bin_no
+
+			TRUNCATE TABLE #queue_qtys
+
+--			UPDATE	#temp_repl_display 
+--			SET		inqueue_b2b = inqueue_b2b + qty_to_process 
+--			FROM	#temp_repl_display a
+--			JOIN	tdc_pick_queue b (NOLOCK)
+--			ON		a.location = b.location 
+--			AND		a.part_no = b.part_no 
+--			WHERE	(a.bin_no = b.next_op and a.bin_no != b.bin_no)
+--			AND		a.location = @location
+--			AND		b.trans = 'MGTB2B'
+--			AND		a.replen_group = @curr_replen_group
+
+			INSERT	#queue_qtys
+			SELECT	a.location, a.part_no, b.bin_no, SUM(b.qty_to_process)
 			FROM	#temp_repl_display a
 			JOIN	tdc_pick_queue b (NOLOCK)
 			ON		a.location = b.location 
@@ -285,7 +406,31 @@ BEGIN
 			AND		a.location = @location
 			AND		b.trans = 'MGTB2B'
 			AND		a.replen_group = @curr_replen_group
+			GROUP BY a.location, a.part_no, b.bin_no
 
+			UPDATE	a
+			SET		inqueue_b2b = inqueue_b2b + b.qty
+			FROM	#temp_repl_display a
+			JOIN	#queue_qtys b
+			ON		a.location = b.location
+			AND		a.part_no = b.part_no
+			AND		a.bin_no = b.bin_no
+
+			TRUNCATE TABLE #queue_qtys
+
+--			UPDATE	#temp_repl_display 
+--			SET		inqueue_b2b = inqueue_b2b + qty_to_process 
+--			FROM	#temp_repl_display a
+--			JOIN	tdc_pick_queue b (NOLOCK)
+--			ON		a.location = b.location 
+--			AND		a.part_no = b.part_no 
+--			WHERE	(a.bin_no = b.bin_no and a.bin_no = b.next_op)
+--			AND		a.location = @location
+--			AND		b.trans = 'MGTB2B'
+--			AND		a.replen_group = @curr_replen_group
+
+			DROP TABLE #queue_qtys
+-- v2.2 End
 			-- Set the available qty
 			SET	@last_part_no = ''
 
@@ -328,6 +473,7 @@ BEGIN
 --			SET		available_qty = available_qty -  (inqueue + inqueue_b2b)
 --			WHERE	replen_group = @curr_replen_group
 
+
 			-- if part_type passed in then override template
 			IF (@part_type > '')
 				SET @curr_part_type = @part_type
@@ -338,10 +484,11 @@ BEGIN
 			IF (@debug = 1)
 			BEGIN
 				INSERT	cvo_replenishment_audit (entry_date, location, replen_group, part_no, from_bin_group, from_bin_avail, to_bin, to_bin_qty, to_bin_avail, min_level, max_level, result)
-				SELECT	GETDATE(), @location, @curr_replen_group, part_no, group_code, available_qty, bin_no, qty, (qty - (inqueue_b2b + inqueue)), replenish_min_lvl, replenish_max_lvl, 
+				SELECT	@entry_date, @location, @curr_replen_group, part_no, group_code, available_qty, bin_no, qty, (qty - (inqueue_b2b + inqueue)), replenish_min_lvl, replenish_max_lvl,  -- v2.1
 						CASE WHEN isforced = 1 THEN 'Forced Replenishment: Over 50% of bin allocated' ELSE '' END
 				FROM	#temp_repl_display
 				WHERE	replen_group = @curr_replen_group 
+
 			END
 			-- v1.4 End
 
@@ -365,7 +512,8 @@ BEGIN
 						AND		a.to_bin = c.bin_no
 						WHERE	b.type_code NOT IN ('FRAME','SUN')
 						AND		a.replen_group = @curr_replen_group
-						AND		c.isforced = 0 -- v1.2			
+						AND		c.isforced = 0 -- v1.2	
+						AND		a.entry_date = @entry_date -- v2.1		
 					END
 					-- v1.4 End		
 
@@ -394,6 +542,7 @@ BEGIN
 						AND		a.to_bin = c.bin_no
 						WHERE	b.type_code <> @curr_part_type
 						AND		a.replen_group = @curr_replen_group
+						AND		a.entry_date = @entry_date -- v2.1
 						-- v1.9 AND		c.isforced = 0 -- v1.2			
 					END
 					-- v1.4 End
@@ -427,6 +576,7 @@ BEGIN
 					AND		b.qty > (CAST(b.replenish_min_lvl as decimal (24,8)) + (CAST(b.replenish_min_lvl as decimal (24,8)) * CAST(@perc_to_min AS decimal(24,8)) / 100.00))
 					AND		b.replen_group = @curr_replen_group
 					AND		b.isforced = 0 -- v1.2		
+					AND		a.entry_date = @entry_date -- v2.1
 				END
 				-- v1.4 End
 
@@ -464,6 +614,7 @@ BEGIN
 				AND		b.field_28 IS NOT NULL
 				AND		a.replen_group = @curr_replen_group
 				AND		c.isforced = 0 -- v1.2		
+				AND		a.entry_date = @entry_date -- v2.1
 			END
 			-- v1.4 End
 
@@ -494,6 +645,7 @@ BEGIN
 						WHERE	b.qty >= @instock_qty
 						AND		b.replen_group = @curr_replen_group
 						AND		b.isforced = 0 -- v1.2	
+						AND		a.entry_date = @entry_date -- v2.1
 					END
 					-- v1.4 End
 
@@ -518,6 +670,7 @@ BEGIN
 						WHERE	b.qty <> @instock_qty
 						AND		b.replen_group = @curr_replen_group
 						AND		b.isforced = 0 -- v1.2	
+						AND		a.entry_date = @entry_date -- v2.1
 					END
 					-- v1.4 
 
@@ -541,6 +694,7 @@ BEGIN
 						WHERE	b.qty <= @instock_qty
 						AND		b.replen_group = @curr_replen_group
 						AND		b.isforced = 0 -- v1.2	
+						AND		a.entry_date = @entry_date -- v2.1
 					END
 					-- v1.4 End
 
@@ -570,6 +724,7 @@ BEGIN
 						WHERE	b.available_qty >= @available_qty
 						AND		b.replen_group = @curr_replen_group
 						AND		b.isforced = 0 -- v1.2	
+						AND		a.entry_date = @entry_date -- v2.1
 					END
 					-- v1.4 End
 
@@ -593,6 +748,7 @@ BEGIN
 						WHERE	b.available_qty <> @available_qty
 						AND		b.replen_group = @curr_replen_group
 						AND		b.isforced = 0 -- v1.2	
+						AND		a.entry_date = @entry_date -- v2.1
 					END
 					-- v1.4 End
 
@@ -617,6 +773,7 @@ BEGIN
 						WHERE	b.available_qty <= @available_qty
 						AND		b.replen_group = @curr_replen_group
 						AND		b.isforced = 0 -- v1.2	
+						AND		a.entry_date = @entry_date -- v2.1
 					END
 					-- v1.4 End
 
@@ -677,6 +834,7 @@ BEGIN
 				AND		a.part_no = b.part_no
 				AND		a.to_bin = b.bin_no
 				WHERE	selected <> -99
+				AND		a.entry_date = @entry_date -- v2.1
 			END
 			-- v1.4 End
 
@@ -694,6 +852,7 @@ BEGIN
 		UPDATE	cvo_replenishment_audit
 		SET		result = 'Included in Replenishment List'
 		WHERE	result = ''
+		AND		entry_date = @entry_date -- v2.1
 	END
 	-- v1.4
 END

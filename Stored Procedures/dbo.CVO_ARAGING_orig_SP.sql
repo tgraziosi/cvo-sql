@@ -16,7 +16,7 @@ EDITS:   20111220_bjb  to move aging buckets
     20131101 - tag - retrofit cvo changes into this version.  Rolling 12 month sales and 
                      changing dates from int to datetime  
                      
- EXEC CVO_ARAGING_v2_SP ''
+ EXEC CVO_ARAGING_SP ''
 
 'where CUST_CODE LIKE ''000500'''  
   
@@ -41,11 +41,10 @@ EXEC cc_summary_aging_sp '000567',4,1,'CVO','CVO',0
 -- v3.1 CB 12/03/2015 - Issue #1469 - Deal with finance and late charges and chargebacks
 -- v3.2 CB 06/05/2015 - Fix issue with duplicate transactions
 -- v3.3 CB 07/06/2016 - Fix bug with void records and duplicate doc numbers
--- v3.4 TG 4/24/2017  - change from cvo_csbm_shipto to cvo_sbm_details
+-- v3.4 TG 4/24/2017 - change from cvo_csbm_shipto to cvo_sbm_details
 
-CREATE PROCEDURE [dbo].[CVO_ARAGING_v2_SP] (@WHERECLAUSE VARCHAR(1024))  
-AS 
-     
+CREATE PROCEDURE [dbo].[CVO_ARAGING_orig_SP] (@WHERECLAUSE VARCHAR(1024))  
+AS      
 DECLARE @CUSTOMER_CODE  VARCHAR(8),       
   @DATE_TYPE_PARM  TINYINT,            
   @AGEBRK_USER_ID  INT,      
@@ -59,8 +58,7 @@ DECLARE @CUSTOMER_CODE  VARCHAR(8),
   @R12START DATETIME,    
   @CUST    INT,      
   @SQL    VARCHAR(4000)      
-
--- DECLARE @whereclause VARCHAR(1024)      
+      
       
 DECLARE @date int, @date_rec int      
       
@@ -264,7 +262,7 @@ BEGIN -- CVO_ARAGING_SP DATA
 	-- Call BG Data Proc
 	EXEC cvo_bg_get_document_data_sp
    
-	CREATE INDEX #bg_data_ind122 ON #bg_data (customer_code, parent, doc_ctrl_num, order_ctrl_num)
+	CREATE INDEX #bg_data_ind122 ON #bg_data (customer_code, doc_ctrl_num)
 
 	-- v2.2 Start
 	INSERT	#cust
@@ -315,14 +313,31 @@ BEGIN -- CVO_ARAGING_SP DATA
    A.RATE_OPER,      
    A.ORG_ID,      
    0,      
-   0, 0, 0, a.order_ctrl_num, ISNULL(bg.parent,A.customer_code) -- v1.1       
+   0, 0, 0, a.order_ctrl_num, '' -- v1.1       
  FROM ARTRXAGE A (NOLOCK)      
  inner join #cust C 
- ON a.customer_code = c.child  
- LEFT OUTER JOIN
- ( SELECT DISTINCT customer_code, parent, bd.doc_ctrl_num, bd.order_ctrl_num
- FROM #bg_data AS bd) bg ON bg.customer_code = a.customer_code AND (a.doc_ctrl_num = bg.doc_ctrl_num OR a.doc_ctrl_num = bg.order_ctrl_num)
+ ON a.customer_code = c.child    
+ 
+   
+ -- v1.1 Start    
+ UPDATE a    
+ SET  parent = b.parent    
+ FROM #ARTRXAGE_TMP a    
+ JOIN #bg_data b    
+ ON   a.customer_code = b.customer_code
+ AND  a.doc_ctrl_num = b.doc_ctrl_num	
+
+UPDATE a    
+ SET  parent = b.parent    
+ FROM #ARTRXAGE_TMP a    
+ JOIN #bg_data b    
+ ON   a.customer_code = b.customer_code
+ AND  a.doc_ctrl_num = b.order_ctrl_num	
+
   
+ UPDATE #ARTRXAGE_TMP    
+ SET  parent = customer_code    
+ WHERE parent = ''    
      
     
  IF (@Cust = 1)    
@@ -465,15 +480,15 @@ BEGIN -- CVO_ARAGING_SP DATA
    order_ctrl_num   = h.order_ctrl_num,      
    org_id       = a.org_id,
 	parent = a.parent    
-    FROM  #artrxage_tmp a
-	JOIN #invoices i ON i.customer_code  = a.CUSTOMER_CODE AND a.DOC_CTRL_NUM = i.doc_ctrl_num
-	join artrx h (NOLOCK) ON h.customer_code = a.CUSTOMER_CODE AND h.doc_ctrl_num = a.DOC_CTRL_NUM     
-    
+    FROM  #artrxage_tmp a, #invoices i, artrx h (NOLOCK)     
+    WHERE  a.doc_ctrl_num = i.doc_ctrl_num      
+    AND  a.customer_code = i.customer_code      
+    AND  a.doc_ctrl_num = h.doc_ctrl_num    
       
  DELETE #invoices where trx_type > 2031 AND trx_type NOT IN (2061,2071) --v3.1     
        
  -- v2.0 DELETE #invoices where ABS(balance) < 0.01        
- DELETE #invoices where ABS(balance) < 0.001 -- v2.0        
+DELETE #invoices where ABS(balance) < 0.01 -- v2.0        
           
  CREATE TABLE #open      
  ( customer_code varchar(8),      
@@ -493,7 +508,7 @@ BEGIN -- CVO_ARAGING_SP DATA
    GROUP BY a.customer_code, a.apply_to_num      
    HAVING ABS(SUM(a.amount)) > 0.000001       
       
- CREATE INDEX #open_idx1 ON #open( customer_code, doc_ctrl_num)      
+ CREATE INDEX #open_idx1 ON #open( doc_ctrl_num)      
        
    INSERT #invoices       
    ( customer_code,      
@@ -534,23 +549,23 @@ BEGIN -- CVO_ARAGING_SP DATA
       a.doc_ctrl_num,      
       a.org_id,
 	  a.parent          
-     FROM  #artrxage_tmp a
-	 JOIN  #open o ON o.customer_code = a.CUSTOMER_CODE AND o.doc_ctrl_num = a.DOC_CTRL_NUM
-	 JOIN #cust c ON c.child = a.CUSTOMER_CODE
-	 JOIN artrx h (NOLOCK) ON h.customer_code = a.CUSTOMER_CODE AND h.trx_ctrl_num = a.TRX_CTRL_NUM
+     FROM  #artrxage_tmp a, #open o, artrx h (NOLOCK), #cust c -- v1.4       
      WHERE  h.paid_flag = 0      
      AND h.trx_type in (2021,2031)      
+     AND  a.doc_ctrl_num = o.doc_ctrl_num      
+     AND  a.customer_code = c.child -- v1.4   
+     AND  a.trx_ctrl_num = h.trx_ctrl_num      
     
  -- update invoice hold status using cte instead of in document loop      
- UPDATE  i SET   i.status_code = cte.status_code,    i.status_date = cte.date      
-  FROM   #invoices i
-  JOIN
-  (
-   select max(sequence_num) seq, doc_ctrl_num, customer_code, status_code, date      
+ ;with cte as       
+ (select max(sequence_num) seq, doc_ctrl_num, customer_code, status_code, date      
  from cc_inv_status_hist (NOLOCK) -- v1.0      
  where clear_date is null      
- group by doc_ctrl_num, customer_code, status_code, date
-  ) cte ON i.doc_ctrl_num = cte.doc_ctrl_num      
+ group by doc_ctrl_num, customer_code, status_code, date)      
+ UPDATE  i SET   i.status_code = cte.status_code,      
+  i.status_date = cte.date      
+  FROM   #invoices i, cte      
+  WHERE  i.doc_ctrl_num = cte.doc_ctrl_num      
   AND   i.customer_code = cte.customer_code      
     
  -- update amount paid to date      
@@ -558,7 +573,16 @@ BEGIN -- CVO_ARAGING_SP DATA
  SET   amt_paid_to_date = (amt_net-balance) * -1      
  WHERE trx_type in (2021,2031)      
               
-
+   SELECT customer_code,      
+     doc_ctrl_num,       
+     'true_amount' = SUM(amount)      
+   INTO #cm       
+   FROM #artrxage_tmp       
+   WHERE paid_flag = 0      
+   AND  trx_type in (2111,2161)      
+   AND  ref_id < 1      
+   GROUP BY customer_code,doc_ctrl_num      
+   HAVING ABS(SUM(amount)) > 0.0001     
   
    INSERT #invoices ( customer_code,      
      doc_ctrl_num,      
@@ -596,32 +620,24 @@ BEGIN -- CVO_ARAGING_SP DATA
      a.doc_ctrl_num,      
      a.org_id,
 	  a.parent      
-   FROM  #artrxage_tmp a
-   JOIN
-   ( SELECT customer_code,      
-     doc_ctrl_num,       
-     true_amount = SUM(amount)      
-   FROM #artrxage_tmp       
-   WHERE paid_flag = 0      
-   AND  trx_type in (2111,2161)      
-   AND  ref_id < 1      
-   GROUP BY customer_code,doc_ctrl_num      
-   HAVING ABS(SUM(amount)) > 0.0001     )  c ON c.customer_code = a.CUSTOMER_CODE  AND c.doc_ctrl_num = a.DOC_CTRL_NUM   
-   WHERE  trx_type in (2111,2161)       
+   FROM  #artrxage_tmp a, #cm c      
+   WHERE  a.customer_code = c.customer_code      
+   AND  trx_type in (2111,2161)       
    AND  (amount > 0.000001 or amount < -0.000001 )      
    AND  a.apply_to_num = a.doc_ctrl_num      
    AND  paid_flag = 0      
-   AND  ref_id = 0        
+   AND  ref_id = 0      
+   AND  a.doc_ctrl_num = c.doc_ctrl_num      
    AND  ISNULL(DATALENGTH(RTRIM(LTRIM(c.doc_ctrl_num))), 0 ) > 0      
   
-   -- DROP TABLE #cm      
+   DROP TABLE #cm      
   
  DELETE #invoices WHERE trx_type IS NULL  
   
    UPDATE  #invoices       
    SET  cust_po_num = h.cust_po_num      
-   FROM #invoices i join artrx h (NOLOCK)      
-   ON i.doc_ctrl_num = h.doc_ctrl_num      
+   FROM #invoices i, artrx h (NOLOCK)      
+   WHERE i.doc_ctrl_num = h.doc_ctrl_num      
    AND  i.customer_code = h.customer_code      
 
 	-- v3.3 Start
@@ -644,6 +660,26 @@ BEGIN -- CVO_ARAGING_SP DATA
 	WHERE	b.void_flag = 1          
 	AND		a.trx_type in (2111,2161)              
 
+
+/*
+   DELETE  #invoices      
+   WHERE  doc_ctrl_num in (SELECT a.doc_ctrl_num       
+   FROM  #artrxage_tmp a, #invoices i       
+   WHERE  a.apply_trx_type = 2031       
+   AND  a.trx_type = 2112      
+   AND  a.customer_code = i.customer_code )      
+   AND on_acct_flag = 1      
+   AND trx_type NOT IN ( 2161, 2111)      
+        
+   DELETE #invoices       
+   WHERE doc_ctrl_num in ( SELECT a.doc_ctrl_num       
+   FROM artrx a (NOLOCK), #invoices i       
+   WHERE a.void_flag = 1          
+   AND a.customer_code = i.customer_code )      
+   AND trx_type in (2111,2161)   
+*/
+	-- v3.3 End    
+        
    UPDATE  #invoices      
    SET  #invoices.trx_type_code = artrxtyp.trx_type_code      
    FROM  #invoices, artrxtyp (NOLOCK)     
@@ -666,7 +702,82 @@ BEGIN -- CVO_ARAGING_SP DATA
    and i.on_acct_flag = 1      
    
       
-
+ --PJC 20120405      
+ --DECLARE @date int      
+      
+ SELECT @last_cust = MIN(customer_code) FROM #invoices      
+ WHILE ( @last_cust IS NOT NULL )      
+ BEGIN      
+  SELECT @last_doc = MIN(doc_ctrl_num ) FROM #invoices WHERE trx_type IN (2112,2113,2121) AND customer_code = @last_cust      
+      
+  WHILE ( @last_doc IS NOT NULL )      
+  BEGIN      
+   SELECT @date = date_doc      
+   FROM #invoices      
+   WHERE doc_ctrl_num = @last_doc      
+   AND trx_type = 2111      
+   AND customer_code = @last_cust      
+          
+   UPDATE #invoices      
+   SET date_doc = @date      
+   WHERE doc_ctrl_num = @last_doc      
+   AND customer_code = @last_cust      
+      
+   SELECT @last_doc = MIN(doc_ctrl_num )       
+   FROM #invoices      
+   WHERE doc_ctrl_num = @last_doc       
+   AND trx_type IN (2112,2113,2121)      
+   AND customer_code = @last_cust      
+  END      
+  SELECT @last_cust = MIN(customer_code) FROM #invoices WHERE customer_code > @last_cust      
+ END      
+       
+      
+ SELECT @last_cust = MIN(customer_code) FROM #invoices      
+ WHILE ( @last_cust IS NOT NULL )      
+ BEGIN      
+  SELECT @last_doc = MIN(doc_ctrl_num ) FROM #invoices WHERE on_acct_flag = 1 -- v2.1 AND date_due = 0 
+															AND customer_code = @last_cust      
+  WHILE ( @last_doc IS NOT NULL )      
+  BEGIN      
+   SELECT @date_doc = MIN(date_doc)      
+   FROM #invoices      
+   WHERE doc_ctrl_num = @last_doc      
+   AND customer_code = @last_cust      
+       
+      SELECT @terms_code = terms_code, @date_due = date_due
+	   FROM artrx (NOLOCK) WHERE doc_ctrl_num = @last_doc AND customer_code = @last_cust      
+   /* PJC 042413 - get terms code from customer when terms code is blank */      
+   IF ( @terms_code = '' OR @terms_code IS NULL )      
+    SELECT @terms_code = terms_code from arcust (NOLOCK) where customer_code = @last_cust      
+     begin      
+	   IF ( SELECT ISNULL(DATALENGTH(LTRIM(RTRIM(@terms_code))), 0)) = 0       
+		SELECT @terms_code = terms_code FROM arcust (NOLOCK) WHERE customer_code = @last_cust      
+      
+	   EXEC CVO_CalcDueDate_sp @last_cust, @date_doc, @date_due OUTPUT, @terms_code      
+		end
+   /* PJC 042413 - use doc date if due date is blank */      
+   IF ( @date_due = 0 or @date_due IS NULL )      
+    SELECT @date_due = @date_doc      
+          
+   UPDATE #invoices       
+   SET  date_due = @date_due,      
+     date_aging = @date_due      
+   WHERE doc_ctrl_num = @last_doc      
+   AND  trx_type <> 2031      
+   AND  customer_code = @last_cust      
+      
+   SELECT @last_doc = MIN(doc_ctrl_num )      
+   FROM #invoices       
+-- v2.1   WHERE doc_ctrl_num = 'ON ACCT'      
+   WHERE doc_ctrl_num > @last_doc -- v2.1     
+-- v2.1   AND date_due = 0      
+   AND customer_code = @last_cust      
+   AND on_acct_flag = 1      
+  END      
+  SELECT @last_cust = MIN(customer_code) FROM #invoices WHERE customer_code > @last_cust      
+ END      
+   
 
    
  EXEC cvo_set_bucket_sp      
@@ -721,7 +832,7 @@ BEGIN -- CVO_ARAGING_SP DATA
      AMT_AGE_BRACKET6 = CASE WHEN (DATE_DOC)       
     <= ( select date_end from #dates       
     where bucket = '121-150' )       
-       then balance else 0 end      
+       then balance else 0 end       
    FROM #invoices   
  
   end      
@@ -817,7 +928,8 @@ BEGIN -- CVO_ARAGING_SP DATA
   BEGIN       
    UPDATE #invoices      
     SET AMT_AGE_BRACKET0 = CASE WHEN (DATE_DUE)       
-    > ( select date_start from #dates       
+    -- > ( select date_start from #dates       
+	> ( select date_end from #dates       
     where bucket = 'future' )       
     THEN balance ELSE 0 END,      
      AMT_AGE_BRACKET1 = CASE WHEN (DATE_DUE)       
@@ -851,13 +963,24 @@ BEGIN -- CVO_ARAGING_SP DATA
     where bucket = '91-120')      
     then balance else 0 end,      
     AMT_AGE_BRACKET6 = CASE WHEN (DATE_DUE)       
-    <=  ( select date_end from #dates       
-    where bucket = '121-150' )       
+    < ( select date_start from #dates       
+    where bucket = '91-120' )       
        then balance else 0 end      
    FROM #invoices      
   end      
    
+ -- v3.2 Start
+ SELECT DISTINCT * INTO #invoices2
+ FROM	#invoices
 
+ TRUNCATE TABLE #invoices
+
+ INSERT #invoices
+ SELECT * FROM #invoices2
+
+ DROP TABLE #invoices2
+    
+ -- v3.2 End
 
  INSERT #AGE_SUMMARY      
  SELECT  PARENT,       
@@ -869,15 +992,15 @@ BEGIN -- CVO_ARAGING_SP DATA
    SUM(AMT_AGE_BRACKET4),      
    SUM(AMT_AGE_BRACKET5),      
    SUM(AMT_AGE_BRACKET6)      
- FROM 
- (SELECT DISTINCT parent, 
- #invoices.doc_ctrl_num,
- balance, 
- amt_age_bracket0, AMT_AGE_BRACKET1, AMT_AGE_BRACKET2, AMT_AGE_BRACKET3, AMT_AGE_BRACKET4, AMT_AGE_BRACKET5, AMT_AGE_BRACKET6 FROM #invoices) i
+ FROM #invoices       
  GROUP BY PARENT    
  -- v1.1 End      
     
-
+    
+--select * from #age_summary        
+--select * from #artrxage_tmp where AMT_AGE_BRACKET1 <> 0  
+  
+--select * from #invoices  
       
  INSERT INTO #FINAL      
  (      
@@ -890,7 +1013,6 @@ BEGIN -- CVO_ARAGING_SP DATA
   BG_CODE,      
   BG_NAME,      
   PRICE_CODE,      
-  AVGDAYSLATE,
   BAL,      
   FUT,      
   CUR,      
@@ -903,8 +1025,7 @@ BEGIN -- CVO_ARAGING_SP DATA
   ONORDER,      
   YTDCREDS,      
   YTDSALES,      
-  LYRSALES,  
-  HOLD,  
+  LYRSALES,    
   r12sales      
  )      
  SELECT        
@@ -916,8 +1037,7 @@ BEGIN -- CVO_ARAGING_SP DATA
   M.ADDRESS_NAME,      
   IsNull(na.parent,'') as BG_Code,      
   IsNull(c.customer_name,'') as BG_Name,      
-  M.PRICE_CODE,
-  pmt.avgdayslate,
+  M.PRICE_CODE,      
   A.AMOUNT, -- bal      
   a.amt_age_bracket0, -- fut      
   A.AMT_AGE_BRACKET1, -- cur      
@@ -927,54 +1047,69 @@ BEGIN -- CVO_ARAGING_SP DATA
   A.AMT_AGE_BRACKET5, -- 91-120      
   A.AMT_AGE_BRACKET6, -- over 120       
   M.CREDIT_LIMIT,      
-  onord.onord,
-  sls.ytdcreds, sls.ytdsales, sls.lyrsales, hold.status_code, sls.r12sales      
+  0, 0, 0, 0, 0      
  FROM #AGE_SUMMARY A      
  LEFT OUTER JOIN ARMASTER_ALL M (NOLOCK) ON A.CUSTOMER_CODE = M.CUSTOMER_CODE      
  LEFT OUTER JOIN arnarel na (NOLOCK) ON A.CUSTOMER_CODE = na.child      
- LEFT OUTER JOIN arcust c (NOLOCK) ON na.parent = c.customer_code   
- LEFT OUTER JOIN (
- SELECT customer, SUM(CASE WHEN yyyymmdd >= @CURRYRSTART THEN ISNULL(areturns,0) ELSE 0 end) ytdcreds,
-		SUM(CASE WHEN yyyymmdd >=@curryrstart THEN ISNULL(anet,0) ELSE 0 end) ytdsales,
-		SUM(CASE WHEN yyyymmdd BETWEEN @lastyrstart AND @lastyrend THEN ISNULL(anet,0) ELSE 0 end) lyrsales,
-		SUM(CASE WHEN yyyymmdd >=@r12start THEN ISNULL(anet,0) ELSE 0 END) r12sales
-		FROM dbo.cvo_sbm_details AS sd
-		WHERE yyyymmdd >=@LASTYRSTART
-		GROUP BY sd.customer
- ) sls ON sls.customer = a.CUSTOMER_CODE    
- LEFT OUTER JOIN
- ( SELECT CUST_CODE,     
+ LEFT OUTER JOIN arcust c (NOLOCK) ON na.parent = c.customer_code      
+ WHERE M.ADDRESS_TYPE = 0      
+       
+ UPDATE #FINAL     
+ SET     
+ YTDCREDS = isnull((select sum(areturns) from dbo.cvo_sbm_details AS sd where    
+    customer = f.customer_code and yyyymmdd >=@curryrstart), 0),    
+ YTDSALES = isnull((select sum(anet) from dbo.cvo_sbm_details AS sd2 where    
+    customer = f.customer_code and yyyymmdd >=@curryrstart), 0),    
+ LYRSALES = isnull((select sum(anet) from dbo.cvo_sbm_details AS sd3 where    
+    customer = f.customer_code and yyyymmdd  BETWEEN @LASTYRSTART AND @LASTYREND), 0),    
+ r12Sales = isnull((select sum(anet) from cvo_sbm_details where    
+     customer = f.customer_code and yyyymmdd >=@r12Start), 0)    
+ from #final F     
+      
+      
+ --ON ORDER      
+ if(object_id('tempdb.dbo.#onord') is not null) drop table #onord      
+ SELECT CUST_CODE,     
  ISNULL(SUM (CASE WHEN type = 'I' THEN     
      (total_amt_order + tot_ord_tax - tot_ord_disc + tot_ord_freight)     
   ELSE ((total_amt_order * -1) + (tot_ord_tax * -1)     
       - (tot_ord_disc * -1) + (tot_ord_freight * -1)) END) , 0 ) as onord    
+ INTO #ONORD    
  FROM ORDERS_ALL (NOLOCK)    
     WHERE status NOT IN ( 'R', 'S', 'T' )     
     AND UPPER( status ) IN ( SELECT UPPER( status_code ) FROM cc_ord_status WHERE use_flag = 1 )     
     AND void = 'N'     
- GROUP BY CUST_CODE  
- ) onord ON onord.cust_code = a.CUSTOMER_CODE
- LEFT OUTER JOIN
- (SELECT c.customer_code, c.status_code
- FROM  CC_CUST_STATUS_HIST C      
- WHERE C.CLEAR_DATE IS NULL  ) hold ON hold.customer_code = A.CUSTOMER_CODE
- LEFT OUTER JOIN
-    (
-        SELECT
-            A.customer_code, SUM(@DATE_ASOF - A.date_due) / COUNT(*) AS AVGDAYSLATE
-        FROM
-            artrx A, #FINAL F
-        WHERE
-            A.trx_type = '2031'
-            AND @DATE_ASOF > A.date_due
-            AND A.customer_code = F.CUSTOMER_CODE
-        GROUP BY A.customer_code
-    ) pmt
-        ON pmt.customer_code = a.CUSTOMER_CODE
-
- WHERE M.ADDRESS_TYPE = 0      
+ GROUP BY CUST_CODE     
        
- --      
+ UPDATE #FINAL SET ONORDER = ONORD      
+ FROM #FINAL F, #ONORD D      
+ WHERE F.CUSTOMER_CODE = D.CUST_CODE      
+       
+ --HOLD      
+ UPDATE #FINAL SET HOLD = C.STATUS_CODE      
+ FROM #FINAL F, CC_CUST_STATUS_HIST C      
+ WHERE F.CUSTOMER_CODE = C.CUSTOMER_CODE       
+ AND C.CLEAR_DATE IS NULL      
+      
+      
+ --AVGDAYSLATE      
+       
+ if(object_id('tempdb.dbo.#avg') is not null) drop table #avg      
+  SELECT A.CUSTOMER_CODE, SUM(@date_asof - A.DATE_DUE)/COUNT(*) AS AVGDAYSLATE       
+ INTO #AVG      
+ FROM ARTRX A, #FINAL F      
+ WHERE A.TRX_TYPE = '2031'      
+ AND @DATE_ASOF > A.DATE_DUE      
+ AND A.CUSTOMER_CODE = F.CUSTOMER_CODE      
+ -- and a.customer_code = @last_customer      
+ GROUP BY A.CUSTOMER_CODE      
+       
+ UPDATE F      
+ SET AVGDAYSLATE = A.AVGDAYSLATE      
+ FROM #AVG A, #FINAL F      
+ WHERE A.CUSTOMER_CODE = F.CUSTOMER_CODE      
+      
+--      
  declare @date_entered int, @last_customer varchar(10), 
 --@last_check varchar(16), 
 @last_amt float    
@@ -1056,8 +1191,8 @@ BEGIN -- CVO_ARAGING_SP DATA
 -- DROP TABLE #ARTRXAGE_TMP       
 -- DROP TABLE #AGE_SUMMARY      
 -- DROP TABLE #NON_ZERO_RECORDS       
---- DROP TABLE #FINAL      
---- DROP TABLE #ONORD      
+ DROP TABLE #FINAL      
+ DROP TABLE #ONORD      
 -- DROP TABLE #CRED      
 -- DROP TABLE #SALES      
 -- DROP TABLE #LSALES      
@@ -1065,15 +1200,17 @@ BEGIN -- CVO_ARAGING_SP DATA
 -- DROP TABLE #TEMP2      
 -- DROP TABLE #TEMP3      
 -- DROP TABLE #LPMTDT      
--- DROP TABLE #AVG      
+ DROP TABLE #AVG      
       
  -- v1.1 Start    
- --- DROP TABLE #cust    
- --- DROP TABLE #bg_data    
+ DROP TABLE #cust    
+ DROP TABLE #bg_data    
  -- v1.1 End    
     
  SET NOCOUNT off       
 end -- CVO_ARAGING_SP DATA       
 
 
+GO
+GRANT EXECUTE ON  [dbo].[CVO_ARAGING_orig_SP] TO [public]
 GO

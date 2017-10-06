@@ -31,9 +31,11 @@ SELECT
 	, T1.DATE_DUE AS  DATE_DUE
 	, T1.DATE_DISCOUNT AS  DATE_DISCOUNT
 	-- ADD CHECK NUMBER
-	, (SELECT TOP 1 DOC_CTRL_NUM FROM APTRXAGE 
-	    WHERE APPLY_TO_NUM = T1.TRX_CTRL_NUM
-	    and trx_type = 4111 and apply_trx_type = 4091) AS PAYMENT_NUM
+	, (SELECT TOP 1 a.DOC_CTRL_NUM FROM APTRXAGE a
+	    WHERE a.APPLY_TO_NUM = T1.TRX_CTRL_NUM
+	    and a.trx_type = 4111 and a.apply_trx_type = 4091
+		AND NOT EXISTS (SELECT 1 FROM aptrxage aa WHERE aa.apply_to_num = t1.trx_ctrl_num AND aa.doc_ctrl_num = a.doc_ctrl_num
+		AND aa.trx_type IN (4113,4114))) AS PAYMENT_NUM
 	   --SELECT DOC_CTRL_NUM, APPLY_TO_NUM, * FROM APTRXAGE WHERE TRX_TYPE = 4111
 	   --SELECT TRX_CTRL_NUM, DOC_CTRL_NUM FROM APVOHDR
 	   
@@ -121,6 +123,7 @@ AND		T2.ADDRESS_TYPE = 0
 AND		T1.TRX_TYPE IN (4091) 
 AND		T1.USER_ID = EW.USER_ID 
 AND t1.trx_ctrl_num = t3.trx_ctrl_num
+
 
 
 GO

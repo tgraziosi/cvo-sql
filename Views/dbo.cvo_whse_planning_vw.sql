@@ -20,10 +20,10 @@ AS
 			CASE WHEN ISNULL(pb.bin_no,'N') = 'N' THEN 'No' ELSE 'Yes' END AS Is_Assigned,
             ISNULL(pb.[primary], 'N') primary_bin ,
 			bm.status,
-			bm.maximum_level, -- 1/18/2017 - per KM request
-			tbr.replenish_min_lvl,
-			tbr.replenish_max_lvl,
-			tbr.replenish_qty,
+			bm.maximum_level max_lvl, -- 1/18/2017 - per KM request
+			tbr.replenish_min_lvl repl_min,
+			tbr.replenish_max_lvl repl_max,
+			tbr.replenish_qty repl_qty,
 			ia.field_26 rel_date,
 			ia.field_28 pom_date,
 			POM_age = CASE WHEN DATEDIFF(DAY,ISNULL(ia.field_28,GETDATE()),GETDATE()) <=0 THEN 'CURRENT'
@@ -99,9 +99,9 @@ AS
 			ia.field_26 rel_date,
 			ia.field_28 pom_date,
 			POM_age = CASE WHEN DATEDIFF(DAY,ISNULL(ia.field_28,GETDATE()),GETDATE()) <=0 THEN 'CURRENT'
-				WHEN DATEDIFF(year,ISNULL(ia.field_28,GETDATE()),GETDATE()) <2 THEN 'Y1 POM'
-				ELSE 'Y2 POM'
-				END,
+							WHEN DATEDIFF(year,ISNULL(ia.field_28,GETDATE()),GETDATE()) <2 THEN 'Y1 POM'
+							ELSE 'Y2+ POM'
+							END,
 			bm.usage_type_code ,
             bm.group_code ,
             bm.location ,
@@ -201,6 +201,8 @@ AS
 			
 			;
     
+
+
 
 
 

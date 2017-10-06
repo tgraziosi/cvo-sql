@@ -38,19 +38,23 @@ slp.sales_mgr_code,
 rsm.salesperson_name sales_mgr_name,
 rsm.addr_sort2 sales_mgr_email,
 CASE WHEN ISNULL(rsm.territory_code,'') = '' THEN ISNULL(slp.sales_mgr_code,'900') ELSE rsm.territory_code END AS rsm_territory_code,
-dbo.calculate_region_fn(slp.territory_code) region
+dbo.calculate_region_fn(slp.territory_code) region,
+l.location -- 10/5/2017
 
 from arsalesp slp (nolock)
 left outer join cvo_territoryxref x (nolock) on x.territory_code = slp.territory_code 
 	and x.salesperson_code = slp.salesperson_code
 LEFT OUTER JOIN arsalesp rsm (NOLOCK)
 	ON rsm.salesperson_code = slp.sales_mgr_code
+-- 10/5/2017
+LEFT OUTER JOIN locations l ON l.addr5 = slp.addr_sort2 AND l.addr5 <> '' AND void <> 'V'
 
 where (isnull(x.salesperson_code,'') not in ('internal','ss'))
 and (slp.status_type = 1) -- active
 -- or (slp.status_type = 0 and x.status = 1))
 -- and slp.salesperson_name not like '%default%'
 -- order by slp.territory_code
+
 
 
 

@@ -1,0 +1,3 @@
+CREATE SCHEMA [CVOPTICAL\csatterwhite]
+AUTHORIZATION [CVOPTICAL\csatterwhite]
+GO
