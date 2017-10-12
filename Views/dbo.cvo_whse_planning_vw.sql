@@ -62,7 +62,9 @@ AS
 					''
 			END lbl_pom_date,
 			bm.relative_point_x,
-			bm.relative_point_y 
+			bm.relative_point_y,
+			bm.modified_by,
+			bm.last_modified_date
 
     FROM    inv_master i ( NOLOCK ) 
 			INNER JOIN inv_master_add ia (nolock) ON ia.part_no = i.part_no
@@ -134,7 +136,9 @@ AS
 					''
 			END lbl_pom_date,
 			bm.relative_point_x,
-			bm.relative_point_y 
+			bm.relative_point_y,
+			bm.modified_by,
+			bm.last_modified_date
 
 
     FROM    tdc_bin_part_qty s ( NOLOCK )
@@ -191,7 +195,9 @@ AS
 			'' as lbl_release_date,
 			'' AS lbl_pom_date,
 			bm.relative_point_x ,
-			bm.relative_point_y 
+			bm.relative_point_y,
+			bm.modified_by,
+			bm.last_modified_date
 
     FROM    tdc_bin_master bm (NOLOCK)
 			WHERE 
@@ -201,6 +207,7 @@ AS
 			
 			;
     
+
 
 
 

@@ -80,7 +80,8 @@ BEGIN
 	FROM	#cvo_artrxage_insert a
 	JOIN	cvo_orders_all b (NOLOCK)
 	ON		a.order_ctrl_num = CAST(b.order_no as varchar(20)) + '-' + CAST(b.ext as varchar(10))
-	WHERE	ISNULL(b.buying_group,'NULL') <> 'NULL'
+	-- WHERE	ISNULL(b.buying_group,'NULL') <> 'NULL'
+	WHERE	ISNULL(b.buying_group,'') <> ''
 
 	-- For finance or late charge use the doc date from the invoice the charge is applied to
 	UPDATE	a

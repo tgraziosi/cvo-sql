@@ -274,7 +274,7 @@ AS
         WHERE   ( t1.address_type = 0 AND @CustOpt = 'B') or ( t1.address_type IN ( 0, 1 ) AND @CustOpt = 'S' ) 
 		) custinfo
         GROUP BY MergeCust ,
-                ship_to;
+                custinfo.ship_to;
 
       CREATE CLUSTERED INDEX [idx_rankcust3] ON #RankCusts_S3 (MergeCust, ship_to);
 
@@ -282,7 +282,7 @@ AS
 		BEGIN
 			DELETE FROM #RankCusts_S3 
 			WHERE mergecust+ship_to NOT IN 
-   			(SELECT mergecust+ship_to cust FROM #RankCusts_S3 AS rcs (nolock)
+   			(SELECT rcs.mergecust+rcs.ship_to cust FROM #RankCusts_S3 AS rcs (nolock)
 			JOIN dbo.cvo_cust_designation_codes AS cdc (NOLOCK) ON mergecust = RIGHT(cdc.customer_code,5)
 			JOIN #activedesig AS a ON a.code = cdc.code
 			WHERE ISNULL(cdc.Start_date, @DateToTY) <= @DateToTY
@@ -733,10 +733,7 @@ AS
                 END AS GrossNoBepULY ,
                 CASE WHEN TYLY = 'TY'
                           AND yyyymmdd BETWEEN t1.Start_date
-                                       AND     ( CASE WHEN t1.End_date = '1/1/1900'
-                                                      THEN GETDATE()
-                                                      ELSE t1.End_date
-                                                 END )
+                                       AND   ISNULL(t1.end_date, @DateToTY) 
                      THEN ISNULL(SUM(anet), 0)
                      ELSE 0
                 END AS DesigNetSTY
@@ -1008,6 +1005,8 @@ AS
                                 ) ar ON T1.customer = ar.customer; 
 
     END;
+
+
 
 
 

@@ -44,6 +44,7 @@ EXEC cc_summary_aging_sp '039226',4,1,'CVO','CVO',0
 -- v3.2 CB 06/05/2015 - Fix issue with duplicate transactions
 -- v3.3 CB 07/06/2016 - Fix bug with void records and duplicate doc numbers
 -- v3.4 TG 4/24/2017 - use cvo_sbm_details instead of cvo_csbm_shipto
+-- v3.4 CB 06/10/2017 - BG Performance
 
 -- tag - 3/13/2017 - Future aging - cash forecast
 
@@ -201,8 +202,8 @@ AS
             ); -- v1.1      
       
       
-        CREATE INDEX #ARTRXAGE_IDX ON #ARTRXAGE_TMP   (CUSTOMER_CODE, DOC_CTRL_NUM);      
-        CREATE INDEX #artrxage_idx1 ON #ARTRXAGE_TMP (AMOUNT);      
+ -- v3.4 CREATE INDEX #ARTRXAGE_IDX ON #ARTRXAGE_TMP   (customer_code, doc_ctrl_num)      
+ -- v3.4 create index #artrxage_idx1 on #artrxage_tmp (amount)         
       
         IF ( OBJECT_ID('tempdb.dbo.#age_summary') IS NOT NULL )
             DROP TABLE #AGE_SUMMARY;      
@@ -291,9 +292,14 @@ AS
               parent VARCHAR(10)
             );
 
-	-- Call BG Data Proc
-        EXEC dbo.cvo_bg_get_document_data_sp;
-   
+		-- Call BG Data Proc
+	-- v3.4	EXEC cvo_bg_get_document_data_sp
+		-- v3.4 Start
+		INSERT	#bg_data 
+		SELECT	*
+		FROM	cvo_artrxage (NOLOCK) 
+		-- v3.4 End
+
         CREATE INDEX #bg_data_ind122 ON #bg_data (customer_code, doc_ctrl_num);
 
 	-- v2.2 Start
@@ -359,7 +365,9 @@ AS
                 FROM    dbo.artrxage A ( NOLOCK )
                         INNER JOIN #cust C ON A.customer_code = C.child;    
  
-   
+		CREATE INDEX #ARTRXAGE_IDX ON #ARTRXAGE_TMP   (customer_code, doc_ctrl_num) -- v3.4     
+		 create index #artrxage_idx1 on #artrxage_tmp (amount) -- v3.4   
+
  -- v1.1 Start    
         UPDATE  a
         SET     a.parent = b.parent
@@ -1335,6 +1343,7 @@ AS
     
         SET NOCOUNT OFF;       
     END; -- CVO_ARAGING_SP DATA       
+
 
 
 GO

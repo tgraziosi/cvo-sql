@@ -32,6 +32,7 @@ ISNULL(co.promo_level,'') promo_level,
 ISNULL(c.carrier_code,ISNULL(o.routing,'')) AS carrier,
 ISNULL(c.cs_tracking_no,'') AS tracking
 -- , CAST(ISNULL(o.USER_def_fld4,'0') AS INT) hs_order_no_int
+, o.cust_code, o.ship_to
 , source = CASE WHEN LEFT(o.user_def_fld4,1) = 'M' THEN 'M' ELSE 'H' END
 FROM orders o (NOLOCK)
 INNER JOIN cvo_orders_all co (NOLOCK) ON o.order_no = co.order_no AND o.ext = co.ext
@@ -61,7 +62,8 @@ ISNULL(co.promo_id,'') promo_id,
 ISNULL(co.promo_level,'') promo_level,
 -- 10/28/2015 - add support for Magento orders
 '' AS carrier,
-'' AS tracking
+'' AS tracking,
+o.cust_code, o.ship_to
 , source = CASE WHEN LEFT(o.user_def_fld4,1) = 'M' THEN 'M' ELSE 'H' END
 
 FROM orders o (NOLOCK)
@@ -71,6 +73,7 @@ AND o.user_def_fld4 <> ''
 AND o.date_entered > '01/01/2013'
 AND NOT EXISTS(SELECT 1 FROM orders oo (NOLOCK) WHERE oo.order_no = o.order_no AND oo.ext > o.ext 
 AND oo.status <> 'V')
+
 
 
 
