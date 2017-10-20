@@ -17,49 +17,41 @@ begin
 
 set nocount on
 
-if(object_id('tempdb.dbo.#araging_int') is not null) drop table #araging_int
-
-select 
-	cust_code, 
-    [key],
-    attn_email,
-    sls,
-    terr, 
-    region, 
-    name,
-    bg_code,
-    bg_name,
-    tms,
-    avgdayslate,
-    bal,
-    fut, 
-    cur,
-    ar30,
-    ar60,
-    ar90,
-    ar120,
-    ar150,
-    credit_limit,
-    onorder,
-    lpmtdt,
-    amount, 
-    ytdcreds,
-    ytdsales,
-    lyrsales,
-    r12sales,
-    hold,
-    date_asof,
-    date_type_string,
-    date_type
-into #araging_int
--- select * 
-from ssrs_araging_temp
-
 
 --select * From arcust
 
 
-Select  *
+Select  ar.CUST_CODE ,
+        ar.[KEY] ,
+        ar.attn_email ,
+        ar.SLS ,
+        ar.TERR ,
+        ar.REGION ,
+        ar.NAME ,
+        ar.BG_CODE ,
+        ar.BG_NAME ,
+        ar.TMS ,
+        ar.AVGDAYSLATE ,
+        ar.BAL ,
+        ar.FUT ,
+        ar.CUR ,
+        ar.AR30 ,
+        ar.AR60 ,
+        ar.AR90 ,
+        ar.AR120 ,
+        ar.AR150 ,
+        ar.CREDIT_LIMIT ,
+        ar.ONORDER ,
+        ar.lpmtdt ,
+        ar.AMOUNT ,
+        ar.YTDCREDS ,
+        ar.YTDSALES ,
+        ar.LYRSALES ,
+        ar.r12sales ,
+        ar.HOLD ,
+        ar.date_asof ,
+        ar.date_type_string ,
+        ar.date_type
 , (AR30+AR60+AR90+AR120+AR150) AS TOTPD, Case 
 When BAL < 1  Then 'LT1'
 When (AR30+AR60+AR90+AR120+AR150) < 1 then 'LT1'
@@ -86,7 +78,8 @@ When BAL - Credit_Limit > 1000  and [key] <> 'Buying Group' Then 'OCL1K'
 Else
 ''
 End As OverCL
-From #araging_int
+From dbo.SSRS_ARAging_Temp ar
+ORDER BY bal desc
 
 end
 

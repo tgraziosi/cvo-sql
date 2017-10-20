@@ -7,13 +7,27 @@ CREATE VIEW [dbo].[cvo_promotions_vw]
 AS
 
 
-SELECT     promo_id, promo_level, promo_name, promo_start_date, promo_end_date, 
-		   CASE WHEN commissionable = 1 THEN 'Ovr' ELSE '' END AS CommOvrd, commission,
-		    --ISNULL(order_discount, 0) AS order_discount, 
-           ISNULL(payment_terms, '') AS payment_terms, ISNULL(free_shipping, 'N') AS free_shipping
-           --, order_type, ISNULL(frequency, 0) AS frequency, review_ship_to
-FROM       dbo.CVO_promotions
-WHERE     (void IS NULL) OR (void = 'n')
+    SELECT promo_id ,
+           promo_level ,
+           promo_name ,
+           promo_start_date ,
+           promo_end_date ,
+           CASE WHEN commissionable = 1 THEN 'Ovr'
+                ELSE ''
+           END AS CommOvrd ,
+           commission ,
+           --ISNULL(order_discount, 0) AS order_discount, 
+           ISNULL(payment_terms, '') AS payment_terms ,
+           ISNULL(free_shipping, 'N') AS free_shipping,
+		   CASE WHEN ISNULL(annual_program,'0') = '1' THEN 'Y' ELSE 'N' END Annual_Program,
+		   CASE WHEN ISNULL(season_program,'0') = '1' THEN 'Y' ELSE 'N' END Seasonal_Program
+		    
+    --, order_type, ISNULL(frequency, 0) AS frequency, review_ship_to
+    FROM   dbo.CVO_promotions
+    WHERE  ( void IS NULL )
+           OR ( void = 'n' );
+
+
 
 
 GO

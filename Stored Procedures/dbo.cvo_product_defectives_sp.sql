@@ -5,190 +5,421 @@ GO
 
 /*
 select * from cvo_product_defectives_vw where brand = 'bcbg'
-exec cvo_product_defectives_sp @brand=N'BCBG,CVO', @vendor=N'nic002',
-@datefrom=N'01/01/2016 00:00', @dateto=N'12/31/2016 23:59'
+exec cvo_product_defectives_sp @brand=N'as', @vendor=N'actgrou',
+@datefrom=N'07/01/2017 00:00', @dateto=N'12/31/2017 23:59'
 
-exec cvo_product_defectives_sp '1/1/2016', '03/31/2016'
+exec cvo_product_defectives_sp '6/1/2017', '12/31/2017'
 
 */
 
 
-CREATE procedure [dbo].[cvo_product_defectives_sp]
---@brand varchar(1000),
---@vendor varchar(1000),
-@DateFrom datetime,
-@DateTo datetime
+CREATE PROCEDURE [dbo].[cvo_product_defectives_sp]
+    --@brand varchar(1000),
+    --@vendor varchar(1000),
+    @DateFrom DATETIME ,
+    @DateTo DATETIME
 
-as 
+AS
 
---declare @datefrom datetime
---declare @dateto datetime
---set @datefrom = '10/1/2012'
---set @dateto = '12/31/2012'
+    --declare @datefrom datetime
+    --declare @dateto datetime
+    --set @datefrom = '10/1/2012'
+    --set @dateto = '12/31/2012'
 
-declare		@JDateFrom int
-declare		@JDateto int
+    DECLARE @JDateFrom INT;
+    DECLARE @JDateto INT;
 
-set @jdateFrom = datediff(dd,'1/1/1950', convert(datetime, @datefrom)) + 711858
-set @jdateto = datediff(dd,'1/1/1950', convert(datetime, @dateto)) + 711858
+    SET @JDateFrom = dbo.adm_get_pltdate_f(@DateFrom);
+    SET @JDateto = dbo.adm_get_pltdate_f(@DateTo);
 
---select @jdatefrom, @jdateto, @brand, @vendor, @datefrom, @dateto
+    --select @jdatefrom, @jdateto, @brand, @vendor, @datefrom, @dateto
 
--- credits and sales first 
+    -- credits and sales first 
 
-select 
-	i.vendor,
-	ap.address_name,
-	i.part_no ,
-	i.category as Brand,
-	ia.field_2 as Model,
-	ia.field_28 as POMDate,
-	i.type_code,
-	convert(datetime,dateadd(d,ar.DATE_APPLIED-711858,'1/1/1950'),101) as ShipDate, 
-	a.return_code,
-	isnull((select return_desc from po_retcode p (nolock) where a.return_code = p.return_code),'Sales') as reason, 
-	a.cr_shipped as Qty_ret ,
-	case when left(a.return_code,2) = '04' then cr_shipped else 0 end as qty_def,
-	a.cost,
-	cast ( (a.cr_shipped * a.cost) as decimal (20,8) )as ext_cost_ret,
-	case when left(a.return_code,2) = '04' then 
-		cast ( (a.cr_shipped * a.cost) as decimal (20,8) ) else 0 end as ext_cost_def,
-	0 as rct_qty_hist,
-	case when left(b.user_category,2) = 'rx' then shipped else 0 end as Sales_rx_qty_hist,
-	case when left(b.user_category,2) <> 'rx' then shipped else 0 end as Sales_st_qty_hist,
-	a.order_no, a.order_ext
-	
-into #temp
+    SELECT i.vendor ,
+           ap.address_name ,
+           i.part_no ,
+           i.category AS Brand ,
+           ia.field_2 AS Model ,
+           ia.field_28 AS POMDate ,
+           i.type_code ,
+           CONVERT(
+               DATETIME ,
+               DATEADD(d, ar.date_applied - 711858, '1/1/1950'),
+               101) AS ShipDate ,
+           a.return_code ,
+           ISNULL((   SELECT return_desc
+                      FROM   po_retcode p ( NOLOCK )
+                      WHERE  a.return_code = p.return_code ) ,
+                  'Sales') AS reason ,
+           a.cr_shipped AS Qty_ret ,
+           CASE WHEN LEFT(a.return_code, 2) = '04' THEN cr_shipped
+                ELSE 0
+           END AS qty_def ,
+           a.cost ,
+           CAST(( a.cr_shipped * a.cost ) AS DECIMAL(20, 8)) AS ext_cost_ret ,
+           CASE WHEN LEFT(a.return_code, 2) = '04' THEN
+                    CAST(( a.cr_shipped * a.cost ) AS DECIMAL(20, 8))
+                ELSE 0
+           END AS ext_cost_def ,
+           0 AS rct_qty_hist ,
+           CASE WHEN LEFT(b.user_category, 2) = 'rx' THEN shipped
+                ELSE 0
+           END AS Sales_rx_qty_hist ,
+           CASE WHEN LEFT(b.user_category, 2) <> 'rx' THEN shipped
+                ELSE 0
+           END AS Sales_st_qty_hist ,
+           a.order_no ,
+           a.order_ext
 
-from ord_list a (nolock)
-	inner join orders b (nolock) on a.order_no = b.order_no and a.order_ext = b.ext
-	inner join inv_master i (nolock) on a.part_no = i.part_no
-	inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
-	left outer join apmaster ap (nolock) on i.vendor = ap.vendor_code
-	inner join orders_invoice oi on b.order_no = oi.order_no and b.ext = oi.order_ext
-	inner join artrx ar on oi.trx_ctrl_num = ar.trx_ctrl_num
-where i.type_code in ('frame','sun','parts')
-	and b.status='t' and (a.cr_shipped >0 or a.shipped > 0) 
-	and exists (select * from inv_tran (nolock) where a.order_no = tran_no and
-			a.order_ext = tran_ext and a.line_no = tran_line)
-    --and i.category in (@brand) 
-    --and i.vendor = @vendor
-	and (ar.date_applied between @jdatefrom and @jdateto)
-		
-insert into #temp
-select 
-	i.vendor,
-	ap.address_name,
-	i.part_no ,
-	i.category as Brand,
-	ia.field_2 as Model,
-	ia.field_28 as pomdate,
-	i.type_code,
-	convert(varchar,dateadd(d,ar.DATE_APPLIED-711858,'1/1/1950'),101) as ShipDate, 
-	a.return_code,
-	isnull((select return_desc from po_retcode p (nolock) where a.return_code = p.return_code),'Sales') as reason, 
-	cr_shipped as Qty_ret ,
-	case when left(a.return_code,2) = '04' then cr_shipped else 0 end as qty_def,
-	a.cost,
-	cast ( (a.cr_shipped * a.cost) as decimal (20,8) )as ext_cost_ret,
-	case when left(a.return_code,2) = '04' then 
-		cast ( (a.cr_shipped * a.cost) as decimal (20,8) ) else 0 end as ext_cost_def,
-	0 as rct_qty_hist,	
-	case when left(b.user_category,2) = 'rx' then shipped else 0 end as Sales_rx_qty_hist,
-	case when left(b.user_category,2) <> 'rx' then shipped else 0 end as Sales_st_qty_hist,
-	a.order_no, a.order_ext
-from ord_list a (nolock)
-inner join orders b (nolock) on a.order_no = b.order_no and a.order_ext = b.ext
-inner join inv_master i (nolock) on a.part_no = i.part_no
-inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
-left outer join apmaster ap (nolock) on i.vendor = ap.vendor_code
-inner join orders_invoice oi on b.order_no = oi.order_no and b.ext = oi.order_ext
-inner join arinpchg ar on oi.trx_ctrl_num = ar.trx_ctrl_num
+    INTO   #temp
 
-where i.type_code in ('frame','sun','parts')
-and b.status='t' and (a.cr_shipped >0 or a.shipped> 0)
-and exists (select * from inv_tran (nolock) where a.order_no = tran_no and
-		a.order_ext = tran_ext and a.line_no = tran_line)
-	--and i.category = @brand and i.vendor = @vendor
-	and (ar.date_applied between @jdatefrom and @jdateto)
-		
+    FROM   ord_list a ( NOLOCK )
+           INNER JOIN orders b ( NOLOCK ) ON a.order_no = b.order_no
+                                             AND a.order_ext = b.ext
+           INNER JOIN inv_master i ( NOLOCK ) ON a.part_no = i.part_no
+           INNER JOIN inv_master_add ia ( NOLOCK ) ON i.part_no = ia.part_no
+           LEFT OUTER JOIN apmaster ap ( NOLOCK ) ON i.vendor = ap.vendor_code
+           INNER JOIN orders_invoice oi ON b.order_no = oi.order_no
+                                           AND b.ext = oi.order_ext
+           INNER JOIN artrx ar ON oi.trx_ctrl_num = ar.trx_ctrl_num
+    WHERE  i.type_code IN ( 'frame', 'sun', 'parts' )
+			AND b.type = 'I'
+           AND b.status = 't'
+		   and NOT (b.user_category LIKE '%RB')
+           AND (   a.cr_shipped > 0
+                   OR a.shipped > 0 )
+           AND EXISTS (   SELECT *
+                          FROM   inv_tran ( NOLOCK )
+                          WHERE  a.order_no = tran_no
+                                 AND a.order_ext = tran_ext
+                                 AND a.line_no = tran_line )
+           --and i.category in (@brand) 
+           --and i.vendor = @vendor
+           AND ( ar.date_applied
+           BETWEEN @JDateFrom AND @JDateto );
 
-insert into #temp
-select 
-	i.vendor,
-	ap.address_name,
-	i.part_no ,
-	i.category as Brand,
-	ia.field_2 as Model,
-	ia.field_28 as pomdate,
-	i.type_code,
-	b.date_shipped as ShipDate,
-	isnull(a.return_code,'06-13'),
-	isnull((select return_desc from po_retcode p (nolock) 
-		  where p.return_code = isnull(a.return_code,'06-13')),'Sales') as reason, 
-	cr_shipped as Qty_ret ,
-	case when left(isnull(a.return_code,'06-13'),2) = '04' then cr_shipped else 0 end as qty_def,
-	a.cost,
-	cast ( (a.cr_shipped * a.cost) as decimal (20,8) )as ext_cost_ret,
-	case when left(a.return_code,2) = '04' then 
-		cast ( (a.cr_shipped * a.cost) as decimal (20,8) ) else 0 end as ext_cost_def,
-	0 as rct_qty_hist,
-	case when left(b.user_category,2) = 'rx' then shipped else 0 end as Sales_rx_qty_hist,
-	case when left(b.user_category,2) <> 'rx' then shipped else 0 end as Sales_st_qty_hist,
-	a.order_no, a.order_ext
-from cvo_ord_list_hist a (nolock)
-inner join cvo_orders_all_hist b (nolock) on a.order_no = b.order_no and a.order_ext = b.ext
-inner join inv_master i (nolock) on a.part_no = i.part_no
-inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
-left outer join apmaster ap (nolock) on i.vendor = ap.vendor_code
-where i.type_code in ('frame','sun','parts')
-and b.status='t' and (a.cr_shipped >0 or a.shipped > 0)
---and i.category = @brand and i.vendor = @vendor
-and (b.date_shipped between @datefrom and @dateto)
+INSERT INTO #temp	
+    SELECT i.vendor ,
+           ap.address_name ,
+           i.part_no ,
+           i.category AS Brand ,
+           ia.field_2 AS Model ,
+           ia.field_28 AS POMDate ,
+           i.type_code ,
+           CONVERT(
+               DATETIME ,
+               DATEADD(d, ar.date_applied - 711858, '1/1/1950'),
+               101) AS ShipDate ,
+           a.return_code ,
+           ISNULL((   SELECT return_desc
+                      FROM   po_retcode p ( NOLOCK )
+                      WHERE  a.return_code = p.return_code ) ,
+                  'Sales') AS reason ,
+           a.cr_shipped AS Qty_ret ,
+           CASE WHEN LEFT(a.return_code, 2) = '04' THEN cr_shipped
+                ELSE 0
+           END AS qty_def ,
+           a.cost ,
+           CAST(( a.cr_shipped * a.cost ) AS DECIMAL(20, 8)) AS ext_cost_ret ,
+           CASE WHEN LEFT(a.return_code, 2) = '04' THEN
+                    CAST(( a.cr_shipped * a.cost ) AS DECIMAL(20, 8))
+                ELSE 0
+           END AS ext_cost_def ,
+           0 AS rct_qty_hist ,
+           CASE WHEN LEFT(b.user_category, 2) = 'rx' THEN shipped
+                ELSE 0
+           END AS Sales_rx_qty_hist ,
+           CASE WHEN LEFT(b.user_category, 2) <> 'rx' THEN shipped
+                ELSE 0
+           END AS Sales_st_qty_hist ,
+           a.order_no ,
+           a.order_ext
+
+    FROM   ord_list a ( NOLOCK )
+           INNER JOIN orders b ( NOLOCK ) ON a.order_no = b.order_no
+                                             AND a.order_ext = b.ext
+           INNER JOIN inv_master i ( NOLOCK ) ON a.part_no = i.part_no
+           INNER JOIN inv_master_add ia ( NOLOCK ) ON i.part_no = ia.part_no
+           LEFT OUTER JOIN apmaster ap ( NOLOCK ) ON i.vendor = ap.vendor_code
+           INNER JOIN orders_invoice oi ON b.order_no = oi.order_no
+                                           AND b.ext = oi.order_ext
+           INNER JOIN artrx ar ON oi.trx_ctrl_num = ar.trx_ctrl_num
+    WHERE  i.type_code IN ( 'frame', 'sun', 'parts' )
+           AND b.status = 't'
+		   AND b.type = 'c'
+		   and NOT (b.user_category LIKE '%RB')
+           AND (   a.cr_shipped > 0
+                   OR a.shipped > 0 )
+           --AND EXISTS (   SELECT *
+           --               FROM   inv_tran ( NOLOCK )
+           --               WHERE  a.order_no = tran_no
+           --                      AND a.order_ext = tran_ext
+           --                      AND a.line_no = tran_line )
+           --and i.category in (@brand) 
+           --and i.vendor = @vendor
+           AND ( ar.date_applied
+           BETWEEN @JDateFrom AND @JDateto );
+
+	-- unposted orders and returns
+    INSERT INTO #temp
+                SELECT i.vendor ,
+                       ap.address_name ,
+                       i.part_no ,
+                       i.category AS Brand ,
+                       ia.field_2 AS Model ,
+                       ia.field_28 AS pomdate ,
+                       i.type_code ,
+                       CONVERT(
+                           VARCHAR ,
+                           dbo.adm_format_pltdate_f(ar.date_applied),
+                           101) AS ShipDate ,
+                       a.return_code ,
+                       ISNULL(
+                       (   SELECT return_desc
+                           FROM   po_retcode p ( NOLOCK )
+                           WHERE  a.return_code = p.return_code ) ,
+                       'Sales') AS reason ,
+                       cr_shipped AS Qty_ret ,
+                       CASE WHEN LEFT(a.return_code, 2) = '04' THEN
+                                cr_shipped
+                            ELSE 0
+                       END AS qty_def ,
+                       a.cost ,
+                       CAST(( a.cr_shipped * a.cost ) AS DECIMAL(20, 8)) AS ext_cost_ret ,
+                       CASE WHEN LEFT(a.return_code, 2) = '04' THEN
+                                CAST(( a.cr_shipped * a.cost ) AS DECIMAL(20, 8))
+                            ELSE 0
+                       END AS ext_cost_def ,
+                       0 AS rct_qty_hist ,
+                       CASE WHEN LEFT(b.user_category, 2) = 'rx' THEN shipped
+                            ELSE 0
+                       END AS Sales_rx_qty_hist ,
+                       CASE WHEN LEFT(b.user_category, 2) <> 'rx' THEN
+                                shipped
+                            ELSE 0
+                       END AS Sales_st_qty_hist ,
+                       a.order_no ,
+                       a.order_ext
+                FROM   ord_list a ( NOLOCK )
+                       INNER JOIN orders b ( NOLOCK ) ON a.order_no = b.order_no
+                                                         AND a.order_ext = b.ext
+                       INNER JOIN inv_master i ( NOLOCK ) ON a.part_no = i.part_no
+                       INNER JOIN inv_master_add ia ( NOLOCK ) ON i.part_no = ia.part_no
+                       LEFT OUTER JOIN apmaster ap ( NOLOCK ) ON i.vendor = ap.vendor_code
+                       INNER JOIN orders_invoice oi ON b.order_no = oi.order_no
+                                                       AND b.ext = oi.order_ext
+                       INNER JOIN arinpchg ar ON oi.trx_ctrl_num = ar.trx_ctrl_num
+
+                WHERE  i.type_code IN ( 'frame', 'sun', 'parts' )
+                       AND b.status = 't'
+					   AND b.type = 'I'
+					   and NOT (b.user_category LIKE '%RB')
+                       AND (   a.cr_shipped > 0
+                               OR a.shipped > 0 )
+                       AND EXISTS (   SELECT *
+                                      FROM   inv_tran ( NOLOCK )
+                                      WHERE  a.order_no = tran_no
+                                             AND a.order_ext = tran_ext
+                                             AND a.line_no = tran_line )
+                       --and i.category = @brand and i.vendor = @vendor
+                       AND ( ar.date_applied
+                       BETWEEN @JDateFrom AND @JDateto );
+
+	    INSERT INTO #temp
+                SELECT i.vendor ,
+                       ap.address_name ,
+                       i.part_no ,
+                       i.category AS Brand ,
+                       ia.field_2 AS Model ,
+                       ia.field_28 AS pomdate ,
+                       i.type_code ,
+                       CONVERT(
+                           VARCHAR ,
+                           dbo.adm_format_pltdate_f(ar.date_applied),
+                           101) AS ShipDate ,
+                       a.return_code ,
+                       ISNULL(
+                       (   SELECT return_desc
+                           FROM   po_retcode p ( NOLOCK )
+                           WHERE  a.return_code = p.return_code ) ,
+                       'Sales') AS reason ,
+                       cr_shipped AS Qty_ret ,
+                       CASE WHEN LEFT(a.return_code, 2) = '04' THEN
+                                cr_shipped
+                            ELSE 0
+                       END AS qty_def ,
+                       a.cost ,
+                       CAST(( a.cr_shipped * a.cost ) AS DECIMAL(20, 8)) AS ext_cost_ret ,
+                       CASE WHEN LEFT(a.return_code, 2) = '04' THEN
+                                CAST(( a.cr_shipped * a.cost ) AS DECIMAL(20, 8))
+                            ELSE 0
+                       END AS ext_cost_def ,
+                       0 AS rct_qty_hist ,
+                       CASE WHEN LEFT(b.user_category, 2) = 'rx' THEN shipped
+                            ELSE 0
+                       END AS Sales_rx_qty_hist ,
+                       CASE WHEN LEFT(b.user_category, 2) <> 'rx' THEN
+                                shipped
+                            ELSE 0
+                       END AS Sales_st_qty_hist ,
+                       a.order_no ,
+                       a.order_ext
+                FROM   ord_list a ( NOLOCK )
+                       INNER JOIN orders b ( NOLOCK ) ON a.order_no = b.order_no
+                                                         AND a.order_ext = b.ext
+                       INNER JOIN inv_master i ( NOLOCK ) ON a.part_no = i.part_no
+                       INNER JOIN inv_master_add ia ( NOLOCK ) ON i.part_no = ia.part_no
+                       LEFT OUTER JOIN apmaster ap ( NOLOCK ) ON i.vendor = ap.vendor_code
+                       INNER JOIN orders_invoice oi ON b.order_no = oi.order_no
+                                                       AND b.ext = oi.order_ext
+                       INNER JOIN arinpchg ar ON oi.trx_ctrl_num = ar.trx_ctrl_num
+
+                WHERE  i.type_code IN ( 'frame', 'sun', 'parts' )
+                       AND b.status = 't'
+					   AND b.type = 'C'
+					   and NOT (b.user_category LIKE '%RB')
+                       AND (   a.cr_shipped > 0
+                               OR a.shipped > 0 )
+                       --AND EXISTS (   SELECT *
+                       --               FROM   inv_tran ( NOLOCK )
+                       --               WHERE  a.order_no = tran_no
+                       --                      AND a.order_ext = tran_ext
+                       --                      AND a.line_no = tran_line )
+                       --and i.category = @brand and i.vendor = @vendor
+                       AND ( ar.date_applied
+                       BETWEEN @JDateFrom AND @JDateto );
+
+	-- pre-epicor history (<2012)
+    INSERT INTO #temp
+                SELECT i.vendor ,
+                       ap.address_name ,
+                       i.part_no ,
+                       i.category AS Brand ,
+                       ia.field_2 AS Model ,
+                       ia.field_28 AS pomdate ,
+                       i.type_code ,
+                       b.date_shipped AS ShipDate ,
+                       ISNULL(a.return_code, '06-13') ,
+                       ISNULL(
+                       (   SELECT return_desc
+                           FROM   po_retcode p ( NOLOCK )
+                           WHERE  p.return_code = ISNULL(
+                                                      a.return_code, '06-13')) ,
+                       'Sales') AS reason ,
+                       cr_shipped AS Qty_ret ,
+                       CASE WHEN LEFT(ISNULL(a.return_code, '06-13'), 2) = '04' THEN
+                                cr_shipped
+                            ELSE 0
+                       END AS qty_def ,
+                       a.cost ,
+                       CAST(( a.cr_shipped * a.cost ) AS DECIMAL(20, 8)) AS ext_cost_ret ,
+                       CASE WHEN LEFT(a.return_code, 2) = '04' THEN
+                                CAST(( a.cr_shipped * a.cost ) AS DECIMAL(20, 8))
+                            ELSE 0
+                       END AS ext_cost_def ,
+                       0 AS rct_qty_hist ,
+                       CASE WHEN LEFT(b.user_category, 2) = 'rx' THEN shipped
+                            ELSE 0
+                       END AS Sales_rx_qty_hist ,
+                       CASE WHEN LEFT(b.user_category, 2) <> 'rx' THEN
+                                shipped
+                            ELSE 0
+                       END AS Sales_st_qty_hist ,
+                       a.order_no ,
+                       a.order_ext
+                FROM   cvo_ord_list_hist a ( NOLOCK )
+                       INNER JOIN CVO_orders_all_Hist b ( NOLOCK ) ON a.order_no = b.order_no
+                                                                      AND a.order_ext = b.ext
+                       INNER JOIN inv_master i ( NOLOCK ) ON a.part_no = i.part_no
+                       INNER JOIN inv_master_add ia ( NOLOCK ) ON i.part_no = ia.part_no
+                       LEFT OUTER JOIN apmaster ap ( NOLOCK ) ON i.vendor = ap.vendor_code
+                WHERE  i.type_code IN ( 'frame', 'sun', 'parts' )
+                       AND b.status = 't'
+                       AND (   a.cr_shipped > 0
+                               OR a.shipped > 0 )
+                       --and i.category = @brand and i.vendor = @vendor
+                       AND ( b.date_shipped
+                       BETWEEN @DateFrom AND @DateTo );
 
 
 
---- receipts
-insert into #temp
-select 
-	i.vendor,
-	ap.address_name,
-	i.part_no ,
-	i.category as Brand,
-	ia.field_2 as Model,
-	ia.field_28 as POMDate,
-	i.type_code,
-	convert(varchar,recv_date,101) as ShipDate, 
-	'' as return_code,
-	reason = 'Receipt',
-	0 as Qty_ret ,
-	0 as qty_def,
-	0 as cost,
-	0 as ext_cost_ret,
-	0 as ext_cost_def,
-	a.quantity as rct_qty_hist,
-	0 as Sales_rx_qty_hist,
-	0 as Sales_st_qty_hist,
-	a.po_no as order_no, 
-	0 as order_ext
---into #tag_test
-from receipts a (nolock)
-	inner join inv_master i (nolock) on a.part_no = i.part_no
-	inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
-	left outer join apmaster ap (nolock) on i.vendor = ap.vendor_code
-where i.type_code in ('frame','sun','parts')
-	and a.quantity >0
-	--and i.category = @brand and i.vendor = @vendor
-and (a.recv_date between @datefrom and @dateto)
+    --- receipts
+    INSERT INTO #temp
+                SELECT i.vendor ,
+                       ap.address_name ,
+                       i.part_no ,
+                       i.category AS Brand ,
+                       ia.field_2 AS Model ,
+                       ia.field_28 AS POMDate ,
+                       i.type_code ,
+                       CONVERT(VARCHAR, recv_date, 101) AS ShipDate ,
+                       '' AS return_code ,
+                       reason = 'Receipt' ,
+                       0 AS Qty_ret ,
+                       0 AS qty_def ,
+                       0 AS cost ,
+                       0 AS ext_cost_ret ,
+                       0 AS ext_cost_def ,
+                       SUM(a.quantity) AS rct_qty_hist ,
+                       0 AS Sales_rx_qty_hist ,
+                       0 AS Sales_st_qty_hist ,
+                       a.po_no AS order_no ,
+                       0 AS order_ext
+                --into #tag_test
+                FROM   receipts a ( NOLOCK )
+                       INNER JOIN inv_master i ( NOLOCK ) ON a.part_no = i.part_no
+                       INNER JOIN inv_master_add ia ( NOLOCK ) ON i.part_no = ia.part_no
+                       LEFT OUTER JOIN apmaster ap ( NOLOCK ) ON i.vendor = ap.vendor_code
+                WHERE  i.type_code IN ( 'frame', 'sun', 'parts' )
+                       AND a.quantity > 0
+                       --and i.category = @brand and i.vendor = @vendor
+                       AND ( a.recv_date
+                       BETWEEN @DateFrom AND @DateTo )
+				GROUP BY CONVERT(VARCHAR, recv_date, 101) ,
+                         i.vendor ,
+                         ap.address_name ,
+                         i.part_no ,
+                         i.category ,
+                         ia.field_2 ,
+                         ia.field_28 ,
+                         i.type_code ,
+                         a.po_no
 
-;with cte as (select distinct part_no from #temp where qty_def <> 0)
-select vendor, address_name, cte.PART_NO, Brand, MOdel, POMDate, TYPE_CODE, 
-isnull(RETURN_CODE,'') return_code, reason, sum(QTY_RET) qty_ret, sum(qty_def) QTY_DEF, COST, sum(EXT_COST_RET) ext_cost_Ret, 
-sum(ext_cost_def) EXT_COST_DEF, sum(rct_qty_hist) rct_qty_hist, sum(sales_rx_qty_hist) Sales_rx_qty_hist,
-sum(sales_st_qty_hist) Sales_st_qty_hist 
-from cte JOIN #temp on cte.part_no = #temp.part_no
-group by VENDOR, ADDRESS_NAME, cte.PART_NO, BRAND, MODEL, POMDATE, TYPE_CODE, 
-RETURN_CODE, REASON, cost
+    ;
+
+    SELECT   vendor ,
+             address_name ,
+             cte.part_no ,
+             Brand ,
+             Model ,
+             POMDate ,
+             type_code ,
+             ISNULL(return_code, '') return_code ,
+             reason ,
+             SUM(Qty_ret) qty_ret ,
+             SUM(qty_def) QTY_DEF ,
+             cost ,
+             SUM(ext_cost_ret) ext_cost_Ret ,
+             SUM(ext_cost_def) EXT_COST_DEF ,
+             SUM(rct_qty_hist) rct_qty_hist ,
+             SUM(Sales_rx_qty_hist) Sales_rx_qty_hist ,
+             SUM(Sales_st_qty_hist) Sales_st_qty_hist
+    FROM     (   SELECT DISTINCT part_no
+                 FROM   #temp
+                 WHERE  qty_def <> 0 ) cte
+             JOIN #temp ON cte.part_no = #temp.part_no
+    GROUP BY vendor ,
+             address_name ,
+             cte.part_no ,
+             Brand ,
+             Model ,
+             POMDate ,
+             type_code ,
+             return_code ,
+             reason ,
+             cost;
+
 
 
 

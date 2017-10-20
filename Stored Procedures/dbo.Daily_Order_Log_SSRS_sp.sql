@@ -5,12 +5,14 @@ GO
 
 -- exec daily_order_log_ssrs_sp '02/05/2014'
 -- tag 021414 - added qualifying order counts
+-- tag 101617 - change so week goes from Sun - Sat instead of Mon - Sun
 
-CREATE Procedure [dbo].[Daily_Order_Log_SSRS_sp]
+CREATE Procedure [dbo].[Daily_Order_Log_SSRS_sp] 
 @OrderDate datetime
 
 AS
-Begin
+BEGIN
+
 
 IF(OBJECT_ID('tempdb.dbo.#T1') is not null)
 drop table dbo.#T1
@@ -44,8 +46,12 @@ Where
 Left(ordertype,2) = 'ST'
 and right(OL.ORDERTYPE,2) NOT in ('RB','TB','PM')
 AND who_entered <> 'BACKORDR'
-AND date_entered >= Convert(varchar, DateAdd(dd, 1-(DatePart(dw,@OrderDate) - 1),@OrderDate), 101) And 
-date_entered < Convert(varchar, DateAdd(dd, (9 - DatePart(dw, @OrderDate)),@OrderDate), 101)
+--AND date_entered >= Convert(varchar, DateAdd(dd, 1-(DatePart(dw,@OrderDate) - 1),@OrderDate), 101) And 
+--date_entered < Convert(varchar, DateAdd(dd, (9 - DatePart(dw, @OrderDate)),@OrderDate), 101)
+AND date_entered >= Convert(varchar, DateAdd(dd, 1-(DatePart(dw,@OrderDate)),@OrderDate), 101) And 
+date_entered < Convert(varchar, DateAdd(dd, (7 - DatePart(dw, @OrderDate)),@OrderDate), 101)
+
+
 )
 
 Select * into #T1 From C
@@ -86,4 +92,6 @@ ON c.territory_code = ol.territory
 
 order by Region,territory,ol.date_entered
 End
+
+
 GO

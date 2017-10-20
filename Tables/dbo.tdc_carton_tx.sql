@@ -68,8 +68,6 @@ GO
 SET ANSI_NULLS ON
 GO
 
--- v1.1 CT 14/08/2012 - Take city, state and zip from arsalesp addr3
-
 CREATE TRIGGER [dbo].[CVO_Carton_Xfer_tr] ON [dbo].[tdc_carton_tx] FOR INSERT AS
 BEGIN
 
@@ -121,7 +119,7 @@ BEGIN
 
 			-- Remove city from address line and then strip leading/trailing spaces
 			SET @addr3 = LTRIM(RTRIM(RIGHT(@addr3,(LEN(@addr3) - @char_pos))))
-			
+
 			-- ZIP is preceeded by a space, so get the position of the last space in the string
 			SET @char_pos = 1
 			SET @space_pos = 0
@@ -137,7 +135,7 @@ BEGIN
 					SET @space_pos = @char_pos
 				END
 			END
-			
+
 			IF @space_pos <> 0
 			BEGIN
 				SET @zip = LTRIM(RTRIM(RIGHT(@addr3,(LEN(@addr3) - @space_pos))))
@@ -159,8 +157,8 @@ BEGIN
 		UPDATE tdc_carton_tx SET city = @city, state = @state, zip = @zip WHERE carton_no = @carton_no
 
 END
-
 END
+
 GO
 SET QUOTED_IDENTIFIER ON
 GO

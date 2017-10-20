@@ -6,9 +6,18 @@ CREATE PROCEDURE [dbo].[cvo_FramePurchase_sp]
     @asofdate DATETIME = NULL, @MthsToReport INT = NULL, @Cust VARCHAR(8000) 
 AS
 
-    -- exec cvo_FramePurchase_sp
+    -- exec cvo_FramePurchase_sp '10/31/2017',1,'045183'
+	
 begin
 SET NOCOUNT ON;
+
+-- debugging ...
+--DECLARE @asofdate DATETIME ,
+--        @MthsToReport INT ,
+--        @cust VARCHAR(20);
+--SELECT @asofdate = '10/17/2017' ,
+--       @MthsToReport = 12 ,
+--       @Cust = '045183';
 
 
 
@@ -37,7 +46,7 @@ SET NOCOUNT ON;
             ListItem, ar.territory_code
         FROM
             dbo.f_comma_list_to_table(@Cust)
-            JOIN armaster ar
+            JOIN arcust ar
                 ON ar.customer_code = ListItem
         ORDER BY ListItem
         ;
@@ -54,22 +63,22 @@ SET NOCOUNT ON;
         i.part_no,
         sbm.c_year,
         sbm.c_month,
-        SUM(qnet) net_qty,
-		CASE WHEN LEFT(sbm.user_category,2) = 'RX' THEN 'RX' ELSE 'ST' END order_type
+		CASE WHEN LEFT(sbm.user_category,2) = 'RX' THEN 'RX' ELSE 'ST' END order_type,
+        SUM(qnet) net_qty
+
     FROM
-        #cust AS c
-        JOIN armaster ar
-            ON ar.customer_code = c.customer_code
-        LEFT OUTER JOIN cvo_sbm_details sbm
-            ON ar.customer_code = sbm.customer
-               AND ar.ship_to_code = sbm.ship_to
+		armaster ar (nolock)
+		LEFT OUTER join
+		 cvo_sbm_details sbm (NOLOCK)
+		 ON sbm.customer = ar.customer_code AND sbm.ship_to = ar.ship_to_code
+		 
         JOIN inv_master i
             ON i.part_no = sbm.part_no
         JOIN inv_master_add ia
-            ON ia.part_no = i.part_no
+            ON ia.part_no = sbm.part_no
         LEFT OUTER JOIN
         (
-            SELECT
+            SELECT distinct
                 c.customer_code,
                 STUFF(
                 (
@@ -92,21 +101,24 @@ SET NOCOUNT ON;
     WHERE
         sbm.yyyymmdd >= DATEADD(MONTH, -@MthsToReport, @asofdate)
         AND i.type_code IN ( 'frame', 'sun' )
-    GROUP BY
-        ar.territory_code,
-        ar.customer_code,
-        ar.ship_to_code,
-        ar.address_name,
-        designations.desig,
-        i.category,
-        ia.field_2,
-        i.part_no,
-        sbm.c_year,
-        sbm.c_month,
-		CASE WHEN LEFT(sbm.user_category,2) = 'RX' THEN 'RX' ELSE 'ST' END 
+		AND ar.customer_code IN (SELECT DISTINCT customer_code FROM #cust)
+    GROUP BY LTRIM(RTRIM(ISNULL(designations.desig, '<None>'))) ,
+             CASE WHEN LEFT(sbm.user_category, 2) = 'RX' THEN 'RX'
+             ELSE 'ST'
+             END ,
+             ar.territory_code ,
+             ar.customer_code ,
+             ar.ship_to_code ,
+             ar.address_name ,
+             i.category ,
+             ia.field_2 ,
+             i.part_no ,
+             sbm.c_year ,
+             sbm.c_month
     ;
 
 END;
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_FramePurchase_sp] TO [public]

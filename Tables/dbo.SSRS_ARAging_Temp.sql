@@ -33,3 +33,11 @@ CREATE TABLE [dbo].[SSRS_ARAging_Temp]
 [date_type] [tinyint] NULL
 ) ON [PRIMARY]
 GO
+GRANT DELETE ON  [dbo].[SSRS_ARAging_Temp] TO [public]
+GO
+GRANT INSERT ON  [dbo].[SSRS_ARAging_Temp] TO [public]
+GO
+GRANT SELECT ON  [dbo].[SSRS_ARAging_Temp] TO [public]
+GO
+GRANT UPDATE ON  [dbo].[SSRS_ARAging_Temp] TO [public]
+GO

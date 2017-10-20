@@ -42,6 +42,8 @@ AS
         --SELECT * FROM   dbo.cvo_sc_transfers_allocation AS sta;
         --SELECT * FROM   cvo_sc_transfers_templates AS stt;
 
+		-- SELECT * FROM cvo_transfer_vw WHERE date_entered > '10/18/2017'
+
         SELECT @today = GETDATE();
 
 
@@ -67,11 +69,11 @@ AS
                  LEFT OUTER JOIN inv_list il ON il.part_no = sta.sku -- part/location must exist
                                                 AND il.location = stt.location
         WHERE    st.isActive = 1
+				 AND not stt.territory_code IN ('50534','i-sales') -- 534-broo
         ORDER BY stt.location ,
                  sta.sku;
 
-        --SELECT *
-        --FROM   #xfer AS x;
+        --SELECT * FROM   #xfer AS x;
         IF EXISTS (   SELECT 1
                       FROM   #xfer
                       WHERE  part_no IS NULL
@@ -90,13 +92,16 @@ AS
 					   slp_loc_valid
                 FROM   #xfer
                 WHERE  part_no IS NULL
-                       OR il_loc IS NULL;
-                RETURN -1;
+                       OR il_loc IS NULL
+					   OR slp_loc_valid IS null;
+                RETURN;
             END;
 
-
-        SELECT @location = MIN(x.location)
-        FROM   #xfer AS x;
+			SELECT @location = MIN(x.location)
+			FROM   #xfer AS x
+			WHERE  part_no IS NOT NULL
+				   AND il_loc IS NOT NULL
+				   AND slp_loc_valid IS NOT NULL;
 
 
         WHILE @location IS NOT NULL
@@ -118,13 +123,14 @@ AS
                 FROM   dbo.next_xfer_no;
 
 
-                SELECT @to_loc_name = l.name ,
-                       @to_loc_addr1 = addr1 ,
-                       @to_loc_addr2 = addr2 ,
-                       @to_loc_addr3 = addr3 ,
-                       @to_loc_addr4 = addr4 ,
-                       @to_loc_addr5 = addr5
+                SELECT @to_loc_name = sav.salesperson_name ,
+                       @to_loc_addr1 = sav.addr1 ,
+                       @to_loc_addr2 = sav.addr2 ,
+                       @to_loc_addr3 = sav.addr3 ,
+					   @to_loc_addr4 = '',
+					   @to_loc_addr5 = ''
                 FROM   locations_all l
+				JOIN cvo_sc_addr_vw sav ON sav.location = l.location
                 WHERE  l.location = @to_loc;
 
                 SELECT @locations_name = l.name ,
@@ -263,7 +269,10 @@ AS
 
                 SELECT @location = MIN(x.location)
                 FROM   #xfer AS x
-                WHERE  x.location > @location;
+                WHERE  x.location > @location
+				and part_no IS NOT NULL
+				   AND il_loc IS NOT NULL
+				   AND slp_loc_valid IS NOT NULL;;
 
             END;
 
@@ -310,4 +319,8 @@ AS
     GRANT EXECUTE
         ON dbo.cvo_sc_transfer_create_sp
         TO PUBLIC;
+
+
+GO
+GRANT EXECUTE ON  [dbo].[cvo_sc_transfer_create_sp] TO [public]
 GO

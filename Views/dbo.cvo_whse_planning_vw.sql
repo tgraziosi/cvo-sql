@@ -151,9 +151,9 @@ AS
             LEFT JOIN lot_bin_stock l ( NOLOCK ) ON s.location = l.location
                                                     AND s.part_no = l.part_no
                                                     AND s.bin_no = l.bin_no
-			LEFT OUTER JOIN dbo.tdc_bin_replenishment AS tbr ON tbr.location = il.location
-													AND tbr.part_no = i.part_no
-													AND tbr.bin_no = l.bin_no
+			LEFT OUTER JOIN dbo.tdc_bin_replenishment AS tbr ON tbr.location = s.location
+													AND tbr.part_no = s.part_no
+													AND tbr.bin_no = s.bin_no
     WHERE   l.location IS NULL
             AND l.part_no IS NULL
             AND l.bin_no IS NULL
@@ -207,6 +207,7 @@ AS
 			
 			;
     
+
 
 
 
