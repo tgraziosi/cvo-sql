@@ -44,6 +44,7 @@ exec CVO_SearchStock_sp 'ADALINA','001',0,'','',1,'BCBG',0,'BCALBW',1
 -- v3.9	CT 14/02/2013 - Fixed bug where an apply_qty is specified, but std balanced logic doesn't return the expected qty
 -- v4.0 CB 25/02/2013 - logic adjustment - Use the deviation to move towards a better weeks selection
 -- v4.1 CT 21/05/2013 - Mini matrix called from order upload passes in @is_mini = 2
+-- v4.2 CB 27/09/2017 - #1629 Matrix for transfers
 
 CREATE PROCEDURE  [dbo].[CVO_SearchStock_sp]	@stile				VARCHAR(100),   
 												@location			VARCHAR(20),   
@@ -54,7 +55,8 @@ CREATE PROCEDURE  [dbo].[CVO_SearchStock_sp]	@stile				VARCHAR(100),
 												@group				VARCHAR(20),
 												@apply_qty			INT = 0,	-- v3.4
 												@partial_sku		VARCHAR(30) = '', -- v3.6
-												@is_mini			INT = 0	-- v3.5
+												@is_mini			INT = 0,	-- v3.5
+												@to_loc				varchar(10) = '' -- v4.2
 AS  
 BEGIN  
 	DECLARE		@id								INT,  
@@ -243,6 +245,7 @@ BEGIN
 		AND			(@GpoSize = '' or a.field_17 in (SELECT * FROM fs_cParsing(@GpoSize)))  
 		--AND			ISNULL(m.obsolete,0) = 0 -- v2.7 
 		AND			ISNULL(m.void,'') <> 'V' -- v3.1
+
 	END
 	ELSE
 	BEGIN	-- Mini Matrix 
@@ -309,6 +312,30 @@ BEGIN
 		AND			a.part_no like @partial_sku -- v3.6
 	END
 	-- END v3.5
+
+	-- v4.2 Start
+	IF (@to_loc <> '')
+	BEGIN
+
+		CREATE TABLE #xfer_remove (
+			part_no	varchar(30))
+
+		INSERT	#xfer_remove
+		SELECT	a.part_no
+		FROM	#temp a
+		JOIN	inv_list b (NOLOCK)
+		ON		a.part_no = b.part_no
+		WHERE	b.location = @to_loc
+
+		DELETE	a
+		FROM	#temp a
+		LEFT JOIN #xfer_remove b
+		ON		a.part_no = b.part_no
+		WHERE	b.part_no IS NULL		
+
+		DROP TABLE #xfer_remove
+	END
+	-- v4.2 End
 
 	-- v2.0
 	DELETE	a

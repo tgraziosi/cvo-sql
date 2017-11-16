@@ -95,7 +95,7 @@ BEGIN
 	WHERE
 		[status] = 'N'
 		AND [type] = 'I'
-		-- AND ext = 0
+		AND ext = 0
 
 	-- Convert dates to format used by pick ticket routine
 	SELECT @yesterday = CONVERT(VARCHAR(8),DATEADD(day, -1,GETDATE()),1)
@@ -720,7 +720,6 @@ BEGIN
 
 
 END
-
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_auto_print_pick_tickets_sp] TO [public]

@@ -86,7 +86,7 @@ set @evenyear = datepart(yy,@todate) % 2 -- 1 = odd, 0 = even
 
  WHERE   
  isnull(co.coop_eligible,'') = 'Y'
- AND ar.customer_code = CASE when @cust IS NULL THEN ar.customer_code ELSE @cust end
+ AND ar.customer_code = isnull(@cust,ar.customer_code)
  
  CREATE INDEX #COOP_IDX1 ON #COOP_CUST_INFO (CUSTOMER_CODE)
  
@@ -297,6 +297,7 @@ where cte.customer_code = ci.customer_code
 
 
 END
+
 
 
 

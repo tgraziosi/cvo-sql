@@ -10,8 +10,12 @@ CREATE TABLE [dbo].[cvo_new_customer_req]
 [contact_name] [varchar] (100) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [contact_phone] [varchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [req_data] [varchar] (5000) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
-[datetime] [datetime] NOT NULL CONSTRAINT [DF__cvo_new_c__datet__4A00EE18] DEFAULT (getdate())
+[datetime] [datetime] NOT NULL CONSTRAINT [DF__cvo_new_c__datet__4A00EE18] DEFAULT (getdate()),
+[customer_code] [varchar] (12) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_new_c__custo__37782989] DEFAULT (NULL),
+[Upload_msg] [varchar] (5000) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_new_customer_req] ADD CONSTRAINT [PK__cvo_new_customer__4818A5A6] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
+GO
+EXEC sp_addextendedproperty N'MS_Description', '', 'SCHEMA', N'dbo', 'TABLE', N'cvo_new_customer_req', 'COLUMN', N'customer_code'
 GO

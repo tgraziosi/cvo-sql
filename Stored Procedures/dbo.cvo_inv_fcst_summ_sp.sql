@@ -11,12 +11,28 @@ CREATE PROCEDURE [dbo].[cvo_inv_fcst_summ_sp]
 /*
 
 EXEC CVo_inv_fcst_summ_sp 
-				@asofdate = '04/01/2017', 
-				@endrel = '04/01/2017',
-                @collection = 'cvo',
+				@asofdate = '10/01/2017', 
+				@endrel = '10/01/2017',
+                @collection = 'as',
 				@Style = '*all*',
                 @SpecFit = '*all*',
-                @location = '001';
+                @location = '001'; 
+
+
+ exec cvo_inv_fcst_r3_sp
+
+ @asofdate = '10/01/2017', 
+ @endrel = '10/01/2017', 
+ @current = 0, 
+ @collection = 'as', 
+ @style = 'authentic', 
+ @specfit = null,
+ @usg_option = 'o',
+ @debug = 0, -- debug
+ @location = '001',
+ @restype = 'FRAME,SUN',
+ @WKSONHANDGTLT = 'all',
+ @WKSONHAND = 0
 
 */
 
@@ -43,74 +59,7 @@ AS
 -- SELECT * FROM #s AS s
 
     CREATE TABLE #ifp
-        (
-    brand VARCHAR(10),
-    style VARCHAR(40),
-    vendor VARCHAR(12),
-    type_code VARCHAR(10),
-    gender VARCHAR(15),
-    material VARCHAR(40),
-    moq VARCHAR(255),
-    watch VARCHAR(15),
-    sf VARCHAR(40),
-    rel_date DATETIME,
-    pom_date DATETIME,
-    mth_since_rel INT,
-    s_sales_m1_3 FLOAT(8),
-    s_sales_m1_12 FLOAT(8),
-    s_e4_wu INT,
-    s_e12_wu INT,
-    s_e52_wu INT,
-    s_promo_w4 INT,
-    s_promo_w12 INT,
-    s_gross_w4 INT,
-    s_gross_w12 INT,
-    line_type VARCHAR(3),
-    sku VARCHAR(30),
-    location VARCHAR(12),
-    mm INT,
-    p_rel_date DATETIME,
-    p_pom_date DATETIME,
-    lead_time INT,
-    bucket DATETIME,
-    qoh INT,
-    atp INT,
-    reserve_qty INT,
-    quantity INT,
-    mult DECIMAL(20, 8),
-    s_mult DECIMAL(20, 8),
-    sort_seq INT,
-    pct_of_style DECIMAL(37, 19),
-    pct_First_po FLOAT(8),
-    pct_sales_style_m1_3 FLOAT(8),
-    p_e4_wu INT,
-    p_e12_wu INT,
-    p_e52_wu INT,
-    p_subs_w4 INT,
-    p_subs_w12 INT,
-    s_mth_usg INT,
-    p_mth_usg INT,
-    s_mth_usg_mult DECIMAL(31, 8),
-    p_po_qty_y1 DECIMAL(38, 8),
-    ORDER_THRU_DATE DATETIME,
-    TIER VARCHAR(1),
-    p_type_code VARCHAR(10),
-    s_rx_w4 INT,
-    s_rx_w12 INT,
-    p_rx_w4 INT,
-    p_rx_w12 INT,
-    s_Ret_w4 INT,
-    s_ret_w12 INT,
-    p_ret_w4 INT,
-    p_ret_w12 INT,
-    s_wty_w4 INT,
-    s_wty_w12 INT,
-    p_wty_w4 INT,
-    p_wty_w12 INT,
-    p_gross_w4 INT,
-    p_gross_w12 INT,
-    price DECIMAL(20, 8),
-    frame_type VARCHAR(40)
+         ( [brand] varchar(10), [style] varchar(40), [vendor] varchar(12), [type_code] varchar(10), [gender] varchar(15), [material] varchar(40), [moq] varchar(255), [watch] varchar(15), [sf] varchar(40), [rel_date] datetime, [pom_date] datetime, [mth_since_rel] int, [s_sales_m1_3] float(8), [s_sales_m1_12] float(8), [s_e4_wu] int, [s_e12_wu] int, [s_e52_wu] int, [s_promo_w4] int, [s_promo_w12] int, [s_gross_w4] int, [s_gross_w12] int, [LINE_TYPE] varchar(3), [sku] varchar(30), [location] varchar(12), [mm] int, [p_rel_date] datetime, [p_pom_date] datetime, [lead_time] int, [bucket] datetime, [QOH] int, [atp] int, [reserve_qty] int, [quantity] int, [mult] decimal(20,8), [s_mult] decimal(20,8), [sort_seq] int, [alloc_qty] int, [non_alloc_qty] int, [pct_of_style] decimal(37,19), [pct_first_po] float(8), [pct_sales_style_m1_3] float(8), [p_e4_wu] int, [p_e12_wu] int, [p_e52_wu] int, [p_subs_w4] int, [p_subs_w12] int, [s_mth_usg] int, [p_mth_usg] int, [s_mth_usg_mult] decimal(31,8), [p_sales_m1_3] int, [p_po_qty_y1] decimal(38,8), [ORDER_THRU_DATE] datetime, [TIER] varchar(1), [p_type_code] varchar(10), [s_rx_w4] int, [s_rx_w12] int, [p_rx_w4] int, [p_rx_w12] int, [s_ret_w4] int, [s_ret_w12] int, [p_ret_w4] int, [p_ret_w12] int, [s_wty_w4] int, [s_wty_w12] int, [p_wty_w4] int, [p_wty_w12] int, [p_gross_w4] int, [p_gross_w12] int, [price] decimal(20,8), [frame_type] varchar(40) 
         );
 
     INSERT  INTO #ifp
@@ -202,12 +151,15 @@ AS
 			CAST(ISNULL(sbm.s_w12_net_sales,0) AS DECIMAL(20,2)) s_w12_net_sales,
 			CAST(ISNULL(sbm.s_w12_net_qty,0) AS DECIMAL(20,2)) s_w12_net_qty,
 			CAST(ISNULL(po.s_po_on_order,0) AS int) s_po_on_order,
+			CAST(ISNULL(sbm.s_w12_gross_sales,0) AS DECIMAL(20,2)) s_w12_gross_sales,
+			CAST(ISNULL(sbm.s_w12_gross_qty,0) AS DECIMAL(20,2)) s_w12_gross_qty,
+
 			'001' AS location
 
     FROM    #ifp AS t
 			LEFT OUTER JOIN inv_list il ON il.part_no = t.sku AND il.location = '001'
 			LEFT OUTER JOIN
-			(SELECT part_no, SUM(anet) s_w12_net_sales, SUM(qnet) s_w12_net_qty
+			(SELECT part_no, SUM(anet) s_w12_net_sales, SUM(qnet) s_w12_net_qty, SUM(asales) s_w12_gross_sales, SUM(qsales) s_w12_gross_qty
 			FROM dbo.cvo_sbm_details AS sd
 			WHERE iscl = 0 AND sd.return_code = ''
 			AND yyyymmdd >= DATEADD(WEEK, -12, @asofdate)
@@ -225,6 +177,7 @@ AS
 			)
 
 			;
+
 
 
 

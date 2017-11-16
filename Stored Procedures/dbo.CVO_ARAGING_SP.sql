@@ -212,7 +212,7 @@ BEGIN -- CVO_ARAGING_SP DATA
   BG_Code    varchar(8) NULL,      
   BG_Name    varchar(40) NULL,      
   PRICE_CODE   VARCHAR(8) NULL,      
-  AVGDAYSLATE   SMALLINT NULL,      
+  AVGDAYSLATE   int NULL,      
   BAL     FLOAT  NULL,      
   FUT     FLOAT  NULL,      
   CUR     FLOAT  NULL,      
@@ -1372,6 +1372,7 @@ DELETE #invoices where ABS(balance) < 0.001 -- v2.0
     
  SET NOCOUNT off       
 end -- CVO_ARAGING_SP DATA       
+
 
 GO
 

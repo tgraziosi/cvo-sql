@@ -11,6 +11,7 @@ GO
 -- v1.7 CB 16/07/2013 - Issue #927 - Buying Group Switching
 -- v1.8 CB 12/02/2014 - Issue 1349 - RA# - Copy ra1 field for credit returns into the cust po field
 -- v1.9 CB 15/07/2014 - Fix issue with discount rounding
+-- v2.0 CB 14/11/2017 - Remove CVO_qty_to_alloc_tbl records
 CREATE PROCEDURE [dbo].[adm_post_ar_work] 
 @user_id int,			@user varchar(30),			@post_batch_id int,
 @process_ctrl_num varchar(16) ,	@trx_type smallint,			@AR_INCL_NON_TAX char(1) = NULL OUT,
@@ -794,6 +795,15 @@ truncate table #orders
 
 if @trx_type = 2032 -- credit memos
   exec icv_fs_post_cradj @user, @process_ctrl_num , @err OUT
+
+-- v2.0 Start
+DELETE	a 
+FROM	CVO_qty_to_alloc_tbl a 
+JOIN	orders_all b (NOLOCK)
+ON		a.order_no = b.order_no 
+AND		a.order_ext = b.ext
+WHERE	b.status in ('T','V')
+-- v2.0 End
 
 return 
 GO

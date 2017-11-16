@@ -70,7 +70,7 @@ SUM(CASE WHEN s.return_code = 'wty' THEN s.areturns ELSE 0 end) AS wty_ret
 from cvo_sbm_details (nolock) s
 JOIN armaster ar (NOLOCK) 
 ON ar.customer_code = s.customer AND ar.ship_to_code = s.ship_to
-WHERE c_year <= 2017
+WHERE c_year <= @year
 GROUP BY ar.territory_code, s.c_year, s.c_month
 ) tsbm on tsbm.territory_code = t.territory_code
 
@@ -80,6 +80,7 @@ GROUP BY t.region,
 		 t.territory_desc,
 		ISNULL(tsbm.c_month,datepart(mm,getdate())),
 		ISNULL(tsbm.c_year,datepart(yy,getdate())) -- fiscal dating
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_tsbm_summary_sp] TO [public]

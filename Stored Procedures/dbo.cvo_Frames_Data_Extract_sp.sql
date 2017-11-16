@@ -6,7 +6,7 @@ GO
 -- Create Data for Frames Data SmartSubmit Template ver. 8/11/2009
 -- Author: Tine Graziosi for ClearVision 
 -- 2/4/2013
--- exec cvo_frames_data_extract_sp '1/1/1900', NULL
+-- exec cvo_frames_data_extract_sp '12/12/2017', NULL
 -- 4/2015 - update for CMI
 -- 10/15 - update to pull from epicor if not in cmi - (revo support)
 -- =============================================
@@ -15,472 +15,556 @@ GO
 -- updated 05/23/2014 - tag - added brand parameter.  
 --		To report on a brand, select the brand and 1/1/1900 as the release date
 
-CREATE PROCEDURE [dbo].[cvo_Frames_Data_Extract_sp] 
-@ReleaseDate datetime,
-@Brand varchar(1000) = null
+CREATE PROCEDURE [dbo].[cvo_Frames_Data_Extract_sp]
+    @ReleaseDate DATETIME ,
+    @Brand VARCHAR(5000) = NULL
 AS
-BEGIN
-	-- SET NOCOUNT ON added to prevent extra result sets from
-	-- interfering with SELECT statements.
-	SET NOCOUNT ON;
-	SET ANSI_WARNINGS OFF;
+    BEGIN
+        -- SET NOCOUNT ON added to prevent extra result sets from
+        -- interfering with SELECT statements.
+        SET NOCOUNT ON;
+        SET ANSI_WARNINGS OFF;
 
-	--DECLARE @RELEASEDATE DATETIME, @BRAND VARCHAR(1000)
-	--SELECT @RELEASEDATE = '1/1/1900', @BRAND = 'bcbg'
+        --DECLARE @RELEASEDATE DATETIME, @BRAND VARCHAR(1000)
+        --SELECT @RELEASEDATE = '1/1/1900', @BRAND = 'bcbg'
 
-	IF(OBJECT_ID('tempdb.dbo.#framesdatalist') IS NOT NULL) DROP TABLE #framesdatalist
+        IF ( OBJECT_ID('tempdb.dbo.#framesdatalist') IS NOT NULL )
+            DROP TABLE #framesdatalist;
 
-	CREATE TABLE #framesdatalist
-    (
-      UPC VARCHAR(13) ,
-      Frame_SKU VARCHAR(30) ,
-      Frame_Name VARCHAR(40) ,
-      Designer_collection VARCHAR(36) ,
-      Brand_id VARCHAR(20) ,
-      Status VARCHAR(1) ,
-      Product_Group_type VARCHAR(13) ,
-      Frame_Color_Group VARCHAR(10) ,
-      Frame_Color_Description VARCHAR(40) ,
-      Frame_color_code VARCHAR(1) ,
-      Lens_color_code VARCHAR(1) ,
-      LENS_COLOR_DESCRIPTION VARCHAR(1) ,
-      Eye_Size VARCHAR(5) ,
-      A INT ,
-      B INT ,
-      ED INT ,
-      ED_Angle VARCHAR(1) ,
-      Temple_length VARCHAR(10) ,
-      Bridge_Size VARCHAR(10) ,
-      DBL DECIMAL(18, 0) ,
-      STS VARCHAR(1) ,
-      Circumference VARCHAR(1) ,
-      Gender VARCHAR(6) ,
-      Age_type VARCHAR(5) ,
-      Material_type VARCHAR(8) ,
-      Material_description VARCHAR(1) ,
-      Precious_Metal_type VARCHAR(1) ,
-      Precious_Metal_description VARCHAR(1) ,
-      Country_of_Origin VARCHAR(11) ,
-      Temple_type VARCHAR(5) ,
-      Temple_Description VARCHAR(1) ,
-      Bridge_type VARCHAR(20) ,
-      Bridge_Description VARCHAR(1) ,
-      Sunglass_Lens_type VARCHAR(20) ,
-      Sun_lens_description VARCHAR(20) ,
-      Trim_type VARCHAR(1) ,
-      Trim_description VARCHAR(1) ,
-      clip_sun_glass_type VARCHAR(1) ,
-      Clip_sunglass_description VARCHAR(1) ,
-      sideshields_type VARCHAR(1) ,
-      Side_Shields_Description VARCHAR(1) ,
-      EdgeType VARCHAR(1) ,
-      Case_type VARCHAR(19) ,
-      Case_Type_Description VARCHAR(1) ,
-      Hinge_type VARCHAR(13) ,
-      Rim_Type VARCHAR(255) ,
-      Frame_Shape VARCHAR(40) ,
-      Month_Introduced INT ,
-      Year_Introduced INT ,
-      Complete_Price DECIMAL(8, 2) ,
-      Front_price DECIMAL(8, 2) ,
-      Temple_pair_price VARCHAR(1) ,
-      Temple_price DECIMAL(8, 2) ,
-      Price_Description VARCHAR(1) ,
-      Features VARCHAR(1) ,
-      Frame_PD_type VARCHAR(1) ,
-      Frame_pd_description VARCHAR(1) ,
-      lens_vision_type VARCHAR(1) ,
-      lens_vision_description VARCHAR(1) ,
-      pattern_name VARCHAR(1) ,
-      rx_type VARCHAR(1) ,
-      rx_description VARCHAR(1) ,
-      warranty_type VARCHAR(1) ,
-      Warranty_description VARCHAR(1) ,
-      Radii VARCHAR(1)
-    );
+        CREATE TABLE #framesdatalist
+            (
+                UPC VARCHAR(13) ,
+                Frame_SKU VARCHAR(30) ,
+                Frame_Name VARCHAR(40) ,
+                Designer_collection VARCHAR(36) ,
+                Brand_id VARCHAR(20) ,
+                Status VARCHAR(1) ,
+                Product_Group_type VARCHAR(13) ,
+                Frame_Color_Group VARCHAR(10) ,
+                Frame_Color_Description VARCHAR(40) ,
+                Frame_color_code VARCHAR(1) ,
+                Lens_color_code VARCHAR(1) ,
+                LENS_COLOR_DESCRIPTION VARCHAR(1) ,
+                Eye_Size VARCHAR(5) ,
+                A INT ,
+                B INT ,
+                ED INT ,
+                ED_Angle VARCHAR(1) ,
+                Temple_length VARCHAR(10) ,
+                Bridge_Size VARCHAR(10) ,
+                DBL DECIMAL(18, 0) ,
+                STS VARCHAR(1) ,
+                Circumference VARCHAR(1) ,
+                Gender VARCHAR(6) ,
+                Age_type VARCHAR(5) ,
+                Material_type VARCHAR(8) ,
+                Material_description VARCHAR(1) ,
+                Precious_Metal_type VARCHAR(1) ,
+                Precious_Metal_description VARCHAR(1) ,
+                Country_of_Origin VARCHAR(11) ,
+                Temple_type VARCHAR(5) ,
+                Temple_Description VARCHAR(1) ,
+                Bridge_type VARCHAR(20) ,
+                Bridge_Description VARCHAR(1) ,
+                Sunglass_Lens_type VARCHAR(20) ,
+                Sun_lens_description VARCHAR(20) ,
+                Trim_type VARCHAR(1) ,
+                Trim_description VARCHAR(1) ,
+                clip_sun_glass_type VARCHAR(1) ,
+                Clip_sunglass_description VARCHAR(1) ,
+                sideshields_type VARCHAR(1) ,
+                Side_Shields_Description VARCHAR(1) ,
+                EdgeType VARCHAR(1) ,
+                Case_type VARCHAR(19) ,
+                Case_Type_Description VARCHAR(1) ,
+                Hinge_type VARCHAR(13) ,
+                Rim_Type VARCHAR(255) ,
+                Frame_Shape VARCHAR(40) ,
+                Month_Introduced INT ,
+                Year_Introduced INT ,
+                Complete_Price DECIMAL(8, 2) ,
+                Front_price DECIMAL(8, 2) ,
+                Temple_pair_price VARCHAR(1) ,
+                Temple_price DECIMAL(8, 2) ,
+                Price_Description VARCHAR(1) ,
+                Features VARCHAR(1) ,
+                Frame_PD_type VARCHAR(1) ,
+                Frame_pd_description VARCHAR(1) ,
+                lens_vision_type VARCHAR(1) ,
+                lens_vision_description VARCHAR(1) ,
+                pattern_name VARCHAR(1) ,
+                rx_type VARCHAR(1) ,
+                rx_description VARCHAR(1) ,
+                warranty_type VARCHAR(1) ,
+                Warranty_description VARCHAR(1) ,
+                Radii VARCHAR(1)
+            );
 
-	IF(OBJECT_ID('tempdb.dbo.#brand') IS NOT NULL) DROP TABLE #brand
+        IF ( OBJECT_ID('tempdb.dbo.#brand') IS NOT NULL )
+            DROP TABLE #brand;
 
-	CREATE TABLE #brand ([brand] VARCHAR(10))
-	if @brand is null
-	begin
-		insert into #brand ([brand])
-		select distinct kys from category where isnull(void,'n') = 'n' 
-	end
-	else
-	begin
-		INSERT INTO #brand ([brand])
-		SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@brand)
-	end
+        CREATE TABLE #brand
+            (
+                brand VARCHAR(10)
+            );
+        IF @Brand IS NULL
+            BEGIN
+                INSERT INTO #brand ( brand )
+                            SELECT DISTINCT kys
+                            FROM   category
+                            WHERE  ISNULL(void, 'n') = 'n';
+            END;
+        ELSE
+            BEGIN
+                INSERT INTO #brand ( brand )
+                            SELECT ListItem
+                            FROM   dbo.f_comma_list_to_table(@Brand);
+            END;
 
-	-- INSERT INTO #framesdatalist
-	select 
-	-- TOP 100 percent
-	--A
-	CAST(ISNULL(i.upc_code,'') AS VARCHAR(13)) as UPC,
-	--B
-	CAST(i.part_no AS VARCHAR(30)) as Frame_SKU,
-	--C
-	ia.field_2 as Frame_Name,
-	--D
-	Designer_collection = 
-	case i.type_code 
-	  when 'frame' then
-		case i.category  -- Brand
-			when 'AS' then 'Aspire Collection' -- 040915
-			when 'bcbg' then 'BCBG Max Azria Collection'
-			when 'CVO' then 'ClearVision Collection'
-			when 'CH' then 'ColeHaan Collection'
-			when 'DD' then 'dilli dalli'
-			when 'DH' then 'Durahinge Collection' -- 040915
-			when 'DI' then 'digit. collection'
-			when 'ET' then 'Ellen Tracy Collection'
-			when 'IZOD' then 
-				case when ISNULL(ia.category_2,'') like '%child%' then -- gender
-					'Izod Boy''s Collection'
-				else 'Izod Collection' end
-			when 'IZX' then 
-				case when ISNULL(ia.category_2,'') like '%child%' then
-					'Izod PerformX Boy''s Collection'
-				else 'Izod PerformX Collection' end
-			when 'JMC' then 
-				case when ISNULL(ia.category_2,'') like '%child%' then
-					'Jessica Girls Collection'
-				else 'Jessica Collection' end
-			when 'JC' then 'Junction City Collection'
-			when 'ME' then 'Mark Ecko Collection'
-			when 'OP' then 
-				case when ISNULL(ia.category_2,'') like '%child%' then
-					'Op-Ocean Pacific Kids Collection'
-				else 'Op-Ocean Pacific Collection' end
-			when 'PT' then 'Puriti Collection' -- 2/2014
-			when 'RR' then 'Red Raven'	-- 040915
-			WHEN 'SM' THEN 'Steve Madden' -- 120216
-			else '**Undefined**' end
-			
-	  when 'sun' then
-		case ISNULL(i.category,'')
-			when 'AS' then 'Aspire Sunglass Collection'
-			when 'bcbg' then 'BCBG Max Azria Sunglass Collection'
-			when 'CH' then 'Cole Haan Sunglass Collection'
-			when 'ET' then 'ET Sunglass Collection'
-			when 'IZX' then 'Izod PerformX Sunglass Collection'
-			when 'IZOD' then 'Izod Sunglass Collection'
-			when 'JMC' then 'Jessica Sunglass Collection'
-			when 'ME' then 'Marc Ecko Sunglass Collection'
-			when 'OP' then 'Op-Ocean Pacific Sunglass Collection'
-			when 'PT' then 'Puriti Sunglass Collection'
-			WHEN 'REVO' THEN 'REVO Sunglass Collection'
-			WHEN 'SM' THEN 'Steve Madden'
-			else '**Undefined**' end
-	  end,
-	-- E 
-	Brand_id = CAST(
-	case ISNULL(i.category,'') 
-		when 'AS' then '8311'  -- 040915
-		when 'bcbg' then '6799'
-		when 'CVO' then 
-			case when ia.field_10 like 'Metal%' then '6432'
-				else '875' end
-		when 'CH' then '7112'
-		when 'DD' then '7853'
-		when 'DH' then '8314'  -- 040915
-		when 'DI' then '7696'
-		when 'ET' then '6921'
-		when 'IZOD' then '6436'
-		when 'IZX' then '6436'
-		when 'JMC' then '6437'
-		when 'JC' then '7370'
-		when 'KO' then '7269'
-		when 'ME' then '7697'
-		when 'OP' then '6439'
-		when 'PT' then '6435' -- 02/2014
-		when 'RR' then '8212' -- 05/27/2014
-		WHEN 'REVO' THEN '8353' -- 10/16/2015
-		WHEN 'SM' THEN '8506' -- 120216
-	else '**Undefined**' END AS VARCHAR(20)),
-	--  F
-	Status = 'A',
-	-- G
-	Product_Group_type = 
-	case when i.type_code = 'sun' then 'Sunglasses' -- Sunglasses
-		 when ISNULL(ia.category_2,'') like '%child%' then 'Children''s' -- Childrens
-		 when ISNULL(ia.field_11,'') like '%rimless%' then 'Rimless' -- Rimless
-		 when ISNULL(ia.field_11,'') like '%combo%' then 'Combinations'
-		 when ISNULL(ia.field_10,'') like '%metal%' then 'Metal' -- Metal
-		 when ISNULL(ia.field_10,'') like '%plastic%' then 'Plastic' 
-		 when ISNULL(ia.field_10,'') like '%TR-90%' then 'Plastic' 
-		 else '**Undefined**' end,
-	-- i.cmdty_code as Product_Group_Type,
-	-- H
-	Frame_Color_Group = 
-	case -- ia.category_5 
-		ISNULL(cmi.colorgroupcode, ISNULL(ia.category_5,''))
-		when 'bla' then 'Black' -- Black
-		when 'BLU' then 'Blue' -- Blue
-		when 'BRN' then 'Brown' -- Brown,
-		when 'GLD' then 'Gold' -- Gold,
-		when 'GRN' then 'Green' -- Green,
-		when 'GRY' then 'Grey' -- Grey,
-		when 'GUN' then 'Gunmetal' -- Gunmetal,
-		when 'MUL' then 'Multicolor' -- Multicolor,
-		when 'ORA' then 'Orange' -- Orange,
-		when 'PNK' THEN 'Rose' -- Rose ?? there is no pink
-		when 'pur' then 'Purple' -- Purple
-		when 'red' then 'Red' -- Red
-		when 'sil' then 'Silver' -- Silver
-		when 'tor' then 'Tortoise' -- Tortoise
-		when 'whi' then 'White' -- White
-		else '***' end,
-	--ia.category_5 as Frame_Color_Group,
-	-- I
-	-- ia.field_3 as Frame_Color_Description,
-	ISNULL(cmi.colorname, ISNULL(ia.field_3,'')) Frame_Color_Description,
-	-- J
-	' ' as Frame_color_code,
-	-- K
-	' ' as Lens_color_code,
-	-- L
-	' ' as LENS_COLOR_DESCRIPTION,
-	-- M
-	-- cast(ia.field_17 as int) as Eye_Size,
-	cast(ISNULL(cmi.eye_size,ISNULL(ia.field_17,0)) as VARCHAR(5)) as Eye_Size,
-	-- N
-	--cast(ia.field_19 as int) as A,
-	--' ' as A,
-	cast(ISNULL(cmi.a_size,ISNULL(ia.field_19,0)) as int) as A,
-	-- O
-	--cast(ia.field_20 as int) as B,
-	--' ' as B,
-	cast(ISNULL(cmi.b_size,ISNULL(ia.field_20,0)) as int) as B,
-	-- P
-	--cast(ia.field_21 as int) as ED,
-	--' ' as ED,
-	cast(ISNULL(cmi.ed_size,ISNULL(ia.field_21,0)) as int) as ED, 
-	-- Q
-	' ' as ED_Angle,
-	-- R
-	-- ia.field_8 as Temple_length,
-	Temple_length = 
-	CAST(ISNULL(cmi.temple_size,ISNULL(ia.field_8,'')) AS VARCHAR(10)
-	),
-	--	Temple_length = CAST( ISNULL((CASE WHEN ISNULL(CMI.temple_SIZE,0) = 0 THEN ISNULL(IA.FIELD_8,'') END), '')  AS VARCHAR(10)),
-	-- S
-	-- ia.field_6 as Bridge_Size,
-	CAST (ISNULL(cmi.dbl_size, ISNULL(ia.field_6,'')) AS VARCHAR(10)) as Bridge_Size,
-	-- T
-	cast (ISNULL(cmi.dbl_size, ISNULL(ia.field_6,0)) AS DECIMAL) AS DBL,
-	-- '' as DBL,
-	' ' AS STS, --120216 - for proofing version
-	-- U
-	'' as Circumference,
-	-- V
-	Gender = 
-	case when ia.category_2 like '%female%' then 'Female' -- Female
-		 when ia.category_2 like '%male%' then 'Male' 
-		 when ia.category_2 like '%unisex%' then 'Unisex'
-		 else '***' end,
-	-- W
-	Age_type = 
-	case when ia.category_2 like '%adult%' then 'Adult'
-		when ia.category_2 like '%child%' then 'Child'
-		else '***' end,
-	-- X
-	Material_type = 
-	case when ia.field_10 like '%titanium%' then 'Titanium'
-		when ia.field_10 like '%metal%' then 'Metal'
-		when ia.field_10 like '%plastic%' then 'Plastic'
-		when ia.field_10 like '%TR-90%' then 'Plastic'
-		else '***' end,
-	-- Y
-	' ' as Material_description,
-	-- Z
-	' ' as Precious_Metal_type,
-	-- AA
-	' ' as Precious_Metal_description,
-	-- AB
-	Country_of_Origin = 
-	case i.country_code
-		when 'ca' then 'Canada' -- Canada
-		when 'CH' then 'Switzerland' -- Switzerland
-		when 'CN' then 'China' -- China
-		when 'de' then 'Germany' -- Germany
-		when 'fr' then 'France' -- France
-		when 'IL' then 'Israel' -- Israel
-		when 'it' then 'Italy' -- Italy
-		when 'JP' then 'Japan' -- Japan
-		when 'kp' then 'Korea' -- Korea
-		when 'KR' then 'Korea' -- Korea
-		when 'us' then 'USA' -- USA
-		WHEN 'MU' THEN 'Mauritius'
-		else '***' end,
-	-- AC
-	Temple_type = 
-	case when ISNULL(ia.field_13,' ') like '%skull%' then 'Skull' 
-		when ISNULL(ia.field_13,' ') like '%cable%' then 'Cable'
-		else 'Skull' end, -- Skull
-	-- AD
-	' ' as Temple_Description,
-	-- AE
-	Bridge_type = 
-		case when ISNULL(ia.field_10,'') like '%metal%' then 'Adjustable nose pads' -- adjustable nose pads
-			when ISNULL(ia.field_10,'') like '%plastic%' then 'Universal' -- Universal
-		else 'Universal' end,
-	-- AF
-	' ' as Bridge_Description,
-	-- AG
-	--'' as Sunglass_Lens_type,
-	Sunglass_Lens_type = 
-	case when i.type_code = 'sun' then
-	case when ISNULL(ia.field_24,'') like '%polycarb%' then 'Polycarbonate'
-		when ISNULL(ia.field_24,'') like '%CR39%' then 'CR-39'
-		WHEN i.category = 'revo' THEN ISNULL(ia.field_24,'') -- 03/28/2016
-		else '????' end
-	else '' end,
-	--AH
-	-- '' as Sun_lens_description,
-	Sun_lens_description = 
-	case when i.type_code = 'sun' 
-		then isnull(ia.field_23,'????')
-		else ' ' end,
-	--AI
-	' ' as Trim_type,
-	-- AJ 
-	' ' as Trim_description,
-	-- ak
-	' ' as clip_sun_glass_type,
-	--AL
-	' ' Clip_sunglass_description,
-	-- am
-	' ' as sideshields_type,
-	-- AN
-	' ' as Side_Shields_Description,
-	' ' AS EdgeType, -- 120216
-	-- AO
-	Case_type = 
-	case i.category 
-		when 'cvo' then ''
-		when 'jmc' then 'Soft case included.' -- soft case included
-		else 'Hard case included.' end, -- hard case included
-	--AP
-	' ' as Case_Type_Description,
-	--AQ
-	--'' as Hinge_Type, -- field_13
-	Hinge_type = 
-	case 
-		when ISNULL(ia.field_13,'') like '%spring%' then 'Spring Hinge'
-		when ISNULL(ia.field_13,'') like '%standard%' then 'Regular Hinge'
-		else 'Regular Hinge' end,
-	--AR
-	-- Rim_Type = isnull(cmi.frame_category,''), --Rim_Type = '',
-	-- case ia.field_11 
-	--	when '3-pc' then '3-piece compression'
-	--	when 'Full' then 'Full Rim'
-	--	when 'Semi-rimless' then 'Semi-Rimless'
-	--	else '????' end,
-	Rim_Type = 
-		case isnull(cmi.frame_category,' ')
-			when 'Full Acetate' then 'full rim'
-			when 'Acetate' then 'full rim'
-			when 'Full plastic' then 'full rim'
-			when 'Full metal' then 'full rim'
-			when 'Plastic combo' then 'full rim'
-			when 'Acetate combo' then 'full rim'
-			when 'metal combo' then 'full rim'
-			when '3-piece rimless' then '3-piece'
-			when 'rimless' then '3-piece'
-			when 'rimless combo' then '3-piece'
-			when 'demi-rimless' then 'semi-rimless'
-			when 'semi-rimless combo' then 'semi-rimless'
-			when 'half-eye' then 'semi-rimless'
-			else isnull(cmi.frame_category,'????')
-			end,
-	--AS
-	Frame_Shape = 
-		case isnull(cmi.eye_shape,ISNULL(ci.eye_shape,'????'))
-		when 'almond' then 'Modified Oval'
-		when 'butterfly' then 'Rectangle'
-		when 'modified rectange' then 'Rectangle'
-		when 'modified wayfarer' then 'Rectangle'
-		when 'pillowed rectangle' then 'Rectangle'
-		when 'wayfarer' then 'Rectangle'
-		when 'diamond' then 'Geometric'
-		when 'ELLPTICAL' then 'Geometric'
-		when 'P3' then 'Modified Round'
-		when 'Modifed square' then 'Square'
-		else isnull(cmi.eye_shape,ISNULL(ci.eye_shape,'????'))
-		end,
-	-- '????' as Frame_Shape,
-	--AT
-	datepart(m,ia.field_26) as Month_Introduced,
-	--AU
-	datepart(yy,ia.field_26) as Year_Introduced,
-	--AV
-	cast(round(ISNULL(p.price_a,0),2) as decimal(8,2))  as Complete_Price,
-	--AW
-	cast(round( isnull( (select pp.price_a from inv_master_add ic (nolock)
-	inner join part_price pp (nolock) on ic.part_no = pp.part_no
-	inner join what_part bom (nolock) on ic.part_no = bom.part_no
-	where ic.category_3 = 'front' and bom.asm_no = i.part_no), 0),2) as decimal(8,2)) as Front_price,
-	--AX
-	'0' as Temple_pair_price,
-	--isnull( (select sum(pp.price_a) from inv_master_add ic (nolock)
-	--inner join part_price pp (nolock) on ic.part_no = pp.part_no
-	--inner join what_part bom (nolock) on ic.part_no = bom.part_no
-	--where ic.category_3 like 'temple%' and bom.asm_no = i.part_no), 0) as Temple_Pair_price,
+        -- INSERT INTO #framesdatalist
+        SELECT
+            -- TOP 100 percent
+            --A
+                 CAST(ISNULL(i.upc_code, '') AS VARCHAR(13)) AS UPC ,
+                                     --B
+                 CAST(i.part_no AS VARCHAR(30)) AS Frame_SKU ,
+                                     --C
+                 ia.field_2 AS Frame_Name ,
+                                     --D
+                 Designer_collection = CASE i.type_code
+                                            WHEN 'frame' THEN
+                                                CASE i.category -- Brand
+                                                     WHEN 'AS' THEN
+                                                         'Aspire Collection'       -- 040915
+                                                     WHEN 'bcbg' THEN
+                                                         'BCBG Max Azria Collection'
+                                                     WHEN 'CVO' THEN
+                                                         'ClearVision Collection'
+                                                     WHEN 'CH' THEN
+                                                         'ColeHaan Collection'
+                                                     WHEN 'DD' THEN 'dilli dalli'
+                                                     WHEN 'DH' THEN
+                                                         'Durahinge Collection'    -- 040915
+                                                     WHEN 'DI' THEN
+                                                         'digit. collection'
+                                                     WHEN 'ET' THEN
+                                                         'Ellen Tracy Collection'
+                                                     WHEN 'IZOD' THEN
+                                                         CASE WHEN ISNULL(
+                                                                       ia.category_2 ,
+                                                                       '') LIKE '%child%' THEN -- gender
+                                                                  'Izod Boy''s Collection'
+                                                              ELSE
+                                                                  'Izod Collection'
+                                                         END
+                                                     WHEN 'IZX' THEN
+                                                         CASE WHEN ISNULL(
+                                                                       ia.category_2 ,
+                                                                       '') LIKE '%child%' THEN
+                                                                  'Izod PerformX Boy''s Collection'
+                                                              ELSE
+                                                                  'Izod PerformX Collection'
+                                                         END
+                                                     WHEN 'JMC' THEN
+                                                         CASE WHEN ISNULL(
+                                                                       ia.category_2 ,
+                                                                       '') LIKE '%child%' THEN
+                                                                  'Jessica Girls Collection'
+                                                              ELSE
+                                                                  'Jessica Collection'
+                                                         END
+                                                     WHEN 'JC' THEN
+                                                         'Junction City Collection'
+                                                     WHEN 'ME' THEN
+                                                         'Mark Ecko Collection'
+                                                     WHEN 'OP' THEN
+                                                         CASE WHEN ISNULL(
+                                                                       ia.category_2 ,
+                                                                       '') LIKE '%child%' THEN
+                                                                  'Op-Ocean Pacific Kids Collection'
+                                                              ELSE
+                                                                  'Op-Ocean Pacific Collection'
+                                                         END
+                                                     WHEN 'PT' THEN
+                                                         'Puriti Collection'       -- 2/2014
+                                                     WHEN 'RR' THEN 'Red Raven'    -- 040915
+                                                     WHEN 'SM' THEN 'Steve Madden' -- 120216
+                                                     ELSE '**Undefined**'
+                                                END
 
-	--AY
-	cast(round(isnull( (select sum(pp.price_a) from inv_master_add ic (nolock)
-	inner join part_price pp (nolock) on ic.part_no = pp.part_no
-	inner join what_part bom (nolock) on ic.part_no = bom.part_no
-	where ic.category_3 = 'temple-L' and bom.asm_no = i.part_no), 0),2) as decimal(8,2)) as Temple_price,
-	--AZ
-	' ' as Price_Description,
-	--BA
-	'' as Features,
-	--BB
-	'' as Frame_PD_type,
-	--BC
-	'' as Frame_pd_description,
-	--BD
-	'' as lens_vision_type,
-	--BE
-	'' as lens_vision_description,
-	--BF
-	'' as pattern_name,
-	--BG
-	'' as rx_type,
-	--BH
-	'' as rx_description,
-	--BI
-	'' as warranty_type,
-	--BJ
-	'' as Warranty_description,
-	'' AS Radii -- 120216
+                                            WHEN 'sun' THEN
+                                                CASE ISNULL(i.category, '')
+                                                     WHEN 'AS' THEN
+                                                         'Aspire Sunglass Collection'
+                                                     WHEN 'bcbg' THEN
+                                                         'BCBG Max Azria Sunglass Collection'
+                                                     WHEN 'CH' THEN
+                                                         'Cole Haan Sunglass Collection'
+                                                     WHEN 'ET' THEN
+                                                         'ET Sunglass Collection'
+                                                     WHEN 'IZX' THEN
+                                                         'Izod PerformX Sunglass Collection'
+                                                     WHEN 'IZOD' THEN
+                                                         'Izod Sunglass Collection'
+                                                     WHEN 'JMC' THEN
+                                                         'Jessica Sunglass Collection'
+                                                     WHEN 'ME' THEN
+                                                         'Marc Ecko Sunglass Collection'
+                                                     WHEN 'OP' THEN
+                                                         'Op-Ocean Pacific Sunglass Collection'
+                                                     WHEN 'PT' THEN
+                                                         'Puriti Sunglass Collection'
+                                                     WHEN 'REVO' THEN
+                                                         'REVO Sunglass Collection'
+                                                     WHEN 'SM' THEN 'Steve Madden'
+                                                     ELSE '**Undefined**'
+                                                END
+                                       END ,
+                                     -- E 
+                 Brand_id = CAST(CASE ISNULL(i.category, '')
+                                      WHEN 'AS' THEN '8311'   -- 040915
+                                      WHEN 'bcbg' THEN '6799'
+                                      WHEN 'CVO' THEN
+                                          CASE WHEN ia.field_10 LIKE 'Metal%' THEN
+                                                   '6432'
+                                               ELSE '875'
+                                          END
+                                      WHEN 'CH' THEN '7112'
+                                      WHEN 'DD' THEN '7853'
+                                      WHEN 'DH' THEN '8314'   -- 040915
+                                      WHEN 'DI' THEN '7696'
+                                      WHEN 'ET' THEN '6921'
+                                      WHEN 'IZOD' THEN '6436'
+                                      WHEN 'IZX' THEN '6436'
+                                      WHEN 'JMC' THEN '6437'
+                                      WHEN 'JC' THEN '7370'
+                                      WHEN 'KO' THEN '7269'
+                                      WHEN 'ME' THEN '7697'
+                                      WHEN 'OP' THEN '6439'
+                                      WHEN 'PT' THEN '6435'   -- 02/2014
+                                      WHEN 'RR' THEN '8212'   -- 05/27/2014
+                                      WHEN 'REVO' THEN '8353' -- 10/16/2015
+                                      WHEN 'SM' THEN '8506'   -- 120216
+                                      ELSE '**Undefined**'
+                                 END AS VARCHAR(20)) ,
+                                     --  F
+                 Status = 'A' ,
+                                     -- G
+                 Product_Group_type = CASE WHEN i.type_code = 'sun' THEN
+                                               'Sunglasses'  -- Sunglasses
+                                           WHEN ISNULL(ia.category_2, '') LIKE '%child%' THEN
+                                               'Children''s' -- Childrens
+                                           WHEN ISNULL(ia.field_11, '') LIKE '%rimless%' THEN
+                                               'Rimless'     -- Rimless
+                                           WHEN ISNULL(ia.field_11, '') LIKE '%combo%' THEN
+                                               'Combinations'
+                                           WHEN ISNULL(ia.field_10, '') LIKE '%metal%' THEN
+                                               'Metal'       -- Metal
+                                           WHEN ISNULL(ia.field_10, '') LIKE '%plastic%' THEN
+                                               'Plastic'
+                                           WHEN ISNULL(ia.field_10, '') LIKE '%TR-90%' THEN
+                                               'Plastic'
+                                           ELSE '**Undefined**'
+                                      END ,
+                                     -- i.cmdty_code as Product_Group_Type,
+                                     -- H
+                 Frame_Color_Group = CASE -- ia.category_5 
+                 ISNULL(cmi.ColorGroupCode, ISNULL(ia.category_5, ''))
+                 WHEN 'bla' THEN 'Black'      -- Black
+                 WHEN 'BLU' THEN 'Blue'       -- Blue
+                 WHEN 'BRN' THEN 'Brown'      -- Brown,
+                 WHEN 'GLD' THEN 'Gold'       -- Gold,
+                 WHEN 'GRN' THEN 'Green'      -- Green,
+                 WHEN 'GRY' THEN 'Grey'       -- Grey,
+                 WHEN 'GUN' THEN 'Gunmetal'   -- Gunmetal,
+                 WHEN 'MUL' THEN 'Multicolor' -- Multicolor,
+                 WHEN 'ORA' THEN 'Orange'     -- Orange,
+                 WHEN 'PNK' THEN 'Rose'       -- Rose ?? there is no pink
+                 WHEN 'pur' THEN 'Purple'     -- Purple
+                 WHEN 'red' THEN 'Red'        -- Red
+                 WHEN 'sil' THEN 'Silver'     -- Silver
+                 WHEN 'tor' THEN 'Tortoise'   -- Tortoise
+                 WHEN 'whi' THEN 'White'      -- White
+                 ELSE '***'
+                                     END ,
+                                     --ia.category_5 as Frame_Color_Group,
+                                     -- I
+                                     -- ia.field_3 as Frame_Color_Description,
+                 ISNULL(cmi.ColorName, ISNULL(ia.field_3, '')) Frame_Color_Description ,
+                                     -- J
+                 ' ' AS Frame_color_code ,
+                                     -- K
+                 ' ' AS Lens_color_code ,
+                                     -- L
+                 ' ' AS LENS_COLOR_DESCRIPTION ,
+                                     -- M
+                                     -- cast(ia.field_17 as int) as Eye_Size,
+                 CAST(cast(ISNULL(cmi.eye_size, ISNULL(ia.field_17, 0.0)) AS FLOAT) AS VARCHAR(5)) AS Eye_Size ,
+                                     -- N
+                                     --cast(ia.field_19 as int) as A,
+                                     --0 as A,
+                 CAST(CAST(ISNULL(cmi.a_size, ISNULL(ia.field_19, 0.0)) AS FLOAT) AS INT) AS A ,
+                                     -- O
+                                     --cast(ia.field_20 as int) as B,
+                                     --0 as B,
+                 CAST(CAST(ISNULL(cmi.b_size, ISNULL(ia.field_20, 0.0)) AS FLOAT) AS INT) AS B ,
+                                     -- P
+                                     --cast(ia.field_21 as int) as ED,
+                                     --0 as ED,
+                 CAST(CAST(ISNULL(cmi.ed_size, ISNULL(ia.field_21, 0)) AS FLOAT) AS INT) AS ED ,
+                                     -- Q
+                 ' ' AS ED_Angle ,
+                                     -- R
+                                     -- ia.field_8 as Temple_length,
+                 Temple_length = CAST(ISNULL(
+                                          CAST(cmi.temple_size AS int), ISNULL(ia.field_8, '')) AS VARCHAR(10)) ,
+                                     --	Temple_length = CAST( ISNULL((CASE WHEN ISNULL(CMI.temple_SIZE,0) = 0 THEN ISNULL(IA.FIELD_8,'') END), '')  AS VARCHAR(10)),
+                                     -- S
+                                     -- ia.field_6 as Bridge_Size,
+                 CAST(CAST(ISNULL(cmi.dbl_size, ISNULL(ia.field_6, '')) AS FLOAT) AS VARCHAR(10)) AS Bridge_Size ,
+                                     -- T
+                 CAST(CAST(ISNULL(cmi.dbl_size, ISNULL(ia.field_6, 0)) AS FLOAT)  AS DECIMAL) AS DBL ,
+                                     -- '' as DBL,
+                 ' ' AS STS ,        --120216 - for proofing version
+                                     -- U
+                 '' AS Circumference ,
+                                     -- V
+                 Gender = CASE WHEN ia.category_2 LIKE '%female%' THEN 'Female' -- Female
+                               WHEN ia.category_2 LIKE '%male%' THEN 'Male'
+                               WHEN ia.category_2 LIKE '%unisex%' THEN 'Unisex'
+                               ELSE '***'
+                          END ,
+                                     -- W
+                 Age_type = CASE WHEN ia.category_2 LIKE '%adult%' THEN 'Adult'
+                                 WHEN ia.category_2 LIKE '%child%' THEN 'Child'
+                                 ELSE '***'
+                            END ,
+                                     -- X
+                 Material_type = CASE WHEN ia.field_10 LIKE '%titanium%' THEN
+                                          'Titanium'
+                                      WHEN ia.field_10 LIKE '%metal%' THEN 'Metal'
+                                      WHEN ia.field_10 LIKE '%plastic%' THEN
+                                          'Plastic'
+                                      WHEN ia.field_10 LIKE '%TR-90%' THEN
+                                          'Plastic'
+                                      ELSE '***'
+                                 END ,
+                                     -- Y
+                 ' ' AS Material_description ,
+                                     -- Z
+                 ' ' AS Precious_Metal_type ,
+                                     -- AA
+                 ' ' AS Precious_Metal_description ,
+                                     -- AB
+                 Country_of_Origin = CASE i.country_code
+                                          WHEN 'ca' THEN 'Canada'      -- Canada
+                                          WHEN 'CH' THEN 'Switzerland' -- Switzerland
+                                          WHEN 'CN' THEN 'China'       -- China
+                                          WHEN 'de' THEN 'Germany'     -- Germany
+                                          WHEN 'fr' THEN 'France'      -- France
+                                          WHEN 'IL' THEN 'Israel'      -- Israel
+                                          WHEN 'it' THEN 'Italy'       -- Italy
+                                          WHEN 'JP' THEN 'Japan'       -- Japan
+                                          WHEN 'kp' THEN 'Korea'       -- Korea
+                                          WHEN 'KR' THEN 'Korea'       -- Korea
+                                          WHEN 'us' THEN 'USA'         -- USA
+                                          WHEN 'MU' THEN 'Mauritius'
+                                          ELSE '***'
+                                     END ,
+                                     -- AC
+                 Temple_type = CASE WHEN ISNULL(ia.field_13, ' ') LIKE '%skull%' THEN
+                                        'Skull'
+                                    WHEN ISNULL(ia.field_13, ' ') LIKE '%cable%' THEN
+                                        'Cable'
+                                    ELSE 'Skull'
+                               END , -- Skull
+                                     -- AD
+                 ' ' AS Temple_Description ,
+                                     -- AE
+                 Bridge_type = CASE WHEN ISNULL(ia.field_10, '') LIKE '%metal%' THEN
+                                        'Adjustable nose pads' -- adjustable nose pads
+                                    WHEN ISNULL(ia.field_10, '') LIKE '%plastic%' THEN
+                                        'Universal'            -- Universal
+                                    ELSE 'Universal'
+                               END ,
+                                     -- AF
+                 ' ' AS Bridge_Description ,
+                                     -- AG
+                                     --'' as Sunglass_Lens_type,
+                 Sunglass_Lens_type = CASE WHEN i.type_code = 'sun' THEN
+                                               CASE WHEN ISNULL(ia.field_24, '') LIKE '%polycarb%' THEN
+                                                        'Polycarbonate'
+                                                    WHEN ISNULL(ia.field_24, '') LIKE '%CR39%' THEN
+                                                        'CR-39'
+                                                    WHEN i.category = 'revo' THEN
+                                                        ISNULL(ia.field_24, '') -- 03/28/2016
+                                                    ELSE '????'
+                                               END
+                                           ELSE ''
+                                      END ,
+                                     --AH
+                                     -- '' as Sun_lens_description,
+                 Sun_lens_description = CASE WHEN i.type_code = 'sun' THEN
+                                                 ISNULL(ia.field_23, '????')
+                                             ELSE ' '
+                                        END ,
+                                     --AI
+                 ' ' AS Trim_type ,
+                                     -- AJ 
+                 ' ' AS Trim_description ,
+                                     -- ak
+                 ' ' AS clip_sun_glass_type ,
+                                     --AL
+                 ' ' Clip_sunglass_description ,
+                                     -- am
+                 ' ' AS sideshields_type ,
+                                     -- AN
+                 ' ' AS Side_Shields_Description ,
+                 ' ' AS EdgeType ,   -- 120216
+                                     -- AO
+                 Case_type = CASE i.category
+                                  WHEN 'cvo' THEN ''
+                                  WHEN 'jmc' THEN 'Soft case included.' -- soft case included
+                                  ELSE 'Hard case included.'
+                             END ,   -- hard case included
+                                     --AP
+                 ' ' AS Case_Type_Description ,
+                                     --AQ
+                                     --'' as Hinge_Type, -- field_13
+                 Hinge_type = CASE WHEN ISNULL(ia.field_13, '') LIKE '%spring%' THEN
+                                       'Spring Hinge'
+                                   WHEN ISNULL(ia.field_13, '') LIKE '%standard%' THEN
+                                       'Regular Hinge'
+                                   ELSE 'Regular Hinge'
+                              END ,
+                                     --AR
+                                     -- Rim_Type = isnull(cmi.frame_category,''), --Rim_Type = '',
+                                     -- case ia.field_11 
+                                     --	when '3-pc' then '3-piece compression'
+                                     --	when 'Full' then 'Full Rim'
+                                     --	when 'Semi-rimless' then 'Semi-Rimless'
+                                     --	else '????' end,
+                 Rim_Type = CASE ISNULL(cmi.frame_category, ' ')
+                                 WHEN 'Full Acetate' THEN 'full rim'
+                                 WHEN 'Acetate' THEN 'full rim'
+                                 WHEN 'Full plastic' THEN 'full rim'
+                                 WHEN 'Full metal' THEN 'full rim'
+                                 WHEN 'Plastic combo' THEN 'full rim'
+                                 WHEN 'Acetate combo' THEN 'full rim'
+                                 WHEN 'metal combo' THEN 'full rim'
+                                 WHEN '3-piece rimless' THEN '3-piece'
+                                 WHEN 'rimless' THEN '3-piece'
+                                 WHEN 'rimless combo' THEN '3-piece'
+                                 WHEN 'demi-rimless' THEN 'semi-rimless'
+                                 WHEN 'semi-rimless combo' THEN 'semi-rimless'
+                                 WHEN 'half-eye' THEN 'semi-rimless'
+                                 ELSE ISNULL(cmi.frame_category, '????')
+                            END ,
+                                     --AS
+                 Frame_Shape = CASE ISNULL(
+                                        cmi.eye_shape ,
+                                        ISNULL(ci.eye_shape, '????'))
+                                    WHEN 'almond' THEN 'Modified Oval'
+                                    WHEN 'butterfly' THEN 'Rectangle'
+                                    WHEN 'modified rectange' THEN 'Rectangle'
+                                    WHEN 'modified wayfarer' THEN 'Rectangle'
+                                    WHEN 'pillowed rectangle' THEN 'Rectangle'
+                                    WHEN 'wayfarer' THEN 'Rectangle'
+                                    WHEN 'diamond' THEN 'Geometric'
+                                    WHEN 'ELLPTICAL' THEN 'Geometric'
+                                    WHEN 'P3' THEN 'Modified Round'
+                                    WHEN 'Modifed square' THEN 'Square'
+                                    ELSE
+                                        ISNULL(
+                                            cmi.eye_shape ,
+                                            ISNULL(ci.eye_shape, '????'))
+                               END ,
+                                     -- '????' as Frame_Shape,
+                                     --AT
+                 DATEPART(m, ia.field_26) AS Month_Introduced ,
+                                     --AU
+                 DATEPART(yy, ia.field_26) AS Year_Introduced ,
+                                     --AV
+                 CAST(ROUND(ISNULL(p.price_a, 0), 2) AS DECIMAL(8, 2)) AS Complete_Price ,
+                                     --AW
+                 CAST(ROUND(
+                          ISNULL(
+                          (   SELECT pp.price_a
+                              FROM   inv_master_add ic ( NOLOCK )
+                                     INNER JOIN part_price pp ( NOLOCK ) ON ic.part_no = pp.part_no
+                                     INNER JOIN what_part bom ( NOLOCK ) ON ic.part_no = bom.part_no
+                              WHERE  ic.category_3 = 'front'
+                                     AND bom.asm_no = i.part_no ) ,
+                          0) ,
+                          2) AS DECIMAL(8, 2)) AS Front_price ,
+                                     --AX
+                 '0' AS Temple_pair_price ,
+                                     --isnull( (select sum(pp.price_a) from inv_master_add ic (nolock)
+                                     --inner join part_price pp (nolock) on ic.part_no = pp.part_no
+                                     --inner join what_part bom (nolock) on ic.part_no = bom.part_no
+                                     --where ic.category_3 like 'temple%' and bom.asm_no = i.part_no), 0) as Temple_Pair_price,
 
-	-- INTO #framesdatalist
-	from #brand b 
-	inner join inv_master i (nolock) on b.brand = i.category
-	inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
-	inner join cvo_inv_master_r2_vw ci (nolock) on ci.part_no = i.part_no
-	--left outer join cvo_cmi_catalog_view cmi (nolock) on cmi.collection = ci.collection
-	--	and cmi.model = ci.model and cmi.colorname = ci.colorname and cmi.eye_size = ci.eye_size
-		left outer join cvo_cmi_catalog_view cmi (nolock) on cmi.upc_code = i.upc_code
-	inner join part_price p (nolock) on p.part_no = i.part_no
+                                     --AY
+                 CAST(ROUND(
+                          ISNULL(
+                          (   SELECT SUM(pp.price_a)
+                              FROM   inv_master_add ic ( NOLOCK )
+                                     INNER JOIN part_price pp ( NOLOCK ) ON ic.part_no = pp.part_no
+                                     INNER JOIN what_part bom ( NOLOCK ) ON ic.part_no = bom.part_no
+                              WHERE  ic.category_3 = 'temple-L'
+                                     AND bom.asm_no = i.part_no ) ,
+                          0) ,
+                          2) AS DECIMAL(8, 2)) AS Temple_price ,
+                                     --AZ
+                 ' ' AS Price_Description ,
+                                     --BA
+                 '' AS Features ,
+                                     --BB
+                 '' AS Frame_PD_type ,
+                                     --BC
+                 '' AS Frame_pd_description ,
+                                     --BD
+                 '' AS lens_vision_type ,
+                                     --BE
+                 '' AS lens_vision_description ,
+                                     --BF
+                 '' AS pattern_name ,
+                                     --BG
+                 '' AS rx_type ,
+                                     --BH
+                 '' AS rx_description ,
+                                     --BI
+                 '' AS warranty_type ,
+                                     --BJ
+                 '' AS Warranty_description ,
+                 '' AS Radii         -- 120216
 
-	where i.void = 'N'
-	AND I.TYPE_code in ('frame','sun')
-	-- AND i.entered_who = 'CMI'
-	and ( @ReleaseDate = ia.field_26 OR @releasedate = '1/1/1900')
-	AND ISNULL(ia.field_28,GETDATE()) > '1/1/2010'
-	order by i.part_no
+        -- INTO #framesdatalist
+        FROM     #brand b
+                 INNER JOIN inv_master i ( NOLOCK ) ON b.brand = i.category
+                 INNER JOIN inv_master_add ia ( NOLOCK ) ON i.part_no = ia.part_no
+                 INNER JOIN cvo_inv_master_r2_vw ci ( NOLOCK ) ON ci.part_no = i.part_no
+                 --left outer join cvo_cmi_catalog_view cmi (nolock) on cmi.collection = ci.collection
+                 --	and cmi.model = ci.model and cmi.colorname = ci.colorname and cmi.eye_size = ci.eye_size
+                 LEFT OUTER JOIN cvo_cmi_catalog_view cmi ( NOLOCK ) ON cmi.upc_code = i.upc_code
+                 INNER JOIN part_price p ( NOLOCK ) ON p.part_no = i.part_no
 
-	--SELECT *
-	--FROM #framesdatalist
+        WHERE    i.void = 'N'
+                 AND i.type_code IN ( 'frame', 'sun' )
+                 -- AND i.entered_who = 'CMI'
+                 AND (   @ReleaseDate = ia.field_26
+                         OR @ReleaseDate = '1/1/1900' )
+                 AND ISNULL(ia.field_28, GETDATE()) > '1/1/2010'
+        ORDER BY i.part_no;
 
-	-- tempdb..sp_help #framesdatalist
+    --SELECT *
+    --FROM #framesdatalist
 
-END
+    -- tempdb..sp_help #framesdatalist
+
+    END;
+
+
 
 
 

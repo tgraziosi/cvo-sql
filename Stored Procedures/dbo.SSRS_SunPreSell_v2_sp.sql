@@ -9,6 +9,7 @@ GO
 -- Description:	Sun Presell 5 Yr Tracker
 -- exec SSRS_SunPreSell_v2_sp
 -- switch to date ordered and summarize by level
+-- 111017 - update programs for 2018 season
 -- =============================================
 
 CREATE PROCEDURE [dbo].[SSRS_SunPreSell_v2_sp]
@@ -27,9 +28,9 @@ AS
 
 
         IF @sdate IS NULL
-            SET @sdate = '11/1/2017';
+            SET @sdate = '11/13/2017';
         IF @edate IS NULL
-            SET @edate = '1/31/2018';
+            SET @edate = '2/2/2018';
 
         IF @asofdate IS NULL
             SELECT @asofdate = @sdate;
@@ -201,7 +202,9 @@ AS
                                                                   AND o.ext = co.ext
                              JOIN inv_master ( NOLOCK ) i ON ol.part_no = i.part_no
                     WHERE    o.status <> 'v'
-                             AND promo_id LIKE '%SUNPS%'
+                             AND promo_id  LIKE '%SUNPS%'
+
+
                              -- AND co.promo_level IN ('1','2','3') -- 11/3/2016
                              -- and (o.ext=0 OR (o.ext>0 and o.who_entered='OutOfStock'))
                              AND o.who_entered <> 'backordr'
@@ -253,7 +256,9 @@ AS
                                                                   AND o.ext = co.ext
                              JOIN inv_master ( NOLOCK ) i ON ol.part_no = i.part_no
                     WHERE    o.status <> 'v'
-                             AND promo_id LIKE '%SUNPS%'
+                             -- AND promo_id LIKE '%SUNPS%'
+							 AND promo_id IN ('sunps','op','selldown') 
+							 AND promo_level IN ('1','2','sun','suns1','suns2')
                              -- and (o.ext='0' OR (o.ext>0 and o.who_entered='OutOfStock'))
                              AND o.who_entered <> 'backordr'
                              AND date_entered
@@ -336,6 +341,7 @@ AS
                AND Inv_cnt <> 0;
 
     END;
+
 
 
 

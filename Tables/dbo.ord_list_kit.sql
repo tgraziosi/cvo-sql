@@ -853,7 +853,8 @@ BEGIN
 		IF @i_order_no != @d_order_no OR @i_order_ext != @d_order_ext OR @i_line_no != @d_line_no OR @i_status != @d_status OR @i_location != @d_location  
 		BEGIN  
 			SELECT	@ol_location = ISNULL((SELECT location FROM ord_list ref (NOLOCK) WHERE ref.order_no = @i_order_no AND ref.order_ext = @i_order_ext 
-										AND ref.line_no = @i_line_no AND (ref.part_type = 'C' OR ref.part_type = 'P')),'') --AMENDEZ, 06/03/2010, 68668-FOC-001 Custom Frame Build  
+										AND ref.line_no = @i_line_no AND (ref.part_type = 'C' OR ref.part_type = 'P' OR ref.part_type = 'N')),'')-- v1.2 --AMENDEZ, 06/03/2010, 68668-FOC-001 Custom Frame Build  
+										-- v1.2 AND ref.line_no = @i_line_no AND (ref.part_type = 'C' OR ref.part_type = 'P')),'') --AMENDEZ, 06/03/2010, 68668-FOC-001 Custom Frame Build  
   
 			IF (@ol_location = '')  
 			BEGIN  

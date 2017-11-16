@@ -84,4 +84,7 @@ FROM   dbo.cvo_tdc_log_archive AS tla;
 END;
 
 GRANT EXECUTE ON cvo_tdc_lot_archive_sp TO PUBLIC;
+
+GO
+GRANT EXECUTE ON  [dbo].[cvo_tdc_lot_archive_sp] TO [public]
 GO

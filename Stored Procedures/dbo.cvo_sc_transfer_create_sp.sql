@@ -2,11 +2,11 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[cvo_sc_transfer_create_sp]
+CREATE PROCEDURE [dbo].[cvo_sc_transfer_create_sp] (@routing VARCHAR(12)  = NULL)
 AS
     BEGIN
 
-        -- exec cvo_sc_transfer_create_sp
+        -- exec cvo_sc_transfer_create_sp 'UPS3D' -- for last batch of xfers so they can be freighted.  leave out for SAL
 
         SET NOCOUNT ON;
 
@@ -46,8 +46,11 @@ AS
 
         SELECT @today = GETDATE();
 
+		IF @routing IS NULL SELECT @routing = 'SAL';
 
+		IF NOT EXISTS (SELECT 1 FROM dbo.CVO_carriers AS c WHERE c.Carrier = @ROUTING) SELECT @ROUTING = 'SAL'
 
+		
         IF ( OBJECT_ID('tempdb.dbo.#xfer') IS NOT NULL )
             DROP TABLE #xfer;
 
@@ -64,7 +67,7 @@ AS
         FROM     dbo.cvo_sc_transfers_allocation AS sta
                  JOIN dbo.cvo_sc_transfers AS st ON st.id = sta.transfer_id
                  JOIN cvo_sc_transfers_templates stt ON stt.template = sta.template_id
-				 LEFT OUTER JOIN dbo.cvo_sc_addr_vw AS sav ON sav.location = stt.location -- must be active rep
+				 JOIN dbo.cvo_sc_addr_vw AS sav ON sav.location = stt.location -- must be active rep
                  LEFT OUTER JOIN inv_master_add ia ON ia.part_no = sta.sku -- part must exist
                  LEFT OUTER JOIN inv_list il ON il.part_no = sta.sku -- part/location must exist
                                                 AND il.location = stt.location
@@ -77,8 +80,7 @@ AS
         IF EXISTS (   SELECT 1
                       FROM   #xfer
                       WHERE  part_no IS NULL
-                             OR il_loc IS NULL
-							 OR slp_loc_valid IS null )
+                             OR il_loc IS NULL )
             BEGIN
                 SELECT DISTINCT 'Error: Missing Inventory master data found' err_msg ,
                        transfer_id ,
@@ -319,6 +321,8 @@ AS
     GRANT EXECUTE
         ON dbo.cvo_sc_transfer_create_sp
         TO PUBLIC;
+
+
 
 
 GO

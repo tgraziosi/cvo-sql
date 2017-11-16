@@ -193,7 +193,10 @@ BEGIN
 			CVO_orders_all.st_consolidate,
 			CVO_orders_all.email_address,
 			CVO_orders_all.upsell_flag,
-			CVO_orders_all.must_go_today -- v1.2
+			CVO_orders_all.must_go_today, -- v1.2
+			CASE WHEN ISNULL(cvo_charge_sc.sc_no,0) = 0 THEN 0 ELSE 1 END sc_flag, -- v1.3
+			cvo_charge_sc.sc_no, -- v1.3
+			ISNULL(cvo_charge_sc.sc_order_no,0) -- v1.3
         FROM orders          
 		  left outer join adm_cust_all (nolock) on ( orders.cust_code  = adm_cust_all.customer_code) 
 		  left outer join glcurr_vw (nolock) on ( orders.curr_key  = glcurr_vw.currency_code)    
@@ -201,6 +204,7 @@ BEGIN
 			( orders.ship_to  = adm_shipto_all.ship_to_code)     
 		  left outer join load_master (nolock) on ( orders.load_no  = load_master.load_no) 
 		  left outer join CVO_orders_all ON orders.order_no = CVO_orders_all.order_no AND orders.ext = CVO_orders_all.ext
+		  left outer join dbo.cvo_charge_sc (NOLOCK) ON orders.order_no = cvo_charge_sc.order_no AND orders.ext = cvo_charge_sc.order_ext -- v1.3
         WHERE ( ( dbo.orders.order_no = @order_no ) and     
 			( dbo.orders.ext = @order_ext ) )  
 END

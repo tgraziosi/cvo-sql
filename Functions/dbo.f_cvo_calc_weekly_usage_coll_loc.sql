@@ -3,11 +3,11 @@ GO
 SET ANSI_NULLS ON
 GO
 
--- SELECT * fROM DBO.F_CVO_CALC_WEEKLY_USAGE_COLL_test('O','bcbg',null) WHERE PART_NO LIKE 'bcash%' and location = 'visionwork'
+-- SELECT * fROM DBO.F_CVO_CALC_WEEKLY_USAGE_COLL_loc('O','bcbg','001') WHERE PART_NO LIKE 'bcb985%' and location = 'visionwork'
 -- 8/1/2017 - update to include items with no orders or shipments yet
 -- 8/31/2017 - use 
 
-create FUNCTION [dbo].[f_cvo_calc_weekly_usage_coll_loc]
+CREATE FUNCTION [dbo].[f_cvo_calc_weekly_usage_coll_loc]
 (
     @usg_option CHAR(1) = 'o',
     @coll VARCHAR(20) = NULL, -- pass null to report all collections
@@ -258,7 +258,7 @@ RETURN
                      END
         FROM
 			dbo.locations AS la ( NOLOCK ) 
-			jOIN inv_list il (nolock) ON la.location  = il.location
+			jOIN dbo.inv_list AS il (nolock) ON la.location  = il.location
             JOIN inv_master i (NOLOCK) ON i.part_no = il.part_no
             LEFT OUTER JOIN ord_list ol (NOLOCK)
                 ON ol.part_no = i.part_no AND ol.location = il.location
@@ -271,9 +271,9 @@ RETURN
         WHERE
 			la.location = ISNULL(@loc, la.location) AND la.void = 'N'
 			AND i.category = ISNULL(@coll, i.category)
-			AND 'V' <> ISNULL(o.status, 'X')
+			AND 'V' <> ISNULL(o.status, 'Z')
             -- AND o.date_entered >= DATEADD(WEEK, -52, DATEADD(dd, DATEDIFF(dd, 0, GETDATE()), 0))
-            AND (CASE
+            AND ((CASE
                      WHEN @usg_option = 's' THEN
                          ISNULL(o.date_shipped, DATEADD(dd, DATEDIFF(dd, 0, GETDATE()), 0))
                      ELSE
@@ -295,7 +295,30 @@ RETURN
                                                            ELSE
                                                                'BACKORDR'
                                                        END
-                                                      )
+                                                      ))
+		--UNION ALL -- items with no usage yet
+
+		--SELECT
+  --          inv.location location,
+  --          part_no = i.part_no,
+  --          subs_qty = 0, 
+  --          promo_qty = 0,
+		--	rx_qty = 0,
+		--	ret_qty = 0,
+  --          wty_Qty = 0,
+  --          qty_shipped = 0,
+		--	gross_qty = 0,
+		--	bucket = 4 -- ?
+			
+  --      FROM
+		--	dbo.category AS c
+		--	JOIN inv_master i (NOLOCK) ON i.category = c.kys
+		--	JOIN dbo.cvo_item_avail_vw  (NOLOCK) inv ON inv.part_no = i.part_no AND inv.location = ISNULL(@loc, inv.location)
+		--	WHERE 1=1 
+		--	AND c.kys = ISNULL(@coll, c.kys)
+		--	AND inv.in_stock + inv.po_on_order + inv.future_ord_qty <> 0
+		--	AND NOT EXISTS (SELECT 1 FROM ord_list ol (NOLOCK) WHERE ol.part_no = i.part_no AND ol.location = inv.location AND status = 't')
+			
         UNION ALL
         -- old part number
         SELECT
@@ -431,6 +454,7 @@ RETURN
         usage.location, usage.part_no
 )
 ;
+
 
 
 

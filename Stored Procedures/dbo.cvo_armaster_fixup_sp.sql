@@ -211,6 +211,12 @@ and end_date is null
     WHERE   o.ship_to_region <> ar.territory_code
             AND o.ship_to_region = '';
 
+-- 11/13/2017
+
+	UPDATE ar SET salesperson_code = 'LeribeEl' 
+	-- select territory_code, salesperson_code, * 
+	FROM armaster ar WHERE territory_code = '70775' AND ar.salesperson_code <> 'LeribeEl'
+
 /*
 update o set o.territory_code = ar.territory_code
 -- select o.doc_ctrl_num, o.salesperson_code, ar.salesperson_code, o.territory_code, ar.territory_code,  * 
@@ -237,6 +243,7 @@ SET     primary_flag = 0
 FROM    dbo.cvo_cust_designation_codes AS cdc (ROWLOCK)
 WHERE   cdc.primary_flag = 1
         AND ISNULL(cdc.end_date, GETDATE()) < GETDATE();
+
 
 
 GO

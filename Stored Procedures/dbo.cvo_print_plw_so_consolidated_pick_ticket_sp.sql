@@ -9,6 +9,7 @@ GO
 -- v10.3 CB 09/02/2015 - Fix issue with freight calc for consolidated orders
 -- v10.4 CB 13/01/2016 - #1586 - When orders are allocated or a picking list printed then update backorder processing
 -- v10.5 CB 08/06/2016 - Split out manual case qty
+-- v10.6 CB 15/11/2017 - Fix issue with UNION statement
 
 
 CREATE PROCEDURE [dbo].[cvo_print_plw_so_consolidated_pick_ticket_sp]  
@@ -775,7 +776,8 @@ BEGIN
 								' AND a.location  = ''' +      @location                 + ''''  
 
 	-- We should be able to print non-qty bearing and misc part  , date_expires = ''	SED009 -- Pick List Printing -- date_expires should not be included into cursor
-	SELECT @non_qty_statement =	'UNION 
+	-- 10.6 add space
+	SELECT @non_qty_statement =	' UNION 
 								SELECT 
 								1,
 								part_type,  
@@ -795,6 +797,7 @@ BEGIN
 							WHERE 
 								consolidation_no = ' + cast(@consolidation_no as varchar(30)) + 
 								' AND part_type IN (''V'', ''M'')'
+
 
 	 EXEC (@cursor_statement + @non_qty_statement + @order_by_clause)  
 

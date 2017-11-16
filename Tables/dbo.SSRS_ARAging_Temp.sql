@@ -10,7 +10,7 @@ CREATE TABLE [dbo].[SSRS_ARAging_Temp]
 [BG_CODE] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [BG_NAME] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [TMS] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[AVGDAYSLATE] [smallint] NULL,
+[AVGDAYSLATE] [int] NULL,
 [BAL] [float] NULL,
 [FUT] [float] NULL,
 [CUR] [float] NULL,
@@ -32,12 +32,4 @@ CREATE TABLE [dbo].[SSRS_ARAging_Temp]
 [date_type_string] [varchar] (25) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [date_type] [tinyint] NULL
 ) ON [PRIMARY]
-GO
-GRANT DELETE ON  [dbo].[SSRS_ARAging_Temp] TO [public]
-GO
-GRANT INSERT ON  [dbo].[SSRS_ARAging_Temp] TO [public]
-GO
-GRANT SELECT ON  [dbo].[SSRS_ARAging_Temp] TO [public]
-GO
-GRANT UPDATE ON  [dbo].[SSRS_ARAging_Temp] TO [public]
 GO

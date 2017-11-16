@@ -10,7 +10,7 @@ CREATE TABLE [dbo].[cvo_ARAging_month]
 [BG_CODE] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [BG_NAME] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [TMS] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[AVGDAYSLATE] [smallint] NULL,
+[AVGDAYSLATE] [int] NULL,
 [BAL] [float] NULL,
 [FUT] [float] NULL,
 [CUR] [float] NULL,

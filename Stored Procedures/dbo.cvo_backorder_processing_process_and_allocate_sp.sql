@@ -10,6 +10,7 @@ EXEC cvo_backorder_processing_process_and_allocate_sp
 -- v1.0 CT 28/11/2013 - Issue #1406 - Allocate stock from the Backorder Processing Results form
 -- v1.1 CT 17/02/2014 - Issue #1453 - Print pick tickets in order of bin number
 -- v1.2 CT 03/04/2014 - Issue #572 - Changes for Masterpack order consolidation
+-- v1.3 CB 07/11/2017 - Add process info for tdc_log
 */
 
 CREATE PROC [dbo].[cvo_backorder_processing_process_and_allocate_sp] @template_code VARCHAR(30)
@@ -33,8 +34,9 @@ BEGIN
 			@consolidation_no	INT -- v1.2
 	
 	-- Write log
-	SET @msg = 'Starting realtime allocation process for template ' + @template_code
+--	SET @msg = 'Starting realtime allocation process for template ' + @template_code
 	EXEC dbo.cvo_backorder_processing_log_sp	@msg
+--	EXEC dbo.cvo_auto_alloc_process_sp 1, 'cvo_backorder_processing_process_and_allocate_sp' -- v1.3
 
 	-- Create temp table
 	CREATE TABLE #print_list(
@@ -434,8 +436,9 @@ BEGIN
 	-- END v1.1
 
 	-- Write log
-	SET @msg = 'Completed realtime allocation process for template ' + @template_code
+--	SET @msg = 'Completed realtime allocation process for template ' + @template_code
 	EXEC dbo.cvo_backorder_processing_log_sp	@msg
+--	EXEC dbo.cvo_auto_alloc_process_sp 0 -- v1.3
 
 	RETURN 0
 END

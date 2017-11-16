@@ -237,7 +237,7 @@ AS
               BG_Code VARCHAR(8) NULL ,
               BG_Name VARCHAR(40) NULL ,
               PRICE_CODE VARCHAR(8) NULL ,
-              AVGDAYSLATE SMALLINT NULL ,
+              AVGDAYSLATE int NULL ,
               BAL FLOAT NULL ,
               FUT FLOAT NULL ,
               CUR FLOAT NULL ,
@@ -1343,6 +1343,7 @@ AS
     
         SET NOCOUNT OFF;       
     END; -- CVO_ARAGING_SP DATA       
+
 
 
 

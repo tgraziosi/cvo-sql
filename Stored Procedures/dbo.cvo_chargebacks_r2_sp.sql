@@ -116,7 +116,7 @@ CREATE INDEX #temp_idx1 ON #tmp_bgBal (cust_code, doc_ctrl_no)
   BG_Name    varchar(40) NULL,      
   tms   VARCHAR(8) NULL, 
   r12sales float null, -- 101613      
-  AVGDAYSLATE   SMALLINT NULL,      
+  AVGDAYSLATE   int NULL,      
   BAL     FLOAT  NULL,      
   FUT     FLOAT  NULL,      
   CUR     FLOAT  NULL,      
@@ -909,5 +909,6 @@ IF (select object_id('tempdb..#tmp_bgbal_open')) IS NOT NULL DROP TABLE #tmp_bgb
 IF (select object_id('tempdb..#temp_pp')) IS NOT NULL DROP TABLE #temp_pp
 IF (select object_id('tempdb..#temp_cr')) IS NOT NULL DROP TABLE #temp_cr
 IF (select object_id('tempdb..#temp_cash')) IS NOT NULL DROP TABLE #temp_cash
+
 
 GO

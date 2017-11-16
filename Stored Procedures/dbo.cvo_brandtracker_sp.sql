@@ -3,26 +3,28 @@ GO
 SET ANSI_NULLS ON
 GO
 
--- exec cvo_brandtracker_sp '1/1/2015', null, 'as', null, 1
+-- exec cvo_brandtracker_sp '1/1/2015', null, 'op', 'sun', null, 0
 
 CREATE procedure [dbo].[cvo_brandtracker_sp]
 @df datetime = null -- fromdate
 , @dto datetime = null -- todate
 , @b varchar(1024) = null -- brand
--- , @a varchar(1024) = null -- attribute
+, @tc varchar(1024) = null -- type code
 , @t varchar(1024) = null -- territory
 , @debug int = 0
 as 
 
+SET NOCOUNT ON
+
 declare @datefrom datetime 
 , @dateto datetime 
 , @brand varchar(1024) 
-, @attrib varchar(1024)
+-- , @tc varchar(1024)
 , @terr varchar(1024) 
 
 select @datefrom = @df, @dateto = @dto, @brand = @b, @terr = @t
---, @attrib = @a
-select @attrib = null
+--, @tc = @a
+select @tc = null
 
 IF(OBJECT_ID('tempdb.dbo.#brand') is not null)  drop table #brand
 create table #brand ( brand varchar(20))
@@ -30,14 +32,14 @@ create table #brand ( brand varchar(20))
 IF(OBJECT_ID('tempdb.dbo.#terr') is not null)  drop table #terr
 create table #terr ( terr varchar(10))
 
-IF(OBJECT_ID('tempdb.dbo.#attrib') is not null)  drop table #attrib
-create table #attrib ( attrib varchar(20))
+IF(OBJECT_ID('tempdb.dbo.#tc') is not null)  drop table #tc
+create table #tc ( tc varchar(20))
 
 IF(OBJECT_ID('tempdb.dbo.#t') is not null)  drop table #t
 
 if @datefrom is null select @datefrom = '1/1/2015'
 if @dateto is null select @dateto = getdate()
-if @brand is null select @brand = 'as'
+-- if @brand is null select @brand = 'as'
 
 if isnull(@brand,'') = ''
 begin
@@ -50,16 +52,16 @@ begin
 	select  distinct listitem from dbo.f_comma_list_to_table(@brand)
 end
 
-if isnull(@attrib,'') = ''
+if isnull(@tc,'') = ''
 begin
-	insert #attrib (attrib) 
-	select distinct field_32 from inv_master_add
-	-- insert #attrib (attrib) values ('')
+	insert #tc (tc) 
+	select distinct type_code from inv_master
+	-- insert #tc (tc) values ('')
 end
 else
 begin
-	insert #attrib (attrib)
-	select  distinct listitem from dbo.f_comma_list_to_table(@attrib)
+	insert #tc (tc)
+	select  distinct listitem from dbo.f_comma_list_to_table(@tc)
 end
 
 if isnull(@terr,'') = ''
@@ -112,7 +114,7 @@ inner join inv_master i on b.brand = i.category
 inner join inv_master_add ia on ia.part_no = i.part_no
 inner join cvo_sbm_details sbm on sbm.part_no = i.part_no
 where 1=1
-and i.type_code in ('frame','sun')
+and i.type_code in (SELECT tc FROM #tc)
 and yyyymmdd between @datefrom and @dateto
 group by b.brand, customer, ship_to
 ) as bb on bb.customer = ar.customer_code and bb.ship_to = ar.ship_to_code
@@ -127,7 +129,7 @@ inner join inv_master_add ia on ia.part_no = i.part_no
 inner join cvo_sbm_details sbm on sbm.part_no = i.part_no
 inner join armaster ar on ar.customer_code = sbm.customer and ar.ship_to_code = sbm.ship_to
 where 1=1
-and i.type_code in ('frame','sun')
+and i.type_code in (SELECT tc from #tc)
 and yyyymmdd between @datefrom and @dateto
 group by customer, ship_to
 ) as t on t.customer = ar.customer_code and t.ship_to = ar.ship_to_code
@@ -176,7 +178,7 @@ begin
 	 and s.dateordered = @fo
 	 and s.user_category like 'ST%' and right(s.user_category,2) <> 'rb'
 	 and isnull(s.promo_id,'') not in ('ff','pc','style out')
-	 and i.type_code in ('frame','sun')
+	 and i.type_code in (SELECT tc FROM #tc)
 	 group by isnull(s.promo_id,''), isnull(s.promo_level,'')
 	 having sum(qsales) > 4
 	order by isnull(s.promo_id,'') asc
@@ -200,7 +202,7 @@ begin
 	 and yyyymmdd between @datefrom and @dateto
 	 and s.user_category like 'ST%' and right(s.user_category,2) <> 'rb'
 	 and isnull(s.promo_id,'') not in ('ff','pc','style out')
-	 and i.type_code in ('frame','sun')
+	 and i.type_code in (SELECT tc FROM #tc)
 	 
 	update #t set st_units = isnull(@units,0)
 	where #t.id = @last_id
@@ -208,7 +210,7 @@ begin
 	select @last_id = min(id) From #t where id > @last_id
 	select @cust = customer_code, @ship_to = ship_to_code
 	, @br = brand
-	-- , @att = attrib
+	-- , @att = tc
 	, @fo = first_order_date from #t where id = @last_id
 	select @promo = null, @level = null, @units = 0
 end

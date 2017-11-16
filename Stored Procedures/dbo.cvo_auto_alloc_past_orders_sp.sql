@@ -8,6 +8,7 @@ GO
 -- v1.2 CB 14/04/2016 - #1596 - Add promo level
 -- v1.3 CB 13/06/2016 - Add in routine to consolidate orders
 -- v1.4 CB 30/03/2017 - Not picking up consolidation sets created by the back order process
+-- v1.5 CB 10/11/2017 - Add Fill Level Check
 -- EXEC dbo.cvo_auto_alloc_past_orders_sp 'ZZ'
 
 CREATE PROC [dbo].[cvo_auto_alloc_past_orders_sp] @order_type	VARCHAR(2) = 'ZZ'
@@ -34,8 +35,13 @@ BEGIN
 			@ext				INT,
 			@msg				VARCHAR(1000),
 			@stcons_no			int, -- v1.3
-			@last_stcons_no		int -- v1.3
-
+			@last_stcons_no		int, -- v1.3
+			@fill_rate_level	decimal(20,8), -- v1.5
+			@row_id				int, -- v1.5
+			@status				char(1), -- v1.5
+			@back_ord_flag		int, -- v1.5
+			@hold_priority		int -- v1.5
+			
 
 	EXEC dbo.cvo_auto_alloc_past_orders_log_sp @order_type, NULL, NULL, NULL, 'Starting auto allocation routine'
 
@@ -330,6 +336,8 @@ BEGIN
 					SELECT @where_clause = SUBSTRING(@where_clause,@pos + 1,(LEN(@where_clause)- @pos))
 				END
 			END
+--CRAIG
+set @where_clause = ' AND orders.order_no > 1422055 '
 			
 			-- 4. Where clause 4
 			IF @where_clause <> ''
@@ -365,6 +373,128 @@ BEGIN
 
 			-- Remove orders we can't allocate
 			DELETE FROM #so_alloc_management where curr_alloc_pct >= curr_fill_pct
+
+			-- v1.5 Start
+			SELECT	@fill_rate_level = CAST(value_str as decimal(20,8))
+			FROM	dbo.config (NOLOCK) 
+			WHERE	flag = 'ST_ORDER_FILL_RATE'
+
+			CREATE TABLE #fl_level_hold_check_data (
+				order_no	int,
+				order_ext	int,
+				ordered		decimal(20,8),
+				allocated	decimal(20,8),
+				avail_perc	decimal(20,8))
+
+			CREATE TABLE #fl_level_hold_check (
+				row_id		int IDENTITY(1,1),
+				order_no	int,
+				order_ext	int,
+				status		char(1))
+
+			INSERT	#fl_level_hold_check_data
+			SELECT	order_no,
+					order_ext,
+					SUM(qty_ordered - (qty_picked + qty_alloc)),
+					SUM(qty_to_alloc),
+					0
+			FROM	#so_allocation_detail_view
+			WHERE	type_code = 0
+			GROUP BY order_no, order_ext
+
+			UPDATE	#fl_level_hold_check_data
+			SET		avail_perc = CASE WHEN allocated = 0 THEN 0 ELSE ((allocated / ordered) * 100) END
+
+			INSERT	#fl_level_hold_check (order_no, order_ext, status)
+			SELECT	a.order_no, a.order_ext, a.order_status
+			FROM	#so_alloc_management a
+			JOIN	#fl_level_hold_check_data b
+			ON		a.order_no = b.order_no
+			AND		a.order_ext = b.order_ext
+			WHERE	LEFT(a.user_category,2) = 'ST'
+			AND		b.avail_perc < @fill_rate_level
+	
+			SET @row_id = 0
+
+			WHILE (1 = 1)
+			BEGIN
+
+				SELECT	TOP 1 @row_id = row_id,
+						@order_no = order_no,
+						@status = status
+				FROM	#fl_level_hold_check
+				WHERE	row_id > @row_id
+				ORDER BY row_id ASC
+
+				IF (@@ROWCOUNT = 0)
+					BREAK
+
+				DELETE	#so_alloc_management 
+				WHERE	order_no = @order_no 
+				AND		order_ext = 0
+
+				IF (@status = 'N') 
+				BEGIN
+					UPDATE	orders_all
+					SET		status = 'A',
+							hold_reason = 'FL'
+					WHERE	order_no = @order_no
+					AND		ext = 0
+
+					INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+					SELECT	GETDATE() , 'ALLOC CHECK' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
+							'STATUS:A/FL USER HOLD; HOLD REASON: FILL LEVEL;'
+					FROM	orders_all a (NOLOCK)
+					WHERE	a.order_no = @order_no
+					AND		a.ext = 0
+				END
+				ELSE
+				BEGIN
+					IF NOT EXISTS (SELECT 1 FROM cvo_so_holds (NOLOCK) WHERE order_no = @order_no AND order_ext = 0 AND hold_reason = 'FL')
+					BEGIN
+						SELECT	@hold_priority = dbo.f_get_hold_priority('FL','')
+
+						INSERT	dbo.cvo_so_holds (order_no, order_ext, hold_reason, hold_priority, hold_user, hold_date)
+						SELECT	@order_no, 0, 'FL', @hold_priority, 'AP/ALLOC', GETDATE()
+
+						INSERT INTO tdc_log WITH (ROWLOCK) ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
+						SELECT	GETDATE() , 'ALLOC CHECK' , 'VB' , 'PLW' , 'ORDER UPDATE' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
+							'ADD HOLD FL;'
+						FROM	orders_all a (NOLOCK)
+						WHERE	a.order_no = @order_no
+						AND		a.ext = 0
+					END
+				END
+
+				SELECT	@back_ord_flag = back_ord_flag
+				FROM	orders_all (NOLOCK)
+				WHERE	order_no = @order_no
+				AND		ext = 0
+
+				SET @stcons_no = NULL
+				SELECT	@stcons_no = consolidation_no
+				FROM	cvo_masterpack_consolidation_det (NOLOCK) 
+				WHERE	order_no = @order_no
+				AND		order_ext = 0
+
+				IF (@stcons_no IS NOT NULL)
+				BEGIN
+					DELETE	a
+					FROM	#so_alloc_management a
+					JOIN	cvo_masterpack_consolidation_det b (NOLOCK) 
+					ON		a.order_no = b.order_no
+					AND		a.order_ext = b.order_ext
+					WHERE	b.consolidation_no = @stcons_no
+				END
+
+				EXEC dbo.cvo_unallocate_cons_orders_hold 0, @order_no, 0, @back_ord_flag 
+
+			END
+
+			DROP TABLE #fl_level_hold_check
+			DROP TABLE #fl_level_hold_check_data
+
+			-- v1.5 End
 
 			DELETE
 				a
@@ -430,7 +560,7 @@ BEGIN
 						AND a.username != 'AUTO_ALLOC' )
 
 				EXEC dbo.cvo_auto_alloc_past_orders_log_sp @order_type, @template, NULL, NULL, 'Allocating orders....'
-			
+
 				-- Allocate orders
 				EXEC tdc_plw_so_save_sp 0,'AUTO_ALLOC', 'AUTO_ALLOC', 'ORDER BY  order_no ASC, order_ext ASC',1
 

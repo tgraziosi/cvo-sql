@@ -10,6 +10,7 @@ GO
 -- v1.0 CT 02/04/2014 - Issue #572 - Masterpack print pick ticket for consolided order
 -- v1.1 CB 17/08/2015 - Not picking up consolidated orders correctly
 -- v1.2 CB 15/04/2016 - #1596 - Add promo level
+-- v1.3 CB 15/11/2017 - Fix issue with order update and print data
 
   
 CREATE PROC [dbo].[cvo_print_consolidated_pick_ticket_sp]	@consolidation_no int,  
@@ -269,7 +270,12 @@ BEGIN
   
 	 -- Get Location  
 	 SELECT @location = location  
-	 FROM #so_pick_ticket       
+	 FROM #so_pick_ticket  
+
+	-- v1.3 Start
+	IF (@location IS NULL)
+		RETURN
+	-- v1.3 End
   
 	 -- Call pick ticket print  
 	 -- START v1.2  
@@ -320,6 +326,7 @@ BEGIN
 		AND a.ext = b.order_ext  
 	WHERE
 		b.consolidation_no = @consolidation_no
+	AND	a.status < 'Q' -- v1.3
   
 END  
 GO

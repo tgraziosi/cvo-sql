@@ -14,6 +14,10 @@ Processed values:
 3 = Received -- v1.1
 -1 = Marked for processing
 -2 = being processed
+
+select * From cvo_auto_receive_credit_return
+join orders o on  where processed < 2
+
 */
 CREATE PROC [dbo].[CVO_process_auto_receive_credit_return_sp]
 AS
@@ -80,5 +84,6 @@ BEGIN
 	END
 
 END
+
 
 GO

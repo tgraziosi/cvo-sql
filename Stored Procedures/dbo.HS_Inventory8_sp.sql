@@ -8,7 +8,7 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT * FROM dbo.cvo_hs_inventory_8 where  mastersku = 'etpar'
+-- SELECT * FROM dbo.cvo_hs_inventory_8 where  hide = 1mastersku = 'etpar'
 -- DROP TABLE dbo.cvo_hs_inventory_8
 -- 		
 -- 072814 - tag - 1) add special values, 2) performance updates
@@ -31,6 +31,8 @@ GO
 -- 11/30/2016 - include all HSPOP POP items, regardless of release date
 -- 12/22/2016 - BT READERS
 -- 3/13/2017 = add ME unlmtd collection to me selldown
+-- 11/8/2017 - tweaks for 2018 sunps/presell season
+
 -- =============================================
 
 CREATE PROCEDURE [dbo].[HS_Inventory8_sp]
@@ -183,23 +185,22 @@ AS
 									WHEN @today >= @me AND i.category = 'me' THEN 'ME SELL-DOWN' -- 10/6/2016
 									WHEN @today >= @UN AND i.category = 'UN' THEN 'ME SELL-DOWN' -- 10/6/2016
 									WHEN I.CATEGORY = 'BCBG' AND IA.FIELD_32 = 'RETAIL' THEN 'BCBGR SELLDWN'
-                                    WHEN I.type_code IN ( 'OTHER', 'POP' )
-                                    THEN 'POP'
+                                    WHEN I.type_code IN ( 'OTHER', 'POP' ) THEN 'POP'
 	 -- 1/11/2016
 	 -- WHEN i.category = 'CH' AND ia.FIELD_32 = 'LastChance' THEN 'CHLastChance'
                                     WHEN I.category = 'CH'
                                          AND @today >= @CH THEN 'COLE HAAN' -- 05/26 - CHANGE FROM CH RETURNS TO COLE HAAN FOR LAST, LAST, CHANCE BUYS
                                     WHEN ISNULL(field_28, @today) >= @today
                                     THEN I.type_code
-                                    WHEN EXISTS ( SELECT    1
-                                                  FROM      #EOS
-                                                  WHERE     #EOS.part_no = I.part_no )
-                                    THEN 'SUN SPECIALS'
+
 	 -- 12/12/14 - sunps takes precedence
                                     WHEN I.type_code = 'SUN'
                                          AND ISNULL(field_28, @today) < @today
                                          AND ISNULL(field_36, '') <> 'sunps'
 										 AND I.category <> 'REVO' -- 5/4/2017 - SHOW ALL REVOS
+										 and not EXISTS ( SELECT    1
+                                                  FROM      #EOS
+                                                  WHERE     #EOS.part_no = I.part_no )
                                     THEN 'EORS'
                                     WHEN dbo.f_cvo_get_part_tl_status(I.part_no,
                                                               @today) = 'R'
@@ -212,12 +213,21 @@ AS
                                                   @today) >= 9 AND I.TYPE_CODE <> 'SUN' THEN 'QOP'
                                     ELSE I.type_code
                                END ,
-                [CATEGORY:2] = CASE WHEN I.category IN ( 'izod', 'izx' )
-                                    THEN 'IZOD' 
+                [CATEGORY:2] = CASE 
 					-- WHEN ia.field_32 = 'lastchance' THEN '' 
 									WHEN i.category = 'BT' AND IA.CATEGORY_2 LIKE '%ADULT%'
 										 AND (RIGHT(I.part_no,2) = 'f1' OR i.type_code = 'lens') 
 									THEN 'BLUTECH READERS' -- 12/22/2016
+									WHEN i.type_code = 'sun' AND EXISTS ( SELECT    1
+                                                  FROM      #EOS
+                                                  WHERE     #EOS.part_no = I.part_no )
+                                    THEN 'SELLDOWN'
+									WHEN I.TYPE_CODE = 'SUN' AND I.CATEGORY IN ('BCBG','SM','IZOD','IZX') and isnull(ia.field_32,'') <> 'retail'
+									THEN 'FASHION'
+									when i.type_code = 'sun' and i.category IN ('et','jmc','pt')
+									then 'SELLDOWN'
+									WHEN I.category IN ( 'izod', 'izx' )
+                                    THEN 'IZOD' 
                                     ELSE CAT.description
                                END ,
                 ISNULL(field_3, '') AS Color ,
@@ -268,7 +278,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                      WHEN field_26 > DATEADD(MONTH, -6, @today) THEN 'New'
                      ELSE ''
                 END AS New ,
-                CASE WHEN field_36 = 'SUNPS' THEN 'SUNPS'
+                CASE WHEN ISNULL(field_36,'') in ('SUNPS','PreSell') THEN field_36 -- 11/8/2017 for presell season
                      ELSE ''
                 END AS SUNPS ,
                 CASE WHEN #cc.part_no IS NULL THEN ''
@@ -336,6 +346,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                       OR #apr.sku IS NOT NULL
 					  OR ('hspop' = ISNULL(field_36,'') AND I.type_code = 'POP')  -- include POP regardless of release date as long has HSPOP tag is set - 11/29/2016
 					  OR i.category = 'LS' -- 9/27/2016
+					  OR (ISNULL(field_36,'') IN ('sunps','Presell')) -- 11/8/2017 for new presell seaason
                       OR ( field_26 = '4/26/2016'
                            AND category <> 'AS'
                          )
@@ -732,6 +743,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                                                 'IZ6004' )
                                  AND @today < '5/16/2016' THEN 1
 							  -- 9/7/2016 WHEN mastersku IN ('iz2026','iz2027') THEN 1 -- new iz t&C kit
+							-- WHEN ReleaseDate > GETDATE() AND sunps IN ('sunps','presell') THEN 1 -- 11/8/2017 for new presell season
                             ELSE 0
                        END;
 
@@ -751,7 +763,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
 -- plug for BCBG Danica, only to go to Centennial and Mexico
         UPDATE  #Final
         SET     hide = 1
-        WHERE   Model = 'Danica' AND COLL = 'bcbg'
+        WHERE   (Model = 'Danica' AND COLL = 'bcbg') OR sku IN ('BCASTNGRE5718','BCAPPEBLS5617')
 		; -- 11/17/2016
 
 -- SELECT * FROM dbo.cvo_hs_inventory_8 AS chi WHERE releasedate = '9/6/2016'
@@ -836,6 +848,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                 DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY];
 
 				CREATE INDEX IDX_HSINV_COLL ON dbo.cvo_hs_inventory_8 (COLL, SKU);
+				CREATE INDEX IDX_HSINV_MASTERSKU ON dbo.cvo_hs_inventory_8 (MASTERSKU);
 
             END;
 
@@ -1056,6 +1069,11 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
 
 -- SELECT * FROM #data1 WHERE mastersku = 'bcesm'
+
+
+
+
+
 
 
 

@@ -24,7 +24,9 @@ CONVERT(DATETIME,DATEADD(D,X.DATE_APPLIED-711858,'1/1/1950'),101) date_applied,
 o.date_shipped,     
 isnull(c.address_name,o.ship_to_name) as ship_to_name,       
 isnull(inv.category,'') category, isnull(inv.type_code,'') type_code, isnull(inva.field_2,'') Style,
-ol.part_no, isnull(ol.shipped,0)-isnull(ol.cr_shipped,0) as Shipped,
+ol.part_no, 
+ISNULL(ol.ordered,0)-isnull(ol.cr_ordered,0) as ordered,
+ISNULL(ol.shipped,0)-isnull(ol.cr_shipped,0) as Shipped,
 isnull(cc.price_code,'') price_code, 
 isnull(ol.price_type,'') price_type,
 isnull(pp.price_a,0) price_a,
@@ -129,7 +131,10 @@ CONVERT(DATETIME,DATEADD(D,X.DATE_APPLIED-711858,'1/1/1950'),101) date_applied,
 o.date_shipped,     
 isnull(c.address_name,o.ship_to_name) as ship_to_name,       
 isnull(inv.category,'') category, isnull(inv.type_code,'') type_code, isnull(inva.field_2,'') Style,
-ol.part_no, isnull(ol.shipped,0)-isnull(ol.cr_shipped,0) as Shipped,
+
+ol.part_no,
+ISNULL(ol.ordered,0)-isnull(ol.cr_ordered,0) as ordered,
+ isnull(ol.shipped,0)-isnull(ol.cr_shipped,0) as Shipped,
 isnull(cc.price_code,'') price_code, 
 isnull(ol.price_type,'') price_type,
 isnull(pp.price_a,0) price_a,
@@ -236,6 +241,7 @@ isnull(c.address_name,o.ship_to_name) as ship_to_name,
 isnull(inv.category,'') category, isnull(inv.type_code,'') type_code, 
 isnull(inva.field_2,'') Style,
 ol.part_no, 
+ISNULL(ol.ordered,0)-isnull(ol.cr_ordered,0) as ordered,
 isnull(ol.ordered,0)-isnull(ol.cr_ordered,0) as Shipped,
 isnull(cc.price_code,'') price_code, 
 isnull(ol.price_type,'') price_type,
@@ -342,7 +348,8 @@ isnull(c.address_name,o.ship_to_name) as ship_to_name,
 isnull(inv.category,'') category,         -- CVO      
 isnull(inv.type_code,'') type_code,         -- CVO 
 isnull(inva.field_2,'') Style,
-isnull(inv.part_no,ol.part_no) part_no,       
+isnull(inv.part_no,ol.part_no) part_no,  
+ISNULL(ol.ordered,0)-isnull(ol.cr_ordered,0) as ordered,     
 ol.shipped-ol.cr_shipped as shipped,       
 isnull(cc.price_code,'') price_code, 
 isnull(ol.price_type,'') price_type,
@@ -383,6 +390,7 @@ where 1=1
 --and (o.user_def_fld3 is null 
 --	or o.user_def_fld3 not in ('don','eag','eor','qop','eos','ff','survey','si','ca','sv','pc'))
 --and user_category not in ('st-sa')
+
 
 
 

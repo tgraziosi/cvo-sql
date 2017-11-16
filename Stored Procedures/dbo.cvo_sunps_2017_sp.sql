@@ -7,11 +7,12 @@ AS
     SET NOCOUNT ON;
 
     DECLARE @asofdate DATETIME;
-    SELECT  @asofdate = '11/1/2016';
+    SELECT  @asofdate = '11/1/2017';
 
     SELECT  sunps.customer ,
             sunps.ship_to ,
             sunps.last_sunps_activity ,
+			sunps.promo_level,
             sunps.sunps_net_sales ,
             sunps.sunps_net_qty ,
             cust_info.address_name ,
@@ -21,7 +22,8 @@ AS
     FROM    ( -- customer who purchased sunps in previous years
               SELECT    customer ,
                         ship_to ,
-                        MAX(yyyymmdd) last_sunps_activity ,
+						sbm.promo_level,
+                        MAX(sbm.DateOrdered) last_sunps_activity ,
                         SUM(anet) sunps_net_sales ,
                         SUM(qnet) sunps_net_qty
               FROM      cvo_sbm_details sbm
@@ -30,8 +32,9 @@ AS
                         AND i.type_code IN ( 'frame', 'sun' )
                         AND c_year >= 2012
               GROUP BY  customer ,
-                        ship_to
-              HAVING    MAX(yyyymmdd) < @asofdate
+                        ship_to,
+						sbm.promo_level
+              HAVING    MAX(sbm.DateOrdered) < @asofdate
                         AND SUM(qnet) > 0
             ) AS sunps
             INNER JOIN ( SELECT ar.customer_code ,
@@ -65,6 +68,7 @@ AS
                             AND new_orders.ship_to = sunps.ship_to
     WHERE   1 = 1
             AND new_orders.cust_code IS NULL;
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_sunps_2017_sp] TO [public]

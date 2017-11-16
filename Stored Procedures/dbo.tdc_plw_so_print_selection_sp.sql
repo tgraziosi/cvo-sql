@@ -10,6 +10,7 @@ GO
 -- v1.5 CT 08/05/2013 - Issue #1259 - Allow print of pick ticket if order only contains custom frames 
 -- v1.6 CT 19/02/2015 - When checking for orders with kits/promos where frames are not available, don't include fully picked order lines
 -- v1.7 CB 14/04/2016 - #1596 - Add promo level
+-- v1.8 CB 15/11/2017 - Fix issue with temp table
 
 CREATE PROCEDURE [dbo].[tdc_plw_so_print_selection_sp]    
  @con_no     int,  
@@ -579,7 +580,7 @@ END
 -- v1.3 Start
 
 -- Create working table
-IF OBJECT_ID('tempdb..#temp_stock') IS NOT NULL 
+IF OBJECT_ID('tempdb..#orders') IS NOT NULL -- v1.8
 	DROP TABLE #orders  
 
 CREATE TABLE #orders (

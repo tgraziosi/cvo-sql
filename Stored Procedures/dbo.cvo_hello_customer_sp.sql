@@ -21,10 +21,14 @@ exec cvo_hello_customer_sp '054421' , '41673985399', null, null
         SET NOCOUNT ON;
 
         DECLARE @ship_to VARCHAR(12);
-        DECLARE @today DATETIME, @r12start DATETIME, @r12end datetime;
+        DECLARE @today DATETIME, @r12start DATETIME, @r12end DATETIME, @yrstart datetime;
 
         SELECT @today = enddate FROM cvo_date_range_vw WHERE period = 'today'
 		SELECT @r12start = begindate, @r12end = enddate FROM dbo.cvo_date_range_vw AS drv WHERE period = 'rolling 12 ty'
+		SELECT @yrstart = DATEADD(YEAR, DATEDIFF(YEAR,0,@r12end), 0);
+
+		-- SELECT @today, @r12start, @tystart
+
 
 		
         IF OBJECT_ID('tempdb..#cust') IS NOT NULL
@@ -281,6 +285,7 @@ exec cvo_hello_customer_sp '054421' , '41673985399', null, null
 			car.bo_carrier,
 			ar.price_code discount_code,
 			rr.RAretpct,
+			rr.RAretpct_ytd,
 			--
             i.Info ,
             i.cust_code ,
@@ -323,6 +328,7 @@ exec cvo_hello_customer_sp '054421' , '41673985399', null, null
                                     WHERE   customer_code = c.customer_code
                                             AND ISNULL(start_date, @today) <= @today
                                             AND ISNULL(end_date, @today) >= @today
+									ORDER BY primary_flag DESC, code asc
                                     FOR
                                     XML PATH('')
                                     ), 1, 1, '') desig
@@ -350,12 +356,21 @@ exec cvo_hello_customer_sp '054421' , '41673985399', null, null
 			GROUP BY customer
 			) cl ON cl.customer = ar.customer_code
 			LEFT OUTER JOIN
-            (SELECT 	customer, RAretpct = CASE WHEN facts.grosssales = 0 THEN 0 ELSE facts.rareturns/facts.grosssales END
+            (SELECT 	customer, RAretpct = (CASE WHEN facts.grosssales_r12 = 0 THEN 0 ELSE facts.rareturns_r12/facts.grosssales_r12 END)*100.00,
+			RAretpct_ytd = (CASE WHEN facts.grosssales_ytd = 0 THEN 0 ELSE facts.rareturns_ytd/facts.grosssales_ytd END)*100.00
 				from	
 				(
 				SELECT customer,
-				SUM(ISNULL(sbm.asales,0)) - SUM(ISNULL((CASE WHEN return_code='exc' THEN sbm.areturns ELSE 0 end),0))  grosssales, 
-				SUM(CASE WHEN ISNULL(sbm.return_code,'') = '' THEN ISNULL(sbm.areturns,0) ELSE 0 END) rareturns
+				SUM(ISNULL(sbm.asales,0)) - SUM(ISNULL((CASE WHEN return_code='exc' THEN sbm.areturns ELSE 0 end),0))  grosssales_r12, 
+				SUM(CASE WHEN ISNULL(sbm.return_code,'') = '' THEN ISNULL(sbm.areturns,0) ELSE 0 END) rareturns_r12,
+
+				grosssales_ytd = 
+				SUM(CASE WHEN yyyymmdd >= @yrstart THEN ISNULL(sbm.asales,0) ELSE 0 END)-
+				SUM(CASE WHEN yyyymmdd >= @yrstart THEN ISNULL(CASE WHEN return_code='exc' THEN sbm.areturns ELSE 0 end,0) ELSE 0 END) , 
+
+				SUM(CASE WHEN ISNULL(sbm.return_code,'') = '' and yyyymmdd >= @yrstart THEN ISNULL(sbm.areturns,0) ELSE 0 END) rareturns_ytd
+
+
 				from
 				cvo_sbm_details sbm (NOLOCK)
 				WHERE 1=1 
@@ -365,6 +380,9 @@ exec cvo_hello_customer_sp '054421' , '41673985399', null, null
 			) rr ON rr.customer = ar.customer_code
 
 			;
+
+
+
 
 
 GO

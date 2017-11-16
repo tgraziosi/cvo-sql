@@ -72,7 +72,8 @@ CREATE TABLE [dbo].[cvo_cmi_models]
 [component_5] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [component_6] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [apply_dim_level] [tinyint] NULL CONSTRAINT [DF__cvo_cmi_m__apply__1FA85F94] DEFAULT ((0)),
-[pom_date] [datetime] NULL
+[pom_date] [datetime] NULL,
+[sub_brand] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_cmi_models] ADD CONSTRAINT [PK__cvo_cmi_models__6D0B664D] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

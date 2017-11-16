@@ -20,8 +20,11 @@ BEGIN
         i.description,
         ol.ordered,
         iav.NextPODueDate,
-		AGE = ISNULL('Due in ' +CAST (DATEDIFF(WEEK,GETDATE(), iav.NextPODueDate) AS VARCHAR(3)) + CASE WHEN
-				DATEDIFF(WEEK,GETDATE(), iav.NextPODueDate) = 1 THEN ' week.' ELSE ' weeks.' END,'N/A'),
+		AGE = CASE WHEN o.status IN ('p','q') THEN 'Processing'
+				ELSE
+				ISNULL('Due in ' +CAST (DATEDIFF(WEEK,GETDATE(), iav.NextPODueDate) AS VARCHAR(3)) + CASE WHEN
+				DATEDIFF(WEEK,GETDATE(), iav.NextPODueDate) = 1 THEN ' week.' ELSE ' weeks.' END,'N/A')
+				end,
         o.order_no,
         o.ext,
         o.date_entered,
@@ -38,7 +41,7 @@ BEGIN
                AND iav.part_no = ol.part_no
     WHERE
         o.who_entered IN ( 'backordr', 'outofstock' )
-        AND o.status < 'p'
+        AND o.status < 'r'
         AND i.type_code IN ( 'frame', 'sun' )
         AND o.cust_code = ISNULL(@customer, '')
         AND o.ship_to = ISNULL(@ship_to, '')
@@ -51,6 +54,7 @@ GRANT EXECUTE
 ON dbo.cvo_hello_backorders_sp
 TO  PUBLIC
 ;
+
 
 
 

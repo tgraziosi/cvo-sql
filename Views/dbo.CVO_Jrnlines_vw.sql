@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER OFF
 GO
 SET ANSI_NULLS OFF
@@ -43,8 +42,8 @@ CREATE VIEW [dbo].[CVO_Jrnlines_vw] AS
   	CASE WHEN CHARINDEX('/',t1.description) > 0 THEN -- 03/2016 - longer ap description
 		LEFT(t1.description,(CHARINDEX('/',t1.description))) + ISNULL(b.line_desc,'')
 		ELSE t1.description END AS [description],
-	t1.document_1,
-	t1.document_2,
+	LTRIM(RTRIM(ISNULL(t1.document_1,''))) document_1,
+	LTRIM(RTRIM(ISNULL(t1.document_2,''))) document_2,
 	t1.nat_cur_code, 
   	t1.nat_balance,
 	t1.reference_code,
@@ -73,6 +72,7 @@ FROM
 	ON t1.document_2 = b.trx_ctrl_num
 	AND t1.seq_ref_id = b.sequence_id
 	
+
 
 GO
 
