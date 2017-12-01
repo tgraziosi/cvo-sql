@@ -5,13 +5,13 @@ GO
 
 -- 8/18/2015 - when calculating FirstOrder units, don't qualify on promo/level, only on promo
 
--- exec cvo_brandtracker_fs_sp '1/1/2015', null, 'op', 'sun', null, 'op,sunps', 'suns,op', null, null, 0
+-- exec cvo_brandtracker_fs_sp '1/1/2015', null, 'bt', 'xl', null, 'bt,ve-bt', null, null, null, 0
 
 CREATE PROCEDURE [dbo].[cvo_brandtracker_fs_sp]
     @df DATETIME = NULL ,      -- fromdate
     @dto DATETIME = NULL ,     -- todate
     @b VARCHAR(1024) = NULL ,  -- brand
-    @a VARCHAR(1024) = NULL ,  -- type_code
+    @a VARCHAR(1024) = NULL ,  -- attribute
     @t VARCHAR(1024) = NULL ,  -- territory
     @bp VARCHAR(1024) = NULL , -- buyin promo list
     @bl VARCHAR(1024) = NULL , -- buyin levels
@@ -25,7 +25,7 @@ AS
     DECLARE @datefrom DATETIME ,
             @dateto DATETIME ,
             @brand VARCHAR(1024) ,
-            @tc VARCHAR(1024) ,
+            @aa VARCHAR(1024) ,
             @terr VARCHAR(1024) ,
             @fpromo_id VARCHAR(1024) ,
             @fpromo_level VARCHAR(1024) ,
@@ -37,7 +37,7 @@ AS
            @dateto = @dto ,
            @brand = @b ,
            @terr = @t ,
-           @tc = @a ,
+           @aa = @a ,
            @fpromo_id = @p ,
            @fpromo_level = @l ,
            @bpromo_id = @bp ,
@@ -55,43 +55,43 @@ AS
         DROP TABLE #terr;
     CREATE TABLE #terr
         (
-            terr VARCHAR(10)
+            terr VARCHAR(10), region VARCHAR(10)
         );
 
-    IF ( OBJECT_ID('tempdb.dbo.#tc') IS NOT NULL )
-        DROP TABLE #tc;
-    CREATE TABLE #tc
+    IF ( OBJECT_ID('tempdb.dbo.#aa') IS NOT NULL )
+        DROP TABLE #aa;
+    CREATE TABLE #aa
         (
-            tc VARCHAR(20)
+            aa VARCHAR(20)
         );
 
     IF ( OBJECT_ID('tempdb.dbo.#bp') IS NOT NULL )
         DROP TABLE #bp;
     CREATE TABLE #bp
         (
-            bp VARCHAR(10)
+            bp VARCHAR(20)
         );
 
     IF ( OBJECT_ID('tempdb.dbo.#bl') IS NOT NULL )
         DROP TABLE #bl;
     CREATE TABLE #bl
         (
-            bl VARCHAR(10)
+            bl VARCHAR(30)
         );
 
     IF ( OBJECT_ID('tempdb.dbo.#fp') IS NOT NULL )
         DROP TABLE #fp;
     CREATE TABLE #fp
         (
-            fp VARCHAR(10)
+            fp VARCHAR(20)
         );
 
     IF ( OBJECT_ID('tempdb.dbo.#fl') IS NOT NULL )
         DROP TABLE #fl;
     CREATE TABLE #fl
         (
-            fl VARCHAR(10)
-        );
+            fl VARCHAR(30)
+        )
 
     IF ( OBJECT_ID('tempdb.dbo.#t') IS NOT NULL )
         DROP TABLE #t;
@@ -116,31 +116,34 @@ AS
                    FROM   dbo.f_comma_list_to_table(@brand);
         END;
 
-    IF ISNULL(@tc, '') = ''
+    IF ISNULL(@aa, '') IN ('','*ALL*')
         BEGIN
-            INSERT #tc ( tc )
-                   SELECT DISTINCT type_code
-                   FROM   inv_master;
-        -- insert #tc (tc) values ('')
+            --INSERT #aa ( aa )
+            --       SELECT DISTINCT type_code
+            --       FROM   inv_master;
+			INSERT #aa ( aa )
+				   SELECT DISTINCT isnull(ia.field_32,'None')
+				   FROM inv_master_add ia;
+        -- insert #aa (tc) values ('')
         END;
     ELSE
         BEGIN
-            INSERT #tc ( tc )
+            INSERT #aa ( aa )
                    SELECT DISTINCT ListItem
-                   FROM   dbo.f_comma_list_to_table(@tc);
+                   FROM   dbo.f_comma_list_to_table(@aa);
         END;
 
     IF ISNULL(@terr, '') = ''
         BEGIN
-            INSERT #terr ( terr )
-                   SELECT DISTINCT territory_code
+            INSERT #terr ( terr, region )
+                   SELECT DISTINCT territory_code, dbo.calculate_region_fn(territory_code)
                    FROM   armaster ( NOLOCK )
                    WHERE  ISNULL(territory_code, '') > '';
         END;
     ELSE
         BEGIN
-            INSERT #terr ( terr )
-                   SELECT DISTINCT ListItem
+            INSERT #terr ( terr, region )
+                   SELECT DISTINCT ListItem, dbo.calculate_region_fn(ListItem)
                    FROM   dbo.f_comma_list_to_table(@terr);
         END;
 
@@ -217,7 +220,7 @@ AS
            bb.promo_id ,
            bb.promo_level ,
            bb.brand ,
-           bb.type_code ,
+           bb.attribute ,
            bb.first_order_date ,
            bb.first_order_ship ,
            CAST(NULL AS DATETIME) AS highlight_ship_date
@@ -228,7 +231,7 @@ AS
            INNER JOIN arcust ar ( NOLOCK ) ON #terr.terr = ar.territory_code
 
            INNER JOIN (   SELECT   b.brand ,
-                                   i.type_code ,
+                                   CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end attribute,
                                    customer ,
                                    MIN(ISNULL(sbm.promo_id, '')) promo_id ,
                                    MIN(ISNULL(sbm.promo_level, '')) promo_level ,
@@ -238,7 +241,7 @@ AS
                           FROM     #brand b
                                    INNER JOIN inv_master i ON b.brand = i.category
                                    INNER JOIN inv_master_add ia ON ia.part_no = i.part_no
-                                   INNER JOIN #tc a ON a.tc = i.type_code
+								   INNER JOIN #aa ON #aa.aa = isnull(ia.field_32,'None')
                                    INNER JOIN cvo_sbm_details sbm ON sbm.part_no = i.part_no
                                    INNER JOIN #bp ON #bp.bp = sbm.promo_id
                                    INNER JOIN #bl ON #bl.bl = sbm.promo_level
@@ -253,7 +256,7 @@ AS
                                    AND sbm.yyyymmdd
                                    BETWEEN @datefrom AND @dateto
                           GROUP BY b.brand ,
-                                   i.type_code ,
+                                   CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end  ,
                                    customer ) AS bb ON bb.customer = ar.customer_code;
 
     IF @debug = 1
@@ -262,15 +265,15 @@ AS
         WHERE  customer_code = '045455';
 
     SELECT   #t.customer_code ,
-             #t.type_code ,
+             CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end attribute,
              SUM(ISNULL(qnet, 0)) units ,
              'BI' sale_type
     INTO     #v
     FROM     #t
              INNER JOIN inv_master i ON i.category = #t.brand
-                                        AND i.type_code = #t.type_code
+                                        -- AND i.type_code = #t.tc
              INNER JOIN inv_master_add ia ON ia.part_no = i.part_no
-             INNER JOIN #tc a ON a.tc = i.type_code
+			 INNER JOIN #aa ON #aa.aa = isnull(ia.field_32,'None')
              INNER JOIN cvo_sbm_details sbm ON sbm.customer = #t.customer_code
                                                AND sbm.part_no = i.part_no
              INNER JOIN #bp ON #bp.bp = sbm.promo_id
@@ -280,76 +283,73 @@ AS
              AND RIGHT(sbm.user_category, 2) <> 'rb'
              AND sbm.DateOrdered = #t.first_order_date
     GROUP BY #t.customer_code ,
-             #t.type_code;
+             CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end;
 
 
     INSERT INTO #v
                 SELECT   #t.customer_code ,
-                         #t.type_code ,
+                         CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end attribute ,
                          SUM(ISNULL(qnet, 0)) units ,
                          'RX' sale_type
                 FROM     #t
                          INNER JOIN inv_master i ON i.category = #t.brand
-                                                    AND i.type_code = #t.type_code
+                                                    -- AND i.type_code = #t.type_code
                          INNER JOIN inv_master_add ia ON ia.part_no = i.part_no
-                         INNER JOIN #tc a ON a.tc = i.type_code
+						 INNER JOIN #aa ON #aa.aa = isnull(ia.field_32,'None')
                          INNER JOIN cvo_sbm_details sbm ON sbm.customer = #t.customer_code
                                                            AND sbm.part_no = i.part_no
                 WHERE    1 = 1
-                         AND ISNULL(sbm.promo_id, '') NOT IN ( 'pc', 'ff' ,
-                                                               'style out' )
+                         AND ISNULL(sbm.promo_id, '') NOT IN ( 'pc', 'ff' , 'style out' )
                          AND LEFT(sbm.user_category, 2) IN ( 'rx' )
                          AND RIGHT(sbm.user_category, 2) <> 'rb'
                          AND sbm.yyyymmdd
                          BETWEEN DATEADD(dd, 1, #t.first_order_ship) AND @dateto
                 GROUP BY #t.customer_code ,
-                         #t.type_code;
+                         CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end;
 
     INSERT INTO #v
                 SELECT   #t.customer_code ,
-                         #t.type_code ,
+                         CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end attribute,
                          SUM(ISNULL(qnet, 0)) units ,
                          'PC' sale_type
                 FROM     #t
                          INNER JOIN inv_master i ON i.category = #t.brand
-                                                    AND i.type_code = #t.type_code
+                                                    -- AND i.type_code = #t.type_code
                          INNER JOIN inv_master_add ia ON ia.part_no = i.part_no
-                         INNER JOIN #tc a ON a.tc = i.type_code
+						 INNER JOIN #aa ON #aa.aa = isnull(ia.field_32,'None')
                          INNER JOIN cvo_sbm_details sbm ON sbm.customer = #t.customer_code
                                                            AND sbm.part_no = i.part_no
                 WHERE    1 = 1
-                         AND ISNULL(sbm.promo_id, '') IN ( 'pc', 'ff' ,
-                                                           'style out' )
+                         AND ISNULL(sbm.promo_id, '') IN ( 'pc', 'ff' , 'style out' )
                          AND RIGHT(sbm.user_category, 2) <> 'rb'
                          -- AND sbm.return_code <> 'exc'
                          -- and sbm.DateOrdered between DATEADD(dd,1,#t.first_order_date) and @dateto
                          AND sbm.yyyymmdd
                          BETWEEN @datefrom AND @dateto
                 GROUP BY #t.customer_code ,
-                         #t.type_code;
+                         CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end;
 
     INSERT INTO #v
                 SELECT   #t.customer_code ,
-                         #t.type_code ,
+                         CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end attribute ,
                          SUM(ISNULL(qnet, 0)) units ,
                          'ST' sale_type
                 FROM     #t
                          INNER JOIN inv_master i ON i.category = #t.brand
-                                                    AND i.type_code = #t.type_code
+                                                    -- AND i.type_code = #t.type_code
                          INNER JOIN inv_master_add ia ON ia.part_no = i.part_no
-                         INNER JOIN #tc a ON a.tc = i.type_code
+                         INNER JOIN #aa  ON #aa.aa = isnull(ia.field_32,'None')
                          INNER JOIN cvo_sbm_details sbm ON sbm.customer = #t.customer_code
                                                            AND sbm.part_no = i.part_no
                 WHERE    1 = 1
-                         AND ISNULL(sbm.promo_id, '') NOT IN ( 'pc', 'ff' ,
-                                                               'style out' )
+                         AND ISNULL(sbm.promo_id, '') NOT IN ( 'pc', 'ff' , 'style out' )
                          AND LEFT(sbm.user_category, 2) IN ( 'ST', '' )
                          AND RIGHT(sbm.user_category, 2) <> 'rb'
-                         -- AND sbm.return_code <> 'exc'
+						 -- AND sbm.return_code <> 'exc'
                          AND sbm.yyyymmdd
                          BETWEEN DATEADD(dd, 1, #t.first_order_ship) AND @dateto
                 GROUP BY #t.customer_code ,
-                         #t.type_code;
+                         CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end;
 
     IF @debug = 1
         SELECT *
@@ -421,7 +421,7 @@ AS
              #t.promo_id ,
              #t.promo_level ,
              #t.brand ,
-             #t.type_code ,
+             #t.attribute ,
              #t.first_order_date ,
              #t.first_order_ship ,
              #t.highlight_ship_date ,
@@ -429,14 +429,16 @@ AS
              #v.sale_type ,
              ISNULL(#newrea.newrea, '') newrea ,
              c.description brand_name ,
-             dbo.calculate_region_fn(#t.territory_code) region
+             #terr.region
     FROM     #t
              LEFT OUTER JOIN #newrea ON #t.customer_code = #newrea.customer_code
              INNER JOIN category c ON c.kys = #t.brand
+			 JOIN #terr ON #terr.terr = #t.territory_code
              LEFT OUTER JOIN #v ON #v.customer_code = #t.customer_code
-                                   AND #v.type_code = #t.type_code
+                                   AND #v.attribute = #t.attribute
     WHERE    1 = 1
     ORDER BY customer_code;
+
 
 
 

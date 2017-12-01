@@ -3,12 +3,14 @@ GO
 SET ANSI_NULLS ON
 GO
 
+
 /*
 Returns:	0 = Success
 			-1 = No rignfence bin exists
 
 v1.1 CT 28/11/2013 - Issue #1406 - Optional parameter to hold whether the allocation process should be run straightaway
 v1.2 CT 27/01/2014 - Issue #1406 - Check allocated stock for this template, if the order number and line is no longer linked to template then unallocate
+v1.3 CB 15/11/2017 - Add directives
 */
 
 -- EXEC cvo_backorder_processing_process_sp 'CT01'
@@ -16,7 +18,14 @@ CREATE PROC [dbo].[cvo_backorder_processing_process_sp] @template_code VARCHAR(3
 													@allocate SMALLINT = 0 -- v1.1
 AS
 BEGIN
-	
+
+
+
+	-- v1.3 Start
+	SET NOCOUNT ON
+	SET ANSI_WARNINGS OFF
+	-- v1.3 End
+
 	DECLARE @ringfence_bin	VARCHAR(12),
 			@rec_id			INT,
 			@order_no		INT,
@@ -311,6 +320,7 @@ BEGIN
 	RETURN 0
 END
 	
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_backorder_processing_process_sp] TO [public]

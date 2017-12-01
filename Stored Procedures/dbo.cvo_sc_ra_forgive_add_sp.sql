@@ -55,7 +55,8 @@ INSERT INTO dbo.cvo_sc_ra_forgiveness ( Salesperson ,
                    cbwt.InvoiceDate ,
                    cbwt.Amount ,
 				   cbwt.Comm_pct,
-				   cbwt.Comm_amt,
+				   ROUND(cbwt.comm_pct/100 * pom_amount,2) comm_amt, -- only forgive the pom amount of the RA, not the whole thing.
+				   -- cbwt.Comm_amt,
                    RA_amount ,
                    pom_amount ,
                    'Yes'
@@ -73,6 +74,7 @@ INSERT INTO dbo.cvo_sc_ra_forgiveness ( Salesperson ,
 END
 
 GRANT EXECUTE ON dbo.cvo_sc_ra_forgive_add_sp TO PUBLIC
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_sc_ra_forgive_add_sp] TO [public]
 GO

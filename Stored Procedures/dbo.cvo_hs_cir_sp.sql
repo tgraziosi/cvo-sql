@@ -49,7 +49,7 @@ begin
 END
 
 -- 1/10/2107 - remove bob bassett for HS troubleshooting
-DELETE FROM #territory WHERE territory = '30310'
+-- DELETE FROM #territory WHERE territory = '30310'
 
 
 IF(OBJECT_ID('dbo.cvo_hs_cir_tbl') is null)  
@@ -110,6 +110,7 @@ INNER JOIN #territory AS t ON t.territory = ar.territory_code
 WHERE s.yyyymmdd >= @startdate AND i.type_code IN ('frame','sun') AND ISNULL(i.void,'n') = 'n'
 AND i.category NOT IN ('FP','CH','ME','UN') -- 5/18/2017 - REMOVE CH, ME, AND UN NO LONGER SELLING
 AND EXISTS (SELECT 1 FROM dbo.hs_cust_tbl AS hct WHERE hct.id = s.customer)
+AND s.ship_to <> '0002.' -- 11/29/2017 - fudge for bad data till we fix it permanently
 
 GROUP BY s.customer ,
          s.ship_to ,
@@ -237,8 +238,11 @@ WHERE NOT EXISTS  (SELECT 1 FROM #cir WHERE
 				 #cir.customer = chct.customer 
 				AND #cir.part_no = chct.part_no
 				AND #cir.ship_to = chct.ship_to)
+				OR chct.ship_to = '0002.'
 
 END
+
+
 
 
 

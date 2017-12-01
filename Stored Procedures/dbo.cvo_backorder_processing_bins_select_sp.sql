@@ -20,10 +20,12 @@ DROP TABLE #bins
 */
 -- v1.1 CB 05/10/2016 - Fix issue with stock over committing discovered in testing #1606
 -- v1.2 CB 05/10/2016 - #1606 - Direct Putaway & Fast Track Cart
+-- v1.3 CB 12/10/2017 - #1644 - Backorder Processing Reserve
 
 CREATE PROC [dbo].[cvo_backorder_processing_bins_select_sp]    (@part_no	VARCHAR(30),
 															@location	VARCHAR(10),
-															@qty		DECIMAL(20,8))
+															@qty		DECIMAL(20,8),
+															@rx_reserve int = 0) -- v1.3
 AS
 BEGIN
 
@@ -37,6 +39,66 @@ BEGIN
 	SELECT @bulk_bin_group		= value_str FROM tdc_config (NOLOCK) WHERE [function] = 'bulk_bin_group'
 	SELECT @hight_bays_bin_group= value_str FROM tdc_config (NOLOCK) WHERE [function] = 'hight_bays_bin_group'
 	SELECT @pick_bin_group		= value_str FROM tdc_config (NOLOCK) WHERE [function] = 'pick_bin_group'
+
+	-- v1.3 Start
+	IF (@rx_reserve = 1)
+	BEGIN
+		CREATE TABLE #rx_bins (
+			location	varchar(10),
+			bin_no		varchar(12),
+			qty			decimal(20,8))
+
+		CREATE TABLE #rx_bins_allocated (
+			location	varchar(10),
+			bin_no		varchar(12),
+			qty			decimal(20,8))
+	
+		INSERT	#rx_bins (location, bin_no, qty)
+		SELECT	a.location,
+				a.bin_no,
+				a.qty
+		FROM	lot_bin_stock a (NOLOCK)
+		JOIN	tdc_bin_master b (NOLOCK)
+		ON		a.location = b.location		
+		AND		a.bin_no = b.bin_no
+		WHERE	b.group_code = 'RESERVE'
+		AND		b.usage_type_code IN ('OPEN','REPLENISH')
+		AND		a.location = @location
+		AND		a.part_no = @part_no
+
+		INSERT	#rx_bins_allocated (location, bin_no, qty)
+		SELECT	a.location, a.bin_no, SUM(a.qty)
+		FROM	tdc_soft_alloc_tbl a (NOLOCK)
+		JOIN	tdc_bin_master b (NOLOCK)
+		ON		a.location = b.location		
+		AND		a.bin_no = b.bin_no
+		WHERE	a.location = @location
+		AND		a.part_no = @part_no
+		AND		b.group_code = 'RESERVE'
+		AND		b.usage_type_code IN ('OPEN','REPLENISH')
+		GROUP BY a.location, a.bin_no
+
+		UPDATE	a
+		SET		qty =  a.qty - b.qty
+		FROM	#rx_bins a
+		JOIN	#rx_bins_allocated b
+		ON		a.location = b.location
+		AND		a.bin_no = b.bin_no
+
+		DELETE	#rx_bins
+		WHERE	qty <= 0
+
+		INSERT	#bins (bin_no, location, qty)
+		SELECT	bin_no, location, qty
+		FROM	#rx_bins
+		ORDER BY qty DESC	
+	
+		DROP TABLE #rx_bins
+		DROP TABLE #rx_bins_allocated
+
+		RETURN
+	END
+
 
 	-- Get stock currently allocated for this part
 	CREATE TABLE #bin_qty(

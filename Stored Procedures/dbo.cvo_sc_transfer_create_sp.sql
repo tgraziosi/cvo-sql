@@ -6,7 +6,7 @@ CREATE PROCEDURE [dbo].[cvo_sc_transfer_create_sp] (@routing VARCHAR(12)  = NULL
 AS
     BEGIN
 
-        -- exec cvo_sc_transfer_create_sp 'UPS3D' -- for last batch of xfers so they can be freighted.  leave out for SAL
+        -- exec cvo_sc_transfer_create_sp 'UPS1D_SA' -- for last batch of xfers so they can be freighted.  leave out for default on slp master
 
         SET NOCOUNT ON;
 
@@ -43,12 +43,17 @@ AS
         --SELECT * FROM   cvo_sc_transfers_templates AS stt;
 
 		-- SELECT * FROM cvo_transfer_vw WHERE date_entered > '10/18/2017'
+		--INSERT dbo.cvo_sc_transfers_allocation (transfer_id, template_id, SKU, alloc_date, TEMPLATE_GROUP)
+		--SELECT transfer_id, template_id, 'CVZBOPTTRAY', sta.alloc_date, TEMPLATE_GROUP
+		--FROM dbo.cvo_sc_transfers_allocation AS sta 
+		--WHERE transfer_id = 12 AND TEMPLATE_GROUP = 2 AND MODEL = 'P ZOOM'
+		-- UPDATE dbo.cvo_sc_transfers SET isactive = 1 WHERE id > 6
 
         SELECT @today = GETDATE();
 
-		IF @routing IS NULL SELECT @routing = 'SAL';
+		-- IF @routing IS NULL SELECT @routing = 'SAL';
 
-		IF NOT EXISTS (SELECT 1 FROM dbo.CVO_carriers AS c WHERE c.Carrier = @ROUTING) SELECT @ROUTING = 'SAL'
+		IF NOT EXISTS (SELECT 1 FROM dbo.CVO_carriers AS c WHERE c.Carrier = ISNULL(@ROUTING,c.carrier)) SELECT @ROUTING = 'SAL'
 
 		
         IF ( OBJECT_ID('tempdb.dbo.#xfer') IS NOT NULL )
@@ -65,8 +70,8 @@ AS
 				 sav.location slp_loc_valid
         INTO     #xfer
         FROM     dbo.cvo_sc_transfers_allocation AS sta
-                 JOIN dbo.cvo_sc_transfers AS st ON st.id = sta.transfer_id
-                 JOIN cvo_sc_transfers_templates stt ON stt.template = sta.template_id
+                 JOIN dbo.cvo_sc_transfers AS st ON st.id = sta.transfer_id AND ST.TEMPlate_group = sta.template_group
+                 JOIN cvo_sc_transfers_templates stt ON stt.template = sta.template_id AND STT.template_group = STA.TEMPLATE_GROUP
 				 JOIN dbo.cvo_sc_addr_vw AS sav ON sav.location = stt.location -- must be active rep
                  LEFT OUTER JOIN inv_master_add ia ON ia.part_no = sta.sku -- part must exist
                  LEFT OUTER JOIN inv_list il ON il.part_no = sta.sku -- part/location must exist
@@ -130,7 +135,8 @@ AS
                        @to_loc_addr2 = sav.addr2 ,
                        @to_loc_addr3 = sav.addr3 ,
 					   @to_loc_addr4 = '',
-					   @to_loc_addr5 = ''
+					   @to_loc_addr5 = '',
+					   @routing = ISNULL(@routing,sav.ship_via_code)
                 FROM   locations_all l
 				JOIN cvo_sc_addr_vw sav ON sav.location = l.location
                 WHERE  l.location = @to_loc;
@@ -158,7 +164,7 @@ AS
                                                    @status = 'N' ,
                                                    @attention = @location ,
                                                    @phone = NULL ,
-                                                   @c_routing = 'SAL' ,
+                                                   @c_routing = @routing ,
                                                    @si = NULL ,
                                                    @fob = NULL ,
                                                    @freight = 0.00000000 ,
@@ -183,7 +189,7 @@ AS
                                                    @locations_addr3 = @locations_addr3 ,
                                                    @locations_addr4 = @locations_addr4 ,
                                                    @locations_addr5 = @locations_addr5 ,
-                                                   @to_loc_addr3 = @locations_addr3 ,
+                                                   @to_loc_addr3 = @to_loc_addr3 ,
                                                    @to_loc_addr4 = @to_loc_addr4 ,
                                                    @to_loc_addr5 = @to_loc_addr5 ,
                                                    @who_recvd = NULL ,
@@ -321,6 +327,9 @@ AS
     GRANT EXECUTE
         ON dbo.cvo_sc_transfer_create_sp
         TO PUBLIC;
+
+
+
 
 
 

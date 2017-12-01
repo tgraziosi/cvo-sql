@@ -152,17 +152,17 @@ BEGIN
             WHEN 'i' THEN
                 CASE ISNULL(cl.is_amt_disc, 'n')
                     WHEN 'y' THEN
-                        ROUND(ol.shipped * (ol.curr_price - ROUND(ISNULL(cl.amt_disc, 0), 2)), 2, 1)
+                        ROUND(ol.shipped * (ROUND(ol.curr_price,2) - ROUND(ISNULL(cl.amt_disc, 0), 2)), 2, 1)
                     ELSE
-                        ROUND(ol.shipped * (ol.curr_price - ROUND(ol.curr_price * (ol.discount / 100.00), 2)), 2)
+                        ROUND(ol.shipped * (ROUND(ol.curr_price,2) - ROUND(ROUND(ol.curr_price,2) * (ol.discount / 100.00), 2)), 2)
                 END
             ELSE
                 0
         END AS asales,
         CASE o.type
             WHEN 'c' THEN
-                ROUND(ol.cr_shipped * ol.curr_price, 2)
-                - ROUND(ol.cr_shipped * (ol.curr_price * (ol.discount / 100.00)),
+                ROUND(ol.cr_shipped * ROUND(ol.curr_price,2), 2)
+                - ROUND(ol.cr_shipped * (ROUND(ol.curr_price,2) * (ol.discount / 100.00)),
                            2
                        )
             ELSE
@@ -275,17 +275,17 @@ BEGIN
             WHEN 'i' THEN
                 CASE ISNULL(cl.is_amt_disc, 'n')
                     WHEN 'y' THEN
-                        ROUND(ol.shipped * (ol.curr_price - ROUND(ISNULL(cl.amt_disc, 0), 2)), 2, 1)
+                        ROUND(ol.shipped * (ROUND(ol.curr_price,2) - ROUND(ISNULL(cl.amt_disc, 0), 2)), 2, 1)
                     ELSE
-                        ROUND(ol.shipped * (ol.curr_price - ROUND(ol.curr_price * (ol.discount / 100.00), 2)), 2)
+                        ROUND(ol.shipped * (ROUND(ol.curr_price,2) - ROUND(ol.curr_price * (ol.discount / 100.00), 2)), 2)
                 END
             ELSE
                 0
         END AS asales,
         CASE o.type
             WHEN 'c' THEN
-                ROUND(ol.cr_shipped * ol.curr_price, 2)
-                - ROUND(ol.cr_shipped * (ol.curr_price * (ol.discount / 100.00)),
+                ROUND(ol.cr_shipped * ROUND(ol.curr_price,2), 2)
+                - ROUND(ol.cr_shipped * (ROUND(ol.curr_price,2) * (ol.discount / 100.00)),
                            2
                        )
             ELSE
@@ -1044,6 +1044,7 @@ BEGIN
 
 END
 ;
+
 
 
 

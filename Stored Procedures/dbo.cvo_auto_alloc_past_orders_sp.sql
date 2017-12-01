@@ -9,6 +9,7 @@ GO
 -- v1.3 CB 13/06/2016 - Add in routine to consolidate orders
 -- v1.4 CB 30/03/2017 - Not picking up consolidation sets created by the back order process
 -- v1.5 CB 10/11/2017 - Add Fill Level Check
+-- v1.6 CB 24/11/2017 - Capture divide by zero error
 -- EXEC dbo.cvo_auto_alloc_past_orders_sp 'ZZ'
 
 CREATE PROC [dbo].[cvo_auto_alloc_past_orders_sp] @order_type	VARCHAR(2) = 'ZZ'
@@ -336,8 +337,6 @@ BEGIN
 					SELECT @where_clause = SUBSTRING(@where_clause,@pos + 1,(LEN(@where_clause)- @pos))
 				END
 			END
---CRAIG
-set @where_clause = ' AND orders.order_no > 1422055 '
 			
 			-- 4. Where clause 4
 			IF @where_clause <> ''
@@ -403,7 +402,8 @@ set @where_clause = ' AND orders.order_no > 1422055 '
 			GROUP BY order_no, order_ext
 
 			UPDATE	#fl_level_hold_check_data
-			SET		avail_perc = CASE WHEN allocated = 0 THEN 0 ELSE ((allocated / ordered) * 100) END
+			SET		avail_perc = CASE WHEN ordered = 0 THEN 0 ELSE ((allocated / ordered) * 100) END -- v1.6
+			-- v1.6 SET		avail_perc = CASE WHEN allocated = 0 THEN 0 ELSE ((allocated / ordered) * 100) END
 
 			INSERT	#fl_level_hold_check (order_no, order_ext, status)
 			SELECT	a.order_no, a.order_ext, a.order_status

@@ -290,7 +290,7 @@ AS
                t1.territory_code AS Terr ,
                customer_code ,
                ship_to_code ,
-               t2.Promo_level ,
+               CASE WHEN t2.Promo_level = 'SUN' THEN 'OP' ELSE t2.Promo_level END PROMO_level , -- 11/16/2017
                t1.address_name ,
                t1.addr2 ,
                CASE WHEN addr3 LIKE '%, __ %' THEN ''
@@ -341,6 +341,7 @@ AS
                AND Inv_cnt <> 0;
 
     END;
+
 
 
 

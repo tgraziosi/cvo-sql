@@ -46,6 +46,7 @@ GO
 -- v1.1 CT 13/06/2013 - Issue #695 - Logic for receiving against a PO line which is ringfenced for Backorder processing
 -- v1.2 CB 03/10/2016 - #1606 - Direct Putaway & Fast Track Cart
 -- v1.3 CB 07/03/2017 - Do not call direct putaway for non 001 locations
+-- v1.4 CB 17/10/2017 - #1630 - Direct Putaways Key Accounts
 
 CREATE PROCEDURE [dbo].[tdc_queue_po_putaway_sp] 
 	@receipt_no 	int,
@@ -77,7 +78,8 @@ DECLARE @location varchar (10),
 	@who varchar(50),
 	@tran_type varchar(10),
 	@bintype int,
-	@iRet int -- v1.2
+	@iRet int, -- v1.2
+	@dir_locations varchar(255) -- v1.4
 
 -- START v1.1
 	DECLARE @releases_row_id	INT,
@@ -567,8 +569,21 @@ DECLARE @location varchar (10),
 	END
 	-- END v1.1
 
+	-- v1.4 Start
+	SET @dir_locations = NULL
+
+	SELECT	@dir_locations = value_str
+	FROM	tdc_config (NOLOCK) 
+	WHERE	[function] = 'DIRECT_PUTAWAY_LOCATIONS'
+
+	IF (@dir_locations IS NULL)
+	BEGIN
+		SET @dir_locations = '001'
+	END
+
 	-- v1.3 Start
-	IF (@location = '001')
+-- v1.4	IF (@location = '001')
+	IF (@location IN (SELECT listitem FROM f_comma_list_to_table(@dir_locations))) -- v1.4 End
 	BEGIN
 		-- v1.2 Start
 		EXEC @iRet = cvo_direct_putaway_sp @receipt_no, @po_no, @po_line, @location, @part_no, @bin_no, @qty, @lot, @rdate, @tran_id

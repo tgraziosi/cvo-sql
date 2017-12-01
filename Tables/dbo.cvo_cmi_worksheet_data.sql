@@ -50,7 +50,10 @@ CREATE TABLE [dbo].[cvo_cmi_worksheet_data]
 [date_ship_retail] [datetime] NULL,
 [date_sail_retail] [datetime] NULL,
 [ship_ship_retail] [char] (12) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[date_cancel] [datetime] NULL
+[date_cancel] [datetime] NULL,
+[ship4_ship] [datetime] NULL,
+[ship4_sail] [datetime] NULL,
+[ship4_type] [varchar] (16) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_cmi_worksheet_data] ADD CONSTRAINT [PK__cvo_cmi_workshee__2A2F1287] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

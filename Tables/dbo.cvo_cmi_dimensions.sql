@@ -39,7 +39,8 @@ CREATE TABLE [dbo].[cvo_cmi_dimensions]
 [dim_frame_only_cost] [float] NULL,
 [dim_lens_color] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [dim_print_flag] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[dim_pom_date] [datetime] NULL
+[dim_pom_date] [datetime] NULL,
+[ws_ship4_qty] [int] NULL CONSTRAINT [DF__cvo_cmi_d__ws_sh__24BA5AD0] DEFAULT ((0))
 ) ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_cmi_dimensions] ADD CONSTRAINT [PK__cvo_cmi_dimensio__1BC65536] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

@@ -19,6 +19,7 @@ GO
 -- v2.4 CB 11/02/2015 - Issue #  - Check shipped qty when allocating
 -- v2.5 CB 26/01/2016 - #1581 2nd Polarized Option
 -- v2.6 CB 04/10/2016 - #1606 - Direct Putaway & Fast Track Cart
+-- v2.7 CB 13/10/2017 - #1644 - Backorder Processing Reserve
 
 CREATE PROC [dbo].[tdc_plw_so_allocate_line_sp]            
  @user_id   varchar(50),             
@@ -80,7 +81,8 @@ DECLARE @dist_cust_pick  char(1),
  @alloc_qty decimal(20,8), -- v1.3
  @polarized_part	varchar(30), -- v1.3
  @cross_dock SMALLINT, -- v2.1
- @c_bin_no VARCHAR(12) -- v2.1
+ @c_bin_no VARCHAR(12), -- v2.1
+ @rx_reserve int -- v2.7
     
  -- v1.8 Start
  DECLARE @row_id		int,
@@ -150,6 +152,18 @@ BEGIN
 	END
 END
 -- END v2.1
+
+-- v2.7 Start
+SET @rx_reserve = 0
+IF (@bin_group = 'RXRESERVE') AND (OBJECT_ID('tempdb..#backorder_processing_rx_reserve') IS NOT NULL)
+BEGIN
+	SET @rx_reserve = 1
+	SET @c_bin_no = @pass_bin
+	SET @bin_group = 'PICKAREA'
+END
+-- v2.7 End
+
+
 ------------------------------------------------------------------------------------------            
 -- Get the values for the part            
 ------------------------------------------------------------------------------------------            
@@ -705,7 +719,8 @@ BEGIN
 -- v1.8 End
 
 	-- START v2.1
-	IF @cross_dock = 0
+	-- v2.7 IF @cross_dock = 0
+	IF (@cross_dock = 0 AND @rx_reserve = 0) -- v2.7
 	BEGIN
 
 --	IF @user_id = 'AUTO_ALLOC'

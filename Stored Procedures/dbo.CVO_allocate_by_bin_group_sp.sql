@@ -23,6 +23,8 @@ v1.6 CT 14/06/2013 - Issue #695 - allocation for PO ringfenced stock
 v1.7 CT 24/07/2013 - Issue #1040 - No stock allocation
 v1.8 CT 09/09/2013 - Issue #695 - fix for backorder processing from stock, force qty available to be qty required
 v1.9 CB 04/10/2016 - #1606 - Direct Putaway & Fast Track Cart
+v2.0 CB 13/10/2017 - #1644 - Backorder Processing Reserve
+v2.1 CB 03/11/2017 - Force backorders to look at fast track bins first
 BEGIN TRAN
 
 EXEC CVO_allocate_by_bin_group_sp  'AUTO_ALLOC', 'AUTO_ALLOC', 1874, 0, 1, 'BC800', 'Y',  
@@ -138,6 +140,41 @@ SET @one_for_one_flg = 'Y'
 	END
 	-- END v1.7
 
+	-- v2.0 Start
+	IF OBJECT_ID('tempdb..#backorder_processing_rx_reserve') IS NOT NULL
+	BEGIN
+		SET @bin_no = ''
+		
+		-- Do RX RESERVE stock first
+		WHILE (1 = 1)
+		BEGIN
+			SELECT	TOP 1 @bin_no = bin_no,
+					@qty = qty
+			FROM	#backorder_processing_rx_reserve (NOLOCK)
+			WHERE	bin_no > @bin_no
+			AND		bin_no IS NOT NULL
+			AND		order_no = @order_no
+			AND		ext = @order_ext
+			AND		line_no = @line_no
+			AND		part_no = @part_no
+			ORDER BY bin_no
+
+			IF @@ROWCOUNT = 0
+				BREAK
+
+			BEGIN TRAN
+			-- Pass bin_no through in order_by as that's not needed
+			EXEC @ret = tdc_plw_so_allocate_line_sp @user_id, @template_code, @order_no,    @order_ext,  @line_no,   @part_no,          
+							@one_for_one_flg, 'RXRESERVE', @search_sort, @alloc_type, @pkg_code,  @replen_group,
+							@multiple_parts,  @bin_first, @priority,    @user_hold,  @cdock_flg, @bin_no, 
+							@assigned_user,   @lbs_order_by, @qty 						
+		                     							
+			COMMIT TRAN	
+			
+		END
+	END
+	-- v2.0 End
+
 	-- START v1.6
 	SET @bop = 0
 	IF OBJECT_ID('tempdb..#backorder_processing_po_allocation') IS NOT NULL
@@ -227,12 +264,18 @@ SET @one_for_one_flg = 'Y'
 	END
 	-- END v1.8
 
+	-- v2.1 Start
+	IF (@order_ext > 0)
+		SET @bop = 1 
+	-- v2.1 End
+
 	IF OBJECT_ID('tempdb..#next_bin_group') IS NOT NULL 
 		DROP TABLE #next_bin_group 
 	
 	CREATE TABLE #next_bin_group (id_bin INT, bin_group VARCHAR(12), qty INT, 
 										qty_available decimal(20,8)) -- v1.1
 	--SELECT * FROM #next_bin_group
+
 
 	DELETE FROM #next_bin_group
 	-- >= @ALLOC_QTY_FENCE_QTY

@@ -17,6 +17,7 @@ GO
 -- v1.12 CT 10/03/2015 - Issue #1536 - When calculating summary header figures, include non ST/RX order figures with ST orders
 -- v1.13 CT 10/03/2015 - Issue #1530 - Fix summary header when no frames or suns returned	
 -- tag - 041415 - add isnull on select where on priority
+-- v1.14 CB 12/10/2017 - #1644 - Backorder Processing Reserve
 -- v1.15 CB 14/11/2017 - Fix issue with transfers being picked up with a status > N
 
 -- EXEC cvo_backorder_processing_select_sp 'POTEST1'
@@ -48,7 +49,9 @@ BEGIN
 			@available			DECIMAL(20,8),
 			@po_available		DECIMAL(20,8),
 			@include_xfer		SMALLINT, -- v1.2
-			@update_line		SMALLINT -- v1.6
+			@update_line		SMALLINT, -- v1.6
+			@rx_reserve			int, -- v1.14
+			@rx_reserve_days	int -- v1.14
 
 	-- Load template info
 	SELECT
@@ -60,7 +63,9 @@ BEGIN
 		@no_of_orders = no_of_orders,
 		@include_cr_hold = include_cr_hold,
 		@min_crossdock = min_crossdock,
-		@include_xfer = include_xfer -- v1.2
+		@include_xfer = include_xfer, -- v1.2
+		@rx_reserve = ISNULL(rx_reserve,0), -- v1.14
+		@rx_reserve_days = ISNULL(rx_reserve_days,22) -- v1.14
 	FROM 
 		dbo.CVO_backorder_processing_templates (NOLOCK)
 	WHERE 
@@ -232,6 +237,10 @@ BEGIN
 		backorder_sort	SMALLINT,
 		[type]			CHAR(1))
 
+	-- v1.14 Start
+	IF (@rx_reserve = 0)
+	BEGIN
+
 		-- Load orders into table
 		INSERT INTO #backorders(
 			order_no,
@@ -339,6 +348,113 @@ BEGIN
 			-- tag 041415
 			AND isnull(a.so_priority_code,'') <> '3'
 			-- END v1.5
+	END
+	ELSE
+	BEGIN
+
+		-- Load orders into table
+		INSERT INTO #backorders(
+			order_no,
+			ext,
+			line_no,
+			part_no,
+			location,
+			qty,
+			order_type,
+			so_priority,
+			tran_type_sort,
+			order_type_sort,
+			priority_sort,
+			backorder_sort,
+			[type],
+			customer,
+			customer_name,
+			ship_date,
+			customer_type)
+		SELECT 
+			a.order_no,
+			a.ext,
+			b.line_no,
+			b.part_no,
+			a.location,
+			b.ordered - (b.shipped + ISNULL(e.qty,0)) AS qty,
+			a.user_category order_type,
+			ISNULL(a.so_priority_code,''),
+			0 AS tran_type_sort, -- 0 = SO, 1 = XFER 
+			CASE LEFT(a.user_category,2) 
+				WHEN 'RX' THEN 0 
+				WHEN 'ST' THEN 1 
+				ELSE 2 
+			END AS order_type_sort,
+			CASE ISNULL(a.so_priority_code,'')
+				WHEN '1' THEN 1
+				WHEN '2' THEN 2
+				WHEN '3' THEN 3
+				WHEN '4' THEN 4
+				WHEN '5' THEN 5
+				WHEN '6' THEN 6
+				WHEN '7' THEN 7
+				WHEN '8' THEN 8
+				ELSE 9
+			END AS priority_sort,
+			CASE a.who_entered
+				WHEN 'BACKORDR' THEN 1
+				ELSE 0
+			END AS backorder_sort,
+			'I',
+			a.cust_code,
+			d.address_name,
+			a.sch_ship_date,
+			d.addr_sort1
+		FROM 
+			dbo.orders_all a (NOLOCK)
+		INNER JOIN
+			dbo.ord_list b (NOLOCK)
+		ON	
+			a.order_no = b.order_no
+			AND a.ext = b.order_ext
+		INNER JOIN
+			#order_status c
+		ON
+			a.[status] = c.stat 
+		INNER JOIN
+			dbo.armaster_all d (NOLOCK)
+		ON
+			a.cust_code = d.customer_code
+		LEFT JOIN
+			dbo.cvo_hard_allocated_vw e (NOLOCK)
+		ON
+			b.order_no = e.order_no
+			AND b.order_ext = e.order_ext
+			AND b.line_no = e.line_no
+			AND e.order_type = 'S'
+		INNER JOIN
+			dbo.inv_master f (NOLOCK)
+		ON
+			b.part_no = f.part_no
+		INNER JOIN
+			dbo.cvo_ord_list g (NOLOCK)
+		ON	
+			b.order_no = g.order_no
+			AND b.order_ext = g.order_ext
+			AND b.line_no = g.line_no
+		WHERE
+			a.type = 'I'
+			AND ISNULL(a.void,'N') = 'N' -- v1.1
+			AND b.ordered > (b.shipped + ISNULL(e.qty,0))
+			AND d.address_type = 0
+			AND g.is_customized = 'N'
+			AND b.part_type = 'P'
+			AND NOT (a.status = 'A' AND a.hold_reason IN (SELECT hold_code FROM dbo.cvo_hold_reason_no_autoalloc (NOLOCK))) -- don't include non allocatable hold reasons
+			AND a.location = @location
+			AND LEFT(a.user_category,2) = 'RX'
+			AND	a.ext > 0
+			AND	CONVERT(varchar(10),DATEADD(day,@rx_reserve_days,a.sch_ship_date),121) <= CONVERT(varchar(10),GETDATE(),121)
+			AND isnull(a.so_priority_code,'') <> '3'
+			-- DEBUG
+			--AND	b.part_no = 'JCRALBLA5117'
+	END
+	-- v1.14 End
 	-- Remove orders which don't match criteria's order type filter	
 	IF EXISTS (SELECT 1 FROM dbo.CVO_backorder_processing_template_order_types (NOLOCK) WHERE template_code = @template_code)
 	BEGIN

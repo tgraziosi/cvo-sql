@@ -38,7 +38,8 @@ BEGIN
            arm.contact_email,
            summary.YYear,
            summary.NetSales,
-           summary.Num_ST_Orders
+           summary.Num_ST_Orders,
+		   RANK() OVER (PARTITION BY summary.YYear ORDER BY summary.NetSales asc) sort_order
     FROM armaster arm (NOLOCK)
         JOIN
         (

@@ -28,7 +28,8 @@ BEGIN
 			@release_only	int, -- v1.5
 			@prec_avail		varchar(30), -- v1.7
 			@perc			decimal(20,8), -- v1.8
-			@prec_avail_str varchar(50) -- v1.9
+			@prec_avail_str varchar(50), -- v1.9
+			@fill_rate_out	decimal(20,8) -- v2.3
 
 	-- WORKING TABLES
 	CREATE TABLE #fl_orders (
@@ -56,6 +57,7 @@ BEGIN
 			qty			decimal(20,8))
 	-- v1.4 End
 
+--	EXEC dbo.cvo_auto_alloc_process_sp 1, 'cvo_release_alloc_fl_holds_sp' -- v2.2
 
 	-- v1.3 Start
 	SELECT	@fill_rate_s = value_str 
@@ -218,6 +220,33 @@ BEGIN
 		END
 		ELSE -- v1.3 Start
 		BEGIN
+
+			-- v2.3 Start
+			SET @fill_rate_out = -1
+			EXEC dbo.cvo_order_summary_sp @soft_alloc_no, @order_no, @order_ext, 1, NULL, @fill_rate_out OUTPUT 
+
+			IF (@fill_rate_out < @fill_rate)
+			BEGIN
+				UPDATE	#fl_orders
+				SET		process = -1
+				WHERE	row_id = @row_id
+
+				SET @last_row_id = @row_id
+
+				SELECT	TOP 1 @row_id = row_id,
+						@soft_alloc_no = soft_alloc_no,
+						@order_no = order_no,
+						@order_ext = order_ext,
+						@ship_complete = ship_complete -- v1.3
+				FROM	#fl_orders
+				WHERE	row_id > @last_row_id
+				AND		release_only = 0 -- v1.5
+				ORDER BY row_id ASC
+
+				CONTINUE				
+			END
+			-- v2.3 End
+
 			-- v1.7 Start
 			SET @prec_avail = '100' -- v1.9
 			SELECT	@prec_avail = CAST(CAST(perc_available as int) as varchar(10))
@@ -631,6 +660,8 @@ BEGIN
 		ORDER BY row_id ASC
 			
 	END
+
+--	EXEC dbo.cvo_auto_alloc_process_sp 0 -- v2.2
 
 	-- Clean up
 	DROP TABLE #fl_orders

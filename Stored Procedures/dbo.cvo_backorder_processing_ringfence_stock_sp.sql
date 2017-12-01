@@ -5,6 +5,7 @@ GO
 
 /*
 v1.1 CT 28/11/2013 - Issue #1406 - no longer ringfencing stock, set to_bin_no = the current bin 
+v1.2 CB 12/10/2017 - #1644 - Backorder Processing Reserve
 
 */
 
@@ -24,12 +25,14 @@ BEGIN
 			@bin_no		VARCHAR(12),
 			@bin_qty	DECIMAL(20,8),
 			@ringfenced	DECIMAL(20,8),
-			@user		VARCHAR(20)
+			@user		VARCHAR(20),
+			@rx_reserve int -- v1.2
 
 	
 	-- Get user ID
 	SELECT 
-		@user = ISNULL(changed_user,entered_user) 
+		@user = ISNULL(changed_user,entered_user),
+		@rx_reserve = ISNULL(rx_reserve,0) -- v1.2 
 	FROM 
 		dbo.cvo_backorder_processing_templates 
 	WHERE 
@@ -44,7 +47,31 @@ BEGIN
 		qty			DECIMAL(20,8))
 
 	-- Get bins containing this part
-	EXEC cvo_backorder_processing_bins_select_sp @part_no, @location, @qty		
+	EXEC cvo_backorder_processing_bins_select_sp @part_no, @location, @qty, @rx_reserve -- v1.2		
+
+	-- v1.2 Start
+	IF (@rx_reserve = 1)
+	BEGIN
+		CREATE TABLE #consumed_qty (
+			bin_no	varchar(12),
+			qty		decimal(20,8))
+
+		INSERT	#consumed_qty (bin_no, qty)
+		SELECT	bin_no, SUM(qty_ringfenced)
+		FROM	CVO_backorder_processing_orders_ringfenced_stock (NOLOCK)
+		WHERE	template_code = @template_code
+		AND		part_no = @part_no
+		GROUP BY bin_no
+
+		UPDATE	a
+		SET		qty = a.qty - b.qty
+		FROM	#bins a
+		JOIN	#consumed_qty b
+		ON		a.bin_no = b.bin_no
+		
+		DROP TABLE #consumed_qty
+
+	END
 
 	-- Loop through bins
 	SET @bin_rec_id = 0

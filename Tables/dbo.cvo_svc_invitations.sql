@@ -68,6 +68,18 @@ CREATE TABLE [dbo].[cvo_svc_invitations]
 [cst_kd] [tinyint] NULL,
 [cst_bs] [tinyint] NULL,
 [bs_show] [int] NULL,
-[bs_order] [int] NULL
+[bs_order] [int] NULL,
+[sdbt] [tinyint] NULL CONSTRAINT [DF__cvo_svc_in__sdbt__69999502] DEFAULT ((0)),
+[sdbt_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__sdbt___6A8DB93B] DEFAULT ((0)),
+[sdbt_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__sdbt___6B81DD74] DEFAULT ((0)),
+[sdfs] [tinyint] NULL CONSTRAINT [DF__cvo_svc_in__sdfs__6C7601AD] DEFAULT ((0)),
+[sdfs_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__sdfs___6D6A25E6] DEFAULT ((0)),
+[sdfs_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__sdfs___6E5E4A1F] DEFAULT ((0)),
+[sdop] [tinyint] NULL CONSTRAINT [DF__cvo_svc_in__sdop__6F526E58] DEFAULT ((0)),
+[sdop_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__sdop___70469291] DEFAULT ((0)),
+[sdop_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__sdop___713AB6CA] DEFAULT ((0)),
+[sdrv] [tinyint] NULL CONSTRAINT [DF__cvo_svc_in__sdrv__722EDB03] DEFAULT ((0)),
+[sdrv_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__sdrv___7322FF3C] DEFAULT ((0)),
+[sdrv_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__sdrv___74172375] DEFAULT ((0))
 ) ON [PRIMARY]
 GO

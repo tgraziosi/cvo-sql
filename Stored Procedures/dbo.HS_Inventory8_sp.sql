@@ -91,6 +91,9 @@ AS
         WHERE   Brand = 'UN'
                 AND @today >= @UN;
 
+		DELETE FROM #EOS
+		WHERE part_no IN (SELECT PART_NO FROM INV_MASTER_ADD WHERE ISNULL(FIELD_36,'') = 'SUNPS');
+
 -- SELECT * FROM #EOS where part_no like 'izCL%'  
 
 
@@ -218,13 +221,18 @@ AS
 									WHEN i.category = 'BT' AND IA.CATEGORY_2 LIKE '%ADULT%'
 										 AND (RIGHT(I.part_no,2) = 'f1' OR i.type_code = 'lens') 
 									THEN 'BLUTECH READERS' -- 12/22/2016
-									WHEN i.type_code = 'sun' AND EXISTS ( SELECT    1
-                                                  FROM      #EOS
-                                                  WHERE     #EOS.part_no = I.part_no )
-                                    THEN 'SELLDOWN'
-									WHEN I.TYPE_CODE = 'SUN' AND I.CATEGORY IN ('BCBG','SM','IZOD','IZX') and isnull(ia.field_32,'') <> 'retail'
+
+									WHEN I.type_code = 'SUN' AND I.CATEGORY = 'REVO' THEN 'REVO'
+									WHEN I.TYPE_CODE = 'SUN' AND I.CATEGORY IN ('BCBG','SM','IZOD','IZX') and isnull(ia.field_36,'') = 'SUNPS' AND 
+										ISNULL(ia.field_32,'') <> 'retail'
 									THEN 'FASHION'
-									when i.type_code = 'sun' and i.category IN ('et','jmc','pt')
+									when i.type_code = 'sun' 
+										AND ( i.category IN ('et','jmc','pt') 
+												OR ISNULL(IA.FIELD_36,'') <> 'SUNPS' 
+												OR EXISTS ( SELECT    1
+                                                  FROM      #EOS
+                                                  WHERE     #EOS.part_no = I.part_no)
+												  )
 									then 'SELLDOWN'
 									WHEN I.category IN ( 'izod', 'izx' )
                                     THEN 'IZOD' 
@@ -1069,6 +1077,7 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
 
 -- SELECT * FROM #data1 WHERE mastersku = 'bcesm'
+
 
 
 

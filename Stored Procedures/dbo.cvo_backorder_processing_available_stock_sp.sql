@@ -4,15 +4,54 @@ SET ANSI_NULLS ON
 GO
   
 CREATE PROC [dbo].[cvo_backorder_processing_available_stock_sp] @location		varchar(10),
-															@part_no		varchar(30)
+															@part_no		varchar(30),
+															@rx_reserve		int = 0 -- v1.1
 AS
 BEGIN
 	-- Declarations
 	DECLARE	@ret_val		decimal(20,8),
 			@available		decimal(20,8),
-			@soft_alloc		decimal(20,8)
+			@soft_alloc		decimal(20,8),
+			@allocated		decimal(20,8) -- v1.1
 
 	SET @ret_val = 0
+
+	-- v1.1 Start
+	IF (@rx_reserve = 1)
+	BEGIN
+		SET @available = NULL
+
+		SELECT	@available = SUM(qty)
+		FROM	lot_bin_stock a (NOLOCK)
+		JOIN	tdc_bin_master b (NOLOCK)
+		ON		a.location = b.location
+		AND		a.bin_no = b.bin_no
+		WHERE	a.location = @location
+		AND		a.part_no = @part_no
+		AND		b.group_code = 'RESERVE'
+
+		IF (@available IS NULL)
+			SET @available = 0
+
+		SET @allocated = NULL
+
+		SELECT	@allocated = SUM(qty)
+		FROM	tdc_soft_alloc_tbl a (NOLOCK)
+		JOIN	tdc_bin_master b (NOLOCK)
+		ON		a.location = b.location
+		AND		a.bin_no = b.bin_no
+		WHERE	a.location = @location
+		AND		a.part_no = @part_no
+		AND		b.group_code = 'RESERVE'
+		
+		IF (@allocated IS NULL)
+			SET @allocated = 0
+
+		SET @ret_val = @available - @allocated
+
+		RETURN	@ret_val
+	END
+	-- v1.1 End
 
 	-- Retrieve the available stock
 	EXEC dbo.CVO_AvailabilityInStock_sp @part_no, @location, @available OUTPUT

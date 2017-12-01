@@ -10,6 +10,7 @@ GO
 -- v1.4 CT 06/09/2013 - Issue #695 - Fix to_bin_no field in #ringfenced table
 -- v1.5 CT 29/11/2013 - Issue #1406 - As stock is no longer ringfenced check what stock is available before allocating 
 -- v1.6 CB 28/02/2017 - Issue #1576 - Check if only POP allocated in which case unallocate
+-- v1.7 CB 13/10/2017 - #1644 - Backorder Processing Reserve
 
 */
 
@@ -45,13 +46,20 @@ BEGIN
 			@available			DECIMAL(20,8), -- v1.5
 			@qty_to_allocate	DECIMAL(20,8), -- v1.5
 			@not_enough_stock	SMALLINT, -- v1.5
-			@case_line			INT -- v1.5
+			@case_line			INT, -- v1.5
+			@rx_reserve			int -- v1.7
 			
 	
 	SET @retval = 0
 	SET @err_msg =''
 	SET @rollback = 0
 	SET @case_allocated = 0 -- v1.2
+
+	-- v1.7 Start
+	SELECT	@rx_reserve = ISNULL(rx_reserve,0)
+	FROM	CVO_backorder_processing_templates (NOLOCK)
+	WHERE	template_code = @template_code
+	-- v1.7 End
 
 	-- Check order isn't void or on a non-allocatable hold
 	IF @is_transfer = 0
@@ -80,6 +88,22 @@ BEGIN
 	-- Begin transaction
 	BEGIN TRAN
 	
+	-- v1.7 Start
+	IF (@rx_reserve = 1)
+	BEGIN
+		IF OBJECT_ID('tempdb..#backorder_processing_rx_reserve') IS NOT NULL
+			DROP TABLE #backorder_processing_rx_reserve
+
+		CREATE TABLE #backorder_processing_rx_reserve (
+			order_no	int,
+			ext			int,
+			line_no		int,
+			part_no		varchar(30),
+			bin_no		varchar(12),
+			qty			decimal(20,8))
+	END
+	-- v1.7 End
+
 	-- Create allocation table
 	CREATE TABLE #backorder_processing_allocation(
 		order_no		INT,
@@ -242,7 +266,6 @@ BEGIN
 		END
 		-- END v1.5
 
-
 		-- Release all ringfenced stock for this line
 		SET @r_rec_id = 0
 		WHILE 1=1
@@ -292,7 +315,8 @@ BEGIN
 			ELSE
 			BEGIN
 				-- Get the qty available in stock for this part
-				EXEC @available = cvo_backorder_processing_available_stock_sp @location, @part_no
+				EXEC @available = cvo_backorder_processing_available_stock_sp @location, @part_no, @rx_reserve -- v1.7
+			
 			END	
 			-- END v1.5
 		END
@@ -348,7 +372,7 @@ BEGIN
 		ELSE
 		BEGIN
 			-- Get the qty available in stock for this part
-			EXEC @available = cvo_backorder_processing_available_stock_sp @location, @part_no
+			EXEC @available = cvo_backorder_processing_available_stock_sp @location, @part_no, @rx_reserve -- v1.7
 		END	
 		-- END v1.5
 	END
@@ -499,6 +523,20 @@ BEGIN
 		0,
 		0,
 		0
+
+	-- v1.7 Start
+	IF (@rx_reserve = 1)
+	BEGIN
+		INSERT	#backorder_processing_rx_reserve (order_no, ext, line_no, part_no, bin_no, qty)
+		SELECT	@order_no, @ext, @line_no, @part_no, bin_no, qty_ringfenced
+		FROM	CVO_backorder_processing_orders_ringfenced_stock (NOLOCK) 
+		WHERE	template_code = @template_code
+		AND		order_no = @order_no
+		AND		ext = @ext
+		AND		line_no = @line_no
+		AND		part_no = @part_no
+	END
+	-- v1.7 End
 
 	IF @is_transfer = 0
 	BEGIN

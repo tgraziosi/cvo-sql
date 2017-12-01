@@ -249,12 +249,12 @@ BEGIN
 								oper_price,display_line,std_direct_dolrs,std_ovhd_dolrs,std_util_dolrs,reference_code,contract,agreement_id,ship_to,service_agreement_flag,
 								inv_available_flag,create_po_flag,load_group_no,return_code,user_count,cust_po,organization_id,picked_dt,who_picked_id,printed_dt,who_unpicked_id,
 								unpicked_dt)
-	SELECT	@new_order_no, 0, a.line_no, a.location, a.part_no, a.description, GETDATE(), a.ordered, 0, (a.price * 0.5), a.price_type, '', 'N', a.cost, 
-			a.who_entered, a.sales_comm, (a.temp_price * @discount_perc), -- v1.1 
+	SELECT	@new_order_no, 0, a.line_no, a.location, a.part_no, a.description, GETDATE(), a.ordered, 0, ROUND((a.price * @discount_perc),2), a.price_type, '', 'N', a.cost, -- v1.1 v1.2
+			a.who_entered, a.sales_comm, ROUND((a.temp_price * @discount_perc),2), -- v1.1 v1.2
 			a.temp_type, 0, 0, 0, a.uom, a.conv_factor, a.void, a.void_who, a.void_date, 
 			a.std_cost, a.cubic_feet, 'N', 'N', a.labor, a.direct_dolrs, a.ovhd_dolrs, a.util_dolrs, a.taxable, a.weight_ea, a.qc_flag, NULL, 
 			a.qc_no, a.rejected, 'M', a.part_no, @ship_complete_flag, a.gl_rev_acct, a.total_tax, @tax_code, 
-			(a.curr_price * @discount_perc), (a.oper_price * @discount_perc), -- v1.1 
+			ROUND((a.curr_price * @discount_perc),2), ROUND((a.oper_price * @discount_perc),2), -- v1.1 v1.2
 			a.display_line, a.std_direct_dolrs, a.std_ovhd_dolrs, a.std_util_dolrs, a.reference_code, a.contract, a.agreement_id, a.ship_to, 
 			a.service_agreement_flag, a.inv_available_flag, 0, a.load_group_no, NULL, a.user_count, NULL, a.organization_id, NULL, NULL, 
 			NULL, NULL, NULL

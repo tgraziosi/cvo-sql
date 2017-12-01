@@ -15,18 +15,20 @@ CREATE TABLE [dbo].[CVO_backorder_processing_templates]
 [entered_date] [datetime] NOT NULL,
 [entered_user] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
 [changed_date] [datetime] NULL,
-[changed_user] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[changed_user] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[rx_reserve] [int] NULL,
+[rx_reserve_days] [int] NULL
 ) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [CVO_backorder_processing_templates_inx01] ON [dbo].[CVO_backorder_processing_templates] ([template_code]) ON [PRIMARY]
 GO
-GRANT REFERENCES ON  [dbo].[CVO_backorder_processing_templates] TO [public]
-GO
-GRANT SELECT ON  [dbo].[CVO_backorder_processing_templates] TO [public]
+GRANT DELETE ON  [dbo].[CVO_backorder_processing_templates] TO [public]
 GO
 GRANT INSERT ON  [dbo].[CVO_backorder_processing_templates] TO [public]
 GO
-GRANT DELETE ON  [dbo].[CVO_backorder_processing_templates] TO [public]
+GRANT REFERENCES ON  [dbo].[CVO_backorder_processing_templates] TO [public]
+GO
+GRANT SELECT ON  [dbo].[CVO_backorder_processing_templates] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[CVO_backorder_processing_templates] TO [public]
 GO
