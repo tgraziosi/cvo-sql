@@ -47,34 +47,44 @@ BEGIN
 	AND		status IN (0,1)
 */
 
-	SELECT	@soft_alloc = SUM(ISNULL((CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0) - CASE WHEN a.change >= 1 THEN ISNULL((b.qty),0) ELSE 0 END) -- v1.4
-	FROM	dbo.cvo_soft_alloc_det a (NOLOCK)
-	LEFT JOIN (SELECT order_no, order_ext, line_no, part_no, SUM(qty) qty FROM dbo.tdc_soft_alloc_tbl (NOLOCK) WHERE order_type = 'S' GROUP BY order_no, order_ext, line_no, part_no) b
-	ON		a.order_no = b.order_no
-	AND		a.order_ext = b.order_ext
-	AND		a.part_no = b.part_no
-	AND		a.line_no = b.line_no
-	WHERE	a.status IN (0,1,-1) -- v1.2 NOT IN (-2,-3) 
-	AND		a.location = @location
-	AND		a.part_no = @part_no
-	AND		a.soft_alloc_no < @max_soft_alloc 
+	-- v1.4 Start
+	IF EXISTS (SELECT 1 FROM inv_master (NOLOCK) WHERE part_no = @part_no AND type_code = 'CASE')
+	BEGIN
+		SET @soft_alloc = 0
+		SET @qty_sa_alloc = 0
+	END
+	ELSE
+	BEGIN
 
--- v1.1 End
+		SELECT	@soft_alloc = SUM(ISNULL((CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0) - CASE WHEN a.change >= 1 THEN ISNULL((b.qty),0) ELSE 0 END) -- v1.3
+		FROM	dbo.cvo_soft_alloc_det a (NOLOCK)
+		LEFT JOIN (SELECT order_no, order_ext, line_no, part_no, SUM(qty) qty FROM dbo.tdc_soft_alloc_tbl (NOLOCK) WHERE order_type = 'S' GROUP BY order_no, order_ext, line_no, part_no) b
+		ON		a.order_no = b.order_no
+		AND		a.order_ext = b.order_ext
+		AND		a.part_no = b.part_no
+		AND		a.line_no = b.line_no
+		WHERE	a.status IN (0,1,-1) -- v1.2 NOT IN (-2,-3) 
+		AND		a.location = @location
+		AND		a.part_no = @part_no
+		AND		a.soft_alloc_no < @max_soft_alloc 
 
-	-- v1.3 Start
-	SELECT @qty_sa_alloc = ISNULL((SELECT SUM(b.qty)  
-					FROM	cvo_soft_alloc_det a (NOLOCK)   
-					JOIN	tdc_soft_alloc_tbl b (NOLOCK)
-					ON		a.order_no = b.order_no
-					AND		a.order_ext = b.order_ext
-					AND		a.line_no = b.line_no
-					AND		a.part_no = b.part_no
-					WHERE	a.part_no  = @part_no  
-					AND		a.location = @location
-					AND		a.soft_alloc_no < @max_soft_alloc
-					AND		a.status IN (0,1,-1) -- v11.1  
-					GROUP BY a.location) , 0) 
+	-- v1.1 End
 
+		-- v1.3 Start
+		SELECT @qty_sa_alloc = ISNULL((SELECT SUM(b.qty)  
+						FROM	cvo_soft_alloc_det a (NOLOCK)   
+						JOIN	tdc_soft_alloc_tbl b (NOLOCK)
+						ON		a.order_no = b.order_no
+						AND		a.order_ext = b.order_ext
+						AND		a.line_no = b.line_no
+						AND		a.part_no = b.part_no
+						WHERE	a.part_no  = @part_no  
+						AND		a.location = @location
+						AND		a.soft_alloc_no < @max_soft_alloc
+						AND		a.status IN (0,1,-1) -- v11.1  
+						GROUP BY a.location) , 0) 
+	END
+	-- v1.4 End
 
 	IF (@soft_alloc IS NULL)
 		SET @soft_alloc = 0

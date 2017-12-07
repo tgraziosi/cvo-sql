@@ -15,6 +15,7 @@ EXEC cvo_backorder_processing_allocate_stock_sp
 -- v1.6 CT 03/04/2014 - Issue #572 - Changes for Masterpack order consolidation
 -- v1.7 CB 18/12/2015 - Issue #1582 - If nothing allocated then do not add record to print table
 -- v1.8 CB 28/07/2017 - Reset print
+-- v1.9 CB 07/11/2017 - Add process info for tdc_log
 */
 
 CREATE PROC [dbo].[cvo_backorder_processing_allocate_stock_sp]
@@ -39,6 +40,7 @@ BEGIN
 	
 	-- Write log
 	EXEC dbo.cvo_backorder_processing_log_sp	'Starting allocation process'
+	EXEC dbo.cvo_auto_alloc_process_sp 1, 'cvo_backorder_processing_allocate_stock_sp' -- v1.9
 
 	-- START v1.4
 	-- Temp table no longer required
@@ -406,6 +408,7 @@ BEGIN
 
 	-- Write log
 	EXEC dbo.cvo_backorder_processing_log_sp	'Completed allocation process'
+	EXEC dbo.cvo_auto_alloc_process_sp 0 -- v1.9
 
 	RETURN 0
 END

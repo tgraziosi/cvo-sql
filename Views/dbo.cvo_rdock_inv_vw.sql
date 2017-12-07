@@ -16,7 +16,7 @@ AS
     FROM    cvo_bin_inquiry_vw b
 	JOIN inv_master_add ia ON ia.part_no = b.part_no
 	JOIN dbo.inv_master AS i ON i.part_no = b.part_no
-    WHERE   group_code = 'RDOCK'
+    WHERE   group_code IN ('RDOCK', 'CROSSDOCK') -- 12/2/2017 - FOR elm rECEIPT BIN PER km REQUEST
     UNION ALL
 /* add qc qty's not yet released - 102114 - tag */
     SELECT  ' QC' AS location ,
@@ -37,6 +37,7 @@ AS
             i.description,
 			i.type_code
 			;
+
 GO
 GRANT SELECT ON  [dbo].[cvo_rdock_inv_vw] TO [public]
 GO

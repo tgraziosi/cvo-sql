@@ -13,9 +13,9 @@ select distinct territory, cust_code from cvo_carbi
 where address_name is null
 custnetsales <> totacctnetsales
 
-SELECT * FROM CVO_CARBI WHERE STYLE = 'WOODIE WAGON'
+SELECT * FROM CVO_CARBI WHERE STYLE = '610'
 
-select * From cvo_carbi where cust_code = '044057'
+select * From cvo_cir where cust_code = '044057'
 select territory_code, * From armaster where customer_code = '044057'
 
 */
@@ -60,6 +60,7 @@ AS
 	v5.2 - correct summary sales figures on collapsed ship-tos, and # on partial pom styles
     v5.3 - check for territory match when rolling up non-door accounts and change the way the address is 
            maintained so that the correct address displays with non-door ship-to's
+	v5.4 - 12/7/2017 - add an indicator for Suns into part_no2
 **/
 
 /** Run Times: 10/4/2012 - 16:04 **/
@@ -191,7 +192,8 @@ IF @pom_asof IS NULL
             END AS POM_date ,
             c.obsolete ,
             dbo.f_cvo_get_pom_tl_status(c.category, b.field_2, b.field_3,
-                                        @pom_asof/*@first*/) RYG
+                                        @pom_asof/*@first*/) RYG,
+			CASE WHEN c.type_code = 'sun' THEN ' S' ELSE '' END AS Sun -- 12/7/2017 per AM request
     INTO    #p
     FROM    inv_master c ( NOLOCK )
             INNER JOIN inv_master_add b ( NOLOCK ) ON c.part_no = b.part_no
@@ -217,20 +219,17 @@ IF @pom_asof IS NULL
                  WHEN p.POM_date <= @pom_asof
                       AND p.POM_date <> '1/1/1900'
                       AND p.RYG <> 'x' -- @last 
-                      THEN '#' + p.RYG + ' ' + p.style + ' ' + p.color_desc
+                      THEN '#' + p.RYG 
+                 ELSE   -- color/active
+                     ''
+            END 
+			+ ' ' + p.style + ' ' + p.color_desc
                       + ' ' + ISNULL(( SELECT   EyeSizes
                                        FROM     #tgSumEyeSizes a
                                        WHERE    a.category = p.category
                                                 AND a.field_2 = p.style
                                      ), '')
-                 ELSE   -- color/active
-                      p.style + ' ' + p.color_desc + ' '
-                      + ISNULL(( SELECT EyeSizes
-                                 FROM   #tgSumEyeSizes a
-                                 WHERE  a.category = p.category
-                                        AND a.field_2 = p.style
-                               ), '')
-            END AS part_no2 ,
+			+ p.sun AS part_no2 , -- add suns indicator
             p.POM_date ,
             p.obsolete
     INTO    #part_info
@@ -963,6 +962,7 @@ IF @pom_asof IS NULL
     FROM    cvo_carbi;
 
 -- 
+
 
 
 

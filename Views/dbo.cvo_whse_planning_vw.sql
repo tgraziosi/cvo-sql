@@ -30,6 +30,7 @@ AS
 							WHEN DATEDIFF(year,ISNULL(ia.field_28,GETDATE()),GETDATE()) <2 THEN 'Y1 POM'
 							ELSE 'Y2+ POM'
 							END,
+			ISNULL(ia.field_32,'') attribute,
 			bm.usage_type_code ,
             bm.group_code ,
             il.location ,
@@ -104,6 +105,7 @@ AS
 							WHEN DATEDIFF(year,ISNULL(ia.field_28,GETDATE()),GETDATE()) <2 THEN 'Y1 POM'
 							ELSE 'Y2+ POM'
 							END,
+			ISNULL(ia.field_32,'') attribute,
 			bm.usage_type_code ,
             bm.group_code ,
             bm.location ,
@@ -177,7 +179,7 @@ AS
 			NULL rel_date,
 			NULL pom_date,
 			POM_age = 'CURRENT',
-
+			'' AS attribute,
 			bm.usage_type_code ,
             bm.group_code ,
             bm.location ,
@@ -207,6 +209,7 @@ AS
 			
 			;
     
+
 
 
 

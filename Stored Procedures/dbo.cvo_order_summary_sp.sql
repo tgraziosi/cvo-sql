@@ -28,6 +28,7 @@ GO
 -- v3.2 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 -- v3.3 CB 09/02/2017 - #1620 - Recheck fill rate and ship comlete  
 -- v3.4 CB 15/05/2017 - #1624 Add button to display unavailable items
+-- v3.5 CB 01/11/2017 - #1649 - Exclude cases from soft allocation
 
 -- Implement Soft Allocation
 -- CVO-CF-3
@@ -64,7 +65,8 @@ BEGIN
 			@line_no				INT,				-- v2.4
 			@ord_soft_alloc_qty		decimal(20,8), -- v2.5
 			@unavailable_parts		VARCHAR(1000), -- v2.7
-			@part_type				varchar(10) -- v3.2
+			@part_type				varchar(10), -- v3.2
+			@type_code				varchar(10) -- v3.5
 
 	-- Working table
 	DECLARE @returndata TABLE
@@ -409,7 +411,8 @@ BEGIN
 --			SELECT	@instock = in_stock, @replen_qty = replen_qty from inventory where location = @location and part_no = @part_no
 			SELECT	@instock = in_stock, 
 					@replen_qty = replen_qty,
-					@part_type = status -- v3.2 
+					@part_type = status, -- v3.2 
+					@type_code = type_code -- v3.5
 			FROM	dbo.cvo_inventory2 
 			WHERE	location = @location 
 			AND		part_no = @part_no
@@ -448,30 +451,40 @@ BEGIN
 	--				AND		soft_alloc_no < @soft_alloc_no
 	--			--	AND		inv_avail IS NOT NULL -- v1.8
 
+					-- v3.5 Start
+					IF (@type_code = 'CASE')
+					BEGIN
+						SET @soft_alloc_qty = 0
+						SET @ord_soft_alloc_qty = 0
+					END
+					ELSE
+					BEGIN
 
-					SELECT	@soft_alloc_qty = SUM(ISNULL((CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0) - CASE WHEN a.change >= 1 THEN ISNULL((b.qty),0) ELSE 0 END) -- v1.4
-					FROM	dbo.cvo_soft_alloc_det a (NOLOCK)
-					LEFT JOIN (SELECT order_no, order_ext, line_no, part_no, SUM(qty) qty FROM dbo.tdc_soft_alloc_tbl (NOLOCK) WHERE order_type = 'S' GROUP BY order_no, order_ext, line_no, part_no) b
-					ON	a.order_no = b.order_no
-					AND	a.order_ext = b.order_ext
-					AND	a.part_no = b.part_no
-					AND a.line_no = b.line_no
-					WHERE	a.status NOT IN (-2,-3) -- v1.5 IN (0, 1, -1)
-					AND		a.soft_alloc_no < @soft_alloc_no
-					AND		a.location = @location
-					AND		a.part_no = @part_no
-					-- v2.8 End
+						SELECT	@soft_alloc_qty = SUM(ISNULL((CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0) - CASE WHEN a.change >= 1 THEN ISNULL((b.qty),0) ELSE 0 END) -- v1.4
+						FROM	dbo.cvo_soft_alloc_det a (NOLOCK)
+						LEFT JOIN (SELECT order_no, order_ext, line_no, part_no, SUM(qty) qty FROM dbo.tdc_soft_alloc_tbl (NOLOCK) WHERE order_type = 'S' GROUP BY order_no, order_ext, line_no, part_no) b
+						ON	a.order_no = b.order_no
+						AND	a.order_ext = b.order_ext
+						AND	a.part_no = b.part_no
+						AND a.line_no = b.line_no
+						WHERE	a.status NOT IN (-2,-3) -- v1.5 IN (0, 1, -1)
+						AND		a.soft_alloc_no < @soft_alloc_no
+						AND		a.location = @location
+						AND		a.part_no = @part_no
+						-- v2.8 End
 
 
-					-- v2.5 Start
-					SELECT	@ord_soft_alloc_qty = SUM(quantity)
-					FROM	dbo.cvo_soft_alloc_det (NOLOCK)
-					WHERE	location = @location
-					AND		part_no = @part_no
-					AND		soft_alloc_no = @soft_alloc_no
-					AND		line_no < @line_no
-					AND		status NOT IN (-2,-3)
-					-- v2.5 End
+						-- v2.5 Start
+						SELECT	@ord_soft_alloc_qty = SUM(quantity)
+						FROM	dbo.cvo_soft_alloc_det (NOLOCK)
+						WHERE	location = @location
+						AND		part_no = @part_no
+						AND		soft_alloc_no = @soft_alloc_no
+						AND		line_no < @line_no
+						AND		status NOT IN (-2,-3)
+						-- v2.5 End
+					END
+					-- v3.5 End
 				END
 				ELSE
 				BEGIN
@@ -493,29 +506,39 @@ BEGIN
 	--
 	--			--	AND		inv_avail IS NOT NULL -- v1.8
 
-					SELECT	@soft_alloc_qty = SUM(ISNULL((CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0) - CASE WHEN a.change >= 1 THEN ISNULL((b.qty),0) ELSE 0 END) -- v1.4
-					FROM	dbo.cvo_soft_alloc_det a (NOLOCK)
-					LEFT JOIN (SELECT order_no, order_ext, line_no, part_no, SUM(qty) qty FROM dbo.tdc_soft_alloc_tbl (NOLOCK) WHERE order_type = 'S' GROUP BY order_no, order_ext, line_no, part_no) b
-					ON	a.order_no = b.order_no
-					AND	a.order_ext = b.order_ext
-					AND	a.part_no = b.part_no
-					AND a.line_no = b.line_no
-					WHERE	a.status NOT IN (-2,-3) -- v1.5 IN (0, 1, -1)
-					AND		a.soft_alloc_no < @soft_alloc_no
-					AND		a.location = @location
-					AND		a.part_no = @part_no
-					-- v2.8 End
+-- v3.5 Start
+					IF (@type_code = 'CASE')
+					BEGIN
+						SET @soft_alloc_qty = 0
+						SET @ord_soft_alloc_qty = 0
+					END
+					ELSE
+					BEGIN
 
-					-- v2.5 Start
-					SELECT	@ord_soft_alloc_qty = SUM(quantity)
-					FROM	dbo.cvo_soft_alloc_det (NOLOCK)
-					WHERE	location = @location
-					AND		part_no = @part_no
-					AND		soft_alloc_no = @soft_alloc_no
-					AND		line_no < @line_no
-					AND		status NOT IN (-2,-3)
-					-- v2.5 End
+						SELECT	@soft_alloc_qty = SUM(ISNULL((CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0) - CASE WHEN a.change >= 1 THEN ISNULL((b.qty),0) ELSE 0 END) -- v1.4
+						FROM	dbo.cvo_soft_alloc_det a (NOLOCK)
+						LEFT JOIN (SELECT order_no, order_ext, line_no, part_no, SUM(qty) qty FROM dbo.tdc_soft_alloc_tbl (NOLOCK) WHERE order_type = 'S' GROUP BY order_no, order_ext, line_no, part_no) b
+						ON	a.order_no = b.order_no
+						AND	a.order_ext = b.order_ext
+						AND	a.part_no = b.part_no
+						AND a.line_no = b.line_no
+						WHERE	a.status NOT IN (-2,-3) -- v1.5 IN (0, 1, -1)
+						AND		a.soft_alloc_no < @soft_alloc_no
+						AND		a.location = @location
+						AND		a.part_no = @part_no
+						-- v2.8 End
 
+						-- v2.5 Start
+						SELECT	@ord_soft_alloc_qty = SUM(quantity)
+						FROM	dbo.cvo_soft_alloc_det (NOLOCK)
+						WHERE	location = @location
+						AND		part_no = @part_no
+						AND		soft_alloc_no = @soft_alloc_no
+						AND		line_no < @line_no
+						AND		status NOT IN (-2,-3)
+						-- v2.5 End
+					END
+					-- v3.5 End
 				END
 				IF @soft_alloc_qty IS NULL
 					SET @soft_alloc_qty = 0

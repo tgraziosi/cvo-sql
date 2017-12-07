@@ -20,6 +20,7 @@ GO
 -- v2.5 CB 26/01/2016 - #1581 2nd Polarized Option
 -- v2.6 CB 04/10/2016 - #1606 - Direct Putaway & Fast Track Cart
 -- v2.7 CB 13/10/2017 - #1644 - Backorder Processing Reserve
+-- v2.8 CB 07/11/2017 - Add process info for tdc_log
 
 CREATE PROC [dbo].[tdc_plw_so_allocate_line_sp]            
  @user_id   varchar(50),             
@@ -539,6 +540,16 @@ IF @pkg_code                 = '' SET @pkg_code     =  NULL
 SELECT @search_type = CASE ISNULL(@bin_type, '') WHEN '' THEN 'AUTOMATIC' ELSE 'MANUAL' END            
             
 SET @data = 'Line: ' + CAST(@line_no as varchar(3)) + '; Order Type: S; ' + 'Alloc Type: ' + @alloc_type +  '; Alloc Template Code: ' + @template_code + '; One4One/Con: ' + CASE WHEN @one_for_one_flg = 'Y' THEN 'one4one' ELSE 'cons' END            
+
+-- v2.8 Start
+DECLARE @process_info varchar(255)
+
+SELECT	@process_info = process_name
+FROM	dbo.cvo_auto_alloc_process (NOLOCK)
+WHERE	process_id = @@SPID
+
+SET @data = @data + ' - Process: ' + ISNULL(@process_info,'No Info')
+-- v2.8 End
             
 -- Get the allocated quantity            
 SET @qty_alloc = 0            

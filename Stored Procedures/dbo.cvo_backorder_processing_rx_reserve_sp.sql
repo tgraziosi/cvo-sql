@@ -74,7 +74,7 @@ BEGIN
 		AND		part_no = @part_no
 		AND		status = 'O'
 		AND		quantity > received
-		AND		inhouse_date >= GETDATE() -- v1.1
+-- v1.2	AND		inhouse_date >= GETDATE() -- v1.1
 		ORDER BY inhouse_date DESC -- v1.1
 
 		IF (@po_no IS NOT NULL)
@@ -86,7 +86,10 @@ BEGIN
 			AND		part_no = @part_no
 			AND		status = 'O'
 			AND		quantity > received
-			AND		inhouse_date >= GETDATE() -- v1.1									
+-- v1.2		AND		inhouse_date >= GETDATE() -- v1.1	
+
+			SET @bo_stat = 0 -- v1.3
+								
 		END
 		ELSE
 		BEGIN

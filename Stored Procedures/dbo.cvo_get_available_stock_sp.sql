@@ -15,6 +15,16 @@ BEGIN
 	-- Declarations
 	DECLARE	@sa_stock		decimal(20,8),
 			@alloc_stock	decimal(20,8)
+
+	-- v1.8 Start
+	IF EXISTS (SELECT 1 FROM inv_master (NOLOCK) WHERE part_no = @part_no AND type_code = 'CASE')
+	BEGIN
+		IF (@no_output = 1)
+			RETURN 0
+		ELSE
+			SELECT 0
+	END
+	-- v1.8 End	
 	
 	-- v1.6 Start
 	IF (@soft_alloc_no = 0)

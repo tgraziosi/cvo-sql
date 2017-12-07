@@ -1,0 +1,31 @@
+CREATE TABLE [dbo].[temp_cvo_araging_new]
+(
+[CUSTOMER_CODE] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[ADDR_SORT1] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[attn_email] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[SALESPERSON_CODE] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[TERRITORY_CODE] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[ADDRESS_NAME] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[BG_Code] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[BG_Name] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[PRICE_CODE] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[AVGDAYSLATE] [smallint] NULL,
+[BAL] [float] NULL,
+[FUT] [float] NULL,
+[CUR] [float] NULL,
+[AR30] [float] NULL,
+[AR60] [float] NULL,
+[AR90] [float] NULL,
+[AR120] [float] NULL,
+[AR150] [float] NULL,
+[CREDIT_LIMIT] [float] NULL,
+[ONORDER] [float] NULL,
+[LPMTDT] [int] NULL,
+[AMOUNT] [float] NULL,
+[YTDCREDS] [float] NULL,
+[YTDSALES] [float] NULL,
+[LYRSALES] [float] NULL,
+[HOLD] [varchar] (5) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[r12sales] [float] NULL
+) ON [PRIMARY]
+GO

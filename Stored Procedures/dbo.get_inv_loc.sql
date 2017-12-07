@@ -22,12 +22,14 @@ CREATE PROCEDURE [dbo].[get_inv_loc] @strsort varchar(50), @sort char(1), @loc v
 -- v2.8 CB 07/10/2013	Issue #1385 - non alloc bin qty must exclude what has been allocated
 -- v2.9 CB 16/06/2014 - Performance
 -- v3.0 CB 18/08/2014 - Performance
+-- v3.1 CB 02/11/2017 - #1649 - Exclude cases from soft allocation
 
 DECLARE	@sa_qty			decimal(20,8), -- v2.4
 		@repl_qty		decimal(20,8), -- v2.7
 		@non_alloc		decimal(20,8), -- v2.7
 		@repl_non_sa	decimal(20,8), -- v2.7
-		@available		decimal(20,8) -- v2.7
+		@available		decimal(20,8), -- v2.7		
+		@type_code		varchar(10) -- v3.1
 
 -- v2.2 Create table to hold type
 CREATE TABLE #types (type_code varchar(10))
@@ -395,7 +397,8 @@ begin
 
 	SET @last_part_no = ''
 
-	SELECT	TOP 1 @part_no = part_no
+	SELECT	TOP 1 @part_no = part_no,
+			@type_code = type_code -- v3.1
 	FROM	#temp_inv
 	WHERE	part_no > @last_part_no
 	ORDER BY part_no ASC
@@ -420,30 +423,39 @@ begin
 		exec tdc_get_alloc_qntd_sp @loc, @part_no
 
 		-- v2.4 Start
-		SET @sa_qty = 0
-
-		SELECT	@sa_qty = SUM(CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END)
-		FROM	cvo_soft_alloc_det a (NOLOCK)
-	--	JOIN	cvo_orders_all b (NOLOCK)
-	--	ON		a.order_no = b.order_no
-	--	AND		a.order_ext = b.ext
-		WHERE	a.location = @loc
-		AND		a.part_no = @part_no
-		AND		a.order_no <> 0
-		AND		a.status IN (0,1)
-
-		IF (@sa_qty IS NULL)
+		-- v3.1 Start
+		IF (@type_code = 'CASE')
+		BEGIN
+			SET @sa_qty = 0
+		END
+		ELSE
+		BEGIN
 			SET @sa_qty = 0
 
-		SELECT	@sa_qty = @sa_qty + ISNULL(SUM(a.quantity),0)
-		FROM	cvo_soft_alloc_det a (NOLOCK)
-		WHERE	a.location = @loc
-		AND		a.part_no = @part_no
-		AND		a.order_no = 0
-		AND		a.status IN (1)
+			SELECT	@sa_qty = SUM(CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END)
+			FROM	cvo_soft_alloc_det a (NOLOCK)
+		--	JOIN	cvo_orders_all b (NOLOCK)
+		--	ON		a.order_no = b.order_no
+		--	AND		a.order_ext = b.ext
+			WHERE	a.location = @loc
+			AND		a.part_no = @part_no
+			AND		a.order_no <> 0
+			AND		a.status IN (0,1)
 
-		IF (@sa_qty IS NULL)
-			SET @sa_qty = 0
+			IF (@sa_qty IS NULL)
+				SET @sa_qty = 0
+
+			SELECT	@sa_qty = @sa_qty + ISNULL(SUM(a.quantity),0)
+			FROM	cvo_soft_alloc_det a (NOLOCK)
+			WHERE	a.location = @loc
+			AND		a.part_no = @part_no
+			AND		a.order_no = 0
+			AND		a.status IN (1)
+
+			IF (@sa_qty IS NULL)
+				SET @sa_qty = 0
+		END
+		-- v3.1 End
 
 		UPDATE	#t1
 		SET		sa_qty = @sa_qty
@@ -508,7 +520,8 @@ begin
 		-- v3.0 Start
 		SET @last_part_no = @part_no
 
-		SELECT	TOP 1 @part_no = part_no
+		SELECT	TOP 1 @part_no = part_no,
+				@type_code = type_code -- v3.1
 		FROM	#temp_inv
 		WHERE	part_no > @last_part_no
 		ORDER BY part_no ASC

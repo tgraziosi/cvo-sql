@@ -4,7 +4,7 @@ SET ANSI_NULLS ON
 GO
 -- v1.0 CB 25/07/2012 - Add ship complete hold to transfer
 -- v1.1 CB 07/10/2013 - Issue #1389 - Available qty needs to function the same as sales orders
-  
+-- v1.2 CB 06/11/2017 - #1649 Exclude cases from soft allocation
 CREATE PROCEDURE [dbo].[tdc_plw_xfer_alloc_management_sp]   
  @where_clause1   varchar(255),   
  @where_clause2   varchar(255),   
@@ -262,12 +262,21 @@ BEGIN
   WHERE	a.location = @from_loc  
   AND		a.part_no = @part_no  
 
-  -- Remove soft alloc stock
-  SELECT @sa_alloc = ISNULL(SUM(CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0)  
-  FROM dbo.cvo_soft_alloc_det a (NOLOCK)  
-  WHERE a.status IN (0, 1, -1)  
-  AND  a.location = @from_loc 
-  AND  a.part_no = @part_no  
+	-- v1.2 Start
+	IF EXISTS (SELECT 1 FROM inv_master (NOLOCK) WHERE part_no = @part_no AND type_code = 'CASE')
+	BEGIN
+		SET @sa_alloc = 0
+	END
+	ELSE
+	BEGIN
+	  -- Remove soft alloc stock
+	  SELECT @sa_alloc = ISNULL(SUM(CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0)  
+	  FROM dbo.cvo_soft_alloc_det a (NOLOCK)  
+	  WHERE a.status IN (0, 1, -1)  
+	  AND  a.location = @from_loc 
+	  AND  a.part_no = @part_no  
+	END
+	-- v1.2 End
 
   SET @qty_in_stock = @qty_in_stock - (ISNULL(@non_alloc,0.0) + ISNULL(@sa_alloc,0.0))
   -- v1.1 End

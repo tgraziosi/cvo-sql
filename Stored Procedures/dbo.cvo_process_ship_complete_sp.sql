@@ -25,7 +25,8 @@ BEGIN
 			@status			varchar(8),
 			@hold_reason	varchar(30),
 			@hardalloc_qty	DECIMAL(20,8), -- v1.2
-			@max_soft_alloc	int -- v1.5
+			@max_soft_alloc	int, -- v1.5
+			@type_code		varchar(10) -- v1.7
 
 	-- Working Tables
 	CREATE TABLE #ship_complete (
@@ -35,7 +36,8 @@ BEGIN
 		location	varchar(10),
 		part_no		varchar(30),
 		qty			decimal(20,8),
-		avail_flag	int)
+		avail_flag	int,
+		type_code	varchar(10)) -- v1.7
 
 	CREATE TABLE #wms_ret ( location  varchar(10),    
 		part_no		varchar(30),    
@@ -54,12 +56,21 @@ BEGIN
 	AND		order_ext = @order_ext
 	GROUP BY order_no, order_ext, location, part_no
 
+	-- v1.7 Start
+	UPDATE	a
+	SET		type_code = b.type_code
+	FROM	#ship_complete a
+	JOIN	inv_master b (NOLOCK)
+	ON		a.part_no = b.part_no
+	-- v1.7 End
+
 	SET @last_row_id = 0
 
 	SELECT	TOP 1 @row_id = row_id,
 			@location = location,
 			@part_no = part_no,
-			@qty = qty
+			@qty = qty,
+			@type_code = type_code -- v1.7
 	FROM	#ship_complete
 	WHERE	row_id > @last_row_id
 	ORDER BY row_id ASC
@@ -142,17 +153,27 @@ BEGIN
 				SET @max_soft_alloc = 99999999
 			-- v1.5 End
 
-			SELECT	@sa_qty = ISNULL(SUM(CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0)    
-			FROM	dbo.cvo_soft_alloc_det a (NOLOCK)    
-			WHERE	a.status NOT IN (-2, -3) -- v1.4 IN (0, 1, -1)    
-			AND		(CAST(a.order_no AS varchar(10)) + CAST(a.order_ext AS varchar(5))) <> (CAST(@order_no AS varchar(10)) + CAST(@order_ext AS varchar(5)))      
-			AND		a.location = @location    
-			AND		a.part_no = @part_no   
-			AND		a.soft_alloc_no <  @max_soft_alloc -- v1.5
+			-- v1.7 Start
+			IF (@type_code = 'CASE')
+			BEGIN
+				SET @sa_qty = 0 
+			END
+			ELSE
+			BEGIN
 
-			IF (@sa_qty IS NULL)    
-				SET @sa_qty = 0    
-			  
+				SELECT	@sa_qty = ISNULL(SUM(CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0)    
+				FROM	dbo.cvo_soft_alloc_det a (NOLOCK)    
+				WHERE	a.status NOT IN (-2, -3) -- v1.4 IN (0, 1, -1)    
+				AND		(CAST(a.order_no AS varchar(10)) + CAST(a.order_ext AS varchar(5))) <> (CAST(@order_no AS varchar(10)) + CAST(@order_ext AS varchar(5)))      
+				AND		a.location = @location    
+				AND		a.part_no = @part_no   
+				AND		a.soft_alloc_no <  @max_soft_alloc -- v1.5
+
+				IF (@sa_qty IS NULL)    
+					SET @sa_qty = 0    
+			END
+			-- v1.7 End
+
 			-- Compare - if no stock available then mark the record    
 			IF ((@in_stock - (@alloc_qty + @quar_qty + @sa_qty)) < @qty)   
 			BEGIN    
@@ -244,7 +265,8 @@ BEGIN
 		SELECT	TOP 1 @row_id = row_id,
 				@location = location,
 				@part_no = part_no,
-				@qty = qty
+				@qty = qty,
+				@type_code = type_code -- v1.7
 		FROM	#ship_complete
 		WHERE	row_id > @last_row_id
 		ORDER BY row_id ASC

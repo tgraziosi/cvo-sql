@@ -35,6 +35,9 @@ BEGIN
 	-- If just printing then skip this section
 	IF (@for_print = 0)
 	BEGIN
+
+		EXEC dbo.cvo_auto_alloc_process_sp 1, 'cvo_release_GST_Held_Orders_sp' -- v1.7
+
 		-- Insert working data
 		INSERT	#gst_orders (order_no, order_ext, global_ship, prior_hold)
 		SELECT	a.order_no, 
@@ -225,6 +228,9 @@ BEGIN
 				global_ship
 		FROM	#gst_orders	
 		ORDER BY global_ship, order_no, order_ext
+
+		EXEC dbo.cvo_auto_alloc_process_sp 0 -- v1.7
+
 	END
 
 

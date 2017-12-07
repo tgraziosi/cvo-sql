@@ -154,6 +154,8 @@ SELECT o.order_no,
        o.FramesOrdered,
        o.FramesShipped,
        0 AS FramesRMA,
+	   CAST(0 AS DECIMAL(20,8)) AS net_rx,
+	   CAST(0 AS DECIMAL(20,8)) AS net_sales,
        o.back_ord_flag,
        o.Cust_type,
        o.HS_order_no,
@@ -353,6 +355,8 @@ SELECT DISTINCT
     ),
     0
           ) AS FramesRMA,
+	0.0 AS net_rx,
+	0.0 AS net_sales,
     o.back_ord_flag,
     ISNULL(ar.addr_sort1, '') AS Cust_type,
     ISNULL(o.user_def_fld4, '') AS HS_order_no,
@@ -406,7 +410,11 @@ INSERT INTO #temp
     HS_order_no,
     FramesOrdered,
     FramesShipped,
-    FramesRMA
+    FramesRMA,
+	net_rx,
+	net_sales,
+	total_amt_order,
+	total_discount
 )
 SELECT DISTINCT
     a.territory_code,
@@ -423,13 +431,25 @@ SELECT DISTINCT
     '',
     0,
     0,
-    0
+    0,
+	ISNULL(tsr.net_rx,0.0) net_rx, 
+	ISNULL(tsr.net_sales,0.0) net_sales,
+	0,
+	0
 
 FROM armaster (NOLOCK) a
     INNER JOIN #territory t
         ON t.territory = a.territory_code
     INNER JOIN arsalesp slp (NOLOCK)
         ON slp.salesperson_code = a.salesperson_code
+	left outer join
+	(SELECT ar.territory_code,  SUM(case when user_category like 'RX%' then anet else 0 end ) Net_RX, sum(anet) Net_sales
+	FROM dbo.cvo_sbm_details AS sd
+	JOIN armaster ar ON ar.customer_code = sd.customer AND ar.ship_to_code = sd.ship_to
+	WHERE yyyymmdd BETWEEN @startdate AND @enddate 
+	GROUP BY ar.territory_code
+	) tsr on tsr.territory_code = a.territory_code
+	
 WHERE a.territory_code IS NOT NULL
       AND a.salesperson_code <> 'smithma'
       AND a.status_type = 1;
@@ -463,7 +483,9 @@ SELECT ISNULL(cust_code, '') cust_code,
        SUM(total_invoice) total_invoice,
        SUM(FramesOrdered) FramesOrdered,
        SUM(FramesShipped) FramesShipped,
-       SUM(FramesRMA) FramesRMA
+       SUM(FramesRMA) FramesRMA,
+	   SUM(net_rx) net_rx,
+	   SUM(net_sales) net_sales
 --,Qual_order = case when ((isnull(framesordered,0) - isnull(framesrma,0)) > 4 
 --	and total_amt_order <> 0.0
 --	and date_sch_ship between @startdate and @enddate 
@@ -505,6 +527,8 @@ GROUP BY ISNULL(cust_code, ''),
 --	and ( sum(total_amt_order) - sum(total_discount) ) <> 0.0 )
 --	or isnull(cust_code,'') = ''
 
+
+
 IF @qualorder = 1
     SELECT @where
         = '
@@ -521,12 +545,12 @@ IF @qualorder = 0
 
 -- 11/30/2017
 IF @qualorder = -1 
-    SELECT @where = '1 = 1';
+    SELECT @where = ' 1 = 1';
 
 IF @detail = 0
     EXEC ('	select
-	cust_code,
-	ship_to ,
+	f.cust_code,
+	f.ship_to ,
 	ship_To_door,
 	ship_to_name,
 	salesperson,
@@ -542,13 +566,16 @@ IF @detail = 0
 	total_invoice,
 	FramesOrdered,
 	FramesShipped,
-	FramesRMA
-	From #finalselect where ' + @where);
+	FramesRMA,
+	isnull(net_rx,0.0) net_rx,
+	isnull(net_sales,0.0) net_sales
+	From #finalselect f
+		  where ' + @where);
 ELSE
     EXEC ('	select order_no,
        ext,
-       cust_code,
-       ship_to,
+       f.cust_code,
+       f.ship_to,
        ship_to_name,
        location,
        cust_po,
@@ -586,11 +613,14 @@ ELSE
        FramesOrdered,
        FramesShipped,
        FramesRMA,
+	   isnull(net_rx,0.0) net_rx,
+	   isnull(net_sales,0.0) net_sales,
        back_ord_flag,
        Cust_type,
        HS_order_no,
        source 
-	From #temp where ' + @where);
+	From #temp f
+	 where ' + @where);
 GO
 GRANT EXECUTE ON  [dbo].[cvo_ST_Activity_log_sp] TO [public]
 GO

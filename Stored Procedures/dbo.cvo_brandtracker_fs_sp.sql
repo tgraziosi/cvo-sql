@@ -5,7 +5,7 @@ GO
 
 -- 8/18/2015 - when calculating FirstOrder units, don't qualify on promo/level, only on promo
 
--- exec cvo_brandtracker_fs_sp '1/1/2015', null, 'bt', 'xl', null, 'bt,ve-bt', null, null, null, 0
+-- exec cvo_brandtracker_fs_sp '1/1/2015', null, 'BT', '*ALL*', null, null, null, null, null, 0
 
 CREATE PROCEDURE [dbo].[cvo_brandtracker_fs_sp]
     @df DATETIME = NULL ,      -- fromdate

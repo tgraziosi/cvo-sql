@@ -4,7 +4,7 @@ SET ANSI_NULLS ON
 GO
 
 -- v1.0 CT 24/07/2013 - Issue #1040 - No stock process 2013
-
+-- v1.1 CB 07/11/2017 - Add process info for tdc_log
 /*
 Returns:
 0	= 1 bin found - transaction updated
@@ -59,9 +59,13 @@ BEGIN
 	-- Load details into temp table
 	INSERT INTO #no_stock_required VALUES(@qty_required,@location,@current_bin_no)
 
+	EXEC dbo.cvo_auto_alloc_process_sp 1, 'CVO_no_stock_check_stock_sp' -- v1.1
+
 	-- Call routine to search for stock
 	EXEC CVO_allocate_by_bin_group_sp  'AUTO_ALLOC', 'AUTO_ALLOC', @order_no, @ext, @line_no, @part_no, 'Y',  
 					NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1   	
+
+	EXEC dbo.cvo_auto_alloc_process_sp 0 -- v1.1
 
 	-- Check if there is enough stock			
 	SELECT @qty_allocated = SUM(qty) FROM #no_stock_bins

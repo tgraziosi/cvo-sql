@@ -13,6 +13,7 @@ EXEC cvo_backorder_processing_allocate_po_stock_sp
 -- v1.4 CT 28/11/2013 - Issue #1406 - Write pick ticket details to table instead of printing straight away
 -- v1.5 CT 03/04/2014 - Issue #572 - Changes for Masterpack order consolidation
 -- v1.6 CB 18/12/2015 - Issue #1582 - If nothing allocated then do not add record to print table
+-- v1.7 CB 07/11/2017 - Add process info for tdc_log
 */
 
 CREATE PROC [dbo].[cvo_backorder_processing_allocate_po_stock_sp]
@@ -37,7 +38,7 @@ BEGIN
 	
 	-- Write log
 	EXEC dbo.cvo_backorder_processing_log_sp	'Starting PO allocation process'
-
+	EXEC dbo.cvo_auto_alloc_process_sp 1, 'cvo_backorder_processing_allocate_po_stock_sp' -- v1.7
 	-- START v1.4
 	-- Temp table no longer required
 	/*
@@ -386,6 +387,7 @@ BEGIN
 
 	-- Write log
 	EXEC dbo.cvo_backorder_processing_log_sp	'Completed PO allocation process'
+	EXEC dbo.cvo_auto_alloc_process_sp 0 -- v1.7
 
 	RETURN 0
 END

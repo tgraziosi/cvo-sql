@@ -819,6 +819,9 @@ BEGIN
 	IF NOT EXISTS (SELECT 1 FROM dbo.cvo_soft_alloc_hdr (NOLOCK) WHERE status = -1)
 		RETURN 0
 
+
+	EXEC dbo.cvo_auto_alloc_process_sp 1, 'cvo_process_soft_allocations_sp' -- v8.4
+
 	-- Populate the working table with the soft allocation to process
 	INSERT	#process_alloc (soft_alloc_no, order_no, order_ext, location)
 	SELECT	DISTINCT soft_alloc_no, order_no, order_ext, location
@@ -2105,6 +2108,8 @@ BEGIN
 	ON		a.order_no = b.order_no
 	AND		a.order_ext = b.order_ext
 	-- v6.5 End
+
+	EXEC dbo.cvo_auto_alloc_process_sp 0 -- v8.4
 
 	DROP TABLE #forced_orders -- v6.1
 	DROP TABLE #future_orders -- v6.5	

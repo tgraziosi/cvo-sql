@@ -27,6 +27,7 @@ Copyright:   Epicor Software 2010.  All rights reserved.
 -- v10.8 CB 24/01/2014 - #excluded_bins needs to be populated with location
 -- v10.9 CB 11/11/2015 - #1576 - POP should not allocate on there own when frames are on the order and do not allocate
 -- v11.0 CB 13/05/2016 - Fix issue when checking stock - soft alloc qty and hard alloc qty being double counted
+-- v11.1 CB 06/11/2017 - #1649 Exclude cases from soft allocation
 */
 
 CREATE PROCEDURE [dbo].[CVO_tdc_plw_so_alloc_management_sp]	@order_no_  INT,  
@@ -381,36 +382,44 @@ BEGIN
 			AND		location = @location    
 			GROUP BY location) , 0)    
 		     
+			-- v11.1 Start
+			IF EXISTS (SELECT 1 FROM inv_master (NOLOCK) WHERE part_no = @part_no AND type_code = 'CASE')
+			BEGIN
+				SET @qty_alloc_sa = 0
+			END
+			ELSE
+			BEGIN
+			-- v10.4 Start
+				SELECT @qty_alloc_sa = ISNULL((SELECT SUM(a.quantity)  
+						FROM cvo_soft_alloc_det a (NOLOCK)   
+						LEFT JOIN #selected_detail_cursor b
+						ON a.order_no = b.order_no
+						AND	a.order_ext = b.order_ext
+					   WHERE a.part_no  = @part_no  
+						 AND a.location = @location
+						 AND a.soft_alloc_no < @max_soft_alloc
+						 AND a.status IN (0,1,-1) -- v11.1  
+						  AND b.order_no IS NULL
+					  GROUP BY a.location) , 0) 
 
-		-- v10.4 Start
-			SELECT @qty_alloc_sa = ISNULL((SELECT SUM(a.quantity)  
-					FROM cvo_soft_alloc_det a (NOLOCK)   
-					LEFT JOIN #selected_detail_cursor b
-					ON a.order_no = b.order_no
-					AND	a.order_ext = b.order_ext
-				   WHERE a.part_no  = @part_no  
-					 AND a.location = @location
-					 AND a.soft_alloc_no < @max_soft_alloc
-					 AND a.status IN (0,1,-1) -- v11.1  
-					  AND b.order_no IS NULL
-				  GROUP BY a.location) , 0) 
+				-- v11.0 Start
+				SELECT @qty_sa_alloc = ISNULL((SELECT SUM(b.qty)  
+							FROM	cvo_soft_alloc_det a (NOLOCK)   
+							JOIN	tdc_soft_alloc_tbl b (NOLOCK)
+							ON		a.order_no = b.order_no
+							AND		a.order_ext = b.order_ext
+							AND		a.line_no = b.line_no
+							AND		a.part_no = b.part_no
+							WHERE	a.part_no  = @part_no  
+							AND		a.location = @location
+							AND		a.soft_alloc_no < @max_soft_alloc
+							AND		a.status IN (0,1,-1)
+							GROUP BY a.location) , 0) 
 
-			-- v11.0 Start
-			SELECT @qty_sa_alloc = ISNULL((SELECT SUM(b.qty)  
-						FROM	cvo_soft_alloc_det a (NOLOCK)   
-						JOIN	tdc_soft_alloc_tbl b (NOLOCK)
-						ON		a.order_no = b.order_no
-						AND		a.order_ext = b.order_ext
-						AND		a.line_no = b.line_no
-						AND		a.part_no = b.part_no
-						WHERE	a.part_no  = @part_no  
-						AND		a.location = @location
-						AND		a.soft_alloc_no < @max_soft_alloc
-						AND		a.status IN (0,1,-1)
-						GROUP BY a.location) , 0) 
-
-			SELECT @qty_alloc_sa = @qty_alloc_sa - ISNULL(@qty_sa_alloc,0)
-			-- v11.0 End
+				SELECT @qty_alloc_sa = @qty_alloc_sa - ISNULL(@qty_sa_alloc,0)
+				-- v11.0 End
+			END
+			-- v11.1 End
 
 		   SELECT @qty_pre_allocated_total = @qty_pre_allocated_total + ISNULL(@qty_alloc_sa,0)
 		-- v10.4 End

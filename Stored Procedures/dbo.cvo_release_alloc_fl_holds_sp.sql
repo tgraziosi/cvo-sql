@@ -57,7 +57,7 @@ BEGIN
 			qty			decimal(20,8))
 	-- v1.4 End
 
---	EXEC dbo.cvo_auto_alloc_process_sp 1, 'cvo_release_alloc_fl_holds_sp' -- v2.2
+	EXEC dbo.cvo_auto_alloc_process_sp 1, 'cvo_release_alloc_fl_holds_sp' -- v2.2
 
 	-- v1.3 Start
 	SELECT	@fill_rate_s = value_str 
@@ -661,7 +661,7 @@ BEGIN
 			
 	END
 
---	EXEC dbo.cvo_auto_alloc_process_sp 0 -- v2.2
+	EXEC dbo.cvo_auto_alloc_process_sp 0 -- v2.2
 
 	-- Clean up
 	DROP TABLE #fl_orders

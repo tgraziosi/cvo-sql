@@ -34,7 +34,8 @@ GO
 -- v12.0 CB 20/05/2014 - Issue #1481 - Include -3 status on soft alloc
 -- v12.1 CB 11/11/2015 - #1576 - POP should not allocate on there own when frames are on the order and do not allocate
 -- v12.2 CB 14/04/2016 - #1596 - Add promo level
-
+-- v12.3 CB 20/04/2016 - #1584 - Add discount amount
+-- v12.4 CB 06/11/2017 - #1649 Exclude cases from soft allocation
     
  CREATE PROCEDURE [dbo].[tdc_plw_so_alloc_management_sp]      
  @criteria_template varchar(50),      
@@ -136,7 +137,8 @@ DECLARE @row_id    int,
   @last_line_row_id int    
 -- v11.2 End    
     
-DECLARE @max_soft_alloc int -- v11.3    
+DECLARE @max_soft_alloc int -- v11.3  
+DECLARE	@type_code varchar(10) -- v12.4  
     
 TRUNCATE TABLE #so_allocation_detail_view      
 TRUNCATE TABLE #so_alloc_management      
@@ -563,7 +565,8 @@ BEGIN
      AND location  = @location      
      AND part_no   = @part_no      
      AND (create_po_flag <> 1 OR create_po_flag IS NULL)      
-     AND part_type != 'C'      
+     AND part_type != 'C' 
+	 AND part_no <> 'PROMOTION DISCOUNT' -- v12.3
    UNION      
   SELECT ol.order_no, ol.order_ext, ol.location, ol.line_no, olk.part_no, olk.[description],       
          olk.lb_tracking, olk.ordered * olk.qty_per * olk.conv_factor, 0, olk.shipped * olk.qty_per * olk.conv_factor, 0, 0, 0      
@@ -1122,7 +1125,8 @@ BEGIN
      AND location  = @location      
      AND (create_po_flag IS NULL OR create_po_flag <> 1)      
      AND part_type != 'C'      
-     AND part_type IS NOT NULL      
+     AND part_type IS NOT NULL   
+	 AND part_no <> 'PROMOTION DISCOUNT' -- v12.3    
       
   INSERT INTO #so_allocation_detail_view (order_no, order_ext, location, line_no, part_no, part_desc, lb_tracking,       
        qty_ordered, qty_avail, qty_picked, qty_alloc, avail_pct, alloc_pct)      
@@ -1323,23 +1327,30 @@ BEGIN
            WHERE part_no  = @part_no      
              AND location = @location      
           GROUP BY location) , 0)      
-    
 
+	-- v12.4 Start
+	IF EXISTS (SELECT 1 FROM inv_master (NOLOCK) WHERE part_no = @part_no AND type_code = 'CASE')
+	BEGIN
+		SET @qty_alloc_sa = 0
+	END
+	ELSE
+	BEGIN
     
--- v10.9 Start    
- SELECT @qty_alloc_sa = ISNULL((SELECT SUM(a.quantity)      
-            FROM cvo_soft_alloc_det a (NOLOCK)       
-   LEFT JOIN #tdc_selected_detail_cursor b    
-   ON a.order_no = b.order_no    
-   AND a.order_ext = b.order_ext    
-           WHERE a.part_no  = @part_no      
-             AND a.location = @location    
-    AND a.soft_alloc_no < @max_soft_alloc -- v11.3    
--- v11.3    AND a.order_no < @order_no    
-    AND a.status IN (0,1,-1,-4) -- v11.1 v11.9 Include -4     
-     AND b.order_no IS NULL    
-          GROUP BY a.location) , 0)     
-  
+		-- v10.9 Start    
+		SELECT @qty_alloc_sa = ISNULL((SELECT SUM(a.quantity)      
+									FROM cvo_soft_alloc_det a (NOLOCK)       
+									LEFT JOIN #tdc_selected_detail_cursor b    
+									ON a.order_no = b.order_no    
+									AND a.order_ext = b.order_ext    
+									WHERE a.part_no  = @part_no      
+									AND a.location = @location    
+									AND a.soft_alloc_no < @max_soft_alloc -- v11.3    
+						-- v11.3    AND a.order_no < @order_no    
+									AND a.status IN (0,1,-1,-4) -- v11.1 v11.9 Include -4     
+									AND b.order_no IS NULL    
+									GROUP BY a.location) , 0)     
+	END
+	-- v12.4 End
  
    SELECT @qty_pre_allocated_total = @qty_pre_allocated_total + ISNULL(@qty_alloc_sa,0)    
 -- v10.9 End    
@@ -1559,7 +1570,8 @@ BEGIN
    SET @av_qty = 0    
    -- v11.0 End    
     
-   SELECT @in_stock = in_stock    
+   SELECT @in_stock = in_stock,
+		  @type_code = type_code -- v12.4    
    FROM inventory (NOLOCK)    
    WHERE location = @location    
    AND  part_no = @part_no    
@@ -1610,13 +1622,22 @@ BEGIN
    AND  a.part_no = @part_no    
    AND  ISNULL(b.order_type,'S') = 'S' */    
     
-   SELECT @sa_qty = ISNULL(SUM(CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0)    
-   FROM dbo.cvo_soft_alloc_det a (NOLOCK)    
-   WHERE a.status IN (0, 1, -1)    
-   AND  CAST(a.order_no AS varchar(10)) + CAST(a.order_ext AS varchar(5)) <> CAST(@order_no AS varchar(10)) + CAST(@order_ext AS varchar(5))     
-   AND  a.location = @location    
-   AND  a.part_no = @part_no    
-   -- v10.5 End    
+	-- v12.4 Start
+	IF (@type_code = 'CASE')
+	BEGIN
+		SET @sa_qty = 0
+	END
+	ELSE
+	BEGIN
+		SELECT @sa_qty = ISNULL(SUM(CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0)    
+		FROM dbo.cvo_soft_alloc_det a (NOLOCK)    
+		WHERE a.status IN (0, 1, -1)    
+		AND  CAST(a.order_no AS varchar(10)) + CAST(a.order_ext AS varchar(5)) <> CAST(@order_no AS varchar(10)) + CAST(@order_ext AS varchar(5))     
+		AND  a.location = @location    
+		AND  a.part_no = @part_no    
+		-- v10.5 End    
+	END
+	-- v12.4 End
     
    IF (@sa_qty IS NULL)    
     SET @sa_qty = 0    

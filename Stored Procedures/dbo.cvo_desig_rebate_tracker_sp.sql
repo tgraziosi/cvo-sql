@@ -13,10 +13,10 @@ AS
         SET NOCOUNT ON;
         SET ANSI_WARNINGS OFF;
 
-        -- exec cvo_desig_rebate_tracker_sp '1/1/2017', '11/20/2017', '40438', 0
+        -- exec cvo_desig_rebate_tracker_sp '1/1/2017', '11/20/2017', '40453', 0
 
 
-        -- DECLARE @sdate DATETIME, @edate DATETIME, @today DATETIME, @terr VARCHAR(1024)
+        -- DECLARE @sdate DATETIME, @edate DATETIME, @terr VARCHAR(1024), @single_email int
 
         DECLARE @progyear INT ,
                 @today DATETIME ,
@@ -24,7 +24,8 @@ AS
                 @emails VARCHAR(1024) ,
                 @debug INT;
 
-        SELECT @debug = 0;
+				SELECT @debug = 0;
+        -- SELECT @debug = 1, @single_email = 0;
 
         SELECT @today = GETDATE();
         IF @sdate IS NULL
@@ -58,7 +59,7 @@ AS
                             WHERE  1 = 1;
             END;
         ELSE
-            BEGIN
+            BEGIN 
                 INSERT INTO #terr ( terr ,
                                     region )
                             SELECT ListItem ,
@@ -139,7 +140,8 @@ AS
         FROM   #email ee
                JOIN (   SELECT e.mergecust ,
                                e.contact_email ,
-                               DENSE_RANK() OVER ( PARTITION BY mergecust
+                               -- DENSE_RANK() OVER ( PARTITION BY e.contact_email
+							   ROW_NUMBER() OVER ( PARTITION BY e.contact_email
                                                    ORDER BY contact_email ASC ) email_id
                         FROM   #email AS e ) e_id ON e_id.contact_email = ee.contact_email
                                                      AND e_id.mergecust = ee.mergecust;
@@ -216,7 +218,7 @@ AS
                LEFT OUTER JOIN (   SELECT   RIGHT(ccdc.customer_code, 5) mergecust ,
                                             ccdc.code ,
                                             ccdc.description ,
-                                            ccdc.start_date ,
+                                            MIN(ccdc.start_date) start_date ,
                                             -- 11/21/2016 - exclude exc returns from gross sales
                                             SUM(ISNULL(sbm.asales, 0))
                                             - SUM(ISNULL(
@@ -285,8 +287,9 @@ AS
 
                                    GROUP BY RIGHT(ccdc.customer_code, 5) ,
                                             ccdc.code ,
-                                            ccdc.description ,
-                                            ccdc.start_date ) AS facts ON cdr.code = ISNULL(
+                                            ccdc.description 
+                                            -- ccdc.start_date 
+											) AS facts ON cdr.code = ISNULL(
                                                                                          facts.code ,
                                                                                          cdr.code)
                                                                           AND cdr.progyear = @progyear
@@ -334,6 +337,8 @@ AS
     -- SELECT * FROM dbo.cvo_designation_codes AS ccdc
 
     END;
+
+
 
 
 

@@ -210,6 +210,8 @@ BEGIN
 		WHERE	consolidation_no = @st_cons_no
 	END
 
+	EXEC dbo.cvo_auto_alloc_process_sp 1, 'cvo_change_allocation_sp' -- v1.5
+
 	-- v1.1 Start
 	INSERT	#cvo_sa_orders (order_no, order_ext)
 	SELECT	DISTINCT order_no, order_ext
@@ -249,6 +251,7 @@ BEGIN
 	EXEC dbo.cvo_change_allocation_realloc_sp @order_no, @order_ext, @ret OUTPUT, @message OUTPUT
 	-- v1.2 End
 
+	EXEC dbo.cvo_auto_alloc_process_sp 0 -- v1.5
 
 	-- return 
 	SELECT	@ret, @message

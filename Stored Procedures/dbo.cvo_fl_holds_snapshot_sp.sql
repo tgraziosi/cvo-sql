@@ -21,7 +21,8 @@ BEGIN
 			@alloc_qty		decimal(20,8),
 			@in_stock		decimal(20,8),
 			@in_stock_na	decimal(20,8),
-			@quar_qty		decimal(20,8)
+			@quar_qty		decimal(20,8),
+			@type_code		varchar(10) -- v1.1
 
 	-- WORKING TABLES
 	 CREATE TABLE #wms_ret ( location  varchar(10),  
@@ -38,15 +39,18 @@ BEGIN
 
 	WHILE (1 = 1)
 	BEGIN
-		SELECT	TOP 1 @line_no = line_no,
-				@part_no = part_no,
-				@ordered = ordered,
-				@location = location
-		FROM	ord_list (NOLOCK)
-		WHERE	order_no = @order_no
-		AND		order_ext = @order_ext
-		AND		line_no > @line_no	
-		ORDER BY line_no ASC
+		SELECT	TOP 1 @line_no = a.line_no,
+				@part_no = a.part_no,
+				@ordered = a.ordered,
+				@location = a.location,
+				@type_code = b.type_code -- v1.1
+		FROM	ord_list a (NOLOCK)
+		JOIN	inv_master b (NOLOCK) -- v1.1
+		ON		a.part_no = b.part_no -- v1.1
+		WHERE	a.order_no = @order_no
+		AND		a.order_ext = @order_ext
+		AND		a.line_no > @line_no	
+		ORDER BY a.line_no ASC
 
 		IF (@@ROWCOUNT = 0)
 			BREAK
@@ -100,16 +104,22 @@ BEGIN
 
 		SET @sa_qty = 0
 
-		SELECT	@sa_qty = ISNULL(SUM(CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0)  
-		FROM	dbo.cvo_soft_alloc_det a (NOLOCK)  
-		WHERE	a.status NOT IN (-2,-3)
-		AND		(CAST(a.order_no AS varchar(10)) + CAST(a.order_ext AS varchar(5))) <> (CAST(@order_no AS varchar(10)) + CAST(@order_ext AS varchar(5)))    
-		AND		a.location = @location  
-		AND		a.part_no = @part_no
-		AND		a.soft_alloc_no < @soft_alloc_no 
+		-- v1.1 Start
+		IF (@type_code <> 'CASE')
+		BEGIN
 
-		IF (@sa_qty IS NULL)  
-			SET @sa_qty = 0  
+			SELECT	@sa_qty = ISNULL(SUM(CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0)  
+			FROM	dbo.cvo_soft_alloc_det a (NOLOCK)  
+			WHERE	a.status NOT IN (-2,-3)
+			AND		(CAST(a.order_no AS varchar(10)) + CAST(a.order_ext AS varchar(5))) <> (CAST(@order_no AS varchar(10)) + CAST(@order_ext AS varchar(5)))    
+			AND		a.location = @location  
+			AND		a.part_no = @part_no
+			AND		a.soft_alloc_no < @soft_alloc_no 
+
+			IF (@sa_qty IS NULL)  
+				SET @sa_qty = 0  
+		END
+		-- v1.1 End
 
 		INSERT	dbo.cvo_fl_holds_snapshot (order_no, order_ext, line_no, part_no, ordered, in_stock, in_stock_na, quar_qty, alloc_qty, soft_alloc_qty, calc_qty)
 		SELECT	@order_no, @order_ext, @line_no, @part_no, @ordered, @in_stock, @in_stock_na, @quar_qty, @alloc_qty, @sa_qty, (@in_stock - (@alloc_qty + @quar_qty + @sa_qty + @in_stock_na))   

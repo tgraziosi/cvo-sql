@@ -13,6 +13,7 @@ Calls:
 Called by:   
 Copyright:   Epicor Software 2010.  All rights reserved.  
 v1.1 CB 01/27/2011	-	Add in processing for substitution orders where the frame is not available
+v1.2 CB 07/11/2017 - Add process info for tdc_log
 
 When substituting temples on an order if no stock exists the order is placed on hold (orders.status = 'A'
 and hold_reason = 'NA'). This routine should be set up as a scheduled task to run. It checks if the stock is now
@@ -73,6 +74,8 @@ BEGIN
 	CREATE TABLE #orders (	id				int identity(1,1),	
 							order_no		int,
 							order_ext		int)
+
+	EXEC dbo.cvo_auto_alloc_process_sp 1, 'CVO_Process_Held_Substitution_orders_sp' -- v1.2
 
 	-- Populate the working table
 	INSERT	#wip (order_no, order_ext, location, line_no, part_no, ordered, has_stock)
@@ -320,6 +323,8 @@ BEGIN
 		ORDER BY id
 	
 	END
+
+	EXEC dbo.cvo_auto_alloc_process_sp 0 -- v1.2
 	
 	DROP TABLE #wip
 	DROP TABLE #stock

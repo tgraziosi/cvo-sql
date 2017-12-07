@@ -47,6 +47,8 @@ BEGIN
 		order_ext		int,
 		line_no			int)
 
+	EXEC dbo.cvo_auto_alloc_process_sp 1, 'cvo_release_allocate_print_rx_consolidate_sp' -- v1.6
+
 	-- Populate working table
 	INSERT	#rx_consolidate (order_no, order_ext, status, hold_reason, iscustom, processed, soft_alloc_no)
 	SELECT	a.order_no,
@@ -650,6 +652,8 @@ BEGIN
 		WHERE	row_id > @last_row_id
 		ORDER BY row_id ASC
 	END	
+
+	EXEC dbo.cvo_auto_alloc_process_sp 0 -- v1.6
 
 	DROP TABLE #exclusions
 	DROP TABLE #line_exclusions

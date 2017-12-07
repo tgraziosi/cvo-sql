@@ -26,7 +26,8 @@ BEGIN
 			@quar_qty			decimal(20,8),
 			@sa_qty				decimal(20,8),
 			@soft_alloc_no		int, -- v1.2
-			@part_type			varchar(10) -- v1.3
+			@part_type			varchar(10), -- v1.3
+			@type_code			varchar(10) -- v1.4
 
 	-- Create working tables 
 	CREATE TABLE #order_hdr (
@@ -43,6 +44,7 @@ BEGIN
 		part_no			varchar(30),
 		qty				decimal(20,8),
 		part_type		varchar(10), -- v1.3
+		type_code		varchar(10), -- v1.4
 		no_stock		int)
 
 	 CREATE TABLE #wms_ret ( location  varchar(10),  
@@ -86,14 +88,17 @@ BEGIN
 
 		DELETE #order_det
 
-		INSERT	#order_det (location, line_no, part_no, qty, part_type, no_stock) -- v1.3
-		SELECT	location,
-				line_no,
-				part_no,
-				ordered,
-				part_type, -- v1.3
+		INSERT	#order_det (location, line_no, part_no, qty, part_type, type_code, no_stock) -- v1.3 v1.4
+		SELECT	a.location,
+				a.line_no,
+				a.part_no,
+				a.ordered,
+				a.part_type, -- v1.3
+				b.type_code, -- v1.4
 				0
-		FROM	ord_list (NOLOCK)
+		FROM	ord_list a (NOLOCK)
+		JOIN	inv_master b (NOLOCK) -- v1.4
+		ON		a.part_no = b.part_no -- v1.4
 		WHERE	order_no = @order_no
 		AND		order_ext = @order_ext
 		ORDER BY line_no
@@ -105,7 +110,8 @@ BEGIN
 				@line_no = line_no,
 				@part_no = part_no,
 				@qty = qty,
-				@part_type = part_type -- v1.3
+				@part_type = part_type, -- v1.3
+				@type_code = type_code -- v1.4
 		FROM	#order_det
 		WHERE	line_row_id > @last_line_row_id
 		ORDER BY line_row_id ASC
@@ -155,16 +161,15 @@ BEGIN
 --			WHERE	location = @location  
 --			AND		part_no = @part_no  
 
-			SELECT	@in_stock_ex = SUM(a.qty) - ISNULL(SUM(b.qty),0.0)
+			SELECT	@in_stock_ex = ISNULL(SUM(ISNULL(a.qty,0)),0) - ISNULL(SUM(ISNULL(b.qty,0)),0.0)
 			FROM	cvo_lot_bin_stock_exclusions a (NOLOCK)
-			LEFT JOIN (SELECT SUM(qty) qty, location, part_no, bin_no FROM tdc_soft_alloc_tbl (NOLOCK) GROUP BY location, part_no, bin_no) b 
+			LEFT JOIN (SELECT ISNULL(SUM(ISNULL(qty,0)),0) qty, location, part_no, bin_no FROM tdc_soft_alloc_tbl (NOLOCK) GROUP BY location, part_no, bin_no) b 
 			ON		a.location = b.location
 			AND		a.part_no = b.part_no
 			AND		a.bin_no = b.bin_no
 			WHERE	a.location = @location  
 			AND		a.part_no = @part_no  
 			-- v1.1 End
-
 
 --			 Set the in_tock figure
 			SET	 @in_stock = ISNULL(@in_stock,0) - ISNULL(@in_stock_ex,0)
@@ -188,18 +193,22 @@ BEGIN
 			IF (@quar_qty IS NULL)  
 			 SET @quar_qty = 0  
 
-  
-			SELECT @sa_qty = ISNULL(SUM(CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0)  
-			FROM dbo.cvo_soft_alloc_det a (NOLOCK)  
-			WHERE a.status IN (0, 1, -1)  
-			AND  (CAST(a.order_no AS varchar(10)) + CAST(a.order_ext AS varchar(5))) <> (CAST(@order_no AS varchar(10)) + CAST(@order_ext AS varchar(5)))    
-			AND  a.location = @location  
-			AND  a.part_no = @part_no  
-			AND	a.soft_alloc_no < @soft_alloc_no -- v1.2
-  
-			IF (@sa_qty IS NULL)  
-			 SET @sa_qty = 0  
-		  
+			-- v1.4 Start
+			IF (@type_code <> 'CASE')
+			BEGIN
+				SELECT @sa_qty = ISNULL(SUM(CASE WHEN a.deleted = 1 THEN (a.quantity * -1) ELSE a.quantity END),0)  
+				FROM dbo.cvo_soft_alloc_det a (NOLOCK)  
+				WHERE a.status IN (0, 1, -1)  
+				AND  (CAST(a.order_no AS varchar(10)) + CAST(a.order_ext AS varchar(5))) <> (CAST(@order_no AS varchar(10)) + CAST(@order_ext AS varchar(5)))    
+				AND  a.location = @location  
+				AND  a.part_no = @part_no  
+				AND	a.soft_alloc_no < @soft_alloc_no -- v1.2
+	  
+				IF (@sa_qty IS NULL)  
+				 SET @sa_qty = 0  
+			END
+			-- v1.4 End
+
 			-- Compare - if no stock available then mark the record  
 			IF ((@in_stock - (@alloc_qty + @quar_qty + @sa_qty)) < @qty) 
 			BEGIN  
@@ -215,7 +224,8 @@ BEGIN
 					@line_no = line_no,
 					@part_no = part_no,
 					@qty = qty,
-					@part_type = part_type -- v1.3
+					@part_type = part_type, -- v1.3
+					@type_code = type_code -- v1.4
 			FROM	#order_det
 			WHERE	line_row_id > @last_line_row_id
 			ORDER BY line_row_id ASC

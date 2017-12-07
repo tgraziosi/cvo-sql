@@ -9,6 +9,8 @@ BEGIN
 
 -- execute cvo_sc_ra_forgive_summary_sp '09/2017'
 
+-- compares credits individually select to forgive and historic return rate vs current return rate to add back the more favorable amount to the rep.
+
 SET NOCOUNT ON;
 SET ANSI_WARNINGS OFF;
 
@@ -83,11 +85,14 @@ EXEC dbo.cvo_tsbm_summary_sp @year, @month
 SELECT   territory_code ,
          SUM(NetSales) NetSales ,
          SUM(NetReturns) NetReturns,
-		 RA_pct = CASE WHEN SUM(netsales) <> 0 THEN SUM(netreturns)/SUM(netsales) ELSE 0 end
+		 RA_pct = CASE WHEN SUM(netsales)+sum(netreturns) <> 0 
+				  THEN SUM(netreturns)/(SUM(netsales)+SUM(netreturns)) ELSE 0 end
 INTO     #tssummary
 FROM     #ts
-WHERE	 #ts.[year] = @year-2 OR #ts.[year] = @year - 1
+WHERE	 #ts.[year] = @year-2 OR #ts.[year] = @year-1
 GROUP BY territory_code;
+
+-- SELECT * FROM #ts AS t
 
 DROP TABLE #ts;
 
@@ -121,12 +126,8 @@ SELECT cbwt.Salesperson,
        cbwt.Amount,
        cbwt.Comm_pct,
        cbwt.Comm_amt,
-       cbwt.Loc,
        cbwt.salesperson_name,
        cbwt.HireDate,
-       cbwt.draw_amount,
-       cbwt.invoicedate_dt,
-       cbwt.dateshipped_dt,
        cbwt.fiscal_period,
        cbwt.added_date,
        cbwt.added_by,
@@ -137,9 +138,50 @@ SELECT cbwt.Salesperson,
 INTO #cb
 FROM dbo.cvo_commission_bldr_work_tbl AS cbwt
 LEFT OUTER JOIN dbo.cvo_sc_ra_forgiveness AS srf ON srf.Order_no = cbwt.Order_no AND srf.Ext = cbwt.Ext AND srf.Salesperson = cbwt.Salesperson
-WHERE cbwt.fiscal_period = @fiscal_period
+WHERE cbwt.fiscal_period <= @fiscal_period
+AND cbwt.OrderType LIKE 'st%'
+AND cbwt.OrderType NOT LIKE '%-RB'
+AND 'Yes' = ISNULL(srf.forgive_me,'Yes')
+AND EXISTS (SELECT 1 FROM dbo.cvo_sc_ra_forgiveness AS srf2 WHERE srf2.Salesperson = cbwt.Salesperson)
 
+/*
 -- summary of actual and historical period ra pct
+IF @rep_option = 'd' SELECT c.Salesperson,
+                            c.Territory,
+                            c.Cust_code,
+                            c.Ship_to,
+                            c.Name,
+                            c.Order_no,
+                            c.Ext,
+                            c.Invoice_no,
+                            c.InvoiceDate,
+                            c.DateShipped,
+                            c.OrderType,
+                            c.Promo_id,
+                            c.Level,
+                            c.type,
+                            c.Net_Sales,
+                            c.Brand,
+                            c.Amount,
+                            c.Comm_pct,
+                            c.Comm_amt,
+                            c.Loc,
+                            c.salesperson_name,
+                            c.HireDate,
+                            c.draw_amount,
+                            c.invoicedate_dt,
+                            c.dateshipped_dt,
+                            c.fiscal_period,
+                            c.added_date,
+                            c.added_by,
+                            c.comm_amt_forgive,
+                            c.RA_amount,
+                            c.pom_amount,
+                            c.forgive_me FROM #cb AS c
+							WHERE c.RA_amount IS NOT NULL;
+
+IF @rep_option = 's'
+*/
 
 SELECT   t.territory_code ,
 		 #cb.Salesperson,
@@ -147,16 +189,19 @@ SELECT   t.territory_code ,
          SUM(CASE WHEN #cb.type = 'inv' THEN ISNULL(Amount,0)
                   ELSE 0
              END) invoice_amount ,
-         SUM(ISNULL(RA_amount,0)) credit_amount ,
-         SUM(ISNULL(pom_amount,0)) pom_amount ,
-         SUM(ISNULL(comm_amt_forgive,0)) forgive_comm ,
+		 SUM(CASE WHEN #cb.type = 'crd' THEN ISNULL(amount,0) ELSE 0 END) credit_amount,
+         SUM(ISNULL(RA_amount,0)) srf_ra_amount ,
+         SUM(ISNULL(pom_amount,0)) srf_pom_amount ,
+         SUM(ISNULL(comm_amt_forgive,0)) srf_forgive_comm ,
          t.RA_pct hist_ra_pct ,
 		 CASE WHEN SUM(CASE WHEN #cb.type = 'inv' THEN amount ELSE 0 end) = 0 THEN 0 else
-         SUM(RA_amount) / SUM(CASE WHEN #cb.type = 'inv' THEN Amount
+         SUM(CASE WHEN #cb.type = 'crd' THEN ISNULL(amount,0) ELSE 0 END) / SUM(CASE WHEN #cb.type = 'inv' THEN Amount
                                    ELSE 0
-                              END) END *-1 curr_ra_pct
+                              END) END *-1 curr_ra_pct,
+		 MAX(Comm_pct)/100 curr_comm_pct
 FROM     #cb
          JOIN #tssummary AS t ON t.territory_code = #cb.Territory
+		 WHERE #cb.fiscal_period = @fiscal_period
 GROUP BY t.territory_code,
          Salesperson,
          t.RA_pct
@@ -167,6 +212,7 @@ END
 
 
 GRANT EXECUTE ON cvo_sc_ra_forgive_summary_sp TO PUBLIC
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_sc_ra_forgive_summary_sp] TO [public]
 GO

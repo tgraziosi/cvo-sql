@@ -34,9 +34,9 @@ BEGIN
 			@consolidation_no	INT -- v1.2
 	
 	-- Write log
---	SET @msg = 'Starting realtime allocation process for template ' + @template_code
+	SET @msg = 'Starting realtime allocation process for template ' + @template_code
 	EXEC dbo.cvo_backorder_processing_log_sp	@msg
---	EXEC dbo.cvo_auto_alloc_process_sp 1, 'cvo_backorder_processing_process_and_allocate_sp' -- v1.3
+	EXEC dbo.cvo_auto_alloc_process_sp 1, 'cvo_backorder_processing_process_and_allocate_sp' -- v1.3
 
 	-- Create temp table
 	CREATE TABLE #print_list(
@@ -436,9 +436,9 @@ BEGIN
 	-- END v1.1
 
 	-- Write log
---	SET @msg = 'Completed realtime allocation process for template ' + @template_code
+	SET @msg = 'Completed realtime allocation process for template ' + @template_code
 	EXEC dbo.cvo_backorder_processing_log_sp	@msg
---	EXEC dbo.cvo_auto_alloc_process_sp 0 -- v1.3
+	EXEC dbo.cvo_auto_alloc_process_sp 0 -- v1.3
 
 	RETURN 0
 END
