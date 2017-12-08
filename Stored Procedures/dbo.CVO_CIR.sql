@@ -13,7 +13,7 @@ select distinct territory, cust_code from cvo_carbi
 where address_name is null
 custnetsales <> totacctnetsales
 
-SELECT * FROM CVO_CARBI WHERE STYLE = '610'
+SELECT * FROM CVO_CARBI WHERE STYLE = 'sunshine'
 
 select * From cvo_cir where cust_code = '044057'
 select territory_code, * From armaster where customer_code = '044057'
@@ -22,6 +22,7 @@ select territory_code, * From armaster where customer_code = '044057'
 
 CREATE PROCEDURE [dbo].[CVO_CIR] @pom_asof DATETIME =  null
 AS
+Begin
     SET NOCOUNT ON;
 
     DECLARE @first DATETIME;                                    
@@ -150,14 +151,13 @@ IF @pom_asof IS NULL
 
 
     SELECT DISTINCT
-            category ,
-            field_2 ,
+            b.category ,
+            a.field_2 ,
             ( CONVERT(VARCHAR, ( CONVERT(INT, ISNULL(field_17, 0)) )) ) eye_size
     INTO    #tgCategoryStyleEyeSizes
-    FROM    inv_master_add a ,
-            inv_master b
-    WHERE   field_17 <> 0
-            AND a.part_no = b.part_no
+    FROM    inv_master_add a JOIN inv_master b ON b.part_no = a.part_no
+    WHERE   a.field_17 <> 0
+
             AND b.type_code IN ( 'FRAME', 'SUN' );
 
     CREATE NONCLUSTERED INDEX idx_for_eyesizes ON #tgCategoryStyleEyeSizes 
@@ -195,8 +195,8 @@ IF @pom_asof IS NULL
                                         @pom_asof/*@first*/) RYG,
 			CASE WHEN c.type_code = 'sun' THEN ' S' ELSE '' END AS Sun -- 12/7/2017 per AM request
     INTO    #p
-    FROM    inv_master c ( NOLOCK )
-            INNER JOIN inv_master_add b ( NOLOCK ) ON c.part_no = b.part_no
+    FROM    dbo.inv_master c ( NOLOCK )
+            INNER JOIN dbo.inv_master_add b ( NOLOCK ) ON c.part_no = b.part_no
     WHERE   c.type_code IN ( 'frame', 'sun' );
 
 --select * from #p where style = 'tilden park'
@@ -960,6 +960,8 @@ IF @pom_asof IS NULL
     FROM    #cvo_CIR_det;
     SELECT  COUNT(*)
     FROM    cvo_carbi;
+
+	END;
 
 -- 
 

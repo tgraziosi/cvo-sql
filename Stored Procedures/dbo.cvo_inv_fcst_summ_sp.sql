@@ -39,7 +39,7 @@ EXEC CVo_inv_fcst_summ_sp
     @asofdate DATETIME ,
     @location VARCHAR(10) ,
     @endrel DATETIME = NULL , -- ending release date
-    @current INT = 1 ,
+    @current INT = 0 , -- show all
     @collection VARCHAR(1000) = NULL ,
     @Style VARCHAR(8000) = NULL ,
     @SpecFit VARCHAR(1000) = NULL ,
@@ -63,13 +63,14 @@ AS
         );
 
     INSERT  INTO #ifp
-            EXEC cvo_inv_fcst_r3_sp
+            EXEC dbo.cvo_inv_fcst_r3_sp
 			    @asofdate = @asofdate, 
 				@endrel = @endrel, 
 				@collection = @collection, 
 				@Style = @Style,
                 @SpecFit = @SpecFit,
 	            @location = @location,
+				@current = @current,
 				@restype = 'frame,sun';
 
 
@@ -173,10 +174,11 @@ AS
 
 			WHERE (t.sort_seq = 1 AND t.line_type = 'V'
 			AND type_code IN ('frame','sun') AND t.p_type_code <> 'parts'
-			AND (t.pom_date IS NULL OR YEAR(t.pom_date) >= YEAR(@asofdate))
+			AND (t.pom_date IS NULL OR t.pom_date >= dateadd(YEAR,-1, @asofdate))
 			)
 
 			;
+
 
 
 

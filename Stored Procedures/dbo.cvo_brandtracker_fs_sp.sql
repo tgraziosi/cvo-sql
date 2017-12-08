@@ -19,6 +19,7 @@ CREATE PROCEDURE [dbo].[cvo_brandtracker_fs_sp]
     @l VARCHAR(1024) = NULL ,  -- highlight level
     @debug INT = 0
 AS
+BEGIN
 
     SET NOCOUNT ON;
 
@@ -106,7 +107,7 @@ AS
         BEGIN
             INSERT #brand ( brand )
                    SELECT DISTINCT kys
-                   FROM   category
+                   FROM   dbo.category
                    WHERE  void = 'n';
         END;
     ELSE
@@ -123,7 +124,7 @@ AS
             --       FROM   inv_master;
 			INSERT #aa ( aa )
 				   SELECT DISTINCT isnull(ia.field_32,'None')
-				   FROM inv_master_add ia;
+				   FROM dbo.inv_master_add ia;
         -- insert #aa (tc) values ('')
         END;
     ELSE
@@ -137,7 +138,7 @@ AS
         BEGIN
             INSERT #terr ( terr, region )
                    SELECT DISTINCT territory_code, dbo.calculate_region_fn(territory_code)
-                   FROM   armaster ( NOLOCK )
+                   FROM   dbo.armaster ( NOLOCK )
                    WHERE  ISNULL(territory_code, '') > '';
         END;
     ELSE
@@ -151,7 +152,7 @@ AS
         BEGIN
             INSERT #bp ( bp )
                    SELECT DISTINCT promo_id
-                   FROM   CVO_promotions ( NOLOCK )
+                   FROM   dbo.CVO_promotions ( NOLOCK )
                    WHERE  ISNULL(promo_id, '') > ''
                           AND void <> 'v';
         END;
@@ -166,8 +167,8 @@ AS
         BEGIN
             INSERT #bl ( bl )
                    SELECT DISTINCT promo_id
-                   FROM   CVO_promotions ( NOLOCK )
-                          JOIN #bp ON promo_id = #bp.bp
+                   FROM   dbo.CVO_promotions ( NOLOCK )
+                          JOIN #bp ON promo_id = bp
                    WHERE  ISNULL(promo_level, '') > '';
         END;
     ELSE
@@ -182,7 +183,7 @@ AS
         BEGIN
             INSERT #fp ( fp )
                    SELECT DISTINCT promo_id
-                   FROM   CVO_promotions ( NOLOCK )
+                   FROM   dbo.CVO_promotions ( NOLOCK )
                    WHERE  ISNULL(promo_id, '') > ''
                           AND void <> 'v';
         END;
@@ -197,8 +198,8 @@ AS
         BEGIN
             INSERT #fl ( fl )
                    SELECT DISTINCT promo_id
-                   FROM   CVO_promotions ( NOLOCK )
-                          JOIN #fp ON promo_id = #fp.fp
+                   FROM   dbo.CVO_promotions ( NOLOCK )
+                          JOIN #fp ON promo_id = fp
                    WHERE  ISNULL(promo_level, '') > '';
         END;
     ELSE
@@ -228,23 +229,23 @@ AS
     INTO   #t
 
     FROM   #terr
-           INNER JOIN arcust ar ( NOLOCK ) ON #terr.terr = ar.territory_code
+           INNER JOIN dbo.arcust ar ( NOLOCK ) ON terr = ar.territory_code
 
            INNER JOIN (   SELECT   b.brand ,
-                                   CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end attribute,
-                                   customer ,
+                                   CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end attribute,
+                                   sbm.customer ,
                                    MIN(ISNULL(sbm.promo_id, '')) promo_id ,
                                    MIN(ISNULL(sbm.promo_level, '')) promo_level ,
                                    MIN(sbm.DateOrdered) first_order_date ,
                                    MIN(sbm.yyyymmdd) first_order_ship
 
                           FROM     #brand b
-                                   INNER JOIN inv_master i ON b.brand = i.category
-                                   INNER JOIN inv_master_add ia ON ia.part_no = i.part_no
-								   INNER JOIN #aa ON #aa.aa = isnull(ia.field_32,'None')
-                                   INNER JOIN cvo_sbm_details sbm ON sbm.part_no = i.part_no
-                                   INNER JOIN #bp ON #bp.bp = sbm.promo_id
-                                   INNER JOIN #bl ON #bl.bl = sbm.promo_level
+                                   INNER JOIN dbo.inv_master i ON b.brand = i.category
+                                   INNER JOIN dbo.inv_master_add ia ON ia.part_no = i.part_no
+								   INNER JOIN #aa ON aa = isnull(ia.field_32,'None')
+                                   INNER JOIN dbo.cvo_sbm_details sbm ON sbm.part_no = i.part_no
+                                   INNER JOIN #bp ON bp = sbm.promo_id
+                                   INNER JOIN #bl ON bl = sbm.promo_level
                           WHERE    1 = 1
                                    -- and i.type_code in ('frame','sun')
                                    -- and sbm.user_category like 'ST%' 
@@ -256,68 +257,80 @@ AS
                                    AND sbm.yyyymmdd
                                    BETWEEN @datefrom AND @dateto
                           GROUP BY b.brand ,
-                                   CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end  ,
-                                   customer ) AS bb ON bb.customer = ar.customer_code;
+                                   CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end  ,
+                                   sbm.customer ) AS bb ON bb.customer = ar.customer_code;
 
     IF @debug = 1
-        SELECT *
+        SELECT territory_code,
+               customer_code,
+               customer_name,
+               contact_name,
+               contact_phone,
+               contact_email,
+               promo_id,
+               promo_level,
+               brand,
+               attribute,
+               first_order_date,
+               first_order_ship,
+               highlight_ship_date
         FROM   #t
         WHERE  customer_code = '045455';
 
-    SELECT   #t.customer_code ,
-             CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end attribute,
-             SUM(ISNULL(qnet, 0)) units ,
+    SELECT   sbm.customer_code ,
+             CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end attribute,
+             SUM(ISNULL(sbm.qnet, 0)) units ,
              'BI' sale_type
     INTO     #v
     FROM     #t
-             INNER JOIN inv_master i ON i.category = #t.brand
+             INNER JOIN dbo.inv_master i ON i.category = brand
                                         -- AND i.type_code = #t.tc
-             INNER JOIN inv_master_add ia ON ia.part_no = i.part_no
-			 INNER JOIN #aa ON #aa.aa = isnull(ia.field_32,'None')
-             INNER JOIN cvo_sbm_details sbm ON sbm.customer = #t.customer_code
+             INNER JOIN dbo.inv_master_add ia ON ia.part_no = i.part_no
+			 INNER JOIN #aa ON aa = isnull(ia.field_32,'None')
+             INNER JOIN dbo.cvo_sbm_details sbm ON sbm.customer = customer_code
                                                AND sbm.part_no = i.part_no
-             INNER JOIN #bp ON #bp.bp = sbm.promo_id
-             INNER JOIN #bl ON #bl.bl = sbm.promo_level
+             INNER JOIN #bp ON bp = sbm.promo_id
+             INNER JOIN #bl ON bl = sbm.promo_level
     WHERE    1 = 1
              AND ISNULL(sbm.promo_id, '') NOT IN ( 'pc', 'ff', 'style out' )
              AND RIGHT(sbm.user_category, 2) <> 'rb'
-             AND sbm.DateOrdered = #t.first_order_date
-    GROUP BY #t.customer_code ,
-             CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end;
+             AND sbm.DateOrdered = first_order_date
+    GROUP BY customer_code ,
+             CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end;
 
 
     INSERT INTO #v
-                SELECT   #t.customer_code ,
-                         CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end attribute ,
-                         SUM(ISNULL(qnet, 0)) units ,
+                SELECT   customer_code ,
+                         CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end attribute ,
+                         SUM(ISNULL(sbm.qnet, 0)) units ,
                          'RX' sale_type
                 FROM     #t
-                         INNER JOIN inv_master i ON i.category = #t.brand
+                         INNER JOIN dbo.inv_master i ON i.category = brand
                                                     -- AND i.type_code = #t.type_code
-                         INNER JOIN inv_master_add ia ON ia.part_no = i.part_no
-						 INNER JOIN #aa ON #aa.aa = isnull(ia.field_32,'None')
-                         INNER JOIN cvo_sbm_details sbm ON sbm.customer = #t.customer_code
+                         INNER JOIN dbo.inv_master_add ia ON ia.part_no = i.part_no
+						 INNER JOIN #aa ON aa = isnull(ia.field_32,'None')
+                         INNER JOIN dbo.cvo_sbm_details sbm ON sbm.customer = customer_code
                                                            AND sbm.part_no = i.part_no
                 WHERE    1 = 1
                          AND ISNULL(sbm.promo_id, '') NOT IN ( 'pc', 'ff' , 'style out' )
                          AND LEFT(sbm.user_category, 2) IN ( 'rx' )
                          AND RIGHT(sbm.user_category, 2) <> 'rb'
                          AND sbm.yyyymmdd
-                         BETWEEN DATEADD(dd, 1, #t.first_order_ship) AND @dateto
-                GROUP BY #t.customer_code ,
-                         CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end;
+                         BETWEEN DATEADD(dd, 1, first_order_ship) AND @dateto
+                GROUP BY customer_code ,
+                         CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end;
 
     INSERT INTO #v
-                SELECT   #t.customer_code ,
-                         CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end attribute,
-                         SUM(ISNULL(qnet, 0)) units ,
+                SELECT   customer_code ,
+                         CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end attribute,
+                         SUM(ISNULL(sbm.qnet, 0)) units ,
                          'PC' sale_type
                 FROM     #t
-                         INNER JOIN inv_master i ON i.category = #t.brand
+                         INNER JOIN dbo.inv_master i ON i.category = brand
                                                     -- AND i.type_code = #t.type_code
-                         INNER JOIN inv_master_add ia ON ia.part_no = i.part_no
-						 INNER JOIN #aa ON #aa.aa = isnull(ia.field_32,'None')
-                         INNER JOIN cvo_sbm_details sbm ON sbm.customer = #t.customer_code
+                         INNER JOIN dbo.inv_master_add ia ON ia.part_no = i.part_no
+						 INNER JOIN #aa ON aa = isnull(ia.field_32,'None')
+                         INNER JOIN dbo.cvo_sbm_details sbm ON sbm.customer = customer_code
                                                            AND sbm.part_no = i.part_no
                 WHERE    1 = 1
                          AND ISNULL(sbm.promo_id, '') IN ( 'pc', 'ff' , 'style out' )
@@ -326,20 +339,20 @@ AS
                          -- and sbm.DateOrdered between DATEADD(dd,1,#t.first_order_date) and @dateto
                          AND sbm.yyyymmdd
                          BETWEEN @datefrom AND @dateto
-                GROUP BY #t.customer_code ,
-                         CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end;
+                GROUP BY customer_code ,
+                         CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end;
 
     INSERT INTO #v
-                SELECT   #t.customer_code ,
-                         CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end attribute ,
-                         SUM(ISNULL(qnet, 0)) units ,
+                SELECT   customer_code ,
+                         CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end attribute ,
+                         SUM(ISNULL(sbm.qnet, 0)) units ,
                          'ST' sale_type
                 FROM     #t
-                         INNER JOIN inv_master i ON i.category = #t.brand
+                         INNER JOIN dbo.inv_master i ON i.category = brand
                                                     -- AND i.type_code = #t.type_code
-                         INNER JOIN inv_master_add ia ON ia.part_no = i.part_no
-                         INNER JOIN #aa  ON #aa.aa = isnull(ia.field_32,'None')
-                         INNER JOIN cvo_sbm_details sbm ON sbm.customer = #t.customer_code
+                         INNER JOIN dbo.inv_master_add ia ON ia.part_no = i.part_no
+                         INNER JOIN #aa  ON aa = isnull(ia.field_32,'None')
+                         INNER JOIN dbo.cvo_sbm_details sbm ON sbm.customer = customer_code
                                                            AND sbm.part_no = i.part_no
                 WHERE    1 = 1
                          AND ISNULL(sbm.promo_id, '') NOT IN ( 'pc', 'ff' , 'style out' )
@@ -347,9 +360,9 @@ AS
                          AND RIGHT(sbm.user_category, 2) <> 'rb'
 						 -- AND sbm.return_code <> 'exc'
                          AND sbm.yyyymmdd
-                         BETWEEN DATEADD(dd, 1, #t.first_order_ship) AND @dateto
-                GROUP BY #t.customer_code ,
-                         CASE WHEN @aa = '*ALL*' THEN '' ELSE #aa.aa end;
+                         BETWEEN DATEADD(dd, 1, first_order_ship) AND @dateto
+                GROUP BY customer_code ,
+                         CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end;
 
     IF @debug = 1
         SELECT *
@@ -374,7 +387,19 @@ AS
     FROM   #t;
 
     IF @debug = 1
-        SELECT *
+        SELECT territory_code,
+               customer_code,
+               customer_name,
+               contact_name,
+               contact_phone,
+               contact_email,
+               promo_id,
+               promo_level,
+               brand,
+               attribute,
+               first_order_date,
+               first_order_ship,
+               highlight_ship_date
         FROM   #t
         WHERE  customer_code = @cust;
 
@@ -382,7 +407,7 @@ AS
         BEGIN
             -- get new/reactivated status
             INSERT INTO #newrea
-            EXEC CVO_NewReaCust_SP @cust;
+            EXEC dbo.CVO_NewReaCust_SP @customer = @cust;
 
             SELECT @cust = MIN(customer_code)
             FROM   #t
@@ -396,50 +421,50 @@ AS
             UPDATE #t
             SET    highlight_ship_date = s.h_date
             FROM   #t
-                   INNER JOIN (   SELECT   customer ,
-                                           MIN(yyyymmdd) h_date
+                   INNER JOIN (   SELECT   sbm.customer ,
+                                           MIN(sbm.yyyymmdd) h_date
                                   FROM     dbo.cvo_sbm_details sbm
-                                           INNER JOIN #fp ON #fp.fp = sbm.promo_id
-                                           INNER JOIN #fl ON #fl.fl = sbm.promo_level
+                                           INNER JOIN #fp ON fp = sbm.promo_id
+                                           INNER JOIN #fl ON fl = sbm.promo_level
 
                                   WHERE    1 = 1
                                            -- promo_id = @promo_id AND promo_level = @promo_level
                                            AND sbm.yyyymmdd
                                            BETWEEN @datefrom AND @dateto
-                                           AND user_category LIKE 'ST%'
-                                           AND RIGHT(user_category, 2) <> 'rb'
+                                           AND sbm.user_category LIKE 'ST%'
+                                           AND RIGHT(sbm.user_category, 2) <> 'rb'
                                   -- AND sbm.return_code <> 'exc'
-                                  GROUP BY customer ) AS s ON #t.customer_code = s.customer;
+                                  GROUP BY sbm.customer ) AS s ON #t.customer_code = s.customer;
         END;
 
-    SELECT   DISTINCT #t.territory_code ,
+    SELECT   DISTINCT territory_code ,
              #t.customer_code ,
-             #t.customer_name ,
-             #t.contact_name ,
-             #t.contact_phone ,
-             #t.contact_email ,
-             #t.promo_id ,
-             #t.promo_level ,
-             #t.brand ,
+             customer_name ,
+             contact_name ,
+             contact_phone ,
+             contact_email ,
+             promo_id ,
+             promo_level ,
+             brand ,
              #t.attribute ,
-             #t.first_order_date ,
-             #t.first_order_ship ,
-             #t.highlight_ship_date ,
-             #v.units ,
-             #v.sale_type ,
-             ISNULL(#newrea.newrea, '') newrea ,
+             first_order_date ,
+             first_order_ship ,
+             highlight_ship_date ,
+             units ,
+             sale_type ,
+             ISNULL(newrea, '') newrea ,
              c.description brand_name ,
-             #terr.region
+             region
     FROM     #t
              LEFT OUTER JOIN #newrea ON #t.customer_code = #newrea.customer_code
-             INNER JOIN category c ON c.kys = #t.brand
-			 JOIN #terr ON #terr.terr = #t.territory_code
+             INNER JOIN dbo.category c ON c.kys = brand
+			 JOIN #terr ON terr = territory_code
              LEFT OUTER JOIN #v ON #v.customer_code = #t.customer_code
                                    AND #v.attribute = #t.attribute
     WHERE    1 = 1
-    ORDER BY customer_code;
+    ORDER BY #t.customer_code;
 
-
+END;
 
 
 

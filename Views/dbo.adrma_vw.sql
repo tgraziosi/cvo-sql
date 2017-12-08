@@ -57,6 +57,7 @@ select
 	o.ship_to_region as territory,
 	o.salesperson,
 	co.buying_group, -- 12/27/13 - tag
+	o.user_def_fld3 who_modified,
 	x_order_no=o.order_no ,
 	x_cr_invoice_no=o.cr_invoice_no,
 	x_total_amt_order=o.total_amt_order,
@@ -123,6 +124,7 @@ select
 	o.ship_to_region as territory,
 	o.salesperson,
 	'' as buying_group, -- 12/27/13 - tag
+	o.user_def_fld3 who_modified,
 	x_order_no = o.order_no ,
 	x_cr_invoice_no = o.cr_invoice_no,
 	x_total_amt_order = o.total_amt_order,
@@ -141,6 +143,7 @@ FROM
 	cvo_orders_all_hist o
 WHERE
 	o.type = 'C'
+
 
 
 

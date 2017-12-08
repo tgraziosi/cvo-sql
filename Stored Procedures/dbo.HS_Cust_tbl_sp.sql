@@ -57,6 +57,7 @@ BEGIN
 
 	  UPDATE #userGroup SET AllTerr = allterr + ',I-Sales'
 	  WHERE allterr LIKE '%50534%'
+	  OR allterr LIKE '%20202%'
 		 OR customer_code = '052931'
 		 OR customer_code = '053318'
 		 OR customer_code = '014910'
@@ -296,6 +297,7 @@ SELECT h.id ,
 
 
 END
+
 
 
 

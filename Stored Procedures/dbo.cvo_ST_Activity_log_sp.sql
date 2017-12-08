@@ -10,6 +10,7 @@ CREATE PROCEDURE [dbo].[cvo_ST_Activity_log_sp]
     @qualorder INT = 1, -- 1= qual, 0 = unqual, -1 = all
     @detail INT = 0 -- 0 = no, any other value = yes
 AS
+begin
 
 -- add RMA figures - 6/19/2014
 -- 06/07/2016 - tag - per HK remove these qualifications for regular dstribution to Mark McCann
@@ -40,7 +41,7 @@ DECLARE @where VARCHAR(1024);
 
 CREATE TABLE #territory
 (
-    territory VARCHAR(10)
+    territory VARCHAR(10) NOT null
 );
 
 IF @Territory IS NULL
@@ -51,7 +52,7 @@ BEGIN
     )
     SELECT DISTINCT
         territory_code
-    FROM armaster (NOLOCK);
+    FROM dbo.armaster (NOLOCK);
 END;
 ELSE
 BEGIN
@@ -113,7 +114,7 @@ SELECT o.order_no,
                         (
                             SELECT TOP (1)
                                 c.status
-                            FROM tdc_carton_tx c (NOLOCK)
+                            FROM dbo.tdc_carton_tx c (NOLOCK)
                             WHERE o.order_no = c.order_no
                                   AND o.ext = c.order_ext
                                   AND
@@ -121,6 +122,7 @@ SELECT o.order_no,
                                       c.void = 0
                                       OR c.void IS NULL
                                   )
+							ORDER BY c.carton_no
                         ),
                         ''
                               ) IN ( 'F', 'S', 'X' ) THEN
@@ -163,7 +165,7 @@ SELECT o.order_no,
 
 INTO #temp
 
-FROM cvo_adord_vw AS o WITH (NOLOCK)
+FROM dbo.cvo_adord_vw AS o WITH (NOLOCK)
     INNER JOIN #territory t
         ON t.territory = o.Territory
 WHERE 1 = 1
@@ -185,7 +187,7 @@ WHERE 1 = 1
       AND o.order_type LIKE 'ST%'
       AND RIGHT(o.order_type, 2)NOT IN ( 'RB', 'TB' )
       AND (o.total_amt_order - o.total_discount) > 0.00
-      AND 0 < ISNULL(FramesOrdered, 0);
+      AND 0 < ISNULL(o.FramesOrdered, 0);
 
 -- tally up credit returns too
 
@@ -215,40 +217,40 @@ SELECT DISTINCT
                                o.total_amt_order
                        END
                       ) * -1,
-    total_discount = (CASE o.status
+     (CASE o.status
                           WHEN 'T' THEN
                               o.total_discount
                           ELSE
                               o.tot_ord_disc
                       END
-                     ) * -1,
-    total_tax = (CASE o.status
+                     ) * -1 AS total_discount,
+    (CASE o.status
                      WHEN 'T' THEN
                          o.total_tax
                      ELSE
                          o.tot_ord_tax
                  END
-                ) * -1,
-    freight = (CASE o.status
+                ) * -1 AS total_tax,
+    (CASE o.status
                    WHEN 'T' THEN
                        o.freight
                    ELSE
                        o.tot_ord_freight
                END
-              ) * -1,
+              ) * -1 AS freight,
     0 AS qty_ordered,
     0 AS qty_shipped,
-    total_invoice = (CASE o.status
+    (CASE o.status
                          WHEN 'T' THEN
                              o.total_invoice
                          ELSE
     (o.total_amt_order - o.tot_ord_disc + o.tot_ord_tax + o.tot_ord_freight)
                      END
-                    ) * -1,
+                    ) * -1 AS total_invoice,
     CONVERT(VARCHAR(10), o.invoice_no) invoice_no,
     oi.doc_ctrl_num,
-    date_invoice = o.invoice_date,
-    date_sch_ship = o.sch_ship_date,
+    o.invoice_date date_invoice,
+    o.sch_ship_date date_sch_ship,
     o.date_shipped,
     o.status,
     CASE o.status
@@ -621,6 +623,9 @@ ELSE
        source 
 	From #temp f
 	 where ' + @where);
+
+END
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_ST_Activity_log_sp] TO [public]
 GO

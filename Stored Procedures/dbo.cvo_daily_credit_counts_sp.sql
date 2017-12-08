@@ -77,7 +77,29 @@ WHERE
     AND trans IN ( 'qcrelease', 'poptwy' )
 GROUP BY
     REPLACE(wms.UserID, 'cvoptical\', ''), wms.trans
+
+UNION ALL
+SELECT REPLACE(xfer.who_entered,'cvoptical\', '') who_entered,
+       'Transfer',
+       COUNT(xfer.xfer_no),
+       SUM(xfer.num_skus),
+	   AVG(xfer.num_skus)
+FROM 
+(SELECT xa.who_entered, xa.xfer_no, COUNT(xl.part_no) num_skus
+FROM dbo.xfers_all AS xa
+    JOIN dbo.xfer_list AS xl
+        ON xl.xfer_no = xa.xfer_no
+WHERE xa.status = 'S'
+      AND xa.to_loc = '001'
+      AND xa.date_entered
+      BETWEEN @sdate AND @edate
+	  GROUP BY xa.who_entered, xa.xfer_no
+) xfer
+GROUP BY REPLACE(xfer.who_entered,'cvoptical\', '')
+
+
 ;
+
 
 
 
