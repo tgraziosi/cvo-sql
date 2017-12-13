@@ -2,18 +2,34 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-create procedure [dbo].[cvo_inv_aging_pom_sp] 
-(@asofdate datetime, @loc varchar(12), @type varchar(1000) )
-as
 
-set nocount on
+CREATE PROCEDURE [dbo].[cvo_inv_aging_pom_sp]
+(
+    @asofdate DATETIME,
+    @loc VARCHAR(12),
+    @type VARCHAR(1000)
+)
+AS
+BEGIN
+-- exec cvo_inv_aging_pom_sp '12/11/2017', '001', 'frame,sun'
+SET NOCOUNT ON;
 
 -- declare @asofdate datetime, @loc varchar(12), @type varchar(1000)
 
-IF(OBJECT_ID('tempdb.dbo.#type') is not null)  drop table #type 
-CREATE TABLE #type ([restype] VARCHAR(10))
-INSERT INTO #type ([restype])
-SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@type)
+IF (OBJECT_ID('tempdb.dbo.#type') IS NOT NULL)
+    DROP TABLE #type;
+
+CREATE TABLE #type
+(
+    restype VARCHAR(10)
+);
+
+INSERT INTO #type
+(
+    restype
+)
+SELECT ListItem
+FROM dbo.f_comma_list_to_table(@type);
 
 /*
 select @asofdate = getdate()
@@ -21,22 +37,60 @@ select @loc = '001'
 select @type = 'frame'
 */
 
-select cia.brand, cia.restype, cia.style, cia.part_no, cia.description, 
-	   cia.pom_date, 
-	   age = case  when cia.pom_date > @asofdate then 'Future'
-				   when cia.pom_date >= dateadd(yy,-1,@asofdate) then '<1'
-				   when cia.pom_date >= dateadd(yy,-2,@asofdate) and cia.pom_date < dateadd(yy,-1,@asofdate) then '<2'
-				   when cia.pom_date >= dateadd(yy,-3,@asofdate) and cia.pom_date < dateadd(yy,-2,@asofdate) then '<3'
-				   when cia.pom_date < dateadd(yy,-3,@asofdate) then '>3'
-				   else 'Unknown'
-				   end,
-	   cia.tot_cost_ea, cia.tot_ext_cost, cia.in_stock, cia.qty_avl , cia.sof, cia.allocated, cia.quarantine,
-	   cia.non_alloc, cia.replen_qty_not_sa, cia.replenqty
-from cvo_item_avail_vw cia (nolock) 
-inner join #type on #type.restype = cia.restype
-where cia.pom_date is not null and cia.pom_date <=@asofdate
-and location = @loc
-and (cia.in_stock <> 0 or cia.tot_ext_cost <> 0)
+SELECT cia.Brand,
+       cia.ResType,
+       cia.Style,
+       g.description Gender,
+       CASE
+           WHEN et.part_no IS NOT NULL THEN
+               'EOS'
+           ELSE
+               ''
+       END AS eos,
+       cia.part_no,
+       cia.description,
+       cia.POM_date,
+       age = CASE
+                 WHEN cia.POM_date > @asofdate THEN
+                     'Future'
+                 WHEN cia.POM_date >= DATEADD(yy, -1, @asofdate) THEN
+                     '<1'
+                 WHEN cia.POM_date >= DATEADD(yy, -2, @asofdate)
+                      AND cia.POM_date < DATEADD(yy, -1, @asofdate) THEN
+                     '<2'
+                 WHEN cia.POM_date >= DATEADD(yy, -3, @asofdate)
+                      AND cia.POM_date < DATEADD(yy, -2, @asofdate) THEN
+                     '<3'
+                 WHEN cia.POM_date < DATEADD(yy, -3, @asofdate) THEN
+                     '>3'
+                 ELSE
+                     'Unknown'
+             END,
+       cia.tot_cost_ea,
+       cia.tot_ext_cost,
+       cia.in_stock,
+       cia.qty_avl,
+       cia.SOF,
+       cia.Allocated,
+       cia.Quarantine,
+       cia.Non_alloc,
+       cia.Replen_Qty_Not_SA,
+       cia.ReplenQty
+FROM cvo_item_avail_vw cia (NOLOCK)
+    INNER JOIN #type
+        ON #type.restype = cia.ResType
+    LEFT OUTER JOIN dbo.cvo_eos_tbl AS et
+        ON et.part_no = cia.part_no AND et.obs_date IS NULL
+    JOIN cvo_gender g ON g.kys = cia.gender
+WHERE cia.POM_date IS NOT NULL
+      AND cia.POM_date <= @asofdate
+      AND location = @loc
+      AND
+      (
+          cia.in_stock <> 0
+          OR cia.tot_ext_cost <> 0
+      );
+END
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_inv_aging_pom_sp] TO [public]

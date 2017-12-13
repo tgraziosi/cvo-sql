@@ -24,7 +24,15 @@ SET @numberOfColumns = 3
 IF(OBJECT_ID('tempdb.dbo.#Data') is not null)  
 drop table #Data
 
-select * 
+select s.Prog,
+       s.brand,
+       s.style,
+       s.part_no,
+       s.POM_Date,
+       s.Gender,
+       s.Avail,
+       s.ReserveQty,
+       s.TrueAvail 
 INTO #Data 
 from 
 (
@@ -68,5 +76,6 @@ t1.Prog, t1.Brand, t1.Style, t1.part_no, t1.pom_date,
  join #num t2 on t1.prog=t2.prog and t1.gender=t2.gender and t1.brand=t2.brand and t1.style=t2.style order by Prog, Gender, Brand, Style
 
 END
+
 
 GO

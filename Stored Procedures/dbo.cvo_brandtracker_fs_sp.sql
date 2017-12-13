@@ -5,7 +5,7 @@ GO
 
 -- 8/18/2015 - when calculating FirstOrder units, don't qualify on promo/level, only on promo
 
--- exec cvo_brandtracker_fs_sp '1/1/2015', null, 'BT', '*ALL*', null, null, null, null, null, 0
+-- exec cvo_brandtracker_fs_sp '1/1/2015', null, 'sm', '*ALL*', null, null, null, null, null, 0
 
 CREATE PROCEDURE [dbo].[cvo_brandtracker_fs_sp]
     @df DATETIME = NULL ,      -- fromdate
@@ -277,7 +277,7 @@ BEGIN
         FROM   #t
         WHERE  customer_code = '045455';
 
-    SELECT   sbm.customer_code ,
+    SELECT   #t.customer_code ,
              CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end attribute,
              SUM(ISNULL(sbm.qnet, 0)) units ,
              'BI' sale_type
@@ -287,7 +287,7 @@ BEGIN
                                         -- AND i.type_code = #t.tc
              INNER JOIN dbo.inv_master_add ia ON ia.part_no = i.part_no
 			 INNER JOIN #aa ON aa = isnull(ia.field_32,'None')
-             INNER JOIN dbo.cvo_sbm_details sbm ON sbm.customer = customer_code
+             INNER JOIN dbo.cvo_sbm_details sbm ON sbm.customer = #t.customer_code
                                                AND sbm.part_no = i.part_no
              INNER JOIN #bp ON bp = sbm.promo_id
              INNER JOIN #bl ON bl = sbm.promo_level
@@ -295,12 +295,12 @@ BEGIN
              AND ISNULL(sbm.promo_id, '') NOT IN ( 'pc', 'ff', 'style out' )
              AND RIGHT(sbm.user_category, 2) <> 'rb'
              AND sbm.DateOrdered = first_order_date
-    GROUP BY customer_code ,
+    GROUP BY #t.customer_code ,
              CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end;
 
 
     INSERT INTO #v
-                SELECT   customer_code ,
+                SELECT   #t.customer_code ,
                          CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end attribute ,
                          SUM(ISNULL(sbm.qnet, 0)) units ,
                          'RX' sale_type
@@ -309,7 +309,7 @@ BEGIN
                                                     -- AND i.type_code = #t.type_code
                          INNER JOIN dbo.inv_master_add ia ON ia.part_no = i.part_no
 						 INNER JOIN #aa ON aa = isnull(ia.field_32,'None')
-                         INNER JOIN dbo.cvo_sbm_details sbm ON sbm.customer = customer_code
+                         INNER JOIN dbo.cvo_sbm_details sbm ON sbm.customer = #t.customer_code
                                                            AND sbm.part_no = i.part_no
                 WHERE    1 = 1
                          AND ISNULL(sbm.promo_id, '') NOT IN ( 'pc', 'ff' , 'style out' )
@@ -317,11 +317,11 @@ BEGIN
                          AND RIGHT(sbm.user_category, 2) <> 'rb'
                          AND sbm.yyyymmdd
                          BETWEEN DATEADD(dd, 1, first_order_ship) AND @dateto
-                GROUP BY customer_code ,
+                GROUP BY #t.customer_code ,
                          CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end;
 
     INSERT INTO #v
-                SELECT   customer_code ,
+                SELECT   #t.customer_code ,
                          CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end attribute,
                          SUM(ISNULL(sbm.qnet, 0)) units ,
                          'PC' sale_type
@@ -330,7 +330,7 @@ BEGIN
                                                     -- AND i.type_code = #t.type_code
                          INNER JOIN dbo.inv_master_add ia ON ia.part_no = i.part_no
 						 INNER JOIN #aa ON aa = isnull(ia.field_32,'None')
-                         INNER JOIN dbo.cvo_sbm_details sbm ON sbm.customer = customer_code
+                         INNER JOIN dbo.cvo_sbm_details sbm ON sbm.customer = #t.customer_code
                                                            AND sbm.part_no = i.part_no
                 WHERE    1 = 1
                          AND ISNULL(sbm.promo_id, '') IN ( 'pc', 'ff' , 'style out' )
@@ -339,11 +339,11 @@ BEGIN
                          -- and sbm.DateOrdered between DATEADD(dd,1,#t.first_order_date) and @dateto
                          AND sbm.yyyymmdd
                          BETWEEN @datefrom AND @dateto
-                GROUP BY customer_code ,
+                GROUP BY #t.customer_code ,
                          CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end;
 
     INSERT INTO #v
-                SELECT   customer_code ,
+                SELECT   #t.customer_code ,
                          CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end attribute ,
                          SUM(ISNULL(sbm.qnet, 0)) units ,
                          'ST' sale_type
@@ -352,7 +352,7 @@ BEGIN
                                                     -- AND i.type_code = #t.type_code
                          INNER JOIN dbo.inv_master_add ia ON ia.part_no = i.part_no
                          INNER JOIN #aa  ON aa = isnull(ia.field_32,'None')
-                         INNER JOIN dbo.cvo_sbm_details sbm ON sbm.customer = customer_code
+                         INNER JOIN dbo.cvo_sbm_details sbm ON sbm.customer = #t.customer_code
                                                            AND sbm.part_no = i.part_no
                 WHERE    1 = 1
                          AND ISNULL(sbm.promo_id, '') NOT IN ( 'pc', 'ff' , 'style out' )
@@ -361,7 +361,7 @@ BEGIN
 						 -- AND sbm.return_code <> 'exc'
                          AND sbm.yyyymmdd
                          BETWEEN DATEADD(dd, 1, first_order_ship) AND @dateto
-                GROUP BY customer_code ,
+                GROUP BY #t.customer_code ,
                          CASE WHEN @aa = '*ALL*' THEN '' ELSE aa end;
 
     IF @debug = 1

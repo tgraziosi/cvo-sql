@@ -38,4 +38,7 @@ BEGIN
 END;
 
 GRANT EXECUTE ON cvo_purge_audit_logs_sp TO PUBLIC;
+
+GO
+GRANT EXECUTE ON  [dbo].[cvo_purge_audit_logs_sp] TO [public]
 GO

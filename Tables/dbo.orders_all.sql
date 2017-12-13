@@ -2493,6 +2493,13 @@ BEGIN
 			END 
 		END
 
+		-- v1.2 Start
+		IF (@i_type = 'C' AND @i_status >= 'R')
+		BEGIN
+			DELETE CVO_auto_receive_credit_return WHERE order_no = @i_order_no AND ext = @i_ext
+		END
+		-- v1.2 End
+
 		SET @last_row_id = @row_id
 
 		SELECT	TOP 1 @row_id = row_id,

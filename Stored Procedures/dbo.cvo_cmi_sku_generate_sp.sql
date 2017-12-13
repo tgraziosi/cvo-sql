@@ -19,7 +19,7 @@ BEGIN
 -- generate sku's from cmi into epicor
 --  
 -- 
--- exec [cvo_cmi_sku_generate_sp] 'bcbg_r', 'b984', NULL, null, '12/31/2017','N', 1
+-- exec [cvo_cmi_sku_generate_sp] 'OP', '853', NULL, null, '12/31/2017','N', 1
 
 -- exec [cvo_cmi_sku_generate_sp] 'IZOD', '2028', NULL, null, '02/21/2017','N', 1
 
@@ -31,6 +31,7 @@ BEGIN
 -- 12/16/2016 - fix description for pattern parts.  was saying frame, not pattern
 -- 12/30/2016 - Fix up for Black colorname
 -- 4/17/17 - dd Case hack AND CVO XL FIT
+-- 12/2017 - add support for 180 hinges.  Don't add temples and fronts, and add all available temple lengths for the style.
 
 
 SET XACT_ABORT, NOCOUNT ON;
@@ -315,14 +316,16 @@ INSERT  INTO #parts_list
                 UPPER(smn.short_model) short_model ,
                 upper(c.colorname) colorname ,
                 c.eye_size ,
-                c.temple_size ,
+                ttt.temple_size ,
                 'FRAME' ,
                 UPPER(
 				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
 				+ CASE WHEN @tpr = 0 THEN '' ELSE UPPER(LEFT(c.colorname,1)) end
                 + CASE WHEN @coll <> 'REVO' THEN ISNULL(UPPER(short_color_name), 'ccc')
 				            + CAST(c.eye_size AS VARCHAR(2))
-							+ CAST(c.dbl_size AS VARCHAR(2)) ELSE '' end
+							+ CAST(c.dbl_size AS VARCHAR(2))
+							+ CASE WHEN CHARINDEX('180',c.hinge_type) > 0 THEN CAST(CAST(c.temple_size AS INT) AS VARCHAR(3)) ELSE '' END
+							ELSE '' end
 				+ CASE WHEN @coll = 'REVO' THEN ISNULL(UPPER(C.revo_frame_color),'XX')
 												+ ISNULL(UPPER(C.revo_lens_color),'XX') ELSE '' END
     
@@ -330,9 +333,12 @@ INSERT  INTO #parts_list
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
+				CROSS JOIN (SELECT distinct temple_size FROM #cmi tt JOIN #short_model_name smn ON smn.collection = tt.collection AND smn.model = tt.model
+							WHERE tt.eye_size = CASE WHEN charindex('180',tt.hinge_type)>0 THEN tt.eye_size ELSE ISNULL(@eye_size, tt.eye_size) end) ttt
 		WHERE   1 = 1
 				AND c.colorname = ISNULL(@colorname,c.colorname)
-				AND ( c.eye_size = ISNULL(@eye_size, c.eye_size))
+				and (c.eye_size = ISNULL(@eye_size, c.eye_size) )
+				-- AND (c.eye_size =  case WHEN CHARINDEX('180',c.hinge_type) > 0 then c.eye_size ELSE ISNULL(@eye_size, c.eye_size) end)
 					 ;
 
 -- Frame only - 2/10/2016
@@ -404,7 +410,9 @@ INSERT  INTO #parts_list
 				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
 				AND c.specialty_fit <> 'retail'
 				AND c.frame_category <> '3-piece rimless'
-				AND @coll <> 'revo';
+				AND @coll <> 'revo'
+				AND CHARINDEX('180',c.hinge_type) = 0
+				;
 
 -- Demolens for Frames
 INSERT  INTO #parts_list
@@ -505,7 +513,9 @@ INSERT  INTO #parts_list
 				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
                 AND CHARINDEX('cable', c.hinge_type) = 0
 				AND c.specialty_fit <> 'retail'
-				AND @COLL <> 'REVO';
+				AND @COLL <> 'REVO'
+				AND CHARINDEX('180',c.hinge_type) = 0
+				;
 
 INSERT  INTO #parts_list
         ( collection ,
@@ -537,7 +547,9 @@ INSERT  INTO #parts_list
 				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
                 AND CHARINDEX('cable', c.hinge_type) = 0
 				AND c.specialty_fit <> 'retail'
-				AND @COLL <> 'REVO';
+				AND @COLL <> 'REVO'
+				AND CHARINDEX('180',c.hinge_type) = 0
+				;
 
 /* Cant do this yet - 1/26/2016
 
@@ -2354,6 +2366,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

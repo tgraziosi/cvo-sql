@@ -199,7 +199,7 @@ BEGIN
 
 			INSERT	#cvo_ord_list(order_no, order_ext, line_no, add_case, add_pattern, from_line_no, is_case, is_pattern, add_polarized, is_polarized, is_pop_gif)
 			SELECT	a.order_no, a.order_ext, a.line_no, 'N', 'N', @line_no, 0, 0, 'N', 
-					CASE WHEN (a.part_type = 'PARTS' AND a.part_no IN (SELECT part_no FROM cvo_polarized_vw)) THEN 1 ELSE 0 END, 0 
+					CASE WHEN (a.part_type IN ('PARTS','LENS') AND a.part_no IN (SELECT part_no FROM cvo_polarized_vw)) THEN 1 ELSE 0 END, 0 -- v1.4
 			FROM	#splits a
 			WHERE	line_no = @pol_line
 

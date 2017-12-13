@@ -11,8 +11,8 @@ CREATE PROCEDURE [dbo].[cvo_inv_fcst_summ_sp]
 /*
 
 EXEC CVo_inv_fcst_summ_sp 
-				@asofdate = '10/01/2017', 
-				@endrel = '10/01/2017',
+				@asofdate = '12/01/2017', 
+				@endrel = '12/01/2017',
                 @collection = 'as',
 				@Style = '*all*',
                 @SpecFit = '*all*',
@@ -21,18 +21,16 @@ EXEC CVo_inv_fcst_summ_sp
 
  exec cvo_inv_fcst_r3_sp
 
- @asofdate = '10/01/2017', 
- @endrel = '10/01/2017', 
+ @asofdate = '12/01/2017', 
+ @endrel = '12/01/2017', 
  @current = 0, 
  @collection = 'as', 
- @style = 'authentic', 
+ @style = null, 
  @specfit = null,
  @usg_option = 'o',
  @debug = 0, -- debug
  @location = '001',
- @restype = 'FRAME,SUN',
- @WKSONHANDGTLT = 'all',
- @WKSONHAND = 0
+ @restype = 'FRAME,SUN'
 
 */
 
@@ -94,6 +92,7 @@ AS
             -- t.gender ,
             t.material ,
 			t.frame_type,
+			ia.field_3 ColorName,
             t.moq ,
             --t.watch ,
             t.sf ,
@@ -149,23 +148,31 @@ AS
             t.p_wty_w12 ,
 			CAST(t.price AS DECIMAL(20,2)) price,
 			CAST(ISNULL(il.std_cost + il.std_ovhd_dolrs + il.std_util_dolrs,0) AS DECIMAL(20,8)) std_cost,
-			CAST(ISNULL(sbm.s_w12_net_sales,0) AS DECIMAL(20,2)) s_w12_net_sales,
+			CAST(ISNULL(il.std_cost,0) AS DECIMAL(20,8)) landed_cost,
+			CaST(ISNULL(sbm.s_w12_net_sales,0) AS DECIMAL(20,2)) s_w12_net_sales,
 			CAST(ISNULL(sbm.s_w12_net_qty,0) AS DECIMAL(20,2)) s_w12_net_qty,
 			CAST(ISNULL(po.s_po_on_order,0) AS int) s_po_on_order,
 			CAST(ISNULL(sbm.s_w12_gross_sales,0) AS DECIMAL(20,2)) s_w12_gross_sales,
 			CAST(ISNULL(sbm.s_w12_gross_qty,0) AS DECIMAL(20,2)) s_w12_gross_qty,
-
+			CAST(ISNULL(sbm.s_w12_bo_qty,0) AS DECIMAL(20,2)) s_w12_bo_qty,
+			
 			'001' AS location
 
     FROM    #ifp AS t
+			INNER JOIN inv_master_add ia ON ia.part_no = t.sku
+
 			LEFT OUTER JOIN inv_list il ON il.part_no = t.sku AND il.location = '001'
+			
+			
 			LEFT OUTER JOIN
-			(SELECT part_no, SUM(anet) s_w12_net_sales, SUM(qnet) s_w12_net_qty, SUM(asales) s_w12_gross_sales, SUM(qsales) s_w12_gross_qty
+			(SELECT part_no, SUM(anet) s_w12_net_sales, SUM(qnet) s_w12_net_qty, SUM(asales) s_w12_gross_sales, SUM(qsales) s_w12_gross_qty,
+			SUM(CASE WHEN isbo = 1 THEN qnet ELSE 0 end) s_w12_bo_qty
 			FROM dbo.cvo_sbm_details AS sd
 			WHERE iscl = 0 AND sd.return_code = ''
 			AND yyyymmdd >= DATEADD(WEEK, -12, @asofdate)
 			GROUP BY sd.part_no
 			) sbm ON sbm.part_no = t.sku 
+			
 			LEFT OUTER JOIN
 			( SELECT sku, SUM(quantity) s_po_on_order
 			FROM #ifp 
@@ -176,6 +183,7 @@ AS
 			AND type_code IN ('frame','sun') AND t.p_type_code <> 'parts'
 			AND (t.pom_date IS NULL OR t.pom_date >= dateadd(YEAR,-1, @asofdate))
 			)
+		
 
 			;
 
