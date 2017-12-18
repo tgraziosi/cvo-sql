@@ -15,6 +15,7 @@ GO
 -- v2.8 CB 18/09/2013 - Issue #927 - Buying Group Switching - RB orders set to and from BGs
 -- v2.9 CT 20/10/2014 - Issue #1367 - If net price > list price, set list = net and discount = 0
 -- v3.0 CT 23/10/2014 - Issue #1504 - Fix calculation for credit returns with a discount percentage
+-- v3.1 CB 13/12/2017 - Discount not displaying correctly
 
 CREATE PROCEDURE [dbo].[cc_credit_memo_report_sp]  	@my_id varchar(255),
 													@user_name	varchar(30) = '',
@@ -374,7 +375,8 @@ SET	amt_gross = ROUND(isnull(amt_gross,0),curr_precision),
 		extended_price = list_amt * ISNULL(qty_returned,0)
 	WHERE
 		ISNULL(o_user_def_fld9,0) = 1
-		AND item_code <> 'Credit Return Fee' -- v2.4
+-- v3.1	AND item_code <> 'Credit Return Fee' -- v2.4
+		AND item_code = 'Credit Return Fee' -- v3.1
 	-- END v2.3 
 
 	update #cc_archarge_work
@@ -509,6 +511,7 @@ FROM #cc_archarge_work, arco -- glco -- v2.2
 
 
 DELETE cc_trx_table WHERE my_id = @my_id
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cc_credit_memo_report_sp] TO [public]

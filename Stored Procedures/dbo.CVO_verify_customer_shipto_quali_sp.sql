@@ -28,6 +28,7 @@ GO
 -- v3.7 CB 23/10/15 - #1541 - Promo rolling periods
 -- v3.8 CB 19/04/2016 - #1584 - Add min, max and number of pieces for stock order. Add min and for RX reorders.
 -- v3.9 CB 11/07/2016 - Only return fail message if actually failed
+-- v4.0	CB	08/12/2017 - #1650 - Promo sub brand
 
 -- EXEC [CVO_verify_customer_shipto_quali_sp] 'CB','1','045911', '0001', 1418426, 0
 
@@ -96,7 +97,10 @@ BEGIN
 				@stock_orders_pieces smallint, -- v3.8
 				@min_rx_orders		smallint, -- v3.8
 				@max_rx_orders		smallint, -- v3.8
-				@order_cnt			int -- v3.8
+				@order_cnt			int, -- v3.8
+				@att_count			int, -- v4.0
+				@att_sales			decimal(20,8), -- v4.0
+				@att_order_cnt		int -- v4.0
 
 		SET @fail_reason = '' -- v1.1
 		SET @frequency_fail = 0
@@ -182,6 +186,12 @@ BEGIN
 			rec_count	int)
 		-- v3.8 End
 
+		-- v4.0 Start
+		CREATE TABLE #att_count_orders (
+			order_no	int,
+			order_ext	int,
+			rec_count	int)
+		-- v4.0 End
 
 		-- START v2.8
 		SELECT 
@@ -375,7 +385,7 @@ BEGIN
 					o.user_category, IsNull(co.promo_id,''), IsNull(co.promo_level,''), 0, CAST(o.order_no AS VARCHAR(20)), o.type	--v2.0
 			FROM	orders_all o (NOLOCK) LEFT JOIN CVO_orders_all co (NOLOCK) ON o.order_no = co.order_no AND o.ext = co.ext
 			WHERE	o.cust_code = @customer AND
-					o.ship_to = @ship_to AND
+--					o.ship_to = @ship_to AND
 					-- o.type = 'I' AND								-- Include Credits and Sales
 					(o.status >= 'R' AND o.status <> 'V') AND
 					(o.date_entered BETWEEN @start_date AND @end_date) AND
@@ -458,38 +468,102 @@ BEGIN
 			BEGIN
 				-- START v2.9 
 				-- Get order sales
-				SELECT 
-					@order_sales = ISNULL(SUM(line_amt),0), -- v2.1 -- v2.6
-					@order_pieces = ISNULL(SUM(ISNULL(piece_qty,0)),0)		
-				FROM
-					#orders o (NOLOCK)
-				INNER JOIN
-					dbo.cvo_order_line_sales_vw v (NOLOCK)
-				ON
-					o.order_no = v.order_no
-					AND o.ext = v.order_ext
-				LEFT JOIN 
-					#cvo_customer_qualifications_attribute a
-				ON
-					v.attribute = a.attribute
-				LEFT JOIN
-					#cvo_customer_qualifications_order_type t
-				ON 
-					o.user_category = t.order_type
-				-- START v3.1
-				LEFT JOIN
-					#cvo_customer_qualifications_gender g
-				ON 
-					v.gender = g.gender
-				-- END 3.1
-				WHERE	
-					((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+				-- v4.0 Start
+				IF (ISNULL(@attribute,0) = 0)
+				BEGIN
+					SELECT 
+						@order_sales = ISNULL(SUM(line_amt),0), -- v2.1 -- v2.6
+						@order_pieces = ISNULL(SUM(ISNULL(piece_qty,0)),0)		
+					FROM
+						#orders o (NOLOCK)
+					INNER JOIN
+						dbo.cvo_order_line_sales_vw v (NOLOCK)
+					ON
+						o.order_no = v.order_no
+						AND o.ext = v.order_ext
+-- v4.4					LEFT JOIN 
+-- v4.4						#cvo_customer_qualifications_attribute a
+-- v4.4					ON
+-- v4.4						v.attribute = a.attribute
+					LEFT JOIN
+						#cvo_customer_qualifications_order_type t
+					ON 
+						o.user_category = t.order_type
 					-- START v3.1
-					AND ((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
-					--AND ((ISNULL(@gender,'') = '') OR (v.gender = @gender))
-					-- END v3.1
-					AND ((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
-					AND ((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+					LEFT JOIN
+						#cvo_customer_qualifications_gender g
+					ON 
+						v.gender = g.gender
+					-- END 3.1
+					WHERE	
+						((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+						-- START v3.1
+						AND ((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						--AND ((ISNULL(@gender,'') = '') OR (v.gender = @gender))
+						-- END v3.1
+						AND ((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+-- v4.4						AND ((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+				END
+				ELSE
+				BEGIN
+					IF (@brand_exclude = 'Y')
+					BEGIN
+						SELECT	@order_sales = ISNULL(SUM(line_amt),0), -- v2.1 -- v2.6
+								@order_pieces = ISNULL(SUM(ISNULL(piece_qty,0)),0)		
+						FROM	#orders o (NOLOCK)
+						INNER JOIN dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+
+						SELECT	@att_sales = ISNULL(SUM(line_amt),0), 
+								@att_count = ISNULL(SUM(ISNULL(piece_qty,0)),0)	
+						FROM	#orders o (NOLOCK)
+						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						JOIN	cvo_part_attributes x (NOLOCK)
+						ON		v.part_no = x.part_no	
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+						AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+
+						SET @order_sales = @order_sales - ISNULL(@att_sales,0.0)
+						SET @order_pieces = @order_pieces - ISNULL(@att_count,0.0)
+					END
+					ELSE
+					BEGIN
+
+						SELECT	@order_sales = ISNULL(SUM(line_amt),0), 
+								@order_pieces = ISNULL(SUM(ISNULL(piece_qty,0)),0)	
+						FROM	#orders o (NOLOCK)
+						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						JOIN	cvo_part_attributes x (NOLOCK)
+						ON		v.part_no = x.part_no	
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+						AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+					END
+				END
+				-- v4.0 End
 
 				/*
 				-- START v1.3
@@ -544,38 +618,101 @@ BEGIN
 			BEGIN
 				-- START v2.9
 				-- Get order sales
-				SELECT 
-					@order_sales = ISNULL(SUM(line_amt),0), -- v2.1 -- v2.6
-					@order_pieces = ISNULL(SUM(ISNULL(piece_qty,0)),0)		
-				FROM
-					#orders o (NOLOCK)
-				INNER JOIN
-					dbo.cvo_order_line_sales_vw v (NOLOCK)
-				ON
-					o.order_no = v.order_no
-					AND o.ext = v.order_ext
-				LEFT JOIN 
-					#cvo_customer_qualifications_attribute a
-				ON
-					v.attribute = a.attribute
-				LEFT JOIN
-					#cvo_customer_qualifications_order_type t
-				ON 
-					o.user_category = t.order_type
-				-- START v3.1
-				LEFT JOIN
-					#cvo_customer_qualifications_gender g
-				ON 
-					v.gender = g.gender
-				-- END 3.1
-				WHERE	
-					((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+				-- v4.0 Start
+				IF (ISNULL(@attribute,0) = 0)
+				BEGIN
+					SELECT 
+						@order_sales = ISNULL(SUM(line_amt),0), -- v2.1 -- v2.6
+						@order_pieces = ISNULL(SUM(ISNULL(piece_qty,0)),0)		
+					FROM
+						#orders o (NOLOCK)
+					INNER JOIN
+						dbo.cvo_order_line_sales_vw v (NOLOCK)
+					ON
+						o.order_no = v.order_no
+						AND o.ext = v.order_ext
+-- v4.4					LEFT JOIN 
+-- v4.4						#cvo_customer_qualifications_attribute a
+-- v4.4					ON
+-- v4.4						v.attribute = a.attribute
+					LEFT JOIN
+						#cvo_customer_qualifications_order_type t
+					ON 
+						o.user_category = t.order_type
 					-- START v3.1
-					AND ((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
-					--AND ((ISNULL(@gender,'') = '') OR (v.gender = @gender))
-					-- END v3.1
-					AND ((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
-					AND ((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+					LEFT JOIN
+						#cvo_customer_qualifications_gender g
+					ON 
+						v.gender = g.gender
+					-- END 3.1
+					WHERE	
+						((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+						-- START v3.1
+						AND ((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						--AND ((ISNULL(@gender,'') = '') OR (v.gender = @gender))
+						-- END v3.1
+						AND ((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+-- v4.4						AND ((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+				END
+				ELSE
+				BEGIN
+					IF (@category_exclude = 'Y')
+					BEGIN
+						SELECT	@order_sales = ISNULL(SUM(line_amt),0), -- v2.1 -- v2.6
+								@order_pieces = ISNULL(SUM(ISNULL(piece_qty,0)),0)		
+						FROM	#orders o (NOLOCK)
+						INNER JOIN dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+
+
+						SELECT	@att_sales = ISNULL(SUM(line_amt),0), 
+								@att_count = ISNULL(SUM(ISNULL(piece_qty,0)),0)	
+						FROM	#orders o (NOLOCK)
+						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						JOIN	cvo_part_attributes x (NOLOCK)
+						ON		v.part_no = x.part_no	
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+						AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+
+						SET @order_sales = @order_sales - ISNULL(@att_sales,0.0)
+						SET @order_pieces = @order_pieces - ISNULL(@att_count,0.0)
+					END
+					ELSE
+					BEGIN
+						SELECT	@order_sales = ISNULL(SUM(line_amt),0), 
+								@order_pieces = ISNULL(SUM(ISNULL(piece_qty,0)),0)	
+						FROM	#orders o (NOLOCK)
+						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						JOIN	cvo_part_attributes x (NOLOCK)
+						ON		v.part_no = x.part_no	
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+						AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+					END
+				END
 
 				/*
 				-- START v1.3
@@ -629,39 +766,106 @@ BEGIN
 			BEGIN
 				-- START v2.9 
 				-- Get order sales
-				SELECT 
-					@order_sales = ISNULL(SUM(line_amt),0), -- v2.1 -- v2.6
-					@order_pieces = ISNULL(SUM(ISNULL(piece_qty,0)),0)		
-				FROM
-					#orders o (NOLOCK)
-				INNER JOIN
-					dbo.cvo_order_line_sales_vw v (NOLOCK)
-				ON
-					o.order_no = v.order_no
-					AND o.ext = v.order_ext
-				LEFT JOIN 
-					#cvo_customer_qualifications_attribute a
-				ON
-					v.attribute = a.attribute
-				LEFT JOIN
-					#cvo_customer_qualifications_order_type t
-				ON 
-					o.user_category = t.order_type
-				-- START v3.1
-				LEFT JOIN
-					#cvo_customer_qualifications_gender g
-				ON 
-					v.gender = g.gender
-				-- END 3.1
-				WHERE	
-					((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
-					AND ((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+				-- v4.0 Start
+				IF (ISNULL(@attribute,0) = 0)
+				BEGIN
+					SELECT 
+						@order_sales = ISNULL(SUM(line_amt),0), -- v2.1 -- v2.6
+						@order_pieces = ISNULL(SUM(ISNULL(piece_qty,0)),0)		
+					FROM
+						#orders o (NOLOCK)
+					INNER JOIN
+						dbo.cvo_order_line_sales_vw v (NOLOCK)
+					ON
+						o.order_no = v.order_no
+						AND o.ext = v.order_ext
+-- v4.4					LEFT JOIN 
+-- v4.4						#cvo_customer_qualifications_attribute a
+-- v4.4					ON
+-- v4.4						v.attribute = a.attribute
+					LEFT JOIN
+						#cvo_customer_qualifications_order_type t
+					ON 
+						o.user_category = t.order_type
 					-- START v3.1
-					AND ((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
-					--AND ((ISNULL(@gender,'') = '') OR (v.gender = @gender))
-					-- END v3.1
-					AND ((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
-					AND ((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+					LEFT JOIN
+						#cvo_customer_qualifications_gender g
+					ON 
+						v.gender = g.gender
+					-- END 3.1
+					WHERE	
+						((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+						AND ((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+						-- START v3.1
+						AND ((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						--AND ((ISNULL(@gender,'') = '') OR (v.gender = @gender))
+						-- END v3.1
+						AND ((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+-- v4.4						AND ((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+				END
+				ELSE
+				BEGIN
+					IF (@brand_exclude = 'Y' OR @category_exclude = 'Y')
+					BEGIN
+						SELECT	@order_sales = ISNULL(SUM(line_amt),0), -- v2.1 -- v2.6
+								@order_pieces = ISNULL(SUM(ISNULL(piece_qty,0)),0)		
+						FROM	#orders o (NOLOCK)
+						INNER JOIN dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+						AND		((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+
+						SELECT	@att_sales = ISNULL(SUM(line_amt),0), 
+								@att_count = ISNULL(SUM(ISNULL(piece_qty,0)),0)	
+						FROM	#orders o (NOLOCK)
+						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						JOIN	cvo_part_attributes x (NOLOCK)
+						ON		v.part_no = x.part_no	
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+						AND		((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+						AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+
+						SET @order_sales = @order_sales - ISNULL(@att_sales,0.0)
+						SET @order_pieces = @order_pieces - ISNULL(@att_count,0.0)
+					END
+					ELSE
+					BEGIN
+						SELECT	@order_sales = ISNULL(SUM(line_amt),0), 
+								@order_pieces = ISNULL(SUM(ISNULL(piece_qty,0)),0)	
+						FROM	#orders o (NOLOCK)
+						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+						ON		o.order_no = v.order_no
+						AND		o.ext = v.order_ext
+						JOIN	cvo_part_attributes x (NOLOCK)
+						ON		v.part_no = x.part_no	
+						LEFT JOIN #cvo_customer_qualifications_order_type t
+						ON		o.user_category = t.order_type
+						LEFT JOIN #cvo_customer_qualifications_gender g
+						ON		v.gender = g.gender
+						WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+						AND		((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+						AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+					END
+
+				END
+				-- v4.0 End
 
 				/*
 				-- START v1.3
@@ -717,38 +921,61 @@ BEGIN
 			BEGIN
 				-- START v2.7 
 				-- Get order sales
-				SELECT 
-					@order_sales = ISNULL(SUM(line_amt),0), -- v2.1 -- v2.6
-					@order_pieces = ISNULL(SUM(ISNULL(piece_qty,0)),0)		
-				FROM
-					#orders o (NOLOCK)
-				INNER JOIN
-					dbo.cvo_order_line_sales_vw v (NOLOCK)
-				ON
-					o.order_no = v.order_no
-					AND o.ext = v.order_ext
-				LEFT JOIN 
-					#cvo_customer_qualifications_attribute a
-				ON
-					v.attribute = a.attribute
-				LEFT JOIN
-					#cvo_customer_qualifications_order_type t
-				ON 
-					o.user_category = t.order_type
-				-- START v3.1
-				LEFT JOIN
-					#cvo_customer_qualifications_gender g
-				ON 
-					v.gender = g.gender
-				-- END 3.1
-				WHERE	
+				-- v4.0 Start
+				IF (ISNULL(@attribute,0) = 0)
+				BEGIN
+					SELECT 
+						@order_sales = ISNULL(SUM(line_amt),0), -- v2.1 -- v2.6
+						@order_pieces = ISNULL(SUM(ISNULL(piece_qty,0)),0)		
+					FROM
+						#orders o (NOLOCK)
+					INNER JOIN
+						dbo.cvo_order_line_sales_vw v (NOLOCK)
+					ON
+						o.order_no = v.order_no
+						AND o.ext = v.order_ext
+-- v4.4					LEFT JOIN 
+-- v4.4						#cvo_customer_qualifications_attribute a
+-- v4.4					ON
+-- v4.4						v.attribute = a.attribute
+					LEFT JOIN
+						#cvo_customer_qualifications_order_type t
+					ON 
+						o.user_category = t.order_type
 					-- START v3.1
-					((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
-					--(ISNULL(@gender,'') = '') OR (v.gender = @gender))
-					-- END v3.1
-					AND ((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
-					AND ((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+					LEFT JOIN
+						#cvo_customer_qualifications_gender g
+					ON 
+						v.gender = g.gender
+					-- END 3.1
+					WHERE	
+						-- START v3.1
+						((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+						--(ISNULL(@gender,'') = '') OR (v.gender = @gender))
+						-- END v3.1
+						AND ((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+-- v4.4						AND ((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
 
+				END
+				ELSE
+				BEGIN
+					SELECT	@order_sales = ISNULL(SUM(line_amt),0), 
+							@order_pieces = ISNULL(SUM(ISNULL(piece_qty,0)),0)	
+					FROM	#orders o (NOLOCK)
+					JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+					ON		o.order_no = v.order_no
+					AND		o.ext = v.order_ext
+					JOIN	cvo_part_attributes x (NOLOCK)
+					ON		v.part_no = x.part_no	
+					LEFT JOIN #cvo_customer_qualifications_order_type t
+					ON		o.user_category = t.order_type
+					LEFT JOIN #cvo_customer_qualifications_gender g
+					ON		v.gender = g.gender
+					WHERE	((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+					AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+					AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+				END
+				-- v4.0 End
 				/*
 				-- START v1.3
 				-- Get current order sales
@@ -1015,31 +1242,118 @@ BEGIN
 							SET @max_stock_orders = 32000
 
 						TRUNCATE TABLE #count_orders
+						TRUNCATE TABLE #att_count_orders -- v4.0
+						-- v4.0 Start
+						IF (ISNULL(@attribute,0) = 0)
+						BEGIN
 
-						INSERT	#count_orders (order_no, order_ext, rec_count)
-						SELECT	o.order_no, o.ext, COUNT(1)
-						FROM	#orders o (NOLOCK)
-						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
-						ON		o.order_no = v.order_no
-						AND		o.ext = v.order_ext
-						LEFT JOIN #cvo_customer_qualifications_attribute a
-						ON		v.attribute = a.attribute
-						LEFT JOIN #cvo_customer_qualifications_order_type t
-						ON		o.user_category = t.order_type
-						LEFT JOIN #cvo_customer_qualifications_gender g
-						ON		v.gender = g.gender
-						WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
-						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
-						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
-						AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
-						AND		LEFT(o.user_category,2) = 'ST'
-						AND		RIGHT(o.user_category,2) <> 'RB'
-						GROUP BY o.order_no, o.ext
-						HAVING SUM(piece_qty) >= @stock_orders_pieces
-		
-						SET @order_cnt = 0
-						SELECT	@order_cnt =COUNT(1)
-						FROM	#count_orders
+							INSERT	#count_orders (order_no, order_ext, rec_count)
+							SELECT	o.order_no, o.ext, COUNT(1)
+							FROM	#orders o (NOLOCK)
+							JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+							ON		o.order_no = v.order_no
+							AND		o.ext = v.order_ext
+-- v4.4							LEFT JOIN #cvo_customer_qualifications_attribute a
+-- v4.4							ON		v.attribute = a.attribute
+							LEFT JOIN #cvo_customer_qualifications_order_type t
+							ON		o.user_category = t.order_type
+							LEFT JOIN #cvo_customer_qualifications_gender g
+							ON		v.gender = g.gender
+							WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+							AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+							AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+-- v4.4							AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+							AND		LEFT(o.user_category,2) = 'ST'
+							AND		RIGHT(o.user_category,2) <> 'RB'
+							GROUP BY o.order_no, o.ext
+							HAVING SUM(piece_qty) >= @stock_orders_pieces
+			
+							SET @order_cnt = 0
+							SELECT	@order_cnt =COUNT(1)
+							FROM	#count_orders
+						END
+						ELSE
+						BEGIN
+							IF (@brand_exclude = 'Y')
+							BEGIN
+								INSERT	#count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'ST'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
+
+								INSERT	#att_count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								JOIN	cvo_part_attributes x (NOLOCK)
+								ON		v.part_no = x.part_no	
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'ST'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
+
+								SET @order_cnt = 0
+								SELECT	@order_cnt =COUNT(1)
+								FROM	#count_orders
+
+								SET @att_order_cnt = 0
+								SELECT	@att_order_cnt =COUNT(1)
+								FROM	#att_count_orders
+
+								SET @order_cnt = @order_cnt - @att_order_cnt
+							END
+							ELSE
+							BEGIN
+								INSERT	#count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								JOIN	cvo_part_attributes x (NOLOCK)
+								ON		v.part_no = x.part_no	
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'ST'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
+
+								SET @order_cnt = 0
+								SELECT	@order_cnt =COUNT(1)
+								FROM	#count_orders
+							END
+						END
+						-- v4.0 End
 
 						IF (@order_cnt < @min_stock_orders OR @order_cnt > @max_stock_orders)
 						BEGIN 
@@ -1063,31 +1377,117 @@ BEGIN
 							SET @max_stock_orders = 32000
 
 						TRUNCATE TABLE #count_orders
+						TRUNCATE TABLE #att_count_orders -- v4.0
+						-- v4.0 Start
+						IF (ISNULL(@attribute,0) = 0)
+						BEGIN
+							INSERT	#count_orders (order_no, order_ext, rec_count)
+							SELECT	o.order_no, o.ext, COUNT(1)
+							FROM	#orders o (NOLOCK)
+							JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+							ON		o.order_no = v.order_no
+							AND		o.ext = v.order_ext
+-- v4.0							LEFT JOIN #cvo_customer_qualifications_attribute a
+-- v4.0							ON		v.attribute = a.attribute
+							LEFT JOIN #cvo_customer_qualifications_order_type t
+							ON		o.user_category = t.order_type
+							LEFT JOIN #cvo_customer_qualifications_gender g
+							ON		v.gender = g.gender
+							WHERE	((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+							AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+							AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+-- v4.0							AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+							AND		LEFT(o.user_category,2) = 'ST'
+							AND		RIGHT(o.user_category,2) <> 'RB'
+							GROUP BY o.order_no, o.ext
+							HAVING SUM(piece_qty) >= @stock_orders_pieces
+			
+							SET @order_cnt = 0
+							SELECT	@order_cnt =COUNT(1)
+							FROM	#count_orders
+						END
+						ELSE
+						BEGIN
+							IF (@category_exclude = 'Y')
+							BEGIN
+								INSERT	#count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'ST'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
 
-						INSERT	#count_orders (order_no, order_ext, rec_count)
-						SELECT	o.order_no, o.ext, COUNT(1)
-						FROM	#orders o (NOLOCK)
-						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
-						ON		o.order_no = v.order_no
-						AND		o.ext = v.order_ext
-						LEFT JOIN #cvo_customer_qualifications_attribute a
-						ON		v.attribute = a.attribute
-						LEFT JOIN #cvo_customer_qualifications_order_type t
-						ON		o.user_category = t.order_type
-						LEFT JOIN #cvo_customer_qualifications_gender g
-						ON		v.gender = g.gender
-						WHERE	((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
-						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
-						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
-						AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
-						AND		LEFT(o.user_category,2) = 'ST'
-						AND		RIGHT(o.user_category,2) <> 'RB'
-						GROUP BY o.order_no, o.ext
-						HAVING SUM(piece_qty) >= @stock_orders_pieces
-		
-						SET @order_cnt = 0
-						SELECT	@order_cnt =COUNT(1)
-						FROM	#count_orders
+								INSERT	#att_count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								JOIN	cvo_part_attributes x (NOLOCK)
+								ON		v.part_no = x.part_no	
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'ST'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
+
+								SET @order_cnt = 0
+								SELECT	@order_cnt =COUNT(1)
+								FROM	#count_orders
+
+								SET @att_order_cnt = 0
+								SELECT	@att_order_cnt =COUNT(1)
+								FROM	#att_count_orders
+
+								SET @order_cnt = @order_cnt - @att_order_cnt
+							END
+							ELSE
+							BEGIN
+								INSERT	#count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								JOIN	cvo_part_attributes x (NOLOCK)
+								ON		v.part_no = x.part_no	
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'ST'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
+
+								SET @order_cnt = 0
+								SELECT	@order_cnt =COUNT(1)
+								FROM	#count_orders
+							END
+						END
+						-- v4.0 End
 
 						IF (@order_cnt < @min_stock_orders OR @order_cnt > @max_stock_orders)
 						BEGIN 
@@ -1111,32 +1511,123 @@ BEGIN
 							SET @max_stock_orders = 32000
 
 						TRUNCATE TABLE #count_orders
+						TRUNCATE TABLE #att_count_orders -- v4.0
+						-- v4.0 Start
+						IF (ISNULL(@attribute,0) = 0)
+						BEGIN
 
-						INSERT	#count_orders (order_no, order_ext, rec_count)
-						SELECT	o.order_no, o.ext, COUNT(1)
-						FROM	#orders o (NOLOCK)
-						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
-						ON		o.order_no = v.order_no
-						AND		o.ext = v.order_ext
-						LEFT JOIN #cvo_customer_qualifications_attribute a
-						ON		v.attribute = a.attribute
-						LEFT JOIN #cvo_customer_qualifications_order_type t
-						ON		o.user_category = t.order_type
-						LEFT JOIN #cvo_customer_qualifications_gender g
-						ON		v.gender = g.gender
-						WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
-						AND		((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
-						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
-						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
-						AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
-						AND		LEFT(o.user_category,2) = 'ST'
-						AND		RIGHT(o.user_category,2) <> 'RB'
-						GROUP BY o.order_no, o.ext
-						HAVING SUM(piece_qty) >= @stock_orders_pieces
-		
-						SET @order_cnt = 0
-						SELECT	@order_cnt =COUNT(1)
-						FROM	#count_orders
+							INSERT	#count_orders (order_no, order_ext, rec_count)
+							SELECT	o.order_no, o.ext, COUNT(1)
+							FROM	#orders o (NOLOCK)
+							JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+							ON		o.order_no = v.order_no
+							AND		o.ext = v.order_ext
+-- v4.4							LEFT JOIN #cvo_customer_qualifications_attribute a
+-- v4.4							ON		v.attribute = a.attribute
+							LEFT JOIN #cvo_customer_qualifications_order_type t
+							ON		o.user_category = t.order_type
+							LEFT JOIN #cvo_customer_qualifications_gender g
+							ON		v.gender = g.gender
+							WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+							AND		((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+							AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+							AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+-- v4.4							AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+							AND		LEFT(o.user_category,2) = 'ST'
+							AND		RIGHT(o.user_category,2) <> 'RB'
+							GROUP BY o.order_no, o.ext
+							HAVING SUM(piece_qty) >= @stock_orders_pieces
+			
+							SET @order_cnt = 0
+							SELECT	@order_cnt =COUNT(1)
+							FROM	#count_orders
+						END
+						ELSE
+						BEGIN
+							IF (@brand_exclude = 'Y' OR @category_exclude = 'Y')
+							BEGIN
+								INSERT	#count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+								AND		((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'ST'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
+
+								INSERT	#att_count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								JOIN	cvo_part_attributes x (NOLOCK)
+								ON		v.part_no = x.part_no	
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+								AND		((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'ST'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
+
+								SET @order_cnt = 0
+								SELECT	@order_cnt =COUNT(1)
+								FROM	#count_orders
+
+								SET @att_order_cnt = 0
+								SELECT	@att_order_cnt =COUNT(1)
+								FROM	#att_count_orders
+
+								SET @order_cnt = @order_cnt - @att_order_cnt
+							END
+							ELSE
+							BEGIN
+								INSERT	#count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								JOIN	cvo_part_attributes x (NOLOCK)
+								ON		v.part_no = x.part_no	
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+								AND		((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'ST'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
+
+								SET @order_cnt = 0
+								SELECT	@order_cnt =COUNT(1)
+								FROM	#count_orders
+							END
+						END
+						-- v4.0 End
+							
 
 						IF (@order_cnt < @min_stock_orders OR @order_cnt > @max_stock_orders)
 						BEGIN 
@@ -1160,30 +1651,62 @@ BEGIN
 							SET @max_stock_orders = 32000
 
 						TRUNCATE TABLE #count_orders
+						TRUNCATE TABLE #att_count_orders -- v4.0
+						-- v4.0 Start
+						IF (ISNULL(@attribute,0) = 0)
+						BEGIN
+							INSERT	#count_orders (order_no, order_ext, rec_count)
+							SELECT	o.order_no, o.ext, COUNT(1)
+							FROM	#orders o (NOLOCK)
+							JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+							ON		o.order_no = v.order_no
+							AND		o.ext = v.order_ext
+-- v4.4							LEFT JOIN #cvo_customer_qualifications_attribute a
+-- v4.4							ON		v.attribute = a.attribute
+							LEFT JOIN #cvo_customer_qualifications_order_type t
+							ON		o.user_category = t.order_type
+							LEFT JOIN #cvo_customer_qualifications_gender g
+							ON		v.gender = g.gender
+							WHERE	((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+							AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+-- v4.4							AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+							AND		LEFT(o.user_category,2) = 'ST'
+							AND		RIGHT(o.user_category,2) <> 'RB'
+							GROUP BY o.order_no, o.ext
+							HAVING SUM(piece_qty) >= @stock_orders_pieces
+			
+							SET @order_cnt = 0
+							SELECT	@order_cnt =COUNT(1)
+							FROM	#count_orders
+						END
+						ELSE
+						BEGIN
+							INSERT	#count_orders (order_no, order_ext, rec_count)
+							SELECT	o.order_no, o.ext, COUNT(1)
+							FROM	#orders o (NOLOCK)
+							JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+							ON		o.order_no = v.order_no
+							AND		o.ext = v.order_ext
+							JOIN	cvo_part_attributes x (NOLOCK)
+							ON		v.part_no = x.part_no	
+							LEFT JOIN #cvo_customer_qualifications_order_type t
+							ON		o.user_category = t.order_type
+							LEFT JOIN #cvo_customer_qualifications_gender g
+							ON		v.gender = g.gender
+							WHERE	((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+							AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+							AND		LEFT(o.user_category,2) = 'ST'
+							AND		RIGHT(o.user_category,2) <> 'RB'
+							AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+							GROUP BY o.order_no, o.ext
+							HAVING SUM(piece_qty) >= @stock_orders_pieces
 
-						INSERT	#count_orders (order_no, order_ext, rec_count)
-						SELECT	o.order_no, o.ext, COUNT(1)
-						FROM	#orders o (NOLOCK)
-						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
-						ON		o.order_no = v.order_no
-						AND		o.ext = v.order_ext
-						LEFT JOIN #cvo_customer_qualifications_attribute a
-						ON		v.attribute = a.attribute
-						LEFT JOIN #cvo_customer_qualifications_order_type t
-						ON		o.user_category = t.order_type
-						LEFT JOIN #cvo_customer_qualifications_gender g
-						ON		v.gender = g.gender
-						WHERE	((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
-						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
-						AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
-						AND		LEFT(o.user_category,2) = 'ST'
-						AND		RIGHT(o.user_category,2) <> 'RB'
-						GROUP BY o.order_no, o.ext
-						HAVING SUM(piece_qty) >= @stock_orders_pieces
-		
-						SET @order_cnt = 0
-						SELECT	@order_cnt =COUNT(1)
-						FROM	#count_orders
+							SET @order_cnt = 0
+							SELECT	@order_cnt =COUNT(1)
+							FROM	#count_orders
+					END
+						-- v4.0
+					
 
 						IF (@order_cnt < @min_stock_orders OR @order_cnt > @max_stock_orders)
 						BEGIN 
@@ -1208,31 +1731,116 @@ BEGIN
 							SET @max_rx_orders = 32000
 
 						TRUNCATE TABLE #count_orders
+						TRUNCATE TABLE #att_count_orders -- v4.0
+						-- v4.0 Start
+						IF (ISNULL(@attribute,0) = 0)
+						BEGIN
+							INSERT	#count_orders (order_no, order_ext, rec_count)
+							SELECT	o.order_no, o.ext, COUNT(1)
+							FROM	#orders o (NOLOCK)
+							JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+							ON		o.order_no = v.order_no
+							AND		o.ext = v.order_ext
+-- v4.0							LEFT JOIN #cvo_customer_qualifications_attribute a
+-- v4.0							ON		v.attribute = a.attribute
+							LEFT JOIN #cvo_customer_qualifications_order_type t
+							ON		o.user_category = t.order_type
+							LEFT JOIN #cvo_customer_qualifications_gender g
+							ON		v.gender = g.gender
+							WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+							AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+							AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+-- v4.0							AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+							AND		LEFT(o.user_category,2) = 'RX'
+							AND		RIGHT(o.user_category,2) <> 'RB'
+							GROUP BY o.order_no, o.ext
+			
+							SET @order_cnt = 0
+							SELECT	@order_cnt =COUNT(1)
+							FROM	#count_orders						
+						END
+						ELSE
+						BEGIN
+							IF (@brand_exclude = 'Y')
+							BEGIN
+								INSERT	#count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'RX'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
 
-						INSERT	#count_orders (order_no, order_ext, rec_count)
-						SELECT	o.order_no, o.ext, COUNT(1)
-						FROM	#orders o (NOLOCK)
-						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
-						ON		o.order_no = v.order_no
-						AND		o.ext = v.order_ext
-						LEFT JOIN #cvo_customer_qualifications_attribute a
-						ON		v.attribute = a.attribute
-						LEFT JOIN #cvo_customer_qualifications_order_type t
-						ON		o.user_category = t.order_type
-						LEFT JOIN #cvo_customer_qualifications_gender g
-						ON		v.gender = g.gender
-						WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
-						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
-						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
-						AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
-						AND		LEFT(o.user_category,2) = 'RX'
-						AND		RIGHT(o.user_category,2) <> 'RB'
-						GROUP BY o.order_no, o.ext
-		
-						SET @order_cnt = 0
-						SELECT	@order_cnt =COUNT(1)
-						FROM	#count_orders
+								INSERT	#att_count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								JOIN	cvo_part_attributes x (NOLOCK)
+								ON		v.part_no = x.part_no	
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'RX'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
 
+								SET @order_cnt = 0
+								SELECT	@order_cnt =COUNT(1)
+								FROM	#count_orders
+
+								SET @att_order_cnt = 0
+								SELECT	@att_order_cnt =COUNT(1)
+								FROM	#att_count_orders
+
+								SET @order_cnt = @order_cnt - @att_order_cnt
+							END
+							ELSE
+							BEGIN
+								INSERT	#count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								JOIN	cvo_part_attributes x (NOLOCK)
+								ON		v.part_no = x.part_no	
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'RX'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
+
+								SET @order_cnt = 0
+								SELECT	@order_cnt =COUNT(1)
+								FROM	#count_orders
+							END
+						END
+						-- v4.0 End
 						IF (@order_cnt < @min_rx_orders OR @order_cnt > @max_rx_orders)
 						BEGIN 
 							SELECT @achived = 0
@@ -1255,30 +1863,116 @@ BEGIN
 							SET @max_rx_orders = 32000
 
 						TRUNCATE TABLE #count_orders
+						TRUNCATE TABLE #att_count_orders -- v4.0
+						-- v4.0 Start
+						IF (ISNULL(@attribute,0) = 0)
+						BEGIN
+							INSERT	#count_orders (order_no, order_ext, rec_count)
+							SELECT	o.order_no, o.ext, COUNT(1)
+							FROM	#orders o (NOLOCK)
+							JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+							ON		o.order_no = v.order_no
+							AND		o.ext = v.order_ext
+-- v4.0							LEFT JOIN #cvo_customer_qualifications_attribute a
+-- v4.0							ON		v.attribute = a.attribute
+							LEFT JOIN #cvo_customer_qualifications_order_type t
+							ON		o.user_category = t.order_type
+							LEFT JOIN #cvo_customer_qualifications_gender g
+							ON		v.gender = g.gender
+							WHERE	((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+							AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+							AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+-- v4.0							AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+							AND		LEFT(o.user_category,2) = 'RX'
+							AND		RIGHT(o.user_category,2) <> 'RB'
+							GROUP BY o.order_no, o.ext
+			
+							SET @order_cnt = 0
+							SELECT	@order_cnt =COUNT(1)
+							FROM	#count_orders
+						END
+						ELSE
+						BEGIN
+							IF (@category_exclude = 'Y')
+							BEGIN
+								INSERT	#count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'RX'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
 
-						INSERT	#count_orders (order_no, order_ext, rec_count)
-						SELECT	o.order_no, o.ext, COUNT(1)
-						FROM	#orders o (NOLOCK)
-						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
-						ON		o.order_no = v.order_no
-						AND		o.ext = v.order_ext
-						LEFT JOIN #cvo_customer_qualifications_attribute a
-						ON		v.attribute = a.attribute
-						LEFT JOIN #cvo_customer_qualifications_order_type t
-						ON		o.user_category = t.order_type
-						LEFT JOIN #cvo_customer_qualifications_gender g
-						ON		v.gender = g.gender
-						WHERE	((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
-						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
-						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
-						AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
-						AND		LEFT(o.user_category,2) = 'RX'
-						AND		RIGHT(o.user_category,2) <> 'RB'
-						GROUP BY o.order_no, o.ext
-		
-						SET @order_cnt = 0
-						SELECT	@order_cnt =COUNT(1)
-						FROM	#count_orders
+								INSERT	#att_count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								JOIN	cvo_part_attributes x (NOLOCK)
+								ON		v.part_no = x.part_no	
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'RX'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
+
+								SET @order_cnt = 0
+								SELECT	@order_cnt =COUNT(1)
+								FROM	#count_orders
+
+								SET @att_order_cnt = 0
+								SELECT	@att_order_cnt =COUNT(1)
+								FROM	#att_count_orders
+
+								SET @order_cnt = @order_cnt - @att_order_cnt
+							END
+							ELSE
+							BEGIN
+								INSERT	#count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								JOIN	cvo_part_attributes x (NOLOCK)
+								ON		v.part_no = x.part_no	
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'RX'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
+
+								SET @order_cnt = 0
+								SELECT	@order_cnt =COUNT(1)
+								FROM	#count_orders
+							END
+						END
+						-- v4.0 End	
 
 						IF (@order_cnt < @min_rx_orders OR @order_cnt > @max_rx_orders)
 						BEGIN 
@@ -1302,31 +1996,120 @@ BEGIN
 							SET @max_rx_orders = 32000
 
 						TRUNCATE TABLE #count_orders
+						TRUNCATE TABLE #att_count_orders -- v4.0
+						-- v4.0 Start
+						IF (ISNULL(@attribute,0) = 0)
+						BEGIN
+							INSERT	#count_orders (order_no, order_ext, rec_count)
+							SELECT	o.order_no, o.ext, COUNT(1)
+							FROM	#orders o (NOLOCK)
+							JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+							ON		o.order_no = v.order_no
+							AND		o.ext = v.order_ext
+-- v4.0							LEFT JOIN #cvo_customer_qualifications_attribute a
+-- v4.0							ON		v.attribute = a.attribute
+							LEFT JOIN #cvo_customer_qualifications_order_type t
+							ON		o.user_category = t.order_type
+							LEFT JOIN #cvo_customer_qualifications_gender g
+							ON		v.gender = g.gender
+							WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+							AND		((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+							AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+							AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+-- v4.0							AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+							AND		LEFT(o.user_category,2) = 'RX'
+							AND		RIGHT(o.user_category,2) <> 'RB'
+							GROUP BY o.order_no, o.ext
+			
+							SET @order_cnt = 0
+							SELECT	@order_cnt =COUNT(1)
+							FROM	#count_orders
+						END
+						ELSE
+						BEGIN
+							IF (@brand_exclude = 'Y' OR @category_exclude = 'Y')
+							BEGIN
+								INSERT	#count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+								AND		((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'RX'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
 
-						INSERT	#count_orders (order_no, order_ext, rec_count)
-						SELECT	o.order_no, o.ext, COUNT(1)
-						FROM	#orders o (NOLOCK)
-						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
-						ON		o.order_no = v.order_no
-						AND		o.ext = v.order_ext
-						LEFT JOIN #cvo_customer_qualifications_attribute a
-						ON		v.attribute = a.attribute
-						LEFT JOIN #cvo_customer_qualifications_order_type t
-						ON		o.user_category = t.order_type
-						LEFT JOIN #cvo_customer_qualifications_gender g
-						ON		v.gender = g.gender
-						WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
-						AND		((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
-						AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
-						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
-						AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
-						AND		LEFT(o.user_category,2) = 'RX'
-						AND		RIGHT(o.user_category,2) <> 'RB'
-						GROUP BY o.order_no, o.ext
-		
-						SET @order_cnt = 0
-						SELECT	@order_cnt =COUNT(1)
-						FROM	#count_orders
+								INSERT	#att_count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								JOIN	cvo_part_attributes x (NOLOCK)
+								ON		v.part_no = x.part_no	
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+								AND		((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'RX'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
+
+								SET @order_cnt = 0
+								SELECT	@order_cnt =COUNT(1)
+								FROM	#count_orders
+
+								SET @att_order_cnt = 0
+								SELECT	@att_order_cnt =COUNT(1)
+								FROM	#att_count_orders
+
+								SET @order_cnt = @order_cnt - @att_order_cnt
+							END
+							ELSE
+							BEGIN
+								INSERT	#count_orders (order_no, order_ext, rec_count)
+								SELECT	o.order_no, o.ext, COUNT(1)
+								FROM	#orders o (NOLOCK)
+								JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+								ON		o.order_no = v.order_no
+								AND		o.ext = v.order_ext
+								JOIN	cvo_part_attributes x (NOLOCK)
+								ON		v.part_no = x.part_no	
+								LEFT JOIN #cvo_customer_qualifications_order_type t
+								ON		o.user_category = t.order_type
+								LEFT JOIN #cvo_customer_qualifications_gender g
+								ON		v.gender = g.gender
+								WHERE	((v.brand = @brand AND @brand_exclude = 'N') OR (v.brand <> @brand AND @brand_exclude = 'Y'))
+								AND		((v.category = @category AND @category_exclude = 'N') OR (v.category <> @category AND @category_exclude = 'Y'))
+								AND		((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+								AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+								AND		LEFT(o.user_category,2) = 'RX'
+								AND		RIGHT(o.user_category,2) <> 'RB'
+								AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+								GROUP BY o.order_no, o.ext
+								HAVING SUM(piece_qty) >= @stock_orders_pieces
+
+								SET @order_cnt = 0
+								SELECT	@order_cnt =COUNT(1)
+								FROM	#count_orders
+							END
+						END
+						-- v4.0 End							
 
 						IF (@order_cnt < @min_rx_orders OR @order_cnt > @max_rx_orders)
 						BEGIN 
@@ -1350,29 +2133,60 @@ BEGIN
 							SET @max_rx_orders = 32000
 
 						TRUNCATE TABLE #count_orders
+						TRUNCATE TABLE #att_count_orders -- v4.0
+						-- v4.0 Start
+						IF (ISNULL(@attribute,0) = 0)
+						BEGIN
+							INSERT	#count_orders (order_no, order_ext, rec_count)
+							SELECT	o.order_no, o.ext, COUNT(1)
+							FROM	#orders o (NOLOCK)
+							JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+							ON		o.order_no = v.order_no
+							AND		o.ext = v.order_ext
+-- v4.0							LEFT JOIN #cvo_customer_qualifications_attribute a
+-- v4.0							ON		v.attribute = a.attribute
+							LEFT JOIN #cvo_customer_qualifications_order_type t
+							ON		o.user_category = t.order_type
+							LEFT JOIN #cvo_customer_qualifications_gender g
+							ON		v.gender = g.gender
+							WHERE	((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+							AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+-- v4.0							AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
+							AND		LEFT(o.user_category,2) = 'RX'
+							AND		RIGHT(o.user_category,2) <> 'RB'
+							GROUP BY o.order_no, o.ext
+			
+							SET @order_cnt = 0
+							SELECT	@order_cnt =COUNT(1)
+							FROM	#count_orders
+						END
+						ELSE
+						BEGIN
+							INSERT	#count_orders (order_no, order_ext, rec_count)
+							SELECT	o.order_no, o.ext, COUNT(1)
+							FROM	#orders o (NOLOCK)
+							JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
+							ON		o.order_no = v.order_no
+							AND		o.ext = v.order_ext
+							JOIN	cvo_part_attributes x (NOLOCK)
+							ON		v.part_no = x.part_no	
+							LEFT JOIN #cvo_customer_qualifications_order_type t
+							ON		o.user_category = t.order_type
+							LEFT JOIN #cvo_customer_qualifications_gender g
+							ON		v.gender = g.gender
+							WHERE	((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
+							AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
+							AND		LEFT(o.user_category,2) = 'RX'
+							AND		RIGHT(o.user_category,2) <> 'RB'
+							AND		x.attribute IN (SELECT attribute FROM #cvo_customer_qualifications_attribute)
+							GROUP BY o.order_no, o.ext
+							HAVING SUM(piece_qty) >= @stock_orders_pieces
 
-						INSERT	#count_orders (order_no, order_ext, rec_count)
-						SELECT	o.order_no, o.ext, COUNT(1)
-						FROM	#orders o (NOLOCK)
-						JOIN	dbo.cvo_order_line_sales_vw v (NOLOCK)
-						ON		o.order_no = v.order_no
-						AND		o.ext = v.order_ext
-						LEFT JOIN #cvo_customer_qualifications_attribute a
-						ON		v.attribute = a.attribute
-						LEFT JOIN #cvo_customer_qualifications_order_type t
-						ON		o.user_category = t.order_type
-						LEFT JOIN #cvo_customer_qualifications_gender g
-						ON		v.gender = g.gender
-						WHERE	((ISNULL(@gender_check,0) = 0) OR (ISNULL(@gender_check,0) = 1)  AND g.gender IS NOT NULL)
-						AND		((ISNULL(@order_type,0) = 0) OR (o.[type] = 'C') OR (ISNULL(@order_type,0) = 1)  AND o.[type] = 'I' AND t.order_type IS NOT NULL)
-						AND		((ISNULL(@attribute,0) = 0) OR (ISNULL(@attribute,0) = 1)  AND a.attribute IS NOT NULL)
-						AND		LEFT(o.user_category,2) = 'RX'
-						AND		RIGHT(o.user_category,2) <> 'RB'
-						GROUP BY o.order_no, o.ext
-		
-						SET @order_cnt = 0
-						SELECT	@order_cnt =COUNT(1)
-						FROM	#count_orders
+							SET @order_cnt = 0
+							SELECT	@order_cnt =COUNT(1)
+							FROM	#count_orders
+						END
+						-- v4.0 End
 
 						IF (@order_cnt < @min_rx_orders OR @order_cnt > @max_rx_orders)
 						BEGIN 

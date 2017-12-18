@@ -12,7 +12,6 @@ BEGIN
 	IF (@process = 0) -- Validate 
 	BEGIN
 
-		
 		UPDATE	a
 		SET		part_no = b.part_no
 		FROM	cvo_inv_upd_util a
@@ -63,9 +62,10 @@ BEGIN
 				error_flag = 1
 		FROM	cvo_inv_upd_util a
 		JOIN	inv_master_add b (NOLOCK) ON b.part_no = a.part_no
-		WHERE	web_sellable ='Y' AND ISNULL(b.field_32,'') IN ('RETAIL','HVC')
+		JOIN	cvo_part_attributes c (NOLOCK) ON a.part_no = c.part_no -- v1.2
+		WHERE	web_sellable ='Y' -- v1.2 AND ISNULL(b.field_32,'') IN ('RETAIL','HVC')
+		AND		c.attribute IN ('RETAIL','HVC') -- v1.2
 		AND		user_spid = @user_spid
-	
 	
 		UPDATE	cvo_inv_upd_util
 		SET		line_message = line_message + CASE WHEN line_message = '' THEN 'Invalid value for watch' ELSE '; Invalid value for watch' END,
@@ -157,7 +157,6 @@ BEGIN
 		UPDATE dbo.cvo_inv_upd_util
 		SET backorder_date_str = pom_date_str 
 		WHERE UPPER(pom_date_str) = 'NONE'
-
 		UPDATE	cvo_inv_upd_util
 		SET		pom_date = CONVERT(DATETIME,pom_date_str)
 		-- force the backorder date values
@@ -170,14 +169,13 @@ BEGIN
 		AND		user_spid = @user_spid
 		AND		error_flag = 0
 
-		
 		UPDATE	a
 		SET		line_message = line_message + CASE WHEN a.line_message = '' THEN 'POM Date Change: ' ELSE '; POM Date Change: ' END +
 												CASE WHEN UPPER(a.pom_date_str) = 'NONE' THEN -- v1.1
 													CASE WHEN b.field_28 IS NULL THEN 'No Change' -- v1.1
 													ELSE CONVERT(varchar(10),b.field_28,101) + ' To Not Set' END -- v1.1
 												ELSE
-												CASE WHEN b.field_28 IS NULL THEN 'Not Set To ' + CONVERT(varchar(10),a.pom_date,101)
+												CASE WHEN b.field_28 IS NULL THEN 'Not Set To ' 
 													WHEN CONVERT(varchar(10),b.field_28,101) = CONVERT(varchar(10),a.pom_date,101) THEN 'No Change'
 													ELSE CONVERT(varchar(10),b.field_28,101) + ' To ' + CONVERT(varchar(10),a.pom_date,101) END
 												END,
@@ -185,7 +183,6 @@ BEGIN
 -- 060716 tag - watch is category_1, not category_2
 --				watch = CASE WHEN a.pom_date_str NOT IN ('','NONE') THEN 'N' ELSE ISNULL(b.category_2,'N') END
 				watch = CASE WHEN a.pom_date_str NOT IN ('','NONE') THEN 'N' ELSE ISNULL(b.category_1,'N') END
-	
 		FROM	cvo_inv_upd_util a
 		JOIN	inv_master_add b (NOLOCK)
 		ON		a.part_no = b.part_no
@@ -285,9 +282,6 @@ BEGIN
 	END
 
 END
-
-
-
 GO
 GRANT EXECUTE ON  [dbo].[cvo_inv_upd_util_sp] TO [public]
 GO

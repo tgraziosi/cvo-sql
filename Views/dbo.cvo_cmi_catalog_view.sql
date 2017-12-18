@@ -120,7 +120,8 @@ AS
            ISNULL(CASE WHEN d.dim_pom_date = '1/1/1900' THEN NULL
                        ELSE d.dim_pom_date
                   END ,
-                  bm.pom_date) dim_pom_date
+                  bm.pom_date) dim_pom_date,
+			ISNULL(tip_sku,0) tip_sku -- 12/1/2017 - 1 if model has temple tips
     FROM   cvo_cmi_models bm
            LEFT JOIN cvo_cmi_variants v ON ( v.model_id = bm.id )
            LEFT JOIN cvo_cmi_dimensions d ON ( v.id = d.variant_id )
@@ -131,6 +132,7 @@ AS
     --AND d.eye_size =  i.eye_size AND v.color = i.colorname
 
     WHERE  v.isActive = 1;
+
 
 
 

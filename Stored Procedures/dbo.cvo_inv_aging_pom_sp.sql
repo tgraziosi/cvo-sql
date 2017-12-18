@@ -31,6 +31,14 @@ INSERT INTO #type
 SELECT ListItem
 FROM dbo.f_comma_list_to_table(@type);
 
+CREATE TABLE #filters
+(
+    brand VARCHAR(10) NULL,
+	gender VARCHAR(10) NULL,
+	restype VARCHAR(10) NULL
+
+);
+
 /*
 select @asofdate = getdate()
 select @loc = '001'
@@ -75,13 +83,16 @@ SELECT cia.Brand,
        cia.Quarantine,
        cia.Non_alloc,
        cia.Replen_Qty_Not_SA,
-       cia.ReplenQty
+       cia.ReplenQty,
+	   cia.Material,
+	   cia.Color_desc
 FROM cvo_item_avail_vw cia (NOLOCK)
     INNER JOIN #type
         ON #type.restype = cia.ResType
     LEFT OUTER JOIN dbo.cvo_eos_tbl AS et
         ON et.part_no = cia.part_no AND et.obs_date IS NULL
     JOIN cvo_gender g ON g.kys = cia.gender
+
 WHERE cia.POM_date IS NOT NULL
       AND cia.POM_date <= @asofdate
       AND location = @loc

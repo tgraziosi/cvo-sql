@@ -35,7 +35,9 @@ CREATE TABLE [dbo].[cvo_hs_inventory_8]
 GO
 CREATE NONCLUSTERED INDEX [IDX_HSINV_COLL] ON [dbo].[cvo_hs_inventory_8] ([COLL], [sku]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [idx_inv7] ON [dbo].[cvo_hs_inventory_8] ([Manufacturer], [mastersku], [sku]) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [idx_inv_btr] ON [dbo].[cvo_hs_inventory_8] ([Manufacturer], [mastersku], [sku]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [idx_hs_inv_part_no] ON [dbo].[cvo_hs_inventory_8] ([sku]) INCLUDE ([mastersku]) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [IDX_HSINV_MASTERSKU] ON [dbo].[cvo_hs_inventory_8] ([mastersku]) ON [PRIMARY]
+GO
+CREATE NONCLUSTERED INDEX [idx_hs_inv_part_no_btr] ON [dbo].[cvo_hs_inventory_8] ([sku]) INCLUDE ([mastersku]) ON [PRIMARY]
 GO

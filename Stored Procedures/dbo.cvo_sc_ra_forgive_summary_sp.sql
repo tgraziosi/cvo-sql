@@ -82,22 +82,31 @@ INSERT #ts
 EXEC dbo.cvo_tsbm_summary_sp @year, @month
 ;
 
-SELECT   territory_code ,
+SELECT hist.territory_code,
+		SUM(hist.NetSales) NetSales,
+       SUM(hist.NetReturns) NetReturns,
+       AVG(hist.hist_RA_pct) hist_RA_pct,
+	   CAST(0 AS FLOAT) curr_ra_pct
+INTO     #tssummary
+FROM 
+(SELECT   territory_code ,
+		 [YEAR] histyear,
          SUM(NetSales) NetSales ,
          SUM(NetReturns) NetReturns,
-		 hist_RA_pct = CASE WHEN SUM(netsales)+sum(netreturns) <> 0 
-				  THEN SUM(netreturns)/(SUM(netsales)+SUM(netreturns)) ELSE 0 END,
-         curr_ra_pct = cast(0.0 AS float)
-INTO     #tssummary
-FROM     #ts
+		 hist_RA_pct = CASE WHEN sum(netsales) <> 0 
+						THEN SUM(netreturns)/SUM(netsales) ELSE 0 END
+		 FROM     #ts
 WHERE	 #ts.[year] = @year-2 OR #ts.[year] = @year-1
-GROUP BY territory_code;
+GROUP BY territory_code, [year]
+) hist
+GROUP BY hist.territory_code
+;
 
 UPDATE s SET s.curr_ra_pct = tt.curr_ra_pct
 FROM #tssummary s JOIN 
 (
-SELECT territory_code, CASE WHEN SUM(t.netsales)+SUM(t.netreturns) <>0
-					THEN SUM(t.netreturns)/(SUM(t.netsales)+SUM(t.netreturns)) ELSE 0 END curr_ra_pct
+SELECT territory_code, CASE WHEN SUM(t.netsales)+sum(netreturns) <>0
+					THEN SUM(t.netreturns)/(SUM(t.netsales)+SUM(netreturns)) ELSE 0 END curr_ra_pct
 FROM #ts AS t
 WHERE t.year = @year AND t.x_month = @month
 GROUP BY t.territory_code

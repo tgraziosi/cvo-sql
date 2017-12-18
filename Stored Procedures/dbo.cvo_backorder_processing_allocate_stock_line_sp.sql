@@ -11,6 +11,7 @@ GO
 -- v1.5 CT 29/11/2013 - Issue #1406 - As stock is no longer ringfenced check what stock is available before allocating 
 -- v1.6 CB 28/02/2017 - Issue #1576 - Check if only POP allocated in which case unallocate
 -- v1.7 CB 13/10/2017 - #1644 - Backorder Processing Reserve
+-- v1.8 CB 08/12/2017 - Fix to v1.6
 
 */
 
@@ -722,11 +723,17 @@ BEGIN
 				IF NOT EXISTS (SELECT 1 FROM tdc_soft_alloc_tbl a (NOLOCK) JOIN inv_master b (NOLOCK) ON a.part_no = b.part_no
 					WHERE a.order_no = @order_no AND a.order_ext = @ext AND b.type_code IN ('FRAME','SUN'))
 				BEGIN
-					IF EXISTS (SELECT 1 FROM tdc_soft_alloc_tbl a (NOLOCK) JOIN inv_master b (NOLOCK) ON a.part_no = b.part_no
-						WHERE a.order_no = @order_no AND a.order_ext = @ext AND b.type_code = 'POP')
+					-- v1.8 Start
+					IF EXISTS (SELECT 1 FROM ord_list a (NOLOCK) JOIN inv_master b (NOLOCK) ON a.part_no = b.part_no
+						WHERE a.order_no = @order_no AND a.order_ext = @ext AND b.type_code IN ('FRAME','SUN'))
 					BEGIN
-						EXEC dbo.cvo_UnAllocate_sp	@order_no, @ext, 1, 'backorder', 0
+						IF EXISTS (SELECT 1 FROM tdc_soft_alloc_tbl a (NOLOCK) JOIN inv_master b (NOLOCK) ON a.part_no = b.part_no
+							WHERE a.order_no = @order_no AND a.order_ext = @ext AND b.type_code = 'POP')
+						BEGIN
+							EXEC dbo.cvo_UnAllocate_sp	@order_no, @ext, 1, 'backorder', 0
+						END
 					END
+					-- v1.8 End
 				END
 			END
 			-- v1.6 End

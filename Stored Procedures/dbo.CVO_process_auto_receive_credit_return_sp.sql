@@ -68,7 +68,7 @@ BEGIN
 		IF NOT EXISTS(SELECT 1 FROM dbo.orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @ext AND [status] = 'A')
 		   AND EXISTS (SELECT 1 FROM orders_all (NOLOCK) o JOIN armaster ar ON ar.customer_code = o.cust_code AND ar.ship_to_code = o.ship_to
 					WHERE ar.status_type=1 AND o.order_no = @order_no AND o.ext = @ext)
-		   AND EXISTS (SELECT 1 FROM orders_all (NOLOCK) o JOIN dbo.cc_cust_status_hist AS ccsh ON ccsh.customer_code = o.cust_code
+		   AND EXISTS (SELECT 1 FROM orders_all (NOLOCK) o LEFT OUTER JOIN dbo.cc_cust_status_hist AS ccsh ON ccsh.customer_code = o.cust_code
 				    WHERE ISNULL(ccsh.status_code,'') = '' AND ccsh.clear_date IS NULL
 					AND o.order_no = @order_no AND o.ext = @ext)
 		BEGIN
@@ -93,6 +93,8 @@ BEGIN
 	END
 
 END
+
+
 
 
 

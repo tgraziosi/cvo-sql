@@ -155,6 +155,7 @@ SELECT part_no ,
 	  , ISNULL(cmi.dim_frame_only_cost,0) dim_frame_only_cost -- 3/28/2016
 	  , CAST(cv.supplier_color_description AS VARCHAR(80)) revo_frame_color
 	  , CAST(cv.ws_lens_color_code AS VARCHAR(80)) revo_lens_color
+	  , cmi.tip_sku -- 12/13/2017 - 1 if model has temple tips
 
  INTO #cmi
 -- FROM [cvo-db-03].cvo.dbo.cvo_cmi_catalog_view cmi
@@ -300,6 +301,37 @@ INSERT  INTO #parts_list
 				AND c.frame_category <> '3-piece rimless'
 				AND @coll <> 'REVO';
 
+		IF @debug = 1         SELECT DISTINCT
+                UPPER(c.Collection) collection ,
+                UPPER(c.model) model ,
+                UPPER(smn.short_model) short_model ,
+                upper(c.colorname) colorname ,
+                c.eye_size ,
+                ttt.temple_size ,
+                'FRAME' ,
+                UPPER(
+				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
+				+ CASE WHEN @tpr = 0 THEN '' ELSE UPPER(LEFT(c.colorname,1)) end
+                + CASE WHEN @coll <> 'REVO' THEN ISNULL(UPPER(short_color_name), 'ccc')
+				            + CAST(c.eye_size AS VARCHAR(2))
+							+ CAST(c.dbl_size AS VARCHAR(2))
+							+ CASE WHEN CHARINDEX('180',c.hinge_type) > 0 and c.eye_size <> ttt.base_eye_size THEN CAST(CAST(ttt.temple_size AS INT) AS VARCHAR(3)) ELSE '' END
+							ELSE '' end
+				+ CASE WHEN @coll = 'REVO' THEN ISNULL(UPPER(C.revo_frame_color),'XX')
+												+ ISNULL(UPPER(C.revo_lens_color),'XX') ELSE '' END
+    
+				)
+        FROM    #cmi c
+                INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
+                                                    AND smn.model = c.model
+				CROSS JOIN (SELECT distinct tt.temple_size, tt.eye_size base_eye_size FROM #cmi tt JOIN #short_model_name smn ON smn.collection = tt.collection AND smn.model = tt.model
+							WHERE tt.eye_size = CASE WHEN charindex('180',tt.hinge_type)>0 THEN tt.eye_size ELSE ISNULL(@eye_size, tt.eye_size) end) ttt
+		WHERE   1 = 1
+				AND c.colorname = ISNULL(@colorname,c.colorname)
+				and (c.eye_size = ISNULL(@eye_size, c.eye_size) )
+				-- AND (c.eye_size =  case WHEN CHARINDEX('180',c.hinge_type) > 0 then c.eye_size ELSE ISNULL(@eye_size, c.eye_size) end)
+					 ;
+
 INSERT  INTO #parts_list
         ( collection ,
           model ,
@@ -324,7 +356,7 @@ INSERT  INTO #parts_list
                 + CASE WHEN @coll <> 'REVO' THEN ISNULL(UPPER(short_color_name), 'ccc')
 				            + CAST(c.eye_size AS VARCHAR(2))
 							+ CAST(c.dbl_size AS VARCHAR(2))
-							+ CASE WHEN CHARINDEX('180',c.hinge_type) > 0 THEN CAST(CAST(c.temple_size AS INT) AS VARCHAR(3)) ELSE '' END
+							+ CASE WHEN CHARINDEX('180',c.hinge_type) > 0 and c.eye_size <> ttt.base_eye_size THEN CAST(CAST(ttt.temple_size AS INT) AS VARCHAR(3)) ELSE '' END
 							ELSE '' end
 				+ CASE WHEN @coll = 'REVO' THEN ISNULL(UPPER(C.revo_frame_color),'XX')
 												+ ISNULL(UPPER(C.revo_lens_color),'XX') ELSE '' END
@@ -333,7 +365,7 @@ INSERT  INTO #parts_list
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
-				CROSS JOIN (SELECT distinct temple_size FROM #cmi tt JOIN #short_model_name smn ON smn.collection = tt.collection AND smn.model = tt.model
+				CROSS JOIN (SELECT distinct tt.temple_size, tt.eye_size base_eye_size FROM #cmi tt JOIN #short_model_name smn ON smn.collection = tt.collection AND smn.model = tt.model
 							WHERE tt.eye_size = CASE WHEN charindex('180',tt.hinge_type)>0 THEN tt.eye_size ELSE ISNULL(@eye_size, tt.eye_size) end) ttt
 		WHERE   1 = 1
 				AND c.colorname = ISNULL(@colorname,c.colorname)
@@ -551,7 +583,7 @@ INSERT  INTO #parts_list
 				AND CHARINDEX('180',c.hinge_type) = 0
 				;
 
-/* Cant do this yet - 1/26/2016
+-- 12/13/2017 - can do! ... Cant do this yet - 1/26/2016
 
 INSERT  INTO #parts_list
         ( collection ,
@@ -582,8 +614,9 @@ INSERT  INTO #parts_list
         WHERE   1 = 1
 				AND c.colorname = ISNULL(@colorname,c.colorname)
 				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
-                AND ISNULL(c.temple_tip_material, '') > ''; 
-*/
+				and c.tip_sku = 1;
+                -- AND ISNULL(c.temple_tip_material, '') > ''; 
+
 
 INSERT  INTO #parts_list
         ( collection ,
@@ -853,6 +886,7 @@ BEGIN
 
 END
 
+IF @debug = 1 SELECT * FROM #parts_list AS pl
 
 IF ( OBJECT_ID('tempdb.dbo.#err_list') IS NOT NULL )
     DROP TABLE #err_list;
@@ -908,14 +942,14 @@ INSERT  INTO #err_list
 IF ( OBJECT_ID('tempdb.dbo.#parts_to_add') IS NOT NULL )
     DROP TABLE #parts_to_add;
 
-SELECT DISTINCT
+SELECT distinct
         collection = CAST(c.Collection AS VARCHAR(30)) ,
         c.model ,
         smn.short_model ,
         part_type = -- CASE WHEN PART_TYpe IN ('hangtag','upc') THEN '' ELSE 
 				CAST(pl.part_type AS VARCHAR(15)) 
 				,-- End,
-        part_no = UPPER(CAST(pl.part_no AS VARCHAR(30))) ,
+        part_no = CAST(UPPER(pl.part_no) AS VARCHAR(30)) ,
         PrimaryDemographic =  CAST(c.PrimaryDemographic AS VARCHAR(15)) ,
         target_age = CAST(c.target_age AS varchar(15)),
         c.eye_shape ,
@@ -984,7 +1018,7 @@ FROM    #parts_list pl
 				THEN c.eye_size
 				ELSE ISNULL(pl.eye_size, c.eye_size)
 				END
-            AND c.temple_size = ISNULL(pl.temple_size,c.temple_size)
+            -- AND c.temple_size = ISNULL(pl.temple_size,c.temple_size)
         INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                             AND smn.model = c.model
 WHERE   1 = 1
@@ -2366,6 +2400,8 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
+
 
 
 

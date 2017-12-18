@@ -8,6 +8,7 @@ GO
 -- v1.2 CT 16/08/2013 - Issue #1360 - use correct field for gender
 -- v1.3 CB 05/04/2017 - Fix issue with multiple free frame layers
 -- v1.4 CB 13/09/2017 - #1648 - Combine promo lines
+-- v1.5 CB 06/12/2017 - #1650 - Promo sub brand
 
 
 CREATE PROC [dbo].[CVO_promotions_free_frames_sp] ( @promo_id			VARCHAR(30),	
@@ -209,8 +210,20 @@ BEGIN
 						OR (ISNULL(@category,'') = ''))
 				AND ((ISNULL(@gender_check,0) = 0) OR (gender IN (SELECT gender FROM dbo.cvo_promotions_gender (NOLOCK) 
 																				  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @promo_line_no AND line_type = 'O'))) 
-				AND ((ISNULL(@attribute,0) = 0) OR (attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
-																				  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @promo_line_no AND line_type = 'O')))
+				-- v1.5 AND ((ISNULL(@attribute,0) = 0) OR (attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
+				-- v1.5																  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @promo_line_no AND line_type = 'O')))
+			-- v1.5 Start
+			IF ((ISNULL(@attribute,0) <> 0))
+			BEGIN
+				DELETE	a
+				FROM	#selected_ord_list a
+				LEFT JOIN cvo_part_attributes b (NOLOCK)
+				ON		a.part_no = b.part_no
+				WHERE	((b.part_no IS NULL) OR (b.attribute NOT IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
+																	  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @promo_line_no AND line_type = 'O')))				
+			END
+			-- v1.5 End
+
 		END
 		ELSE
 		BEGIN
@@ -244,8 +257,19 @@ BEGIN
 						OR (ISNULL(@category,'') = ''))
 				AND ((ISNULL(@gender_check,0) = 0) OR (gender IN (SELECT gender FROM dbo.cvo_promotions_gender (NOLOCK) 
 																				  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @promo_line_no AND line_type = 'O'))) 
-				AND ((ISNULL(@attribute,0) = 0) OR (attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
-																				  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @promo_line_no AND line_type = 'O')))
+			-- v1.5	AND ((ISNULL(@attribute,0) = 0) OR (attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
+			-- v1.5																	  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @promo_line_no AND line_type = 'O')))
+			-- v1.5 Start
+			IF ((ISNULL(@attribute,0) <> 0))
+			BEGIN
+				DELETE	a
+				FROM	#selected_ord_list a
+				LEFT JOIN cvo_part_attributes b (NOLOCK)
+				ON		a.part_no = b.part_no
+				WHERE	((b.part_no IS NULL) OR (b.attribute NOT IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
+																	  WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @promo_line_no AND line_type = 'O')))				
+			END
+			-- v1.5 End
 		END
 		-- v1.4 End
 		
