@@ -79,7 +79,10 @@ AS
       OrderType VARCHAR(10) ,
       Promo_id VARCHAR(20) ,
       Level VARCHAR(30) ,
+	  framesshipped INT,
+	  promo_cnt INT,
       type VARCHAR(3) ,
+
       Net_Sales FLOAT(8) ,
       brand VARCHAR(10) ,
       Amount FLOAT(8) ,
@@ -88,7 +91,8 @@ AS
       Loc VARCHAR(10) ,
       salesperson_name VARCHAR(40) ,
       HireDate VARCHAR(30) ,
-      draw_amount DECIMAL(14, 2)
+      draw_amount DECIMAL(14, 2),
+	  region VARCHAR(3)
             ); 
 
         INSERT  #r
@@ -216,6 +220,8 @@ AS
                 FROM    #r c; 
 
     END;
+
+
 
 
 

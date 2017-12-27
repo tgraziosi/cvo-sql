@@ -16,7 +16,7 @@ GO
 		WHERE DateShipped between dbo.adm_get_pltdate_f('02/1/2017') AND dbo.adm_get_pltdate_f('02/28/2017') 
 		and territory = 50532
 		
-	exec cvo_commission_bldr_r3_sp '50532', '02/01/2017','02/28/2017'
+	exec cvo_commission_bldr_r3_sp '30308', '12/01/2017','12/31/2017'
 */
 
 -- order_no = 2645156
@@ -193,11 +193,11 @@ AS
                                  THEN ipa.category
                                  ELSE 'CORE'
                             END ,
-                    SUM(ROUND(ipa.ExtPrice,2)) ext_net_sales ,
-                    SUM(CASE WHEN ISNULL(ipa.no_commission, '') <> 1
-                             THEN ROUND(ipa.ExtPrice,2)
+                    ROUND(SUM(ipa.ExtPrice),2) ext_net_sales ,
+                    ROUND(SUM(CASE WHEN ISNULL(ipa.no_commission, '') <> 1
+                             THEN ipa.ExtPrice
                              ELSE 0
-                        END) ext_comm_sales
+                        END), 2) ext_comm_sales
             FROM    dbo.cvo_item_pricing_analysis AS ipa ( NOLOCK )
             WHERE   ipa.date_applied BETWEEN @sdate AND @edate
                     AND ipa.terms LIKE 'ins%'
@@ -497,14 +497,14 @@ AS
                     CASE WHEN x.trx_type = 2031 THEN 'Inv'
                          ELSE 'Crd'
                     END AS type ,
-                    Net_Sales = ROUND(clv.ext_net_sales * ISNULL(ai.installment_prc
-                                                           / 100, 1)
+                    Net_Sales = ROUND(clv.ext_net_sales * ISNULL(CAST(ai.installment_prc AS DECIMAL(20,8))
+                                                           / 100.00, 1)
                     * CASE WHEN x.trx_type = 2031 THEN 1
                            ELSE -1
                       END , 2),
                     brand = ISNULL(clv.brand, 'CORE') ,
                     Amount = ROUND(ISNULL(clv.ext_comm_sales, 0)
-                    * ISNULL(ai.installment_prc / 100, 1)
+                    * ISNULL(CAST(ai.installment_prc AS DECIMAL(20,8)) / 100.00, 1)
                     * CASE WHEN x.trx_type = 2031 THEN 1
                            ELSE -1
                       END, 2) , -- Issue #982
@@ -520,7 +520,7 @@ AS
                                         END
                               END ,
                     [Comm$] = ROUND(ISNULL(clv.ext_comm_sales, 0)
-                                    * ISNULL(ai.installment_prc / 100, 1)
+                                    * ISNULL(ai.installment_prc / 100.00, 1)
                                     * CASE WHEN x.trx_type = 2031 THEN 1
                                            ELSE -1
                                       END
@@ -535,7 +535,7 @@ AS
                                                           END
                                                      ELSE co.commission_pct
                                                 END
-                                      END / 100, 2) ,
+                                      END / 100.00, 2) ,
                     'Posted' AS Loc ,
                     salesperson_name ,
                     ISNULL(CONVERT(VARCHAR, date_of_hire, 101), '') AS HireDate ,
@@ -605,12 +605,12 @@ AS
                     CASE WHEN x.trx_type = 2031 THEN 'Inv'
                          ELSE 'Crd'
                     END AS type ,
-                    ROUND(clv.ext_net_sales * ISNULL(ai.installment_prc / 100, 1)
+                    ROUND(clv.ext_net_sales * ISNULL(CAST(ai.installment_prc AS DECIMAL(20,8)) / 100, 1)
                     * CASE WHEN x.trx_type = 2031 THEN 1
                            ELSE -1
                       END , 2) AS Net_Sales ,
                     brand = ISNULL(clv.brand, 'CORE') ,
-                    ROUND( ISNULL(clv.ext_comm_sales, 0) * ISNULL(ai.installment_prc
+                    ROUND( ISNULL(clv.ext_comm_sales, 0) * ISNULL(CAST(ai.installment_prc AS DECIMAL(20,8))
                                                            / 100, 1)
                     * CASE WHEN x.trx_type = 2031 THEN 1
                            ELSE -1
@@ -628,7 +628,7 @@ AS
                                         END
                               END ,
                     [Comm$] = ROUND(ISNULL(clv.ext_comm_sales, 0)
-                                    * ISNULL(ai.installment_prc / 100, 1)
+                                    * ISNULL(CAST(ai.installment_prc AS DECIMAL(20,8)) / 100, 1)
                                     * CASE WHEN x.trx_type = 2031 THEN 1
                                            ELSE -1
                                       END
@@ -822,6 +822,13 @@ GROUP BY o.salesperson ,
             r.OrderType ,
             r.Promo_id ,
             r.Level ,
+
+			-- 12/20/2017
+			CASE WHEN 	1 = ROW_NUMBER() OVER (PARTITION BY r.order_no, r.ext ORDER BY r.order_no, r.ext) 
+			THEN ISNULL(o.framesshipped,0) ELSE 0 END  framesshipped,
+			CASE WHEN 	1 = ROW_NUMBER() OVER (PARTITION BY r.order_no, r.ext ORDER BY r.order_no, r.ext) 
+			AND ISNULL(r.Promo_id,'') <> '' 	THEN 1 ELSE 0 END  promo_cnt,
+
             r.type ,
             r.Net_Sales ,
             r.brand ,
@@ -831,12 +838,22 @@ GROUP BY o.salesperson ,
             r.Loc ,
             r.salesperson_name ,
             r.HireDate ,
-            r.draw_amount
-    FROM    #report AS r;
+            r.draw_amount,
+			t.Region
+		
 
-
-
-
+    FROM    #report AS r
+	JOIN #territory AS t ON t.territory = r.Territory
+	LEFT OUTER JOIN
+	(select ol.order_no, ol.order_ext, SUM(shipped)-sum(cr_shipped) framesshipped
+		FROM inv_master i (NOLOCK) 
+		JOIN ord_list ol (nolock) ON  ol.part_no = i.part_no
+		JOIN orders o (NOLOCK) ON o.order_no = ol.order_no AND o.ext = ol.order_ext
+		WHERE i.type_code in ('FRAME','SUN')  AND o.date_shipped >= @sdate
+		GROUP BY ol.order_no,
+                 ol.order_ext
+			) o ON r.order_no = o.order_no and r.ext = o.order_ext
+			;
 
 
 GO

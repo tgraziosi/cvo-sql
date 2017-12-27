@@ -1751,7 +1751,7 @@ INSERT INTO #cia
           eye_shape ,
           dbl_size
         )
-SELECT c.part_no, c.eye_shape, c.dbl_size
+SELECT DISTINCT c.part_no, c.eye_shape, c.dbl_size
         FROM    #parts_to_add c
                 INNER JOIN #ia ia ON ia.part_no = c.part_no
         WHERE  1=1
@@ -1790,7 +1790,7 @@ INSERT INTO #err_list
           bad_data ,
           error_desc
         )
-		 SELECT  #i.category collection,
+		 SELECT  DISTINCT #i.category collection,
 				#ia.field_2 model,
 				#i.part_no ,
                 type_code ,
@@ -1815,7 +1815,7 @@ INSERT INTO #err_list
           bad_data ,
           error_desc
         )
-		 SELECT  #i.category collection,
+		 SELECT DISTINCT  #i.category collection,
 				#ia.field_2 model,
 				#i.part_no ,
                 type_code ,
@@ -2400,6 +2400,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

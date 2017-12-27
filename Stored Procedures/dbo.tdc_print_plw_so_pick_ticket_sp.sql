@@ -32,6 +32,7 @@ GO
 -- v6.9 CB 11/07/2016 - Need to recalc line count if order has manual case quantities
 -- v7.0 CB 23/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 -- v7.1 CB 25/09/2017 - Fix issue with manual case qty
+-- v7.2 CB 20/12/2017 - Change "Plrzd Ln" to "Line"
 
 CREATE PROCEDURE [dbo].[tdc_print_plw_so_pick_ticket_sp]  
  @user_id     varchar(50),  
@@ -1261,7 +1262,8 @@ END
   -- v6.6 Start
 	IF EXISTS (SELECT 1 FROM #cvo_ord_list WHERE from_line_no = @line_no AND is_polarized = 1)
 	BEGIN
-		SELECT @polarized_line = ISNULL(@part_no,'') + ' (Plrzd Ln ' + CAST(line_no as varchar(10)) + ')' FROM #cvo_ord_list WHERE from_line_no = @line_no AND is_polarized = 1
+-- v7.2	SELECT @polarized_line = ISNULL(@part_no,'') + ' (Plrzd Ln ' + CAST(line_no as varchar(10)) + ')' FROM #cvo_ord_list WHERE from_line_no = @line_no AND is_polarized = 1
+		SELECT @polarized_line = ISNULL(@part_no,'') + ' (Line ' + CAST(line_no as varchar(10)) + ')' FROM #cvo_ord_list WHERE from_line_no = @line_no AND is_polarized = 1 -- v7.2
 		INSERT INTO #tdc_print_ticket (print_value) SELECT 'LP_PART_NO_'      + RTRIM(CAST(@printed_on_the_page AS char(4))) + ',' + isnull(@polarized_line,'')
 	END
 	ELSE

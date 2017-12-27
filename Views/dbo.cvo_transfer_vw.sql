@@ -9,6 +9,7 @@ x.status,
 s.status_desc,
 x.from_loc, 
 x.to_loc, 
+x.attention,
 x.date_shipped, 
 x.date_entered, 
 x.date_printed, 
@@ -24,6 +25,7 @@ x.who_recvd,
 from xfers x (nolock), cc_ord_status s (nolock)
 where x.status <> 'v'
 and x.status = s.status_code
+
 
 
 

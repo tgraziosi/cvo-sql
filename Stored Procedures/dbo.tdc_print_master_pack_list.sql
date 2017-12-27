@@ -226,7 +226,7 @@ BEGIN
  BEGIN    
   
   SELECT @ord_pack_qty = CAST(SUM(pack_qty) AS varchar(20))   
-    FROM tdc_carton_detail_tx WHERE carton_no = @carton_no  
+    FROM tdc_carton_detail_tx (NOLOCK) WHERE carton_no = @carton_no  
   EXEC tdc_trim_zeros_sp @ord_pack_qty OUTPUT  
   
   -------------- Now let's insert the Details into the output table -----------------  

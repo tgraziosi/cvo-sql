@@ -32,6 +32,7 @@ GO
 -- v1.27	CB	07/12/2017 - #1650 - Promo sub brand
 -- v1.28	CB	07/12/2047 - Fix - Only include FRAME/SUN
 -- v1.29	CB	15/12/2017 - If failing on attribute with brand or category then change error message
+-- v1.30	CB	20/12/2017 - Not picking up OTHER category
 
 CREATE PROCEDURE [dbo].[CVO_verify_order_quali_sp]	@order_no INT = 0, 
 													@ext INT = 0,  
@@ -215,7 +216,7 @@ where a.order_no = @order_no and a.order_ext = @ext
 			INNER JOIN inv_master i (NOLOCK) ON l.part_no = i.part_no
 			INNER JOIN inv_master_add ia (NOLOCK) ON l.part_no = ia.part_no
 		WHERE l.order_no = @order_no AND l.order_ext = @ext --AND l.is_pop_gif = 0
-		AND		i.type_code IN ('FRAME','SUN') -- v1.28
+		AND		i.type_code IN ('FRAME','SUN','OTHER') -- v1.28 v1.30
 		-- END v1.1
 
 		-- v1.27 Start
@@ -456,7 +457,7 @@ where a.order_no = @order_no and a.order_ext = @ext
 						BEGIN
 							-- v1.29 Start
 							IF (@attribute_failed = 1)
-								SET @and_fail_reason = 'Order does not qualify for promotion - order contains an excluded brand attribute.'
+								SET @and_fail_reason = 'Order does not qualify for promotion - order contains an excluded brand attributes.'
 							ELSE -- v1.29 End
 								SET @and_fail_reason = 'Order does not qualify for promotion - order contains an excluded brand (' + UPPER(@brand) + ').'
 						END

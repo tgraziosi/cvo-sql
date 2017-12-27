@@ -5,6 +5,7 @@ GO
 
 -- select * from cvo_cmi_catalog_view where collection = 'bt'
 -- 6/20/17 - add release and pom dates
+-- 12/19/2017 - add sub-brand
 
 CREATE VIEW [dbo].[cvo_cmi_catalog_view]
 AS
@@ -12,6 +13,7 @@ AS
            bm.id AS cmi_model_id ,
            bm.brand AS Collection ,
            bm.brand AS CollectionName ,
+		   ISNULL(bm.sub_brand,'') SubBrand,
            REPLACE(bm.model_name, '''', '') AS model ,
            bm.short_model ,                                       -- 070914- tag
                                                                   -- v.temple_img as img_temple, 
@@ -132,6 +134,7 @@ AS
     --AND d.eye_size =  i.eye_size AND v.color = i.colorname
 
     WHERE  v.isActive = 1;
+
 
 
 

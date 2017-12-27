@@ -680,10 +680,10 @@ BEGIN
 				FROM	inv_master a (NOLOCK)
 				JOIN	inv_master_add b (NOLOCK)
 				ON		a.part_no = b.part_no
-				JOIN	cvo_part_attributes f (NOLOCK) -- v2.1
-				ON		a.part_no = f.part_no -- v2.1
+				JOIN	cvo_part_attributes pa (NOLOCK) -- v2.1
+				ON		a.part_no = pa.part_no -- v2.1
 				JOIN	cvo_alternate_attributes c (NOLOCK)
-				ON		f.attribute = c.attributes -- v2.1
+				ON		pa.attribute = c.attributes -- v2.1
 				JOIN	category_3 d (NOLOCK)
 				ON		b.category_3 = d.category_code
 				JOIN	cvo_cf_required_parts e (NOLOCK)
@@ -707,10 +707,10 @@ BEGIN
 				FROM	inv_master a (NOLOCK)
 				JOIN	inv_master_add b (NOLOCK)
 				ON		a.part_no = b.part_no
-				JOIN	cvo_part_attributes f (NOLOCK) -- v2.1
-				ON		a.part_no = f.part_no -- v2.1
+				JOIN	cvo_part_attributes pa (NOLOCK) -- v2.1
+				ON		a.part_no = pa.part_no -- v2.1
 				JOIN	cvo_alternate_attributes c (NOLOCK)
-				ON		f.attribute = c.attributes -- v2.1
+				ON		pa.attribute = c.attributes -- v2.1
 				JOIN	category_3 d (NOLOCK)
 				ON		b.category_3 = d.category_code
 				LEFT JOIN #cvo_cf_process_select f -- v1.3
@@ -754,10 +754,10 @@ BEGIN
 					FROM	inv_master a (NOLOCK)
 					JOIN	inv_master_add b (NOLOCK)
 					ON		a.part_no = b.part_no
-					JOIN	cvo_part_attributes f (NOLOCK) -- v2.1
-					ON		a.part_no = f.part_no -- v2.1
+					JOIN	cvo_part_attributes pa (NOLOCK) -- v2.1
+					ON		a.part_no = pa.part_no -- v2.1
 					JOIN	cvo_alternate_attributes c (NOLOCK)
-					ON		f.attribute = c.attributes -- v2.1
+					ON		pa.attribute = c.attributes -- v2.1
 					JOIN	category_3 d (NOLOCK)
 					ON		b.category_3 = d.category_code
 					JOIN	cvo_cf_required_parts e (NOLOCK)
@@ -779,10 +779,10 @@ BEGIN
 					FROM	inv_master a (NOLOCK)
 					JOIN	inv_master_add b (NOLOCK)
 					ON		a.part_no = b.part_no
-					JOIN	cvo_part_attributes f (NOLOCK) -- v2.1
-					ON		a.part_no = f.part_no -- v2.1
+					JOIN	cvo_part_attributes pa (NOLOCK) -- v2.1
+					ON		a.part_no = pa.part_no -- v2.1
 					JOIN	cvo_alternate_attributes c (NOLOCK)
-					ON		f.attribute = c.attributes -- v2.1
+					ON		pa.attribute = c.attributes -- v2.1
 					JOIN	category_3 d (NOLOCK)
 					ON		b.category_3 = d.category_code
 					LEFT JOIN #cvo_cf_process_select f -- v1.3
