@@ -4,7 +4,7 @@ SET ANSI_NULLS ON
 GO
 
 
--- select * From cvo_inv_master_r2_vw where collection = 'op' and model = '808'
+-- select top 100 * From cvo_inv_master_r2_vw where collection = 'op' and model = '808'
 -- select * From cvo_cmi_catalog_view where model = 'simona'
 -- select top 1000 * from cvo_inv_master_r2_vw
 
@@ -89,7 +89,8 @@ pp.front_cost
  WHEN ia.category_2 = 'Male-Child' AND i.category IN ('izod','izx','op') THEN 'boys'
  WHEN ia.category_2 = 'Female-Child' AND i.category IN ('jmc','op') THEN 'girls'
  WHEN ia.category_2 LIKE '%child%' THEN 'kids'
- ELSE ISNULL(g.description,'') END) AS PrimaryDemo_Web
+ ELSE ISNULL(g.description,'') END) AS PrimaryDemo_Web,
+ ISNULL(pa.attribute,'') attributes -- 1/8/2018 - multiple attributes
 
 
 FROM inv_master i (NOLOCK)
@@ -126,13 +127,23 @@ LEFT OUTER JOIN
  FROM dbo.cvo_cmi_sku_xref xref
  JOIN dbo.cvo_cmi_dimensions d ON xref.dim_id = d.id
   JOIN dbo.cvo_cmi_models m ON m.id = d.model_id
- ) AS x  ON x.part_no = i.part_no
+) AS x  ON x.part_no = i.part_no
+LEFT OUTER JOIN ( SELECT    c.part_no ,
+                STUFF(( SELECT  '; ' + attribute
+                        FROM    dbo.cvo_part_attributes pa2 (NOLOCK)
+                        WHERE   pa2.part_no = c.part_no
+                        FOR
+                        XML PATH('')
+                        ), 1, 1, '') attribute
+        FROM      dbo.cvo_part_attributes  c
+    ) AS pa ON pa.part_no = i.part_no
 
    
 WHERE i.void='n' AND i.type_code IN ('frame','sun')
 
 
 -- select * From cvo_part_price_cost_vw where part_no = 'cvellblu5114'
+
 
 
 

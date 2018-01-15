@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -7,18 +6,21 @@ CREATE procedure [dbo].[cvo_territory_sales_r2016_sp]
 @CompareYear int = null ,
 --v2
 @territory varchar(1000) = null -- multi-valued parameter
+
+,@restype VARCHAR(1000) = NULL
+
 as 
 set nocount on
 BEGIN
 
--- exec cvo_territory_sales_r2016_sp 2016, 20201
+-- exec cvo_territory_sales_r2016_sp 2017 , 50508
 
 --DECLARE @compareyear INT, @territory VARCHAR(1000)
 --SELECT @compareyear = 2015, @territory = '20201'
 
 
-declare @cy int, @terr varchar(1000), @today datetime
-select @cy = @CompareYear, @terr = @territory, @today = getdate()
+declare @cy int, @terr varchar(1000), @today DATETIME, @typecode VARCHAR(1000)
+select @cy = @CompareYear, @terr = @territory, @today = getdate(), @typecode = @restype
 
 -- 032614 - tag - performance improvements - add multi-value param for territory
 --  move setting the region to last.
@@ -52,6 +54,26 @@ set @edate = Case
 
 
 IF(OBJECT_ID('tempdb.dbo.#temp') is not null)  drop table #temp
+
+IF(OBJECT_ID('tempdb.dbo.#typecode') is not null)  drop table #typecode
+CREATE TABLE #typecode (type_code VARCHAR(10) )
+
+if @typecode is null
+begin
+	insert #typecode
+	(
+	    type_code
+	)
+	select distinct ISNULL(type_code,'') FROM inv_master (nolock)
+end
+else
+begin
+	INSERT INTO #typecode
+	(
+	    type_code
+	)
+	SELECT distinct ListItem FROM dbo.f_comma_list_to_table(@typecode)
+END
 
 IF(OBJECT_ID('tempdb.dbo.#territory') is not null)  drop table #territory
 CREATE TABLE #territory ([territory] VARCHAR(10),
@@ -105,19 +127,29 @@ isnull(c.x_month, month(@today)) as x_month,
 isnull(c.year, year(@today) ) As Year,
 isnull(c.month, datename(month,@today )) as month,
 sum(isnull(c.anet,0)) anet, 
-sum(isnull(case when i.type_code in ('frame','sun') then c.qnet end,0)) qnet
--- , tot = case when isnull(i.category,' Core') IN ('revo','bt') then i.category else ' Core' end
+sum(isnull(case when i.type_code in ('frame','sun') then c.qnet ELSE 0 END,0)) qnet
+, Sales_type = case when isnull(i.category,'Core') IN ('OP') and i.type_code = 'ACC' then 'Accessories' else 'Core' end
 into #temp 
 FROM  #territory t 
 inner join armaster (nolock) a on a.territory_code = t.territory
 inner JOIN cvo_sbm_details c (nolock) 
 	ON a.customer_code = c.customer AND a.ship_to_code = c.ship_to
 inner join inv_master i (nolock) on i.part_no = c.part_no
+INNER JOIN #typecode AS t2 ON t2.type_code = i.type_code
 where 1=1
 -- and (yyyymmdd between @sdately and @edately) or (yyyymmdd between @sdate and @edate)
-and (yyyymmdd between @sdately and @edate)
-group by a.territory_code, c.x_month, c.year, c.month
--- ,case when isnull(i.category,' Core') IN ('revo','bt') then i.category else ' Core' end
+and (c.yyyymmdd between @sdately and @edate)
+GROUP BY ISNULL(c.x_month, MONTH(@today)),
+         ISNULL(c.year, YEAR(@today)),
+         ISNULL(c.month, DATENAME(MONTH, @today)),
+         CASE
+         WHEN ISNULL(i.category, 'Core') IN ( 'OP' )
+         AND i.type_code = 'ACC' THEN
+         'Accessories'
+         ELSE
+         'Core'
+         END,
+         a.territory_code
 
 -- fill in the blanks so that all buckets are covered
 -- select * from #temp
@@ -133,7 +165,8 @@ BEGIN
 	y.yyear As Year,
 	DATENAME(MONTH, CAST(@month AS VARCHAR(2))+'/01/'+CAST(y.yyear AS VARCHAR(4)) ) as month,
 	0 anet, 
-	0 qnet
+	0 qnet,
+	'Core' Sales_type
 	FROM  armaster (nolock) a 
 	inner join #territory terr on terr.territory = a.territory_code
 	CROSS join
@@ -153,18 +186,26 @@ SELECT a.territory_code,
 s.Year,
 s.X_MONTH,
 Sum(s.anet) AS CurrentMonthSales
--- , tot = case when isnull(i.category,' Core') IN ('revo','bt') THEN i.category ELSE ' Core' end
+, Sales_Type = CASE when isnull(i.category,'Core') IN ('op') and i.type_code = 'ACC' then 'Accessories' else 'Core' end
  into #MonthKey 
  FROM   #territory t 
  inner join armaster a (nolock) on a.territory_code = t.territory
  inner join cvo_sbm_details s (nolock) on s.customer = a.customer_code and s.ship_to = a.ship_to_code
  inner join inv_master i (nolock) on i.part_no = s.part_no
+ INNER JOIN #typecode AS t2 ON t2.type_code = i.type_code
  where 1=1 
  and s.yyyymmdd between dateadd(m,datediff(mm,0,@edately),0) and @edately
- group BY 
-          a.territory_code ,
-          s.year ,
-          s.X_MONTH
+ -- AND i.type_code NOT IN ('lens')
+GROUP BY CASE
+         WHEN ISNULL(i.category, 'Core') IN ( 'op' )
+         AND i.type_code = 'ACC' THEN
+         'Accessories'
+         ELSE
+         'Core'
+         END,
+         a.territory_code,
+         s.year,
+         s.X_MONTH
 
 SELECT  a.territory_code, 
 a.X_MONTH,
@@ -173,13 +214,14 @@ a.month,
 sum(a.anet) anet, 
 sum(a.qnet)  qnet,
 max(isnull(m.CurrentMonthSales,0)) currentmonthsales
---, a.tot
+, a.Sales_type
+
 into #ly
 FROM  #temp a
 left join #MonthKey m
 ON a.territory_code = m.territory_code AND a.year = m.year AND a.X_MONTH = m.X_MONTH
 Where a.year = @cy-1
-group by a.territory_code, a.x_month, a.year, a.month -- , a.tot
+GROUP BY a.territory_code, a.x_month, a.year, a.month , a.Sales_type
 
 -- get this year figures
 
@@ -191,11 +233,12 @@ a.month,
 sum(a.anet) anet, 
 sum(a.qnet) qnet,
 0 as currentmonthsales
--- , a.tot
+,a.Sales_type
+
 into #ty
 FROM  #temp a
 Where a.year = @cy
-group by a.territory_code, a.x_month, a.year, a.month --, a.tot
+group by a.territory_code, a.x_month, a.year, a.month , a.Sales_type
 
 -- fixup sales person names
 
@@ -226,7 +269,8 @@ month,
 round (anet,2) anet , 
 qnet,
 round (currentmonthsales,2) currentmonthsales,
--- tot,
+Sales_type,
+
 #s1.region
 , case when x_month > 9 then 4
 			   when x_month > 6 then 3
@@ -249,7 +293,7 @@ month,
 round (anet,2) anet , 
 qnet,
 round (currentmonthsales,2) currentmonthsales,
--- tot,
+Sales_type,
 #s1.region
 , case when x_month > 9 then 4
 			   when x_month > 6 then 3
@@ -266,57 +310,9 @@ round (currentmonthsales,2) currentmonthsales,
 left outer join #s1 on #s1.territory_code = #ly.territory_code
 -- where #ly.tot = ' Core'
 
---union all -- get goals
 
---select
---g.territory_code, '    Goal' as salesperson_code, mmonth 
---, @cy as yyear, 
---datename(month,cast ((cast([mmonth] as varchar(2))+'/01/'+cast([yyear] as varchar(4))) as datetime)) as month, 
---goal_amt as anet, 
---0 as qnet,
---0 as currentmonthsales, 
---' Core' tot,
----- dbo.calculate_region_fn(g.territory_code) as region,
---terr.region, 
---case when mmonth > 9 then 4
---		   when mmonth > 6 then 3
---		   when mmonth > 3 then 2
---		   else 1
---		end as Q
---from #territory terr 
---left outer join cvo_territory_goal g on terr.territory = g.territory_code
---Where 1=1 
---and (yyear = @cy or yyear = 9999)
---union all
---	SELECT   distinct a.territory_code, 
---	'    Goal' as salesperson_code,
---	mm.mmonth,
---	@cy As Year,
---	mm.mm_name as month,
---	0 anet, 
---	0 qnet,
---	0 as currentmonthsales, 
---	' Core' tot,
---	dbo.calculate_region_fn(a.territory_code) as region,
---	case when mm.mmonth > 9 then 4
---		   when mm.mmonth > 6 then 3
---		   when mm.mmonth > 3 then 2
---		   else 1
---		end as Q
-
---	FROM  #territory terr 
---	inner join armaster (nolock) a on terr.territory = a.territory_code
---	cross join 
---	 ( 	select distinct @cy yyear, mmonth, datename(month, str(mmonth) + '/1/2015') mm_name
---		from cvo_territory_goal where yyear = @cy - 1
---	 ) mm
---	where a.salesperson_code <> 'smithma'   
-	
 
 end
-
-
-
 
 
 

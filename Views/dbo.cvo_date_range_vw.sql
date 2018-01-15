@@ -64,6 +64,12 @@ select
 	,convert(datetime,DATEADD(MONTH,DATEDIFF(MONTH,0,GETDATE()),-0)) as BeginDate
 	-- ,convert(datetime,datediff(dd,0,getdate())-1) as EndDate
 	,convert(datetime,DATEADD(MONTH,1,DATEADD(month,DATEDIFF(month,0,GETDATE()),0))-1) as EndDate
+UNION ALL
+select 
+	Convert(varchar(100),'This Month LY') as [Period]
+	,convert(datetime,DATEADD(MONTH,DATEDIFF(MONTH,0,DATEADD(YEAR,-1,GETDATE())),-0)) as BeginDate
+	-- ,convert(datetime,datediff(dd,0,getdate())-1) as EndDate
+	,convert(datetime,DATEADD(MONTH,1,DATEADD(month,DATEDIFF(month,0,DATEADD(YEAR,-1,GETDATE())),0))-1) as EndDate
 UNION all
 select 
 	Convert(varchar(100),'Month To Date') as [Period]
@@ -177,6 +183,7 @@ select
 --	Convert(varchar(100),'Next Year to Date') as [Period]
 --	,Convert(datetime,'1/1/' + cast(YEAR(GETDATE())+1 as varchar(4))) as BeginDate
 --	,Convert(datetime,cast(MONTH(GETDATE()) as varchar(2)) + '/' + cast(DAY(GETDATE()) as varchar(2)) + '/' + cast(YEAR(GETDATE())+1 as varchar(4)))  as EndDate
+
 
 
 

@@ -21,7 +21,7 @@ BEGIN
 -- 
 -- exec [cvo_cmi_sku_generate_sp] 'OP', '853', NULL, null, '12/31/2017','N', 1
 
--- exec [cvo_cmi_sku_generate_sp] 'IZOD', '2028', NULL, null, '02/21/2017','N', 1
+-- exec [cvo_cmi_sku_generate_sp] 'IZOD', '2057', NULL, null, '12/21/2018','N', 1
 
 -- updates:
 -- 6/8/2016 - fixup hang tag and upc parts for retail sku's.  
@@ -32,7 +32,7 @@ BEGIN
 -- 12/30/2016 - Fix up for Black colorname
 -- 4/17/17 - dd Case hack AND CVO XL FIT
 -- 12/2017 - add support for 180 hinges.  Don't add temples and fronts, and add all available temple lengths for the style.
-
+-- 1/18 - update for cycle counting 
 
 SET XACT_ABORT, NOCOUNT ON;
 
@@ -46,7 +46,8 @@ DECLARE
 	@pattern_vendor VARCHAR(10),
 	@sunlen_cost DECIMAL(9,2), -- 10/5/2016
 	@sunlen_price DECIMAL(9,2),
-	@tpr INT 
+	@tpr INT ,
+	@temple_tip_price DECIMAL(9,2)
 	
 -- SELECT  @coll = 'bt' , @model = 'alley cat', @colorname = null, @eye_size = null, @upd = 'n', @release_date = '04/26/2016'
 
@@ -58,7 +59,8 @@ SELECT @ovhd_pct = .0721, @util_cost = 0.21,
 	   @sunlen_cost = 3.50, @sunlen_price = 7.50, -- 10/5/2016
 	   @pattern_cost = 0.36, @pattern_vendor = 'MOTIF0', 
 	   @hangtag_cost = .12, 
-	   @upc_cost = .02
+	   @upc_cost = .02,
+	   @temple_tip_price = 1.0
 
 
 IF ( OBJECT_ID('tempdb.dbo.#cmi') IS NOT NULL ) DROP TABLE #cmi;
@@ -325,7 +327,7 @@ INSERT  INTO #parts_list
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
 				CROSS JOIN (SELECT distinct tt.temple_size, tt.eye_size base_eye_size FROM #cmi tt JOIN #short_model_name smn ON smn.collection = tt.collection AND smn.model = tt.model
-							WHERE tt.eye_size = CASE WHEN charindex('180',tt.hinge_type)>0 THEN tt.eye_size ELSE ISNULL(@eye_size, tt.eye_size) end) ttt
+							WHERE tt.eye_size = CASE WHEN charindex('180',tt.hinge_type)>0 THEN tt.eye_size ELSE ISNULL(@eye_size,tt.eye_size) end) ttt
 		WHERE   1 = 1
 				AND c.colorname = ISNULL(@colorname,c.colorname)
 				and (c.eye_size = ISNULL(@eye_size, c.eye_size) )
@@ -366,7 +368,7 @@ INSERT  INTO #parts_list
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
 				CROSS JOIN (SELECT distinct tt.temple_size, tt.eye_size base_eye_size FROM #cmi tt JOIN #short_model_name smn ON smn.collection = tt.collection AND smn.model = tt.model
-							WHERE tt.eye_size = CASE WHEN charindex('180',tt.hinge_type)>0 THEN tt.eye_size ELSE ISNULL(@eye_size, tt.eye_size) end) ttt
+							WHERE tt.eye_size = CASE WHEN charindex('180',tt.hinge_type)>0 THEN tt.eye_size ELSE ISNULL(@eye_size,tt.eye_size) end) ttt
 		WHERE   1 = 1
 				AND c.colorname = ISNULL(@colorname,c.colorname)
 				and (c.eye_size = ISNULL(@eye_size, c.eye_size) )
@@ -1018,7 +1020,7 @@ FROM    #parts_list pl
 				THEN c.eye_size
 				ELSE ISNULL(pl.eye_size, c.eye_size)
 				END
-            -- AND c.temple_size = ISNULL(pl.temple_size,c.temple_size)
+            AND c.temple_size = ISNULL(pl.temple_size,c.temple_size)
         INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                             AND smn.model = c.model
 WHERE   1 = 1
@@ -1723,6 +1725,7 @@ INSERT  #i
                                             OR c.temple_tip_material LIKE '%tr-90%'
 											OR c.temple_tip_material LIKE '%POLYMER%'
 											OR c.temple_tip_material LIKE '%ultem%'
+											OR C.temple_tip_material IS NULL
 											)
                                             THEN 'PLASTIC'
                                             WHEN (c.temple_tip_material LIKE '%metal%'
@@ -1983,7 +1986,9 @@ INSERT  #pp
         )
         SELECT DISTINCT
                 c.part_no ,
-                CASE WHEN c.part_no LIKE '%SUN%' AND c.part_type = 'demolen' THEN @sunlen_price ELSE 0 END AS wholesale_price ,
+                CASE WHEN c.part_no LIKE '%SUN%' AND c.part_type = 'demolen' THEN @sunlen_price 
+					 WHEN c.part_type = 'temple-tip' THEN @temple_tip_price
+					 ELSE 0 END AS wholesale_price ,
                 ROUND(CASE WHEN c.part_type = 'demolen' AND c.part_no LIKE '%SUN%' THEN @sunlen_cost
 						   WHEN c.part_type = 'demolen' THEN @demolen_cost
 						   WHEN c.part_type = 'pattern' THEN @pattern_cost
@@ -2117,7 +2122,7 @@ BEGIN
 
 		begin tran
 			--select @upc_code
-			INSERT INTO inv_master_add ( part_no, category_1, category_2, category_3, category_4, 
+			INSERT INTO dbo.inv_master_add ( part_no, category_1, category_2, category_3, category_4, 
 			category_5, field_1, field_2, field_3, field_4, field_5, field_6, field_7, field_8, 
 			field_9, field_10, field_11, field_12, field_13, long_descr, field_17, field_30, 
 			field_18, field_19, field_20, field_21, field_22, field_23, field_24, field_25, field_26, field_27, 
@@ -2130,8 +2135,18 @@ BEGIN
 			field_28, field_32, field_33, field_18_a, field_18_b, field_18_c, field_18_d, field_18_e 
 			
 			from #ia where part_no = @last_part
-			AND NOT EXISTS ( SELECT 1 FROM inv_master_add ia WHERE ia.part_no = @last_part)
+			AND NOT EXISTS ( SELECT 1 FROM dbo.inv_master_add ia WHERE ia.part_no = @last_part)
 		
+			-- 1/8/18 - part attributes support
+			INSERT INTO dbo.cvo_part_attributes
+			(
+			    part_no,
+			    attribute
+			)
+			SELECT DISTINCT part_no, field_32 FROM #ia WHERE part_no = @last_part
+			AND NOT EXISTS  ( SELECT 1 FROM dbo.cvo_part_attributes AS pa WHERE pa.part_no = #ia.part_no 
+										AND pa.attribute = #ia.field_32)
+										AND ISNULL(#ia.field_32,'') <> ''
 		
 			INSERT INTO inv_master ( part_no, upc_code, description, vendor, category, type_code, 
 			status, cubic_feet, weight_ea, labor, uom, account, comm_type, void, entered_who, 
@@ -2144,7 +2159,8 @@ BEGIN
 			part_no, @upc_code as upc_code, description, vendor, category, type_code, 
 			status, cubic_feet, weight_ea, labor, uom, account, comm_type, void, entered_who, 
 			entered_date, std_cost, utility_cost, qc_flag, lb_tracking, rpt_uom, freight_unit, 
-			taxable, conv_factor, cycle_type, inv_cost_method, buyer, allow_fractions, cfg_flag, 
+			taxable, conv_factor, CASE WHEN type_code IN ('FRAME','SUN','POP') THEN 'MONTHLY' ELSE 'NEVER' END cycle_type, 
+			inv_cost_method, buyer, allow_fractions, cfg_flag, 
 			tax_code, obsolete, serial_flag, web_saleable_flag, tolerance_cd, reg_prod, 
 			'Y' as pur_prod_flag, country_code, cmdty_code, min_profit_perc, height, width, length, 
 			eprocurement_flag, non_sellable_flag, so_qty_increment 
@@ -2200,7 +2216,9 @@ BEGIN
 			0.00000000, 'sa', getdate(), 'N', @std_cost, 
 			0.00000000, 0.00000000, 0.00000000, 0.00000000, @account, 
 			0.00000000, @std_ovhd_dolrs, @std_util_dolrs, 0.00000000, 0.00000000, 
-			0.00000000, getdate(), 'P', 0.00000000, 0, 0.00000000, 'N', 'EA', 'EA' 
+			0.00000000, getdate(), 'P', 0.00000000, 0, 0.00000000, 
+			CASE WHEN i.type_code in ('frame','sun','pop') then 'A' else 'N' end, 'EA', 'EA' 
+			FROM INV_MASTER I (NOLOCK) where I.PART_no = @last_part
 
 			if @type_code in ('frame','sun','case','pop','pattern')
 			begin
@@ -2400,6 +2418,8 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
+
 
 
 

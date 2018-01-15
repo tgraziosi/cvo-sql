@@ -163,6 +163,8 @@ BEGIN
 
 END			      
 GO
+DISABLE TRIGGER [dbo].[CVO_AC_inv_list_cyclecount_update] ON [dbo].[inv_list]
+GO
 SET QUOTED_IDENTIFIER OFF
 GO
 SET ANSI_NULLS OFF

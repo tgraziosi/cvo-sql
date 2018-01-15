@@ -99,6 +99,8 @@ BEGIN
 				SELECT @COMMISSION = 15
 			IF @brand = 'LS' AND @commission > 9 -- 9/28/2016 - per LM
 				SELECT @commission = 9
+			IF @BRAND = 'ACC' AND @COMMISSION > 10 -- 1/2018 - FOR POGO CAMERA AND ACCESSORIES
+				SELECT @COMMISSION = 10
 		END
 		RETURN @commission
 		END
@@ -130,6 +132,8 @@ BEGIN
 				SELECT @COMMISSION = 15
 			IF @brand = 'LS' AND @commission > 9 -- 9/28/2016 - per LM
 				SELECT @commission = 9
+			IF @BRAND = 'ACC' AND @COMMISSION > 10 -- 1/2018 - FOR POGO CAMERA AND ACCESSORIES
+				SELECT @COMMISSION = 10
 		END
 		RETURN @commission
 		END
@@ -158,6 +162,8 @@ BEGIN
 				SELECT @COMMISSION = 15
 			IF @brand = 'LS' AND @commission > 9 -- 9/28/2016 - per LM
 				SELECT @commission = 9
+			IF @BRAND = 'ACC' AND @COMMISSION > 10 -- 1/2018 - FOR POGO CAMERA AND ACCESSORIES
+				SELECT @COMMISSION = 10
 		END
 		RETURN @commission
 		END
@@ -166,5 +172,6 @@ BEGIN
 	-- No commission found - return 0
 	RETURN 0
 END
+
 
 GO

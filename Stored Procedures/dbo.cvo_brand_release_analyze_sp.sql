@@ -7,6 +7,7 @@ CREATE PROCEDURE [dbo].[cvo_brand_release_analyze_sp]
 	 @rel_start DATETIME, @rel_end DATETIME, @wk1 INT = null, @wk2 INT = null)
 
 AS 
+begin
 
 -- exec cvo_brand_release_analyze_sp 'as,pt', '1/1/2015', '12/7/2016'
 
@@ -46,41 +47,43 @@ cte AS
 (SELECT i.category brand, IA.FIELD_2 MODEL, MIN(ia.field_26) rel_date,
 MAX(ISNULL(ia.field_28, '12/31/2999')) pom_date,
 i.type_code,
-MIN(yyyymmdd) first_brand_sale,
+MIN(sbm.yyyymmdd) first_brand_sale,
 ar.customer_code + CASE WHEN car.door = 1 THEN '-'+ar.ship_to_code ELSE '' END AS customer,
-CASE WHEN DATEDIFF(WEEK,ia.field_26,yyyymmdd) <= @wk1 THEN ar.customer_code + CASE WHEN car.door = 1 THEN '-'+ar.ship_to_code ELSE '' END ELSE '' END AS customerwk1,
-CASE WHEN DATEDIFF(WEEK,ia.field_26,yyyymmdd) <= @wk2 THEN ar.customer_code + CASE WHEN car.door = 1 THEN '-'+ar.ship_to_code ELSE '' END ELSE '' END AS customerwk2,
-SUM(qnet) net_qty, 
-SUM(CASE WHEN sbm.user_category NOT LIKE 'rx%' THEN qsales ELSE 0 END) st_qty, 
-SUM(CASE WHEN sbm.user_category LIKE 'rx%' THEN qsales ELSE 0 END) rx_qty,
+CASE WHEN DATEDIFF(WEEK,ia.field_26,sbm.yyyymmdd) <= @wk1 THEN ar.customer_code + CASE WHEN car.door = 1 THEN '-'+ar.ship_to_code ELSE '' END ELSE '' END AS customerwk1,
+CASE WHEN DATEDIFF(WEEK,ia.field_26,sbm.yyyymmdd) <= @wk2 THEN ar.customer_code + CASE WHEN car.door = 1 THEN '-'+ar.ship_to_code ELSE '' END ELSE '' END AS customerwk2,
+SUM(sbm.qnet) net_qty, 
+SUM(CASE WHEN sbm.user_category NOT LIKE 'rx%' THEN sbm.qsales ELSE 0 END) st_qty, 
+SUM(CASE WHEN sbm.user_category LIKE 'rx%' THEN sbm.qsales ELSE 0 END) rx_qty,
 SUM(CASE WHEN sbm.return_code <> 'exc' THEN sbm.qreturns ELSE 0 END) return_qty,
-SUM(qsales) sales_qty,
-SUM(CASE WHEN sbm.promo_id <> '' AND DATEDIFF(MONTH,ia.field_26,sbm.yyyymmdd) <=3 THEN qsales ELSE 0 end) qty_on_promo_m1_3
+SUM(sum.qsales) sales_qty,
+SUM(CASE WHEN sbm.promo_id <> '' AND DATEDIFF(MONTH,ia.field_26,sbm.yyyymmdd) <=3 THEN sbm.qsales ELSE 0 end) qty_on_promo_m1_3
 
 FROM #coll c
-JOIN inv_master i ON i.category = c.coll
-JOIN inv_master_add ia ON ia.part_no = i.part_no
+JOIN dbo.inv_master i ON i.category = c.coll
+JOIN dbo.inv_master_add ia ON ia.part_no = i.part_no
 JOIN #gender g ON g.gender = ia.category_2
-JOIN cvo_sbm_details sbm ON sbm.part_no = ia.part_no
+JOIN dbo.cvo_sbm_details sbm ON sbm.part_no = ia.part_no
 JOIN dbo.CVO_armaster_all AS car ON car.ship_to = sbm.ship_to AND car.customer_code = sbm.customer
-JOIN ARMASTER AR ON AR.customer_code = car.customer_code AND AR.ship_to_code = car.ship_to
+JOIN dbo.ARMASTER AR ON AR.customer_code = car.customer_code AND AR.ship_to_code = car.ship_to
 WHERE 
 ia.field_26 BETWEEN @rel_start AND @rel_end
 AND sbm.yyyymmdd >= @rel_start
 -- AND i.category = CASE WHEN @coll IS NULL THEN i.category ELSE @coll end
 AND i.type_code IN ('frame','sun')
-AND ISNULL(ia.field_32,'') NOT IN ('hvc','retail','specialord')
+-- AND ISNULL(ia.field_32,'') NOT IN ('hvc','retail','specialord')
+-- 1/8/18 - allow multiple attributes
+AND NOT exists (SELECT 1 FROM dbo.cvo_part_attributes AS pa WHERE pa.part_no = i.part_no AND attribute IN ('hvc','retail','specialord') )
 GROUP BY ar.customer_code + CASE WHEN car.door = 1 THEN '-' + ar.ship_to_code
          ELSE ''
          END ,
-         CASE WHEN DATEDIFF(WEEK, ia.field_26, yyyymmdd) <= @wk1
+         CASE WHEN DATEDIFF(WEEK, ia.field_26, sbm.yyyymmdd) <= @wk1
          THEN ar.customer_code + CASE WHEN car.door = 1
          THEN '-' + ar.ship_to_code
          ELSE ''
          END
          ELSE ''
          END ,
-         CASE WHEN DATEDIFF(WEEK, ia.field_26, yyyymmdd) <= @wk2
+         CASE WHEN DATEDIFF(WEEK, ia.field_26, sbm.yyyymmdd) <= @wk2
          THEN ar.customer_code + CASE WHEN car.door = 1
          THEN '-' + ar.ship_to_code
          ELSE ''
@@ -100,11 +103,11 @@ rel AS
 			   MAX(ISNULL(ccv.PrimaryDemographic,ISNULL(ia.category_2,''))) PrimaryDemographic, 
 			   MAX(ISNULL(ccv.frame_category, ISNULL(ia.field_11,''))) Frame_type
 	     FROM #coll c
-	    JOIN inv_master i ON i.category = c.coll
-		JOIN inv_master_add ia ON ia.part_no = i.part_no
+	    JOIN dbo.inv_master i ON i.category = c.coll
+		JOIN dbo.inv_master_add ia ON ia.part_no = i.part_no
 		JOIN #gender g ON g.gender = ia.category_2
 		LEFT OUTER JOIN dbo.cvo_cmi_catalog_view AS ccv ON ccv.upc_code = i.upc_code
-		WHERE ISNULL(void,'N') =  'N'
+		WHERE ISNULL(i.void,'N') =  'N'
 		and ia.field_26 BETWEEN @rel_start AND @rel_end
 		-- AND i.category = CASE WHEN @coll IS NULL THEN i.category ELSE @coll end
 		AND i.type_code IN ('frame','sun')
@@ -163,7 +166,7 @@ SELECT CONVERT(DATETIME,MIN(cte.rel_date),110) rel_date,
                 rel.Material ,
                 rel.PrimaryDemographic ,
                 rel.Frame_type
-
+END;
 
 
 

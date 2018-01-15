@@ -61,7 +61,8 @@ where 1=1
 
 AND (o.date_shipped BETWEEN @sd AND 
 dateadd(ms, -3, dateadd(dd, datediff(dd,0,@ed)+1, 0)))
-AND ((o.who_entered <> 'backordr' and o.ext = 0) or o.who_entered = 'outofstock') 
+-- AND ((o.who_entered <> 'backordr' and o.ext = 0) or o.who_entered = 'outofstock') 
+AND o.who_entered <> 'backordr'
 and o.order_type like 'ST%'
 and right(o.order_type,2) not in ('RB','TB')
 

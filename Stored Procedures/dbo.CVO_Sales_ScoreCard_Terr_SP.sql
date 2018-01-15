@@ -221,8 +221,8 @@ JOIN cvo_promotions p ON p.promo_id = o.promo_id AND p.promo_level = o.promo_lev
 where 1=1
 and isnull(o.promo_id,'') <> '' -- 10/31/2013
 AND o.date_entered between @Datefrom and @dateto
-AND ((o.who_entered <> 'backordr' and o.ext = 0) or o.who_entered = 'outofstock') 
--- AND o.who_entered <> 'backordr' 
+-- AND ((o.who_entered <> 'backordr' and o.ext = 0) or o.who_entered = 'outofstock') 
+AND o.who_entered <> 'backordr' 
 and o.status <> 'V' 
 and not exists (select 1 from cvo_promo_override_audit poa 
 					where poa.order_no = o.order_no 

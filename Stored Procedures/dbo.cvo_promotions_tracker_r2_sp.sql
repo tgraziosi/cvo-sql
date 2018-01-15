@@ -54,7 +54,8 @@ and (o.promo_id in (@PromoLevel))
 AND (o.date_entered BETWEEN @StartDate AND 
 dateadd(ms, -3, dateadd(dd, datediff(dd,0,@EndDate)+1, 0)))
 -- AND (o.Territory IN (@Territory)) 
-AND ((o.who_entered <> 'backordr' and o.ext = 0) or o.who_entered = 'outofstock') 
+-- AND ((o.who_entered <> 'backordr' and o.ext = 0) or o.who_entered = 'outofstock') 
+AND o.who_entered <> 'backordr'
 -- AND              (o.order_type <> 'st-rb') 
 and o.status <> 'V' -- 110714 - exclude void orders
 

@@ -125,6 +125,7 @@ AS
             END order_ctrl_num ,
             brand = CASE WHEN i.category IN ( 'REVO', 'BT', 'LS' )
                          THEN i.category
+						 WHEN I.type_code IN ('ACC') THEN i.type_code
                          ELSE 'CORE'
                     END ,
             SUM(a.extended_price) ext_net_sales ,
@@ -144,6 +145,7 @@ AS
                  ELSE x.trx_ctrl_num
             END ,
             CASE WHEN i.category IN ( 'REVO', 'BT', 'LS' ) THEN i.category
+				 WHEN i.type_code IN ('ACC') THEN i.type_code
                  ELSE 'CORE'
             END;
         
@@ -156,7 +158,8 @@ AS
                     END ,
                     brand = CASE WHEN i.category IN ( 'REVO', 'BT', 'LS' )
                                  THEN i.category
-                                 ELSE 'CORE'
+								 WHEN i.type_code IN ('ACC') THEN i.type_code
+								 ELSE 'CORE'
                             END ,
                     SUM(a.extended_price) ext_net_sales ,
                     SUM(CASE WHEN ISNULL(b.field_34, '') <> 1
@@ -176,6 +179,7 @@ AS
                     END ,
                     CASE WHEN i.category IN ( 'REVO', 'BT', 'LS' )
                          THEN i.category
+						 WHEN i.type_code IN ('ACC') THEN i.type_code
                          ELSE 'CORE'
                     END;
 
@@ -191,6 +195,7 @@ AS
                     END ,
                     brand = CASE WHEN ipa.category IN ( 'REVO', 'BT', 'LS' )
                                  THEN ipa.category
+								 WHEN IPA.type_code IN ('ACC') THEN ipa.type_code
                                  ELSE 'CORE'
                             END ,
                     ROUND(SUM(ipa.ExtPrice),2) ext_net_sales ,
@@ -208,6 +213,7 @@ AS
                     END ,
                     CASE WHEN ipa.category IN ( 'REVO', 'BT', 'LS' )
                          THEN ipa.category
+						 WHEN IPA.type_code IN ('ACC') THEN ipa.type_code
                          ELSE 'CORE'
                     END;
 
@@ -854,6 +860,7 @@ GROUP BY o.salesperson ,
                  ol.order_ext
 			) o ON r.order_no = o.order_no and r.ext = o.order_ext
 			;
+
 
 
 GO

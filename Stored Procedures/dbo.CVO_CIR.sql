@@ -62,6 +62,8 @@ Begin
     v5.3 - check for territory match when rolling up non-door accounts and change the way the address is 
            maintained so that the correct address displays with non-door ship-to's
 	v5.4 - 12/7/2017 - add an indicator for Suns into part_no2
+	v5.5 - 12/28/2017 - remove CH and ME
+
 **/
 
 /** Run Times: 10/4/2012 - 16:04 **/
@@ -197,7 +199,8 @@ IF @pom_asof IS NULL
     INTO    #p
     FROM    dbo.inv_master c ( NOLOCK )
             INNER JOIN dbo.inv_master_add b ( NOLOCK ) ON c.part_no = b.part_no
-    WHERE   c.type_code IN ( 'frame', 'sun' );
+    WHERE   c.type_code IN ( 'frame', 'sun' )
+	AND		c.category NOT IN ('ch','me');
 
 --select * from #p where style = 'tilden park'
 
@@ -339,7 +342,7 @@ IF @pom_asof IS NULL
 
 --left outer join armaster b (nolock) on b.customer_code = t2.cust_code and b.ship_to_code = t2.ship_to
     WHERE   t5.date_applied BETWEEN @jf36 AND @jlast
-            AND t4.type_code IN ( 'FRAME', 'SUN' )
+            AND t4.type_code IN ( 'FRAME', 'SUN' ) AND t4.category NOT IN ('ch','me')
             AND t2.status = 'T'; 
 --and (t1.shipped > 0 or t1.cr_shipped>0)
 --and t4.obsolete = 0		-- active items only                  
@@ -397,7 +400,7 @@ IF @pom_asof IS NULL
                     AND t5.doc_desc NOT LIKE '%NONSALES%'
                     AND t5.doc_ctrl_num NOT LIKE 'CB%'
                     AND t5.doc_ctrl_num NOT LIKE 'FIN%'
-                    AND t4.type_code IN ( 'FRAME', 'SUN' )
+                    AND t4.type_code IN ( 'FRAME', 'SUN' ) AND t4.category NOT IN ('ch','me')
                     AND t2.status = 'T'
                     AND ( t1.shipped > 0
                           OR t1.cr_shipped > 0
@@ -437,7 +440,7 @@ IF @pom_asof IS NULL
                     LEFT OUTER JOIN armaster ar ( NOLOCK ) ON t2.cust_code = ar.customer_code
                                                               AND t2.ship_to = ar.ship_to_code
             WHERE   t2.date_shipped BETWEEN @F36 AND @last
-                    AND t4.type_code IN ( 'FRAME', 'SUN' )
+                    AND t4.type_code IN ( 'FRAME', 'SUN' ) AND t4.category NOT IN ('ch','me')
                     AND t2.status = 'T';
 --and t4.obsolete = 0		-- active items only
 
@@ -964,6 +967,7 @@ IF @pom_asof IS NULL
 	END;
 
 -- 
+
 
 
 

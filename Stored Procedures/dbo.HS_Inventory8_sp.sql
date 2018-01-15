@@ -152,7 +152,7 @@ BEGIN
                       END
                   ) AS mastersku,
            CASE
-               WHEN I.category = 'revo'
+               WHEN I.category in ( 'revo', 'op')
                     AND I.type_code IN ( 'other', 'pop' ) THEN
                    CONVERT(VARCHAR(150), I.description)
                ELSE
@@ -179,7 +179,7 @@ BEGIN
            END AS manufacturer,
            upc_code AS barcode,
            CASE
-               WHEN I.category = 'revo'
+               WHEN I.category in ( 'revo','op')
                     AND I.type_code IN ( 'other', 'pop' ) THEN
                    CONVERT(VARCHAR(150), I.description)
                ELSE
@@ -491,7 +491,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
               OR
               (
                   'hspop' = ISNULL(field_36, '')
-                  AND I.type_code = 'POP'
+                  AND (I.type_code = 'POP' OR i.part_no IN ('pogodemoc','pogolkit') ) -- 12/28/2017
               ) -- include POP regardless of release date as long has HSPOP tag is set - 11/29/2016
               OR I.category = 'LS' -- 9/27/2016
               OR (ISNULL(field_36, '') IN ( 'sunps', 'Presell' )) -- 11/8/2017 for new presell seaason
@@ -1366,4 +1366,6 @@ END;
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
 
 -- SELECT * FROM #data1 WHERE mastersku = 'bcesm'
+
+
 GO

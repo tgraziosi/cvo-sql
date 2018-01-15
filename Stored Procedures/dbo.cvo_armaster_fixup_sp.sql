@@ -5,28 +5,30 @@ GO
 
 CREATE PROCEDURE [dbo].[cvo_armaster_fixup_sp]
 AS
+BEGIN
+
     SET NOCOUNT ON;
 
 -- exec cvo_armaster_fixup_sp
 
 -- UPDATE DOORS ON NEW ENTERED BILL TO CUSTOMERS
     UPDATE  t2
-    SET     door = 1
+    SET     t2.door = 1
     FROM    armaster_all t1 ( NOLOCK )
             JOIN CVO_armaster_all t2 ( ROWLOCK ) ON t1.customer_code = t2.customer_code
                                                     AND t1.ship_to_code = t2.ship_to
-    WHERE   door IS NULL
-            AND ( ship_to = ''
+    WHERE   t2.door IS NULL
+            AND ( t2.ship_to = ''
                   OR t1.address_type = 0
                 );
 
     UPDATE  t2
-    SET     door = 0
+    SET     t2.door = 0
     FROM    armaster_all t1 ( NOLOCK )
             JOIN CVO_armaster_all t2 ( ROWLOCK ) ON t1.customer_code = t2.customer_code
                                                     AND t1.ship_to_code = t2.ship_to
-    WHERE   door IS NULL
-            AND ( ship_to <> ''
+    WHERE   t2.door IS NULL
+            AND ( t2.ship_to <> ''
                   OR t1.address_type = 1
                 );
 
@@ -244,6 +246,13 @@ FROM    dbo.cvo_cust_designation_codes AS cdc (ROWLOCK)
 WHERE   cdc.primary_flag = 1
         AND ISNULL(cdc.end_date, GETDATE()) < GETDATE();
 
+-- 1/15/2018 - DON'T ALLOW A SHIP-TO-CODE ON A BILL-TO CUSTOMER
+
+UPDATE ar SET ship_to_code = '' 
+-- SELECT * 
+FROM dbo.armaster_all ar (ROWLOCK) WHERE ar.address_type = 0 AND ar.ship_to_code <> '';
+
+END
 
 
 GO

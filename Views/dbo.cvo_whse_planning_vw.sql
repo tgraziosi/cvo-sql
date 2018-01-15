@@ -34,6 +34,8 @@ AS
 			bm.usage_type_code ,
             bm.group_code ,
             il.location ,
+			il.abc_code,
+			i.cycle_type,
 			i.upc_code,
 			aisle = LEFT(b.bin_no,3),
 			section = SUBSTRING(b.bin_no,4,1),
@@ -109,6 +111,8 @@ AS
 			bm.usage_type_code ,
             bm.group_code ,
             bm.location ,
+			il.abc_code,
+			i.cycle_type,
 			i.upc_code,	
 			aisle = LEFT(bm.bin_no,3),
 			section = SUBSTRING(bm.bin_no,4,1),
@@ -183,6 +187,8 @@ AS
 			bm.usage_type_code ,
             bm.group_code ,
             bm.location ,
+			'' abc_code,
+			'' cycle_type,
 			'' upc_code,
 			aisle = LEFT(bm.bin_no,3),
 			section = SUBSTRING(bm.bin_no,4,1),
@@ -209,6 +215,7 @@ AS
 			
 			;
     
+
 
 
 

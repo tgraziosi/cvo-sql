@@ -33,6 +33,8 @@ GO
 -- v1.28	CB	07/12/2047 - Fix - Only include FRAME/SUN
 -- v1.29	CB	15/12/2017 - If failing on attribute with brand or category then change error message
 -- v1.30	CB	20/12/2017 - Not picking up OTHER category
+-- v1.31	CB	28/12/2017 - Remove v1.28
+-- v1.32	CB	29/12/2017 - Fix issue with attributes
 
 CREATE PROCEDURE [dbo].[CVO_verify_order_quali_sp]	@order_no INT = 0, 
 													@ext INT = 0,  
@@ -216,7 +218,7 @@ where a.order_no = @order_no and a.order_ext = @ext
 			INNER JOIN inv_master i (NOLOCK) ON l.part_no = i.part_no
 			INNER JOIN inv_master_add ia (NOLOCK) ON l.part_no = ia.part_no
 		WHERE l.order_no = @order_no AND l.order_ext = @ext --AND l.is_pop_gif = 0
-		AND		i.type_code IN ('FRAME','SUN','OTHER') -- v1.28 v1.30
+		-- v1.31 AND		i.type_code IN ('FRAME','SUN','OTHER') -- v1.28 v1.30
 		-- END v1.1
 
 		-- v1.27 Start
@@ -316,9 +318,10 @@ where a.order_no = @order_no and a.order_ext = @ext
 							AND		b.attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
 													WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O')
 
+
 							IF (@gender_found <> 0)
 							BEGIN
-								IF (@attribute_count <> @gender_found)
+								IF (@attribute_count = 0) -- v1.32 <> @gender_found)
 								BEGIN
 									SET @gender_found = 0
 									SET	@attribute_failed = 1 -- v1.29
@@ -555,7 +558,7 @@ where a.order_no = @order_no and a.order_ext = @ext
 
 							IF (@gender_found <> 0)
 							BEGIN
-								IF (@attribute_count <> @gender_found)
+								IF (@attribute_count = 0) -- v1.32 <> @gender_found)
 								BEGIN
 									SET @gender_found = 0
 									SET @attribute_failed = 1 -- v1.29 
@@ -789,7 +792,7 @@ where a.order_no = @order_no and a.order_ext = @ext
 
 							IF (@gender_found <> 0)
 							BEGIN
-								IF (@attribute_count <> @gender_found)
+								IF (@attribute_count = 0) -- v1.32 <> @gender_found)
 								BEGIN
 									SET @gender_found = 0
 									SET @attribute_failed = 1 -- v1.29 
@@ -1080,13 +1083,6 @@ where a.order_no = @order_no and a.order_ext = @ext
 					IF (ISNULL(@attribute,0) <> 0)
 					BEGIN
 
-							SELECT	*
-							FROM	#ord_list a
-							JOIN	#part_attributes b
-							ON		a.part_no = b.part_no
-							WHERE	b.attribute IN (SELECT attribute FROM dbo.cvo_promotions_attribute (NOLOCK) 
-													WHERE promo_id = @promo_id AND promo_level = @promo_level and line_no = @line_no AND line_type = 'O')
-
 							SELECT	@attribute_count = COUNT(1)
 							FROM	#ord_list a
 							JOIN	#part_attributes b
@@ -1096,7 +1092,7 @@ where a.order_no = @order_no and a.order_ext = @ext
 
 							IF (@gender_found <> 0)
 							BEGIN
-								IF (@attribute_count <> @gender_found)
+								IF (@attribute_count = 0) -- v1.32 <> @gender_found)
 								BEGIN
 									SET @gender_found = 0
 									SET @attribute_failed = 1 -- v1.29 
@@ -1213,7 +1209,7 @@ where a.order_no = @order_no and a.order_ext = @ext
 
 							IF (@gender_found <> 0)
 							BEGIN
-								IF (@attribute_count <> @gender_found)
+								IF (@attribute_count = 0) -- v1.32 <> @gender_found)
 								BEGIN
 									SET @gender_found = 0
 									SET @attribute_failed = 1 -- v1.29 
@@ -1449,7 +1445,7 @@ where a.order_no = @order_no and a.order_ext = @ext
 
 							IF (@gender_found <> 0)
 							BEGIN
-								IF (@attribute_count <> @gender_found)
+								IF (@attribute_count = 0) -- v1.32 <> @gender_found)
 								BEGIN
 									SET @gender_found = 0
 									SET @attribute_failed = 1 -- v1.29 

@@ -41,7 +41,14 @@ SELECT
 	isnull(ia.category_4,'') as target_age, -- 032714
 	isnull(i.cmdty_code,'') as material,
     isnull(cn.description,'') as CntryOfOrgin,  -- 041514 EL	
-	ISNULL(ia.field_32,'') attribute -- 9/21/15 per TB request
+	-- ISNULL(ia.field_32,'') attribute -- 9/21/15 per TB request
+	ISNULL(pa.attribute,'') attribute -- 1/5/18 - multiple attributes
+	, x.a_size
+	, x.b_size
+	, x.ed_size
+	, x.hinge_type
+	, x.frame_category
+
 FROM
 	inv_master i
 	LEFT OUTER JOIN inv_master_add ia ON i.part_no = ia.part_no
@@ -49,9 +56,26 @@ FROM
 	LEFT OUTER JOIN part_price p ON i.part_no = p.part_no AND P.CURR_KEY = 'USD'
 	LEFT OUTER JOIN vendor_sku v ON i.part_no = v.sku_no AND i.vendor = v.vendor_no AND V.CURR_KEY = 'USD' AND v.last_recv_date > GETDATE()
 	LEFT OUTER JOIN inv_list l ON i.part_no = l.part_no AND l.location = '001'
-    LEFT OUTER JOIN gl_country CN (nolock) on I.country_code=CN.country_code	
+    LEFT OUTER JOIN gl_country CN (nolock) on I.country_code=CN.country_code
+	-- 12/4/2015 get a,b,ed from cmi if available
+LEFT OUTER JOIN 
+(SELECT part_no, a_size, b_size, ed_size, d.dim_unit, m.eye_shape, m.hinge_type, m.frame_category
+ FROM dbo.cvo_cmi_sku_xref xref
+ JOIN dbo.cvo_cmi_dimensions d ON xref.dim_id = d.id
+  JOIN dbo.cvo_cmi_models m ON m.id = d.model_id
+ ) AS x  ON x.part_no = i.part_no	
+                LEFT OUTER JOIN ( SELECT    c.part_no ,
+                                            STUFF(( SELECT  '; ' + attribute
+                                                    FROM    dbo.cvo_part_attributes pa2 (NOLOCK)
+                                                    WHERE   pa2.part_no = c.part_no
+                                                  FOR
+                                                    XML PATH('')
+                                                  ), 1, 1, '') attribute
+                                  FROM      dbo.cvo_part_attributes  c
+                                ) AS pa ON pa.part_no = i.part_no
 
 
+	 --WHERE ia.field_2 = 't 5607'
 
 
 

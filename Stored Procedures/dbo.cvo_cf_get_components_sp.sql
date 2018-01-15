@@ -208,7 +208,7 @@ BEGIN
 				AND		a.void = 'N'
 				-- v2.1 AND		b.field_32 = @attribute
 				AND		c.attribute IN (SELECT attribute FROM #attributes) -- v2.1
-
+		
 				-- v1.7 Start
 				INSERT	#cvo_cf_process_select (user_spid, location, order_part_type, order_part_no, line_no, orig_row, component_type, orig_component, repl_component, comp_desc, 
 							required_qty, available_qty, attribute, category, style, show_all_styles, all_type, colour, size_code, selected)
@@ -248,6 +248,30 @@ BEGIN
 				AND		a.part_no <> @orig_component
 				AND		a.void = 'N'
 			END
+
+			-- v2.2 Start
+			IF (@attribute <> '')
+			BEGIN
+				INSERT	#cvo_cf_process_select (user_spid, location, order_part_type, order_part_no, line_no, orig_row, component_type, orig_component, repl_component, comp_desc, 
+							required_qty, available_qty, attribute, category, style, show_all_styles, all_type, colour, size_code, selected)
+				SELECT	@user_spid, @location, @order_part_type, @order_part_no, @line_no, @orig_row, @component_type, @orig_component,
+						b.part_no, a.description, @required_qty, 0, ISNULL(b.field_32,''), @category, @style, 0, 0, ISNULL(b.field_3,''), ISNULL(b.field_8,''), 0
+				FROM	inv_master a (NOLOCK)
+				JOIN	inv_master_add b (NOLOCK)
+				ON		a.part_no = b.part_no
+				LEFT JOIN #cvo_cf_process_select e
+				ON		a.part_no = e.repl_component
+				WHERE	a.category = @category
+				AND		b.category_3 = @component_type
+				AND		UPPER(b.field_2) = @style
+				AND		a.part_no <> @orig_component
+				AND		a.void = 'N'
+				AND		e.repl_component IS NULL
+				AND		ISNULL(b.field_32,'') = ''
+				AND		EXISTS (SELECT 1 FROM cvo_alternate_attributes WHERE attribute_key = @attribute AND UPPER(attributes) = 'NONE')
+			END
+			-- v2.2 End
+
 			-- #2 For all style Option 
 			-- Check if attribute restriction at part level
 			SET @alternate_done = 0
@@ -667,6 +691,59 @@ BEGIN
 				AND		c.repl_component IS NULL
 			END
 
+			-- v2.2 Start
+			IF (@attribute <> '')
+			BEGIN
+				-- #1 Insert standard replacement components
+				INSERT	#cvo_cf_process_select (user_spid, location, order_part_type, order_part_no, line_no, orig_row, component_type, orig_component, repl_component, comp_desc,
+							required_qty, available_qty, attribute, category, style, show_all_styles, all_type, colour, size_code, selected)
+				SELECT	@user_spid, @location, @order_part_type, @order_part_no, @line_no, @orig_row, b.category_3, '',
+						b.part_no, a.description, e.qty, 0, ISNULL(b.field_32,''), @category, @style, 0, 0, ISNULL(b.field_3,''), ISNULL(b.field_8,''), 0
+				FROM	inv_master a (NOLOCK)
+				JOIN	inv_master_add b (NOLOCK)
+				ON		a.part_no = b.part_no
+				JOIN	category_3 d (NOLOCK)
+				ON		b.category_3 = d.category_code
+				JOIN	cvo_cf_required_parts e (NOLOCK)
+				ON		b.category_3 = e.part_type
+				LEFT JOIN #cvo_cf_process_select f
+				ON		a.part_no = f.repl_component
+				WHERE	a.category = @category
+				-- v1.2 AND		b.field_2 = @style
+				AND		((UPPER(b.field_2) = @style AND d.style_ind = 'N') OR d.style_ind = 'Y') -- v1.2
+				AND		a.void = 'N'
+				AND		d.cf_process = 'Y'
+				AND		d.void = 'N'
+				AND		e.part_no = @order_part_no
+				AND		f.repl_component IS NULL
+				AND		ISNULL(b.field_32,'') = ''
+				AND		EXISTS (SELECT 1 FROM cvo_alternate_attributes WHERE attribute_key = @attribute AND UPPER(attributes) = 'NONE')
+						
+				-- #1.5 Insert standard replacement components - Optional
+				INSERT	#cvo_cf_process_select (user_spid, location, order_part_type, order_part_no, line_no, orig_row, component_type, orig_component, repl_component, comp_desc,
+							required_qty, available_qty, attribute, category, style, show_all_styles, all_type, colour, size_code, selected)
+				SELECT	@user_spid, @location, @order_part_type, @order_part_no, @line_no, @orig_row, b.category_3, '',
+						b.part_no, a.description, 0, 0, ISNULL(b.field_32,''), @category, @style, 0, 0, ISNULL(b.field_3,''), ISNULL(b.field_8,''), 0
+				FROM	inv_master a (NOLOCK)
+				JOIN	inv_master_add b (NOLOCK)
+				ON		a.part_no = b.part_no
+				JOIN	category_3 d (NOLOCK)
+				ON		b.category_3 = d.category_code
+				LEFT JOIN #cvo_cf_process_select c
+				ON		b.part_no = c.repl_component
+				WHERE	a.category = @category
+				-- v1.2 AND		b.field_2 = @style
+				AND		((UPPER(b.field_2) = @style AND d.style_ind = 'N') OR d.style_ind = 'Y') -- v1.2
+				AND		a.void = 'N'
+				AND		d.cf_process = 'Y'
+				AND		d.void = 'N'
+				AND		c.repl_component IS NULL
+				AND		ISNULL(b.field_32,'') = ''
+				AND		EXISTS (SELECT 1 FROM cvo_alternate_attributes WHERE attribute_key = @attribute AND UPPER(attributes) = 'NONE')
+			END
+			-- v2.2 End
+
+
 			-- #2 For all style Option 
 			-- Check if attribute restriction at part level
 			SET @alternate_done = 0
@@ -775,7 +852,7 @@ BEGIN
 					INSERT	#cvo_cf_process_select (user_spid, location, order_part_type, order_part_no, line_no, orig_row, component_type, orig_component, repl_component, comp_desc, 
 								required_qty, available_qty, attribute, category, style, show_all_styles, all_type, colour, size_code, selected)
 					SELECT	@user_spid, @location, @order_part_type, @order_part_no, @line_no, @orig_row, b.category_3, '',
-							b.part_no, a.description, e.qty, 0, ISNULL(b.field_32,''), a.category, b.field_2, 1, 2, ISNULL(b.field_3,''), ISNULL(b.field_8,''), 0 -- v1.5
+							b.part_no, a.description, 0, 0, ISNULL(b.field_32,''), a.category, b.field_2, 1, 2, ISNULL(b.field_3,''), ISNULL(b.field_8,''), 0 -- v1.5
 					FROM	inv_master a (NOLOCK)
 					JOIN	inv_master_add b (NOLOCK)
 					ON		a.part_no = b.part_no

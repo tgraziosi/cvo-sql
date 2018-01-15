@@ -31,11 +31,11 @@ CREATE procedure [dbo].[cvo_inv_fcst_r3_sp]
 /*
  exec cvo_inv_fcst_r3_sp
 
- @asofdate = '09/01/2017', 
- @endrel = '09/01/2017', 
+ @asofdate = '01/01/2018', 
+ @endrel = '01/01/2018', 
  @current = 0, 
- @collection = 'REVO', 
- @style = 'RELAY', 
+ @collection = 'as', 
+ @style = 'grand', 
  @specfit = null,
  @usg_option = 'o',
  @debug = 1, -- debug
@@ -386,7 +386,9 @@ where
 1=1
 and ia.field_26 >= @startdate
 and i.void = 'N'
-AND EXISTS (SELECT 1 FROM #sf WHERE #sf.sf = ISNULL(ia.field_32,''))
+-- AND EXISTS (SELECT 1 FROM #sf WHERE #sf.sf = ISNULL(ia.field_32,''))
+AND (EXISTS (SELECT 1 FROM #SF WHERE #SF.SF IN (SELECT DISTINCT ISNULL(PA.attribute,'') 
+												FROM dbo.cvo_part_attributes AS pa WHERE PA.part_no = IA.part_no)) OR ia.field_32 IS NULL)
 AND EXISTS (SELECT 1 FROM #gender WHERE #gender.gender = ISNULL(ia.category_2,''))
 -- AND EXISTS (select 1 FROM #loc WHERE #loc.location = ISNULL(s.location,#loc.location))
 
@@ -1416,6 +1418,8 @@ FROM
 ;
 
 end
+
+
 
 
 

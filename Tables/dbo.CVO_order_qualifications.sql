@@ -124,6 +124,215 @@ END
 
 
 GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_NULLS ON
+GO
+
+CREATE TRIGGER [dbo].[trg_cvo_order_qualifications_ins_upd]
+ON [dbo].[CVO_order_qualifications]
+FOR INSERT, UPDATE
+AS
+
+BEGIN
+    DECLARE @what_updated VARCHAR(2048),
+            @today DATETIME;
+
+    SELECT @what_updated = '',
+           @today = GETDATE();
+
+    SELECT @what_updated
+        = CASE
+              WHEN d.promo_ID IS NULL THEN
+                  '|New Insert'
+              ELSE
+				  CASE
+                            WHEN ISNULL(i.brand, '') <> ISNULL(d.brand, '') THEN
+                                '|brand, from: ' + ISNULL(d.brand,'') + ' to: ' + ISNULL(i.brand,'')
+                            ELSE
+                                ''
+                        END 
+				+ CASE
+                                  WHEN ISNULL(i.category, '') <> ISNULL(d.category, '') THEN
+                                      '|category, from: ' + ISNULL(d.category,'') + ' to: ' + ISNULL(i.category,'')
+                                  ELSE
+                                      ''
+                              END
+                  + CASE
+                        WHEN ISNULL(i.min_qty, 0) <> ISNULL(d.min_qty, 0) THEN
+                            '|min_qty, from: ' + CAST(ISNULL(d.min_qty, 0) AS VARCHAR(6)) + ' to: '
+                            + CAST(ISNULL(i.min_qty, 0) AS VARCHAR(6))
+                        ELSE
+                            ''
+                    END
+                  + CASE
+                        WHEN ISNULL(i.max_qty, 0) <> ISNULL(d.max_qty, 0) THEN
+                            '|max_qty, from: ' + CAST(ISNULL(d.max_qty, 0) AS VARCHAR(6)) + ' to: '
+                            + CAST(ISNULL(i.max_qty, 0) AS VARCHAR(6))
+                        ELSE
+                            ''
+                    END + CASE
+                              WHEN ISNULL(i.two_colors, '') <> ISNULL(d.two_colors, '') THEN
+                                  '|two_colors, from: ' + ISNULL(d.two_colors, '') + ' to: ' + ISNULL(i.two_colors, '')
+                              ELSE
+                                  ''
+                          END + CASE
+                                    WHEN ISNULL(i.and_, '') <> ISNULL(d.and_, '') THEN
+                                        '|and_, from: ' + ISNULL(d.and_, '') + ' to: ' + ISNULL(i.and_, '')
+                                    ELSE
+                                        ''
+                                END + CASE
+                                          WHEN ISNULL(i.or_, '') <> ISNULL(d.or_, '') THEN
+                                              '|or_, from: ' + ISNULL(d.or_, '') + ' to: ' + ISNULL(i.or_, '')
+                                          ELSE
+                                              ''
+                                      END
+                  + CASE
+                        WHEN ISNULL(i.gender, '') <> ISNULL(d.gender, '') THEN
+                            '|gender, from: ' + ISNULL(d.gender, '') + ' to: ' + ISNULL(i.gender, '')
+                        ELSE
+                            ''
+                    END
+                  + CASE
+                        WHEN ISNULL(i.brand_exclude, '') <> ISNULL(d.brand_exclude, '') THEN
+                            '|brand_exclude, from: ' + ISNULL(d.brand_exclude, '') + ' to: '
+                            + ISNULL(i.brand_exclude, '')
+                        ELSE
+                            ''
+                    END
+                  + CASE
+                        WHEN ISNULL(i.category_exclude, '') <> ISNULL(d.category_exclude, '') THEN
+                            '|category_exclude, from: ' + ISNULL(d.category_exclude, '') + ' to: '
+                            + ISNULL(i.category_exclude, '')
+                        ELSE
+                            ''
+                    END
+                  + CASE
+                        WHEN ISNULL(i.min_sales, 0) <> ISNULL(d.min_sales, 0) THEN
+                            '|min_sales, from: ' + CAST(ISNULL(d.min_sales, 0) AS VARCHAR(12)) + ' to: '
+                            + CAST(ISNULL(i.min_sales, 0) AS VARCHAR(12))
+                        ELSE
+                            ''
+                    END
+                  + CASE
+                        WHEN ISNULL(i.max_sales, 0) <> ISNULL(d.max_sales, 0) THEN
+                            '|max_sales, from: ' + CAST(ISNULL(d.max_sales, 0) AS VARCHAR(12)) + ' to: '
+                            + CAST(ISNULL(i.max_sales, 0) AS VARCHAR(12))
+                        ELSE
+                            ''
+                    END
+                  + CASE
+                        WHEN ISNULL(i.attribute, 0) <> ISNULL(d.attribute, 0) THEN
+                            '|attribute, from: ' + CAST(ISNULL(d.attribute, 0) AS CHAR(1)) + ' to: '
+                            + CAST(ISNULL(i.attribute, 0) AS CHAR(1))
+                        ELSE
+                            ''
+                    END
+                  + CASE
+                        WHEN ISNULL(i.gender_check, 0) <> ISNULL(d.gender_check, 0) THEN
+                            '|gender_check, from: ' + CAST(ISNULL(d.gender_check, 0) AS CHAR(1)) + ' to: '
+                            + CAST(ISNULL(i.gender_check, 0) AS CHAR(1))
+                        ELSE
+                            ''
+                    END
+                  + CASE
+                        WHEN ISNULL(i.free_frames, 0) <> ISNULL(d.free_frames, 0) THEN
+                            '|free_frames, from: ' + CAST(ISNULL(d.free_frames, 0) AS CHAR(1)) + ' to: '
+                            + CAST(ISNULL(i.free_frames, 0) AS CHAR(1))
+                        ELSE
+                            ''
+                    END
+                  + CASE
+                        WHEN ISNULL(i.ff_min_qty, 0) <> ISNULL(d.ff_min_qty, 0) THEN
+                            '|ff_min_qty, from: ' + CAST(ISNULL(d.ff_min_qty, 0) AS CHAR(1)) + ' to: '
+                            + CAST(ISNULL(i.ff_min_qty, 0) AS CHAR(1))
+                        ELSE
+                            ''
+                    END
+                  + CASE
+                        WHEN ISNULL(i.ff_min_frame, 0) <> ISNULL(d.ff_min_frame, 0) THEN
+                            '|ff_min_frame, from: ' + CAST(ISNULL(d.ff_min_frame, 0) AS CHAR(1)) + ' to: '
+                            + CAST(ISNULL(i.ff_min_frame, 0) AS CHAR(1))
+                        ELSE
+                            ''
+                    END
+                  + CASE
+                        WHEN ISNULL(i.ff_min_sun, 0) <> ISNULL(d.ff_min_sun, 0) THEN
+                            '|ff_min_sun, from: ' + CAST(ISNULL(d.ff_min_sun, 0) AS CHAR(1)) + ' to: '
+                            + CAST(ISNULL(i.ff_min_sun, 0) AS CHAR(1))
+                        ELSE
+                            ''
+                    END
+                  + CASE
+                        WHEN ISNULL(i.ff_max_free_qty, 0) <> ISNULL(d.ff_max_free_qty, 0) THEN
+                            '|ff_max_free_qty, from: ' + CAST(ISNULL(d.ff_max_free_qty, 0) AS CHAR(1)) + ' to: '
+                            + CAST(ISNULL(i.ff_max_free_qty, 0) AS CHAR(1))
+                        ELSE
+                            ''
+                    END
+                  + CASE
+                        WHEN ISNULL(i.ff_max_free_frame, 0) <> ISNULL(d.ff_max_free_frame, 0) THEN
+                            '|ff_max_free_frame, from: ' + CAST(ISNULL(d.ff_max_free_frame, 0) AS CHAR(1)) + ' to: '
+                            + CAST(ISNULL(i.ff_max_free_frame, 0) AS CHAR(1))
+                        ELSE
+                            ''
+                    END
+                  + CASE
+                        WHEN ISNULL(i.ff_max_free_sun, 0) <> ISNULL(d.ff_max_free_sun, 0) THEN
+                            '|ff_max_free_sun, from: ' + CAST(ISNULL(d.ff_max_free_sun, 0) AS CHAR(1)) + ' to: '
+                            + CAST(ISNULL(i.ff_max_free_sun, 0) AS CHAR(1))
+                        ELSE
+                            ''
+                    END + CASE
+                              WHEN ISNULL(i.combine, '') <> ISNULL(d.combine, '') THEN
+                                  '|combine, from: ' + ISNULL(d.combine, '') + ' to: ' + ISNULL(i.combine, '')
+                              ELSE
+                                  ''
+                          END
+          END
+
+    FROM inserted i
+        LEFT JOIN deleted d
+            ON i.promo_ID = d.promo_ID
+               AND i.promo_level = d.promo_level
+			   AND i.line_no = d.line_no;
+
+    -- now insert into audit table
+
+    INSERT INTO dbo.cvo_promotions_audit
+    (
+        promo_id,
+        promo_level,
+        action,
+        what_updated,
+        who_updated,
+        when_updated,
+		where_updated
+    )
+    SELECT I.promo_ID,
+           I.promo_level,
+           CASE
+               WHEN D.promo_ID IS NULL THEN
+                   'Insert'
+               ELSE
+                   'Update'
+           END AS action,
+           SUBSTRING(@what_updated, 2, LEN(@what_updated)) What_updated,
+           SUSER_SNAME() who_updated,
+           GETDATE() when_updated,
+		   'OrderQual' where_updated
+
+    FROM inserted I
+        LEFT JOIN deleted D
+            ON I.promo_ID = D.promo_ID
+               AND I.promo_level = D.promo_level;
+
+END;
+
+-- SELECT * FROM cvo_promotions_audit
+
+-- UPDATE dbo.CVO_order_qualifications SET min_Qty = 16 WHERE promo_ID = 'sunps' AND promo_level = '1' AND line_no = '1'
+GO
 CREATE UNIQUE CLUSTERED INDEX [idx_CVO_order_qualifications] ON [dbo].[CVO_order_qualifications] ([promo_ID], [line_no], [promo_level]) ON [PRIMARY]
 GO
 GRANT DELETE ON  [dbo].[CVO_order_qualifications] TO [public]

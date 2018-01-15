@@ -1428,8 +1428,8 @@ AS
                                                   patterns_foo ,
                                                   commissionable ,
                                                   commission ,
+												  cvo_chargebacks ,
                                                   cvo_print_cm ,
-                                                  cvo_chargebacks ,
                                                   freight_charge ,
                                                   ship_complete_flag_rx ,
                                                   coop_ytd ,
@@ -1468,8 +1468,8 @@ AS
                                  @patterns_first ,
                                  @commission ,
                                  @comm_perc ,
+								 @chargebacks ,
                                  @print_cm ,
-                                 @chargebacks ,
                                  @freight_chg_flag ,
                                  0 ,
                                  0 ,
@@ -1730,9 +1730,9 @@ AS
                                                   patterns_foo ,
                                                   commissionable ,
                                                   commission ,
+												  cvo_chargebacks ,
                                                   cvo_print_cm ,
-                                                  cvo_chargebacks ,
-                                                  freight_charge ,
+												  freight_charge ,
                                                   ship_complete_flag_rx ,
                                                   coop_ytd ,
                                                   credit_for_returns ,
@@ -1819,6 +1819,7 @@ AS
                 WHERE  process = -1;
             END;
     END;
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_upload_cust_sp] TO [public]
 GO

@@ -89,9 +89,10 @@ end
 -- keep the rx lenses at an inventory level of 1000
 
 -- switch to location VC
+-- 1/12/18 - switch to ICOAT
 
-SELECT @loc = 'VC'
-SELECT @bin = 'VC'
+SELECT @loc = 'ICOAT'
+SELECT @bin = 'ICOAT'
 
 insert into #temp_part_list
 select @loc, ISNULL(lb.bin_no, @bin), i.part_no, 500 - ISNULL(qty,0) , 1
@@ -266,6 +267,7 @@ SELECT adj_no ,
        row_id FROM #adm_INV_ADJ_log
 
 END
+
 
 
 
