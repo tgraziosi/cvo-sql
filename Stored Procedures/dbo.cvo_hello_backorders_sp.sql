@@ -30,7 +30,7 @@ BEGIN
         o.date_entered,
         o.user_def_fld4 hs_order_no
     FROM
-        orders o
+        orders o (nolock)
         JOIN ord_list ol (NOLOCK)
             ON ol.order_no = o.order_no
                AND ol.order_ext = o.ext
@@ -54,6 +54,7 @@ GRANT EXECUTE
 ON dbo.cvo_hello_backorders_sp
 TO  PUBLIC
 ;
+
 
 
 

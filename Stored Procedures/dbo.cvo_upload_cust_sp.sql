@@ -9,7 +9,7 @@ AS
         -- DIRECTIVES
         SET NOCOUNT ON;
 
-        -- DECLARTIONS
+        -- DECLARATIONS
         DECLARE @msg VARCHAR(5000) ,
                 @customer_code VARCHAR(8) ,
                 @ship_to_code VARCHAR(8) ,
@@ -904,7 +904,7 @@ AS
 
                 IF ( @chargebacks = '' )
                     BEGIN
-                        SET @chargebacks = '0';
+                        SET @chargebacks = '1';
                     END;
                 ELSE
                     BEGIN
@@ -925,7 +925,7 @@ AS
 
                 IF ( @print_cm = '' )
                     BEGIN
-                        SET @print_cm = '1';
+                        SET @print_cm = '0';
                     END;
                 ELSE
                     BEGIN
@@ -1293,7 +1293,7 @@ AS
                                  @ship_to_code ,
                                  @cust_name ,
                                  LEFT(@cust_name, 10),
-                                 @cust_name ,
+                                 -- @cust_name ,
                                  @addr1 ,
                                  @addr2 ,
                                  @addr3 ,
@@ -1301,7 +1301,8 @@ AS
                                  -- make sure city, state zip is populated if it hasn't already been done
 								 CASE WHEN CHARINDEX(@postal_code,@addr3) = 0 AND CHARINDEX(@postal_code,@addr4) = 0
 								 THEN @city + ', ' + @state + ' ' + @postal_code ELSE '' END,
-                                 @customer_type ,
+								 '', 
+								 @customer_type ,
                                  '' ,
                                  @POP_POB ,
                                  0 ,
@@ -1819,6 +1820,7 @@ AS
                 WHERE  process = -1;
             END;
     END;
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_upload_cust_sp] TO [public]

@@ -12,6 +12,7 @@ GO
 -- v1.7 CB 05/09/2016 - Use returns account
 -- v1.8 CB 12/09/2016 - #1613 - Custom kits in order upload
 -- v1.9 CB 15/05/2017 - Return is not using the inv return flag from the return code
+-- v2.0 CB 22/01/2018 - Fix issue with costs not being recorded plus other fields being set incorrectly
 
 CREATE PROC [dbo].[CVO_create_upload_credit_return_sp] (@SPID INT, @hold SMALLINT)  
 AS
@@ -522,16 +523,21 @@ BEGIN
 			price_type, [status], cost, who_entered, sales_comm, temp_price, cr_ordered, cr_shipped, discount, uom, 
 			conv_factor, std_cost, cubic_feet, lb_tracking, labor, direct_dolrs, ovhd_dolrs, util_dolrs, qc_flag, reason_code, 
 			taxable, part_type, qc_no, rejected, gl_rev_acct, total_tax, tax_code, curr_price, oper_price, display_line, 
-			back_ord_flag, std_direct_dolrs, std_ovhd_dolrs, std_util_dolrs, service_agreement_flag, return_code, organization_id, [contract]) 
+			back_ord_flag, std_direct_dolrs, std_ovhd_dolrs, std_util_dolrs, service_agreement_flag, return_code, organization_id, [contract], 
+			note, temp_type, printed, orig_part_no) -- v2.0
 		SELECT 
 			@new_order_no, 0, @line_no, b.location, a.part_no, a.[description], GETDATE(), 0, 0, @price, 
-			@price_type, CASE @hold WHEN 0 THEN 'N' ELSE 'A' END, 0, @who_entered, 0, 0, @quantity, 0, 0, a.uom, 
-			1, 0, a.cubic_feet, a.lb_tracking, 0, 0, 0, 0, a.qc_flag, 'RETURN', 
+			@price_type, CASE @hold WHEN 0 THEN 'N' ELSE 'A' END, b.std_cost, -- v2.0 0, 
+			@who_entered, 0, @price, -- v2.0 0, 
+			@quantity, 0, 0, a.uom, 
+			1, 0, a.cubic_feet, a.lb_tracking, 0, b.std_direct_dolrs, b.std_ovhd_dolrs, b.std_util_dolrs, -- v2.0 0, 0, 0, 
+			a.qc_flag, 'RETURN', 
 -- v1.7		a.taxable, a.[status], 0, 0, c.sales_acct_code, 0, @tax_code, @price, @price, @line_no, 
 			a.taxable, 
 			CASE WHEN @is_inv_ret = 1 THEN a.[status] ELSE 'N' END, -- v1.9 
 			0, 0, c.sales_return_code, 0, @tax_code, @price, @price, @line_no, -- v1.7
-			'N', 0, 0, 0, 'N', @return_code, 'CVO', '' 
+			0, 0, 0, 0, 'N', @return_code, 'CVO', '',
+			'', @price_type, 'N', a.part_no -- v2.0 
 		FROM
 			dbo.inv_master a (NOLOCK)
 		INNER JOIN

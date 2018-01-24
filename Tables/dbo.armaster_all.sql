@@ -704,6 +704,8 @@ CREATE NONCLUSTERED INDEX [armaster_all_ind_3] ON [dbo].[armaster_all] ([price_c
 GO
 CREATE NONCLUSTERED INDEX [armaster_all_ind_4] ON [dbo].[armaster_all] ([salesperson_code]) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [armaster_all_ind_phone] ON [dbo].[armaster_all] ([status_type], [contact_phone], [address_type]) ON [PRIMARY]
+GO
 CREATE NONCLUSTERED INDEX [armaster_all_terr_032814] ON [dbo].[armaster_all] ([territory_code]) ON [PRIMARY]
 GO
 GRANT DELETE ON  [dbo].[armaster_all] TO [public]

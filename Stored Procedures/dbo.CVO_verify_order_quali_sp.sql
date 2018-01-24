@@ -35,6 +35,7 @@ GO
 -- v1.30	CB	20/12/2017 - Not picking up OTHER category
 -- v1.31	CB	28/12/2017 - Remove v1.28
 -- v1.32	CB	29/12/2017 - Fix issue with attributes
+-- v1.33	CB	22/01/2018 - Exclude cases
 
 CREATE PROCEDURE [dbo].[CVO_verify_order_quali_sp]	@order_no INT = 0, 
 													@ext INT = 0,  
@@ -219,6 +220,7 @@ where a.order_no = @order_no and a.order_ext = @ext
 			INNER JOIN inv_master_add ia (NOLOCK) ON l.part_no = ia.part_no
 		WHERE l.order_no = @order_no AND l.order_ext = @ext --AND l.is_pop_gif = 0
 		-- v1.31 AND		i.type_code IN ('FRAME','SUN','OTHER') -- v1.28 v1.30
+		AND	i.type_code NOT IN ('CASE') -- v1.33
 		-- END v1.1
 
 		-- v1.27 Start

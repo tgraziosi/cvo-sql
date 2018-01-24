@@ -13,13 +13,15 @@ CREATE NONCLUSTERED INDEX [cvo_receipt_reprint_ind1] ON [dbo].[cvo_receipt_repri
 GO
 CREATE NONCLUSTERED INDEX [cvo_receipt_reprint_ind0] ON [dbo].[cvo_receipt_reprint] ([po_no], [part_no]) ON [PRIMARY]
 GO
-GRANT REFERENCES ON  [dbo].[cvo_receipt_reprint] TO [public]
+CREATE NONCLUSTERED INDEX [cvo_receipt_reprint_rctno] ON [dbo].[cvo_receipt_reprint] ([receipt_no]) ON [PRIMARY]
 GO
-GRANT SELECT ON  [dbo].[cvo_receipt_reprint] TO [public]
+GRANT DELETE ON  [dbo].[cvo_receipt_reprint] TO [public]
 GO
 GRANT INSERT ON  [dbo].[cvo_receipt_reprint] TO [public]
 GO
-GRANT DELETE ON  [dbo].[cvo_receipt_reprint] TO [public]
+GRANT REFERENCES ON  [dbo].[cvo_receipt_reprint] TO [public]
+GO
+GRANT SELECT ON  [dbo].[cvo_receipt_reprint] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[cvo_receipt_reprint] TO [public]
 GO

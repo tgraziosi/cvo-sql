@@ -66,6 +66,7 @@ CREATE procedure [dbo].[cvo_inv_fcst_r3_sp]
 -- 10/20/2015 - add seasonality multiplier, promo and substitute flagging
 -- 07/15/2016 - calc starting inventory with allocations if usage is on orders, and without if usage is on shipments.
 -- 12/2016 - misc updates to add additional info like pricing shape materials
+-- 01/2018 - fix/update for multiple attributes on an item.
 	
 as 
 begin
@@ -140,11 +141,12 @@ END
 CREATE TABLE #loc ([location] VARCHAR(10))
 if @loc is NULL OR @loc LIKE '%*ALL*%'
 BEGIN
+	INSERT INTO #loc (location) VALUES ('')
 	insert into #loc (location)
 	select DISTINCT la.[location] from dbo.locations_all AS la WHERE la.void = 'n'
 end
 else
-begin
+BEGIN
 	INSERT INTO #loc ([location])
 	SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@loc)
 END
@@ -353,7 +355,7 @@ IF @debug = 5 SELECT * FROM #usage AS u
 select
 i.category brand,
 ia.field_2 style,
-s.location,
+il.location,
 i.part_no,
 i.type_code,
 isnull(ia.field_28,'1/1/1900') pom_date,
@@ -372,23 +374,25 @@ sum(isnull(qreturns,0)) as ret_qty
 
 into #sls_det
 
-from inv_master i (nolock)
-inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
-inner join #coll on #coll.coll = i.category
-inner join #style_list on #style_list.style = ia.field_2
+from #coll 
+JOIN inv_master i (nolock) ON i.category = #coll.coll
 INNER JOIN #type t ON t.type_code = i.type_code
-LEFT OUTER JOIN #usage u ON u.part_no = i.part_no 
-INNER JOIN #loc l ON l.location = ISNULL(u.location,l.location)
-
+inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
+inner join #style_list on #style_list.style = ia.field_2
+INNER JOIN inv_list il ON il.part_no = i.part_no
+INNER JOIN #loc l ON l.location = il.location
 LEFT outer join cvo_sbm_details s (nolock) on s.part_no = i.part_no AND s.location = l.location
-left outer join armaster a (nolock) on a.customer_code = s.customer and a.ship_to_code = s.ship_to
+-- left outer join armaster a (nolock) on a.customer_code = s.customer and a.ship_to_code = s.ship_to
 where 
 1=1
 and ia.field_26 >= @startdate
 and i.void = 'N'
 -- AND EXISTS (SELECT 1 FROM #sf WHERE #sf.sf = ISNULL(ia.field_32,''))
-AND (EXISTS (SELECT 1 FROM #SF WHERE #SF.SF IN (SELECT DISTINCT ISNULL(PA.attribute,'') 
-												FROM dbo.cvo_part_attributes AS pa WHERE PA.part_no = IA.part_no)) OR ia.field_32 IS NULL)
+AND ( 
+	EXISTS (SELECT 1 FROM #SF JOIN dbo.cvo_part_attributes pa ON pa.part_no = ia.part_no AND pa.attribute = #sf.sf ) 
+	OR EXISTS (SELECT 1 FROM #sf WHERE #sf.sf = ISNULL(ia.field_32,''))
+	)
+
 AND EXISTS (SELECT 1 FROM #gender WHERE #gender.gender = ISNULL(ia.category_2,''))
 -- AND EXISTS (select 1 FROM #loc WHERE #loc.location = ISNULL(s.location,#loc.location))
 
@@ -397,7 +401,9 @@ and isnull(s.return_code,'') = ''
 and isnull(s.iscl,0) = 0 -- no closeouts
 -- and isnull(s.location,@loc) = @loc
 
-group by ia.field_26, ia.field_28, i.category, ia.field_2, i.part_no, i.type_code, s.location, s.yyyymmdd -- end cte
+group by ia.field_26, ia.field_28, i.category, ia.field_2, i.part_no, i.type_code, il.location, s.yyyymmdd -- end cte
+
+IF @debug = 1 SELECT '#sls_det', * FROM #sls_det
 
 select 
 #sls_det.brand,
@@ -1398,7 +1404,7 @@ FROM
             1 = 1
             -- AND i.type_code IN ( 'frame', 'sun', 'bruit' )
             AND i.void = 'n'
-            AND ISNULL(ia.field_32, '') <> 'SpecialOrd'
+            -- AND ISNULL(ia.field_32, '') <> 'SpecialOrd'
         GROUP BY
             i.category,
             ia.field_2,
@@ -1418,6 +1424,9 @@ FROM
 ;
 
 end
+
+
+
 
 
 

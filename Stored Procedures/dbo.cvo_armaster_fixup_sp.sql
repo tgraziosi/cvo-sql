@@ -248,11 +248,19 @@ WHERE   cdc.primary_flag = 1
 
 -- 1/15/2018 - DON'T ALLOW A SHIP-TO-CODE ON A BILL-TO CUSTOMER
 
+UPDATE car SET ship_To = ''
+-- select *
+FROM armaster ar (nolock)
+JOIN cvo_armaster_all car (rowlock) ON car.customer_code = ar.customer_code AND car.ship_to = ar.ship_to_code
+AND ar.address_type = 0 AND ar.ship_to_code <> '';
+
 UPDATE ar SET ship_to_code = '' 
 -- SELECT * 
 FROM dbo.armaster_all ar (ROWLOCK) WHERE ar.address_type = 0 AND ar.ship_to_code <> '';
 
+
 END
+
 
 
 GO

@@ -99,4 +99,7 @@ BEGIN
 END;
 
 GRANT EXECUTE ON cvo_open_order_detail_past_orders_sp TO PUBLIC;
+
+GO
+GRANT EXECUTE ON  [dbo].[cvo_open_order_detail_past_orders_sp] TO [public]
 GO

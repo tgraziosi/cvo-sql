@@ -27,6 +27,8 @@ BEGIN
     ;
 
     SELECT
+		sd.customer,
+		sd.ship_to,
         i.category,
         SUM(   CASE
                    WHEN yyyymmdd >= @sdatety THEN
@@ -43,8 +45,8 @@ BEGIN
                END
            ) LY
     FROM
-        dbo.cvo_sbm_details AS sd
-        JOIN inv_master i
+        dbo.cvo_sbm_details AS sd (nolock)
+        JOIN inv_master i (nolock)
             ON i.part_no = sd.part_no
     WHERE
         (
@@ -55,7 +57,7 @@ BEGIN
         )
         AND customer = ISNULL(@customer, '')
         AND sd.ship_to = ISNULL(@ship_to, sd.ship_to)
-    GROUP BY i.category
+    GROUP BY sd.customer, sd.ship_to, i.category
     ;
 
 END
@@ -65,6 +67,7 @@ GRANT EXECUTE
 ON dbo.cvo_hello_brandsales_sp
 TO  PUBLIC
 ;
+
 
 
 GO

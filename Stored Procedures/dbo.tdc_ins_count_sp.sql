@@ -107,12 +107,13 @@ BEGIN
 		INSERT INTO tdc_phy_cyc_count
 			(team_id, cyc_code, location, part_no, lot_ser, bin_no, cycle_date, range_type)
 		SELECT DISTINCT @team_id, @cyc_code, @location, @temp_part, b.lot_ser, b.bin_no, getdate(), 'CODE'
-		  FROM lot_bin_stock b (nolock), tdc_bin_master c (nolock)
-		 WHERE b.location = @location
+		  FROM lot_bin_stock b (nolock) 
+		  JOIN tdc_bin_master c (nolock) ON c.location = b.location  AND c.bin_no = b.bin_no
+		 WHERE 1=1
+		   AND b.location = @location
 		   AND b.part_no = @temp_part
-		   AND b.bin_no = c.bin_no 
-		   AND b.location = c.location
 		   AND c.usage_type_code in ('OPEN', 'REPLENISH')
+		   -- AND C.group_code NOT IN ( 'RESERVE' )
 	END
 	ELSE
 	BEGIN
@@ -130,6 +131,9 @@ DEALLOCATE Item_cursor
 COMMIT TRAN
 
 RETURN(0)
+
+
+
 GO
 GRANT EXECUTE ON  [dbo].[tdc_ins_count_sp] TO [public]
 GO

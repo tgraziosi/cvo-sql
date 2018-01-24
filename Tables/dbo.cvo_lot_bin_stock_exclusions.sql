@@ -8,6 +8,8 @@ CREATE TABLE [dbo].[cvo_lot_bin_stock_exclusions]
 [inv_exclude] [smallint] NULL
 ) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [cvo_lot_bin_stock_exclusions_ind5] ON [dbo].[cvo_lot_bin_stock_exclusions] ([inv_exclude]) INCLUDE ([bin_no], [location], [part_no], [qty]) ON [PRIMARY]
+GO
 CREATE NONCLUSTERED INDEX [cvo_lot_bin_stock_exclusions_ind0] ON [dbo].[cvo_lot_bin_stock_exclusions] ([location], [bin_no]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [cvo_lot_bin_stock_exclusions_ind3] ON [dbo].[cvo_lot_bin_stock_exclusions] ([location], [bin_no], [inv_exclude]) ON [PRIMARY]
@@ -20,13 +22,13 @@ CREATE NONCLUSTERED INDEX [cvo_lot_bin_stock_exclusions_ind4] ON [dbo].[cvo_lot_
 GO
 CREATE NONCLUSTERED INDEX [idx_lot_bin_exc_idx5] ON [dbo].[cvo_lot_bin_stock_exclusions] ([location], [part_no]) ON [PRIMARY]
 GO
-GRANT REFERENCES ON  [dbo].[cvo_lot_bin_stock_exclusions] TO [public]
-GO
-GRANT SELECT ON  [dbo].[cvo_lot_bin_stock_exclusions] TO [public]
+GRANT DELETE ON  [dbo].[cvo_lot_bin_stock_exclusions] TO [public]
 GO
 GRANT INSERT ON  [dbo].[cvo_lot_bin_stock_exclusions] TO [public]
 GO
-GRANT DELETE ON  [dbo].[cvo_lot_bin_stock_exclusions] TO [public]
+GRANT REFERENCES ON  [dbo].[cvo_lot_bin_stock_exclusions] TO [public]
+GO
+GRANT SELECT ON  [dbo].[cvo_lot_bin_stock_exclusions] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[cvo_lot_bin_stock_exclusions] TO [public]
 GO

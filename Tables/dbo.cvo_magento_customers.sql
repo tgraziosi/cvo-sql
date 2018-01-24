@@ -17,3 +17,5 @@ CREATE TABLE [dbo].[cvo_magento_customers]
 GO
 ALTER TABLE [dbo].[cvo_magento_customers] ADD CONSTRAINT [PK__cvo_magento_cust__37C47287] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [cvo_magento_cust_active] ON [dbo].[cvo_magento_customers] ([magento_id], [isActive]) ON [PRIMARY]
+GO
