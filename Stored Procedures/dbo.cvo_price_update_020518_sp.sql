@@ -7,7 +7,7 @@ GO
 -- Create date: <Create Date,,>
 -- Description:	<Description,,>
 -- =============================================
-create PROCEDURE [dbo].[cvo_price_update_020518_sp]
+CREATE PROCEDURE [dbo].[cvo_price_update_020518_sp]
 AS
 BEGIN
 	-- SET NOCOUNT ON added to prevent extra result sets from
@@ -264,7 +264,8 @@ INSERT INTO #new_price Values ( 'JMC', '4040', 32.00, 17.75, 63.99, '2/5/2018' )
 INSERT INTO #new_price Values ( 'JMC', '4041', 29.50, 16.50, 58.99, '2/5/2018' ) 
 INSERT INTO #new_price Values ( 'JMC', '4042', 29.50, 16.50, 58.99, '2/5/2018' ) 
 INSERT INTO #new_price Values ( 'JMC', '4043', 27.00, 15.25, 53.99, '2/5/2018' ) 
-INSERT INTO #new_price Values ( 'JMC', '4044', 32.00, 17.75, 63.99, '2/5/2018' ) 
+-- INSERT INTO #new_price Values ( 'JMC', '4044', 32.00, 17.75, 63.99, '2/5/2018' ) 
+INSERT INTO #new_price Values ( 'JMC', '4044', 29.50, 16.50, 58.99, '2/5/2018' ) -- corrected as per DL on 012518
 INSERT INTO #new_price Values ( 'JMC', '4045', 32.00, 17.75, 63.99, '2/5/2018' ) 
 INSERT INTO #new_price Values ( 'JMC', '4046', 29.50, 16.50, 58.99, '2/5/2018' ) 
 INSERT INTO #new_price Values ( 'JMC', '4047', 29.50, 16.50, 58.99, '2/5/2018' ) 

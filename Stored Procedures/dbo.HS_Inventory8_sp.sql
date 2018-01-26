@@ -9,7 +9,7 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT * FROM dbo.cvo_hs_inventory_8 where  hide = 1mastersku = 'etpar'
+-- SELECT * FROM dbo.cvo_hs_inventory_8 where  ReleaseDate > '1/1/2018' AND SpecialtyFit = '[multiple]'
 -- DROP TABLE dbo.cvo_hs_inventory_8
 -- 		
 -- 072814 - tag - 1) add special values, 2) performance updates
@@ -86,25 +86,10 @@ BEGIN
 
     -- 8/26/2015
     DELETE FROM #EOS
-    WHERE Brand = 'ch'
-          AND @today >= @CH;
-
-    -- 10/6/2016
-    DELETE FROM #EOS
-    WHERE Brand = 'me'
-          AND @today >= @ME;
-
-    -- 3/13/2017
-    DELETE FROM #EOS
-    WHERE Brand = 'UN'
-          AND @today >= @UN;
-
-    DELETE FROM #EOS
-    WHERE part_no IN (
-                         SELECT part_no FROM inv_master_add WHERE ISNULL(field_36, '') = 'SUNPS'
-                     );
-
-    -- SELECT * FROM #EOS where part_no like 'izCL%'  
+    WHERE (Brand = 'ch' AND @today >= @CH)
+		OR(Brand = 'me' AND @today >= @ME)
+		OR(Brand = 'UN' AND @today >= @UN)
+		OR(part_no IN (SELECT part_no FROM inv_master_add WHERE ISNULL(field_36, '') = 'SUNPS'));
 
 
     -- make a list of Costco sku's from history
@@ -113,7 +98,7 @@ BEGIN
 
     SELECT i.part_no
     INTO #cc
-    FROM inv_master i
+    FROM inv_master i (nolock)
     WHERE EXISTS
     (
         SELECT 1
@@ -351,7 +336,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                    ISNULL(field_32, '')
            END AS SpecialtyFit,
            CASE
-               WHEN (#apr.sku IS NOT NULL) THEN
+               WHEN (apr.sku IS NOT NULL) THEN
                    'Y'
                ELSE
                    ''
@@ -365,7 +350,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
                    ''
            END AS New,
            CASE
-               WHEN ISNULL(field_36, '') IN ( 'SUNPS', 'PreSell' ) THEN
+               WHEN field_26 > dateadd(week,1,@today) AND ISNULL(field_36, '') IN ( 'SUNPS', 'PreSell' ) THEN
                    field_36 -- 11/8/2017 for presell season
                ELSE
                    ''
@@ -418,10 +403,10 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
         LEFT OUTER JOIN #cc
             ON #cc.part_no = I.part_no
         -- 030215 -- get apr info from table
-        LEFT OUTER JOIN cvo_apr_tbl #apr
-            ON #apr.sku = I.part_no
+        LEFT OUTER JOIN cvo_apr_tbl apr
+            ON apr.sku = I.part_no
                AND @today
-               BETWEEN #apr.eff_date AND #apr.obs_date -- 3/2/2015 tag
+               BETWEEN apr.eff_date AND apr.obs_date -- 3/2/2015 tag
         -- 032615 use drp 4 week usage as safety stock
         --LEFT OUTER JOIN DPR_Report drp ( NOLOCK ) ON drp.part_no = I.part_no
         --                                             AND drp.location = @location
@@ -487,7 +472,7 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
           AND
           (
               field_26 <= DATEADD(D, 1, @today)
-              OR #apr.sku IS NOT NULL
+              OR apr.sku IS NOT NULL
               OR
               (
                   'hspop' = ISNULL(field_36, '')
@@ -667,13 +652,17 @@ CASE WHEN CATEGORY_2 LIKE '%CHILD%' AND i.category <> 'dd' /*AND FIELD_2 NOT IN 
         FROM #Data1
         WHERE GENDER <> ''
         UNION ALL
-        SELECT DISTINCT
-            mastersku,
-            2 AS Num,
-            SpecialtyFit
-        FROM #Data1
-        WHERE SpecialtyFit <> ''
-        UNION ALL
+        --SELECT DISTINCT
+        --    mastersku,
+        --    2 AS Num,
+        --    SpecialtyFit
+        --FROM #Data1
+        --WHERE SpecialtyFit <> ''
+		SELECT DISTINCT mastersku, 2 AS num,
+		pa.attribute
+		FROM #data1 d JOIN cvo_part_attributes pa ON d.sku = pa.part_no
+		WHERE pa.attribute NOT IN ('none','hvc','')
+		UNION ALL
         SELECT DISTINCT
             mastersku,
             3 AS Num,
@@ -1366,6 +1355,7 @@ END;
 -- select mastersku, variantdescription, [category:1], shelfqty, hide From cvo_hs_inventory_8 where [category:1] in ('cole haan','last chance')
 
 -- SELECT * FROM #data1 WHERE mastersku = 'bcesm'
+
 
 
 GO

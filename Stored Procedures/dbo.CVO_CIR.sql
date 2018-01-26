@@ -319,8 +319,8 @@ IF @pom_asof IS NULL
             ar.territory_code territory ,
             t1.part_no ,
             t5.date_applied ,
-            CONVERT(VARCHAR, DATEADD(d, t5.date_applied - 711858, '1/1/1950'), 101) AS ShipDate ,
-            CONVERT(VARCHAR, t2.order_no) AS order_no ,  --v3.3 -- make varchar to match with history 
+            CONVERT(VARCHAR(10), DATEADD(d, t5.date_applied - 711858, '1/1/1950'), 101) AS ShipDate ,
+            CONVERT(VARCHAR(10), t2.order_no) AS order_no ,  --v3.3 -- make varchar to match with history 
             t2.ext
     INTO    #vsordList
     FROM    orders_all t2 ( NOLOCK )
@@ -355,17 +355,17 @@ IF @pom_asof IS NULL
     INSERT  INTO #vsordList
             SELECT 
 -- v3.2, v3.3 - exclude rebills
-                    Shipped = CASE WHEN t2.type = 'i'
+                    CASE WHEN t2.type = 'i'
                                         AND t2.user_category NOT LIKE '%RB' -- right(t2.user_category,2) <> 'RB' 
                                         THEN ISNULL(t1.shipped, 0)
                                    WHEN t2.type = 'c'
                                         AND t1.return_code NOT LIKE '05%' -- left(t1.return_code,2) <> '05' 
                                         THEN ISNULL(t1.cr_shipped, 0) * -1
                                    ELSE 0
-                              END ,
+                              END AS Shipped,
 --v3.1
-                    TimeEntered = CASE WHEN t2.type = 'I' THEN t1.time_entered
-                                  END ,
+                    CASE WHEN t2.type = 'I' THEN t1.time_entered
+                                  END TimeEntered,
 --t1.time_entered,
 --v3.1
                     t2.type ,
@@ -380,9 +380,9 @@ IF @pom_asof IS NULL
                     ar.territory_code territory ,
                     t1.part_no ,
                     t5.date_applied ,
-                    CONVERT(VARCHAR, DATEADD(d, t5.date_applied - 711858,
+                    CONVERT(VARCHAR(10), DATEADD(d, t5.date_applied - 711858,
                                              '1/1/1950'), 101) AS ShipDate ,
-                    CONVERT(VARCHAR, t2.order_no) AS order_no ,  --v3.3 -- make varchar to match with history 
+                    CONVERT(VARCHAR(10), t2.order_no) AS order_no ,  --v3.3 -- make varchar to match with history 
                     t2.ext
             FROM    orders_all t2 ( NOLOCK )
                     INNER JOIN orders_invoice oi ( NOLOCK ) ON t2.order_no = oi.order_no
@@ -407,10 +407,10 @@ IF @pom_asof IS NULL
                         )
 --and t4.obsolete = 0		-- active items only
             UNION ALL
-            SELECT  shipped = ISNULL(t1.shipped, 0) - ISNULL(t1.cr_shipped, 0) ,
+            SELECT  ISNULL(t1.shipped, 0) - ISNULL(t1.cr_shipped, 0) shipped,
 --v3.1
-                    TimeEntered = CASE WHEN t2.type = 'I' THEN t1.time_entered
-                                  END ,
+                    CASE WHEN t2.type = 'I' THEN t1.time_entered
+                                  END TimeEntered,
 --t1.time_entered,
 --v3.1
                     t2.type ,
@@ -581,66 +581,66 @@ IF @pom_asof IS NULL
             ISNULL(#cs.YTDTY, 0) ytdty ,
             ISNULL(#cs.YTDLY, 0) ytdly ,
 
-            ST12 = CASE WHEN ( a.ShipDate >= @F12
+            CASE WHEN ( a.ShipDate >= @F12
                                AND a.type = 'I'
                                AND a.user_category LIKE 'ST%'
                              ) --left(A.user_category,2) = 'ST') 
                              THEN ( a.Shipped )
                         ELSE 0
-                   END ,
-            ST36 = CASE WHEN ( a.type = 'I'
+                   END AS ST12,
+            CASE WHEN ( a.type = 'I'
                                AND a.user_category LIKE 'ST%'
                              ) --left(A.user_category,2) = 'ST') 
                              THEN ( a.Shipped )
                         ELSE 0
-                   END ,
-            RX12 = CASE WHEN ( a.ShipDate >= @F12
+                   END ST36,
+            CASE WHEN ( a.ShipDate >= @F12
                                AND a.type = 'I'
                                AND a.user_category LIKE 'RX%'
                              ) --left(A.user_category,2) = 'RX') 
                              THEN ( a.Shipped )
                         ELSE 0
-                   END ,
-            RX36 = CASE WHEN ( a.type = 'I'
+                   END RX12,
+            CASE WHEN ( a.type = 'I'
                                AND a.user_category LIKE 'RX%'
                              ) --left(A.user_category,2) = 'RX') 
                              THEN ( a.Shipped )
                         ELSE 0
-                   END ,
-            RET12 = CASE WHEN ( a.ShipDate >= @F12
+                   END RX36,
+            CASE WHEN ( a.ShipDate >= @F12
                                 AND a.type = 'C'
                               ) THEN ( a.Shipped )
                          ELSE 0
-                    END ,
-            RET36 = CASE WHEN a.type = 'C' THEN ( a.Shipped )
+                    END RET12,
+            CASE WHEN a.type = 'C' THEN ( a.Shipped )
                          ELSE 0
-                    END ,
-            NET12 = CASE WHEN ( a.ShipDate >= @F12 )
+                    END RET36,
+            CASE WHEN ( a.ShipDate >= @F12 )
                               AND ( LEFT(a.user_category, 2) IN ( 'RX', 'ST' )
                                     OR a.type = 'c'
                                   ) THEN ( a.Shipped )
                          ELSE 0
-                    END ,
-            net36 = CASE WHEN ( LEFT(a.user_category, 2) IN ( 'RX', 'ST' )
+                    END NET12,
+            CASE WHEN ( LEFT(a.user_category, 2) IN ( 'RX', 'ST' )
                                 OR a.type = 'c'
                               ) THEN a.Shipped
                          ELSE 0
-                    END ,
-            OTH12 = CASE WHEN ( a.ShipDate >= @F12
+                    END net36,
+            CASE WHEN ( a.ShipDate >= @F12
                                 AND a.type = 'I'
                                 AND LEFT(a.user_category, 2) NOT IN ( 'RX',
                                                               'ST' )
                               ) THEN ( a.Shipped )
                          ELSE 0
-                    END ,
-            OTH36 = CASE WHEN ( a.type = 'I'
+                    END OTH12,
+            CASE WHEN ( a.type = 'I'
                                 AND LEFT(a.user_category, 2) NOT IN ( 'RX',
                                                               'ST' )
                               ) THEN ( a.Shipped )
                          ELSE 0
-                    END ,
+                    END OTH36,
 -- v4.4
-            TotAcctNetSales = ISNULL(( SELECT   SUM(anet)
+            ISNULL(( SELECT   SUM(anet)
                                        FROM     dbo.cvo_sbm_details AS cs ,
                                                 armaster ar (NOLOCK)
                                        WHERE    cs.customer = ar.customer_code
@@ -648,7 +648,7 @@ IF @pom_asof IS NULL
                                                 AND cs.customer = a.cust_code
                                                 AND ar.territory_code = a.territory
                                                 AND cs.yyyymmdd BETWEEN @F12 AND @last
-                                     ), 0)
+                                     ), 0) AS TotAcctNetSales
     INTO    #cvo_CIR_det
     FROM    #vsordList a ( NOLOCK )
             LEFT OUTER JOIN #cs (NOLOCK) ON a.territory = #cs.territory_code
@@ -690,7 +690,10 @@ IF @pom_asof IS NULL
 --(left(a.customer_code,1)= '9' or left(b.customer_code,1) = '9')
 
     SELECT  @@rowcount;
-    SELECT  *
+    SELECT  from_cust,
+            shipto,
+            to_cust,
+            territory
     FROM    #cust_swap;
 
     CREATE INDEX idx_cs_1 ON #cust_swap (territory, from_cust, shipto, to_cust);
@@ -698,7 +701,26 @@ IF @pom_asof IS NULL
     IF ( OBJECT_ID('tempdb.dbo.#new') IS NOT NULL )
         DROP TABLE #new;
 
-    SELECT  xx.*
+    SELECT  xx.territory,
+            xx.cust_code,
+            xx.ship_to,
+            xx.part_no,
+            xx.TimeEntered,
+            xx.custnetsales,
+            xx.netsalesly,
+            xx.ytdty,
+            xx.ytdly,
+            xx.ST12,
+            xx.ST36,
+            xx.RX12,
+            xx.RX36,
+            xx.RET12,
+            xx.RET36,
+            xx.NET12,
+            xx.net36,
+            xx.OTH12,
+            xx.OTH36,
+            xx.TotAcctNetSales
     INTO    #new
     FROM    #cust_swap c
             INNER JOIN #cvo_CIR_det xx ( NOLOCK ) ON c.to_cust = xx.cust_code
@@ -771,7 +793,7 @@ IF @pom_asof IS NULL
 
     CREATE TABLE dbo.cvo_carbi
         (
-          as_of_date DATETIME ,
+          as_of_date DATETIME null,
           territory VARCHAR(8) ,
           slp VARCHAR(8) ,
           cust_code VARCHAR(10) ,
@@ -815,9 +837,9 @@ IF @pom_asof IS NULL
           moth36 FLOAT
         );
 
-    CREATE CLUSTERED INDEX idx_cir_cust ON cvo_carbi (cust_code, ship_to);
+    CREATE CLUSTERED INDEX idx_cir_cust ON dbo.cvo_carbi (cust_code, ship_to);
 
-    INSERT  INTO cvo_carbi
+    INSERT  INTO dbo.cvo_carbi
             ( territory ,
               cust_code ,
               ship_to ,
@@ -967,6 +989,7 @@ IF @pom_asof IS NULL
 	END;
 
 -- 
+
 
 
 

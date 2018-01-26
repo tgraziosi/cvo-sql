@@ -14,6 +14,7 @@ AS
             b.bin_no ,
 			i.category Brand,
 			ia.field_2 model,
+
             i.description ,
             i.type_code ,
             CAST(b.qty AS INTEGER) qty ,
@@ -31,6 +32,7 @@ AS
 							ELSE 'Y2+ POM'
 							END,
 			ISNULL(ia.field_32,'') attribute,
+			ia.category_2 Primary_Demographic,
 			bm.usage_type_code ,
             bm.group_code ,
             il.location ,
@@ -108,6 +110,7 @@ AS
 							ELSE 'Y2+ POM'
 							END,
 			ISNULL(ia.field_32,'') attribute,
+			ia.category_2 Primary_Demographic,
 			bm.usage_type_code ,
             bm.group_code ,
             bm.location ,
@@ -170,6 +173,7 @@ AS
             bm.bin_no ,
 			'' Brand,
 			'' model,
+
             bm.description ,
             '' type_code ,
              0 qty ,
@@ -184,6 +188,7 @@ AS
 			NULL pom_date,
 			POM_age = 'CURRENT',
 			'' AS attribute,
+			'' Primary_demo,
 			bm.usage_type_code ,
             bm.group_code ,
             bm.location ,
@@ -215,6 +220,7 @@ AS
 			
 			;
     
+
 
 
 

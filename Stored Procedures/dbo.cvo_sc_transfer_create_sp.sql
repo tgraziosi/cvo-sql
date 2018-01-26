@@ -136,7 +136,7 @@ AS
                        @to_loc_addr3 = sav.addr3 ,
 					   @to_loc_addr4 = '',
 					   @to_loc_addr5 = '',
-					   @routing = ISNULL(@routing,sav.ship_via_code)
+					   @routing = CASE WHEN ISNULL(@routing,'') = '' THEN sav.ship_via_code else @routing end
                 FROM   locations_all l
 				JOIN cvo_sc_addr_vw sav ON sav.location = l.location
                 WHERE  l.location = @to_loc;
@@ -327,6 +327,7 @@ AS
     GRANT EXECUTE
         ON dbo.cvo_sc_transfer_create_sp
         TO PUBLIC;
+
 
 
 
