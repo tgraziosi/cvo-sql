@@ -40,7 +40,10 @@ set nocount on
 -- v12.2 CB 11/05/2016 - Fix issue with promo discount
 -- v12.3 CB 04/08/2016 - #1599 email ship confirmation order may not be posted
 -- v12.4 CB 12/05/2017 - Fix issue with type not being picked up for invoice or credit
--- v12.3 CB 31/05/2017 - Issue with buying group child data
+-- v12.5 CB 31/05/2017 - Issue with buying group child data
+-- v12.6 CB 28/12/2017 - If BG then only change list price if price override
+-- v12.7 CB 08/01/2017 - #1656 - Customer Pricing Invoice
+-- v12.8 CB 12/01/2018 - Add routine to correct pricing
 
 --DECLARE	@custom_count int -- v10.1 v10.3
   
@@ -68,7 +71,7 @@ trx_type int, doc_ctrl_num varchar(16), level int, order_ext int) -- v4.4
 create unique index inv_idx0 on #invoices (invoice_no, trx_type)  
 
 -- v4.1
-CREATE TABLE #customers (cust_code varchar(10), cust_type varchar(40), bg varchar(10)) -- v12.3
+CREATE TABLE #customers (cust_code varchar(10), cust_type varchar(40), bg varchar(10)) -- v12.5
 create index cust_idx0 on #customers (cust_code,cust_type)  
 
 
@@ -353,7 +356,7 @@ select @invoice = isnull(@invoice,'')
   
 select @prt_summ = left(@invoice,1)  
 
--- v12.3 Start
+-- v12.5 Start
 IF (@prt_summ = 'Q')
 BEGIN
 	SELECT @typ = SUBSTRING(@invoice, 2, 1)  
@@ -425,7 +428,7 @@ BEGIN
 			exec('insert #customers  (cust_code, cust_type, bg)
 			select distinct c.customer_code, c.addr_sort1, CASE WHEN c.addr_sort1 = ''BUYING GROUP'' THEN c.customer_code ELSE '''' END
 			from adm_cust c (nolock)
-			where ' + @cust_range )  -- v12.3		
+			where ' + @cust_range )  -- v12.5		
 		END
 	 
 		exec('insert #invoices  
@@ -454,7 +457,7 @@ BEGIN
 			exec('insert #customers  (cust_code, cust_type, bg)
 			select distinct c.customer_code, c.addr_sort1, CASE WHEN c.addr_sort1 = ''BUYING GROUP'' THEN c.customer_code ELSE '''' END
 			from adm_cust c (nolock)
-			where ' + @cust_range )  -- v12.3 			
+			where ' + @cust_range )  -- v12.5 			
 		END
 
 		exec('insert #invoices  
@@ -489,8 +492,8 @@ BEGIN
 				SELECT @dend = NULL
 			END
 
-			INSERT 	#customers (cust_code, 	cust_type, bg)  -- v12.3
-			SELECT	b.child, c.addr_sort1, a.cust_code  -- v12.3
+			INSERT 	#customers (cust_code, 	cust_type, bg)  -- v12.5
+			SELECT	b.child, c.addr_sort1, a.cust_code  -- v12.5
 			FROM	#customers a
 			CROSS APPLY dbo.f_cvo_get_buying_group_child_list_range(a.cust_code,@dstart,@dend) b 
 			JOIN	armaster_all c (NOLOCK)
@@ -542,7 +545,7 @@ BEGIN
 				where orders_all.status >= ''T'' and orders_all.status < ''V'' and orders_all.invoice_no > 0 and orders_all.type < ''X'' and   
 				  isnull(orders_all.tax_valid_ind,1) = 1 and  ' + @date_range + ' and
 				tc.bg = cvo.buying_group and
-			   orders_all.printed < ''T'' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num ')  -- v12.3
+			   orders_all.printed < ''T'' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num ')  -- v12.5
 				
 			  
 
@@ -562,7 +565,7 @@ BEGIN
 				where orders_all.status >= ''T'' and orders_all.status < ''V''  and  ' + @date_range + ' and
 				  isnull(orders_all.tax_valid_ind,1) = 1   and
 					tc.bg = cvo.buying_group 
-				  and orders_all.invoice_no > 0 and orders_all.type < ''X'' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num')  -- v12.3
+				  and orders_all.invoice_no > 0 and orders_all.type < ''X'' group by orders_all.invoice_no, orders_all.type, oi.doc_ctrl_num')  -- v12.5
 			END
 
 			
@@ -571,7 +574,7 @@ BEGIN
 
 	end  
 END
--- v12.3 End
+-- v12.5 End
 -- v4.1  
 DROP TABLE #customers
 
@@ -604,7 +607,7 @@ from #invoices (nolock)
 --from orders_all o, #invoices t  
 --where o.invoice_no = t.invoice_no and o.printed < 'T' and o.type = t.type  
 
--- v12.3 Start
+-- v12.5 Start
 IF (@prt_summ = 'Q')
 BEGIN
 	insert #rpt_soinvform  
@@ -1098,7 +1101,7 @@ BEGIN
 	left outer join dbo.artax taxd (nolock) on taxd.tax_code = l.tax_code  
 
 END
--- v12.3 End
+-- v12.5 End
  
 -- CVO : Delete any transactions where the Customer is not printing credit memos  
 if ISNULL((select isnull(value_str,'N') from config where flag = 'CVO_FILTER_CREDITS'),'N') = 'Y'
@@ -1158,7 +1161,6 @@ UPDATE #rpt_soinvform
  WHERE o_user_def_fld9 = 1 
  AND l_part_no <> 'Credit Return Fee' -- v10.4
 --v4.0 END  
-  
 
 -- v11.1 Start
 UPDATE	o
@@ -1183,16 +1185,28 @@ WHERE	ISNULL(o.o_user_def_fld4,'') <> ''
 AND		ISNULL(o_user_def_fld9,0) = 0
 AND		o.o_type = 'I'
 -- v11.1 End
-  
+
+-- v12.6 Start
+UPDATE	#rpt_soinvform
+SET		l_price = l_std_direct_dolrs - l_std_ovhd_dolrs
+WHERE	ISNULL(o_user_def_fld4,'') <> ''
+AND		ISNULL(o_user_def_fld9,0) = 0
+-- v12.6 Start
+ 
 -- v11.4 Start
 UPDATE	o
-SET		l_std_direct_dolrs = l_price,
+SET		l_std_direct_dolrs = CASE ISNULL(e.price_override,'N') WHEN 'Y' THEN l_price ELSE cv1.orig_list_price END, -- v12.6
+		l_price = CASE ISNULL(e.price_override,'N') WHEN 'Y' THEN l_price ELSE cv1.orig_list_price END, -- v12.6
 		l_std_ovhd_dolrs = 0
 FROM	#rpt_soinvform o
 JOIN	ord_list b (NOLOCK)
 ON		o.o_order_no = b.order_no
 AND		o.o_ext = b.order_ext
 AND		o.l_line_no = b.line_no
+JOIN	cvo_ord_list cv1 (NOLOCK)
+ON		o.o_order_no = cv1.order_no
+AND		o.o_ext = cv1.order_ext
+AND		o.l_line_no = cv1.line_no
 JOIN	inv_master c (NOLOCK)
 ON		b.part_no = c.part_no
 JOIN	cvo_orders_all d (NOLOCK)
@@ -1201,9 +1215,10 @@ AND		o.o_ext = d.ext
 JOIN	CVO_line_discounts e (NOLOCK)
 ON		d.promo_id = e.promo_id
 AND		d.promo_level = e.promo_level
-WHERE	c.type_code	= e.category
-AND		ISNULL(e.price_override,'N') = 'Y'	
-
+WHERE	(c.type_code	= e.category OR e.category IS NULL)  -- v12.6
+--AND		ISNULL(e.price_override,'N') = 'Y'	 -- v12.6
+AND		ISNULL(o.o_user_def_fld4,'') <> '' -- v12.6
+AND		ISNULL(o_user_def_fld9,0) = 1 -- v12.6
 -- v11.4 End
 
 update #rpt_soinvform  
@@ -1329,11 +1344,108 @@ SET		l_std_direct_dolrs = l_price,
 WHERE	l_price < 0
 -- v12.2 End
 
+-- v12.7 Start
+UPDATE	#rpt_soinvform 
+SET		l_std_direct_dolrs = l_curr_price,
+		l_std_ovhd_dolrs = 0,
+		l_price = l_curr_price
+WHERE	l_price_type IN ('Q','Y')
+-- v12.7 End
+
 -- v11.8 Start
 UPDATE	#rpt_soinvform
 SET		o_special_instr = m_comment_line + CASE WHEN ISNULL(o_special_instr,'') > '' THEN ' \ ' ELSE '' END + ISNULL(o_special_instr,'')
 WHERE	ISNULL(m_comment_line,'') > ''
 -- v11.8 End
+
+-- v12.8 Start
+DECLARE @c_gross_price		decimal(20,8),
+		@c_discount_amount	decimal(20,8),
+		@c_net_price		decimal(20,8), 
+		@c_ext_net_price	decimal(20,8),
+		@c_order_no			int,
+		@c_order_ext		int,
+		@c_line_no			int,
+		@c_cust_code		varchar(10),
+		@c_qty				decimal(20,8),
+		@row_id				int,
+		@parent				varchar(10),
+		@IsBG				int
+
+CREATE TABLE #inv_pricing (
+	row_id		int IDENTITY(1,1),
+	order_no	int,
+	order_ext	int,
+	line_no		int,
+	cust_code	varchar(10),
+	qty			decimal(20,8))
+
+INSERT	#inv_pricing (order_no,	order_ext, line_no, cust_code, qty)
+SELECT	o_order_no, o_ext, l_line_no, o_cust_code, l_shipped
+FROM	#rpt_soinvform
+WHERE	o_type = 'I'
+ORDER BY o_order_no, o_ext, l_line_no
+
+SET @row_id = 0
+
+WHILE (1 = 1)
+BEGIN
+	SELECT	TOP 1 @row_id = row_id,
+			@c_order_no = order_no,
+			@c_order_ext = order_ext,
+			@c_line_no = line_no,			
+			@c_cust_code = cust_code,
+			@c_qty = qty
+	FROM	#inv_pricing
+	WHERE	row_id > @row_id
+	ORDER BY row_id ASC
+
+	IF (@@ROWCOUNT = 0)
+		BREAK
+
+	SET @c_gross_price = 0
+	SET @c_discount_amount = 0
+	SET @c_net_price = 0
+	SET @c_ext_net_price = 0
+
+	EXEC dbo.cvo_get_invoice_line_prices_sp	@c_order_no, @c_order_ext, @c_line_no, @c_cust_code, @c_qty, @c_gross_price OUTPUT, @c_discount_amount OUTPUT,
+					@c_net_price OUTPUT, @c_ext_net_price OUTPUT
+
+	SELECT	@parent = ISNULL(buying_group,'') 
+	FROM	CVO_orders_all (NOLOCK) 
+	WHERE	order_no = @c_order_no 
+	AND		ext = @c_order_ext
+
+	IF (@parent <> '')
+	BEGIN
+		SET @c_cust_code = @parent
+	END
+
+	SELECT	@isBG = ISNULL(alt_location_code,0) 
+	FROM	arcust (NOLOCK)
+	WHERE	customer_code = @c_cust_code
+
+	IF (@isBG = 1)
+	BEGIN
+		IF EXISTS (SELECT 1 FROM ord_list (NOLOCK) WHERE order_no = @c_order_no AND order_ext = @c_order_ext AND line_no = @c_line_no AND discount = 100)
+		BEGIN
+			SET @c_discount_amount = @c_gross_price
+			SET @c_net_price = 0
+		END
+	END
+
+	UPDATE	#rpt_soinvform
+	SET		l_std_direct_dolrs = @c_gross_price,
+			l_std_ovhd_dolrs = @c_discount_amount,
+			l_price = @c_net_price
+	WHERE	o_order_no = @c_order_no
+	AND		o_ext = @c_order_ext
+	AND		l_line_no = @c_line_no
+
+END
+
+DROP TABLE #inv_pricing
+-- v12.8 End
 
 if isnull(@rpt_table,'') = ''  
 begin  
@@ -1350,7 +1462,6 @@ begin
 end  
 end  
   
-
 GO
 GRANT EXECUTE ON  [dbo].[adm_rpt_soinvform] TO [public]
 GO

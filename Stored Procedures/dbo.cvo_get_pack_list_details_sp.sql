@@ -12,6 +12,8 @@ GO
 -- v1.6 CB 03/12/2015 - Fix for BG customer set to regular invoice
 -- v1.7 CB 11/05/2016 - Fix issue with promo discount
 -- v1.8 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
+-- v1.9 CB 08/01/2017 - #1656 - Customer Pricing Invoice
+-- v2.0 CB 12/01/2018 - Add routine to correct pricing
 -- requires temp table
 /*
 CREATE TABLE #detail(
@@ -33,7 +35,8 @@ CREATE TABLE #detail(
 CREATE PROC [dbo].[cvo_get_pack_list_details_sp] (	@order_no	INT,
 												@order_ext	INT,
 												@location	VARCHAR(10),
-												@inv_option varchar(8) = '0') -- v1.6
+												@inv_option varchar(8) = '0', -- v1.6
+												@quote varchar(8) = '') -- v1.9
 		
 AS
 BEGIN
@@ -71,7 +74,9 @@ BEGIN
 		discount_amount DECIMAL(20,2) NULL, 
 		discount_pct	DECIMAL(20,2) NULL,
 		note			VARCHAR(10),
-		is_free			smallint NULL) -- v1.4
+		is_free			smallint NULL, -- v1.9) -- v1.4
+		is_quoted		smallint NULL, -- v1.9
+		is_fixed		smallint NULL) -- v12.2
 
 	-- START v1.1 - see if this is a buying group order
 	SET @buying_group = NULL
@@ -155,6 +160,17 @@ BEGIN
 	AND		b.order_ext = @order_ext
 	-- v1.4 End
 
+	-- v1.9 Start
+	UPDATE	a
+	SET		is_quoted = CASE b.price_type WHEN 'Q' THEN 1 ELSE 0 END,
+			is_fixed = CASE b.price_type WHEN 'Y' THEN 1 ELSE 0 END
+	FROM	#parts a
+	JOIN	ord_list b (NOLOCK)
+	ON		a.line_no = b.line_no
+	WHERE	b.order_no = @order_no
+	AND		b.order_ext = @order_ext
+	-- v1.9 End	
+
 	-- v1.8 Start
 	CREATE TABLE #cfkits (
 		kit_part	varchar(30), 
@@ -177,7 +193,7 @@ BEGIN
 	AND		b.part_type = 'C'
 
 	INSERT	#parts
-	SELECT	DISTINCT a.part_no, a.line_no, a.qty, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, a.is_free
+	SELECT	DISTINCT a.part_no, a.line_no, a.qty, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, a.is_free, NULL, NULL -- v12.2
 	FROM	#cfkits a
 
 	DELETE	a
@@ -353,45 +369,108 @@ BEGIN
 	END
 	-- v1.4 End
 
-	-- Group data
-	INSERT INTO #detail (
-		part_no,
-		pack_qty,
-		ordered,
-		qty_short,
-		list_price,
-		gross_price, 
-		net_price, 
-		ext_net_price,
-		discount_amount, 
-		discount_pct,
-		note,
-		is_credit, -- v1.2
-		is_free) -- v1.4	
-	SELECT 
-		part_no,
-		SUM(pack_qty),
-		SUM(ordered),
-		SUM(qty_short),
-		list_price,
-		SUM(gross_price), 
-		net_price, 
-		SUM(ext_net_price),
-		discount_amount, 
-		discount_pct,
-		note,
-		0, -- v1.2
-		is_free -- v1.4
-	FROM
-		#parts
-	GROUP BY
-		part_no,
-		list_price,
-		net_price, 
-		discount_amount, 
-		discount_pct,
-		note,
-		is_free -- v1.4
+	-- v1.9 Start
+	IF (@quote = '')
+	BEGIN
+
+		-- Group data
+		INSERT INTO #detail (
+			part_no,
+			pack_qty,
+			ordered,
+			qty_short,
+			list_price,
+			gross_price, 
+			net_price, 
+			ext_net_price,
+			discount_amount, 
+			discount_pct,
+			note,
+			is_credit, -- v1.2
+			is_free) -- v1.4				 
+		SELECT 
+			part_no,
+			SUM(pack_qty),
+			SUM(ordered),
+			SUM(qty_short),
+			list_price,
+			SUM(gross_price), 
+			net_price, 
+			SUM(ext_net_price),
+			discount_amount, 
+			discount_pct,
+			note,
+			0, -- v1.2
+			is_free -- v1.4
+		FROM
+			#parts
+		GROUP BY
+			part_no,
+			list_price,
+			net_price, 
+			discount_amount, 
+			discount_pct,
+			note,
+			is_free -- v1.4
+	END
+	ELSE
+	BEGIN
+
+		-- Group data
+		INSERT INTO #detail (
+			part_no,
+			pack_qty,
+			ordered,
+			qty_short,
+			list_price,
+			gross_price, 
+			net_price, 
+			ext_net_price,
+			discount_amount, 
+			discount_pct,
+			note,
+			is_credit, -- v1.2
+			is_free, -- v1.4	
+			is_quoted, -- v1.9
+			is_fixed, -- v1.9
+			line_no) -- v2.0
+		SELECT 
+			part_no,
+			SUM(pack_qty),
+			SUM(ordered),
+			SUM(qty_short),
+			list_price,
+			SUM(gross_price), 
+			net_price, 
+			SUM(ext_net_price),
+			discount_amount, 
+			discount_pct,
+			note,
+			0, -- v1.2
+			is_free, -- v1.4
+			is_quoted, -- v1.9
+			is_fixed, -- v12.2
+			line_no -- v2.0
+		FROM
+			#parts
+		GROUP BY
+			part_no,
+			list_price,
+			net_price, 
+			discount_amount, 
+			discount_pct,
+			note,
+			is_free, -- v1.4
+			is_quoted, -- v1.9
+			is_fixed, -- v1.9
+			line_no -- v2.0
+
+			UPDATE	#detail
+			SET		is_quoted = 0
+			WHERE	is_quoted IS NULL
+
+	END
+	-- v1.9 End	
 
 	-- START v1.2
 	-- Insert any promo credits into details

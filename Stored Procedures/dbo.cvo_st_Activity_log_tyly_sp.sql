@@ -13,9 +13,11 @@ BEGIN
 
 -- exec cvo_st_activity_log_tyly_sp '1/1/2018','1/31/2018', null, -1
 
-	DECLARE @sdately DATETIME, @edately DATETIME
+	DECLARE @sdately DATETIME, @edately DATETIME,
+			@sdatelm DATETIME, @edatelm datetime
 
-	SELECT @sdately = DATEADD(YEAR,-1,@startdate), @edately = DATEADD(YEAR,-1,@enddate)
+	SELECT @sdately = DATEADD(YEAR,-1,@startdate), @edately = DATEADD(YEAR,-1,@enddate),
+		   @sdatelm = DATEADD(month,-1,@startdate), @edatelm = DATEADD(month,-1,@enddate)
 
     CREATE TABLE #t
     (
@@ -97,6 +99,45 @@ BEGIN
 			, @Territory = @Territory, @qualorder = @qualorder, @detail = @detail
 	UPDATE #t SET yy = 'TY' WHERE yy IS NULL;
 
+	IF MONTH(@startdate) > 1 
+    begin
+	-- get last month's activity too to check for customers to remove from valid UC list
+	    INSERT INTO #t
+	(
+	    cust_code,
+	    ship_to,
+	    ship_To_door,
+	    ship_to_name,
+	    salesperson,
+	    salesperson_name,
+	    Territory,
+	    region,
+	    total_amt_order,
+	    total_discount,
+	    total_tax,
+	    freight,
+	    qty_ordered,
+	    qty_shipped,
+	    total_invoice,
+	    FramesOrdered,
+	    FramesShipped,
+	    FramesRMA,
+	    net_rx,
+	    net_sales
+	)
+    EXEC dbo.cvo_ST_Activity_log_sp @startdate = @sdatelm 
+			, @enddate = @edatelm
+			, @Territory = @Territory, @qualorder = @qualorder, @detail = @detail
+	UPDATE #t SET yy = 'PM' WHERE yy IS NULL;
+
+	UPDATE ty SET ship_to_door = 'PM' 
+	FROM #t ty
+	JOIN #t pm ON pm.cust_code = ty.cust_code AND pm.ship_to = ty.ship_to
+	WHERE ty.yy = 'ty' AND pm.yy = 'pm'
+	;
+
+	DELETE FROM #t WHERE yy = 'pm';
+	END;
 
 	SELECT t.cust_code,
            t.ship_to,
@@ -123,6 +164,7 @@ BEGIN
 END;
 
 GRANT EXECUTE ON dbo.cvo_st_Activity_log_tyly_sp TO PUBLIC;
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_st_Activity_log_tyly_sp] TO [public]
 GO

@@ -21,6 +21,9 @@ GO
 -- v3.6 CB 15/07/2015 - Fix issue for free frames on BG invoices
 -- v3.7 CB 08/09/2015 - As per Tine - They want to see the gross price (list price) as whatever it is (non-zero), and the net price to show as $0.
 -- v3.8 CB 11/05/2016 - Fix for promo discount
+-- v3.9 CB 28/12/2017 - Another fix for promo discount
+-- v4.0 CB 08/01/2017 - #1656 - Customer Pricing Invoice
+-- v4.1 CB 12/01/2018 - Add routine to correct pricing
 
 
 CREATE PROCEDURE [dbo].[cc_invoice_report_sp] @my_id	varchar(255),
@@ -587,8 +590,123 @@ CREATE TABLE	#ccarhdr_work
 	ON		a.order_ctrl_num = (CAST(b.order_no AS varchar(20)) + '-' + CAST(b.ext AS varchar(20)))
 	WHERE	ISNULL(b.buying_group,'') = ''
 	AND		a.discount_prc = 100
-
 	-- v3.6 End
+
+	-- 3.9 Start
+	UPDATE	#ccarhdr_work
+	SET		extended_price = list_amt - discount_amt
+	-- v3.9 End
+
+	-- v4.0 Start
+	UPDATE	a
+	SET		list_amt = extended_price,
+			discount_amt = 0
+	FROM	#ccarhdr_work a
+	JOIN	ord_list b (NOLOCK)
+	ON		a.order_ctrl_num = CAST(b.order_no as varchar(10)) + '-' + CAST(b.order_ext as varchar(10))
+	AND		SUBSTRING(doc_desc,CHARINDEX(' ',doc_desc)+1,10) = CAST(b.line_no as varchar(10))
+	WHERE	LEFT(a.doc_desc,3) = 'SO:'
+	AND		b.price_type IN ('Q','Y')
+
+	-- v4.0 End
+
+	-- v4.1 Start
+	DECLARE @c_gross_price		decimal(20,8),
+			@c_discount_amount	decimal(20,8),
+			@c_net_price		decimal(20,8), 
+			@c_ext_net_price	decimal(20,8),
+			@c_order_no			int,
+			@c_order_ext		int,
+			@c_line_no			int,
+			@c_cust_code		varchar(10),
+			@c_qty				decimal(20,8),
+			@row_id				int,
+			@parent				varchar(10),
+			@IsBG				int,
+			@trx_ctrl_num		varchar(16)
+
+	CREATE TABLE #inv_pricing (
+		row_id		int IDENTITY(1,1),
+		order_no	int,
+		order_ext	int,
+		line_no		int,
+		cust_code	varchar(10),
+		qty			decimal(20,8),
+		trx_ctrl_num varchar(16))
+
+	INSERT	#inv_pricing (order_no,	order_ext, line_no, cust_code, qty, trx_ctrl_num)
+	SELECT	LEFT(order_ctrl_num, CHARINDEX('-',order_ctrl_num)-1),
+			RIGHT(order_ctrl_num,LEN (order_ctrl_num) - CHARINDEX('-',order_ctrl_num)),
+			sequence_id,
+			customer_code,
+			qty_shipped,
+			trx_ctrl_num
+	FROM	#ccarhdr_work
+	WHERE	LEFT(doc_desc,3) = 'SO:'
+
+	SET @row_id = 0
+
+	WHILE (1 = 1)
+	BEGIN
+		SELECT	TOP 1 @row_id = row_id,
+				@c_order_no = order_no,
+				@c_order_ext = order_ext,
+				@c_line_no = line_no,			
+				@c_cust_code = cust_code,
+				@c_qty = qty,
+				@trx_ctrl_num = trx_ctrl_num
+		FROM	#inv_pricing
+		WHERE	row_id > @row_id
+		ORDER BY row_id ASC
+
+		IF (@@ROWCOUNT = 0)
+			BREAK
+
+		SET @c_gross_price = 0
+		SET @c_discount_amount = 0
+		SET @c_net_price = 0
+		SET @c_ext_net_price = 0
+
+		EXEC dbo.cvo_get_invoice_line_prices_sp	@c_order_no, @c_order_ext, @c_line_no, @c_cust_code, @c_qty, @c_gross_price OUTPUT, @c_discount_amount OUTPUT,
+						@c_net_price OUTPUT, @c_ext_net_price OUTPUT
+
+		SELECT	@parent = ISNULL(buying_group,'') 
+		FROM	CVO_orders_all (NOLOCK) 
+		WHERE	order_no = @c_order_no 
+		AND		ext = @c_order_ext
+
+		IF (@parent <> '')
+		BEGIN
+			SET @c_cust_code = @parent
+		END
+
+		SELECT	@isBG = ISNULL(alt_location_code,0) 
+		FROM	arcust (NOLOCK)
+		WHERE	customer_code = @c_cust_code
+
+		IF (@isBG = 1)
+		BEGIN
+			IF EXISTS (SELECT 1 FROM ord_list (NOLOCK) WHERE order_no = @c_order_no AND order_ext = @c_order_ext AND line_no = @c_line_no AND discount = 100)
+			BEGIN
+				SET @c_discount_amount = @c_gross_price
+				SET @c_net_price = 0
+				SET @c_ext_net_price = 0
+			END
+		END
+
+		UPDATE	#ccarhdr_work
+		SET		list_amt = @c_gross_price,
+				discount_amt = @c_discount_amount,
+				unit_price = @c_net_price,
+				extended_price = @c_ext_net_price
+		WHERE	trx_ctrl_num = @trx_ctrl_num
+		AND		sequence_id = @c_line_no
+
+	END
+
+	DROP TABLE #inv_pricing
+	-- v4.1 End
+
 
 	SELECT	a.trx_ctrl_num,
 			a.doc_ctrl_num,

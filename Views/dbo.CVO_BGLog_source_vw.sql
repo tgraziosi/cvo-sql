@@ -20,6 +20,7 @@ CREATE view [dbo].[CVO_BGLog_source_vw] as
 -- v2.7 CHANGES MADE BY CVO
 -- v2.8	CT 20/10/2014 - Issue #1367 - For Sales Orders and Credit Returns, if net price > list price, set list = net and discount = 0 and disc_perc = 0
 -- v2.9 CB 12/03/2015 - Issue #1469 - Deal with finance and late charges and chargebacks
+-- v3.0 CB 22/01/2018 - Fix issue for BG when promo or discount applied
  
 -- 1 -- order h  - freight and tax
 -- tag - don't even look for detail lines... dont need them
@@ -79,7 +80,7 @@ AND cv.buying_group > '' -- v2.6
 -- v2.6 AND dbo.f_cvo_get_buying_group(h.cust_code, CONVERT(varchar(10),DATEADD(DAY, x.date_doc - 693596, '01/01/1900'),121)) > '' -- v2.5
 
 
-union all 
+union  
   
 -- 2 -- order lines  
 select   
@@ -114,9 +115,9 @@ sum(round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_
 --sum(round(((d.curr_price*(1-(d.discount/100)) * d.shipped)),2)) as mer_disc,  
 --sum(round(((d.curr_price*(1-(d.discount/100)) * d.shipped)),2)) as inv_due,  
 -- START v2.8
-sum(d.Shipped * ROUND(curr_price -(curr_price * ((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) / 100)),2)) as mer_disc, 
+sum(d.Shipped * ROUND(curr_price - ROUND((curr_price * ((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) / 100)),2),2)) as mer_disc, -- v3.0
 --sum(d.Shipped * ROUND(curr_price -(curr_price * (d.discount / 100)),2)) as mer_disc,  
-sum(d.Shipped * ROUND(curr_price -(curr_price * ((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) / 100)),2)) as inv_due,   
+sum(d.Shipped * ROUND(curr_price - ROUND((curr_price * ((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) / 100)),2),2)) as inv_due, -- v3.0
 --sum(d.Shipped * ROUND(curr_price -(curr_price * (d.discount / 100)),2)) as inv_due,  
 -- END v2.8
 -- p.disc_perc,  
@@ -181,7 +182,7 @@ t.days_due, h.type, x.date_doc, (CASE WHEN d.curr_price > c.list_price THEN 0 EL
 -- END v2.8
   
   
-union all  
+union   
   
 -- 3 -- cr order header  - tax and freight portion
 select   
@@ -238,7 +239,7 @@ AND cv.buying_group > '' -- v2.6
 --and x.date_doc between dbo.adm_get_pltdate_f('04/01/2013') and dbo.adm_get_pltdate_F('04/10/2013')
  
   
-union all 
+union  
   --  4 -- cr order lines  
 select   
 -- v2.6 dbo.f_cvo_get_buying_group(h.cust_code, CONVERT(varchar(10),DATEADD(DAY, x.date_doc - 693596, '01/01/1900'),121)) parent, -- v2.5
@@ -336,7 +337,7 @@ x.date_doc, (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END), 
 --x.date_doc, d.discount, disc_perc 
 -- END v2.8
   
-union all 
+union  
   
 -- 5 -- AR only records invoice  
 select   
@@ -386,7 +387,7 @@ and h.void_flag <> 1     --v2.0
 AND dbo.f_cvo_get_buying_group(h.customer_code, CONVERT(varchar(10),DATEADD(DAY, h.date_doc - 693596, '01/01/1900'),121)) > '' -- v2.5
 
   
-union all 
+union  
   
 -- 6 -- AR only records credit  
 select   
@@ -462,7 +463,7 @@ AND dbo.f_cvo_get_buying_group(h.customer_code, CONVERT(varchar(10),DATEADD(DAY,
 and not exists (select 1 from cvo_debit_promo_customer_det where trx_ctrl_num = h.trx_ctrl_num)
 -- END v2.7
 
-union all 
+union  
   
 -- 6 AR Split only records  *** NEW ***  
 select   
@@ -533,7 +534,7 @@ and x.void_flag <> 1
 AND cv.buying_group > '' -- v1.2
 
   
-union all 
+union  
   
 --  4 -- cr order lines - debit promos 
 select   

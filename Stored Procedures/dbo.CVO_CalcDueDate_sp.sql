@@ -7,6 +7,7 @@ GO
 -- v1.5 27/01/2016 - February again!!
 -- v1.6 31/08/2017 - Fix issue with month not incrementing correctly
 -- v1.7 03/11/2017 - Fix for Oct 31st invoices
+-- v1.8 26/01/2018 - If due date is past statement date then increment month but reduce day
 CREATE PROC [dbo].[CVO_CalcDueDate_sp]  @customer_code varchar(8),  
          @date_doc  int,  
          @date_due  int OUTPUT,  
@@ -63,6 +64,7 @@ BEGIN
 				SET @year = @year + 1  
 				SET @month = 1  
 			END  
+			SET  @day = @statement_day - 1 -- v1.8
 
 			-- v1.7 Start
 			IF @month IN (2)  

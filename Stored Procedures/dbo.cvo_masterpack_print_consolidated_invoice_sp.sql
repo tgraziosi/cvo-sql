@@ -36,6 +36,7 @@ GO
 -- v11.7 CB 24/05/2016 - Fix code for pulling back promo name
 -- v11.8 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 -- v11.9 CB 12/01/2017 - Recalc tax and totals
+-- v12.0 CB 08/01/2018 - #1656 - Customer Pricing Invoice
 
 */
 
@@ -465,17 +466,6 @@ BEGIN
 	WHERE	a.customer_code = @cust_code
 	-- v11.3 End
 
-	-- 4/11/2017 -- Invoice Note for SM reorders		
-	IF (DATEPART(WEEKDAY,GETDATE())) = 2 -- only on Mondays
-			AND GETDATE() BETWEEN '4/10/2017' AND '7/3/2017'
-			AND CHARINDEX('FREE Shipping!',ISNULL(@invoice_note,'')) = 0 
-	BEGIN
-				SELECT @invoice_note = CASE WHEN ISNULL(@invoice_note,'') = ''
-				THEN 'Place a Steve Madden reorder today and get FREE shipping!'
-				ELSE ISNULL(@invoice_note,'') + CHAR(13) + CHAR(10) + 'Place a Steve Madden reorder today and get FREE shipping!' 
-				END
-	END
-
 	-- v11.4 Start
 	SELECT	@inv_option = ISNULL(alt_location_code,'')
 	FROM	arcust (NOLOCK)
@@ -764,7 +754,8 @@ BEGIN
 	-- v10.5
 	IF OBJECT_ID('tempdb..#detail') IS NOT NULL
 		DROP TABLE #detail
-
+-- v12.0 Start
+/*
 	CREATE TABLE #detail(
 		part_no			VARCHAR(30) NULL,
 		pack_qty		DECIMAL(20,8) NULL,
@@ -779,6 +770,26 @@ BEGIN
 		note			VARCHAR(10) NULL,
 		is_credit		SMALLINT NULL, --) 
 		is_free			smallint NULL) -- v11.2
+*/
+	CREATE TABLE #detail(
+		part_no			VARCHAR(30) NULL,
+		pack_qty		DECIMAL(20,8) NULL,
+		ordered			DECIMAL(20,8) NULL,
+		qty_short		DECIMAL(20,8) NULL,
+		list_price		DECIMAL(20,2) NULL,
+		gross_price		DECIMAL(20,2) NULL, 
+		net_price		DECIMAL(20,2) NULL, 
+		ext_net_price	DECIMAL(20,2) NULL,
+		discount_amount DECIMAL(20,2) NULL, 
+		discount_pct	DECIMAL(20,2) NULL,
+		note			VARCHAR(10) NULL,
+		is_credit		SMALLINT NULL, --) -- v11.0
+		is_free			smallint NULL, -- v12.2) -- v11.4
+		is_quoted		smallint NULL, -- v12.2
+		is_fixed		smallint NULL, -- v12.2
+		line_no			int NULL) -- v12.3
+
+-- v12.0 End
 
 	CREATE TABLE #cons_orders_hdr(
 		rec_id			INT IDENTITY(1,1) NOT NULL,
@@ -2048,23 +2059,6 @@ BEGIN
 									discount_value, order_total, printed_date)
 		VALUES (@order_no, @order_ext, @Cust_Code, @ship_to_no, @invoice_num, @order_net, @order_tax, @order_frt, @order_disc, @order_total, GETDATE())
 
-					
-		-- 4/11/2017 -- Invoice Note for SM reorders		
-		IF (DATEPART(WEEKDAY,GETDATE())) = 2 -- only on Mondays
-				AND GETDATE() BETWEEN '4/10/2017' AND '7/3/2017'
-		BEGIN
-				UPDATE co 
-				SET co.invoice_note = CASE WHEN ISNULL(co.invoice_note,'') = ''
-					THEN 'Place a Steve Madden reorder today and get FREE shipping!'
-					ELSE ISNULL(co.invoice_note,'') + CHAR(13) + CHAR(10) + 'Place a Steve Madden reorder today and get FREE shipping!' 
-					END
-				FROM cvo_orders_all co
-				JOIN orders o ON o.order_no = co.order_no AND o.ext = co.ext
-				WHERE co.order_no = @order_no AND co.ext = @order_ext AND o.type = 'I'
-				AND CHARINDEX('FREE Shipping!',ISNULL(co.invoice_note,'')) = 0 
-		END
-
-
 		-- Keep running totals
 		IF @new_order_totals = 1
 		BEGIN
@@ -2115,5 +2109,4 @@ BEGIN
 	  
 	RETURN
 END
-
 GO
