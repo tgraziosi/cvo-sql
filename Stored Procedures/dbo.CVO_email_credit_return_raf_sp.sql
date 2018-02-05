@@ -5,6 +5,7 @@ GO
 
 -- EXEC CVO_email_credit_return_raf_sp
 -- v1.1 TG - CC the sales rep and send to rma@cvoptical.com
+-- 2/2/2018 - remove bcc to rma@cvoptical.com
 
 /*
 Sent values:
@@ -134,7 +135,7 @@ BEGIN
 					 @file_attachments = @attachment,
 					 @mailitem_id = @mailitem_id OUTPUT,
 					 @body_format = 'HTML' -- tag
-					 , @blind_copy_recipients = 'rma@cvoptical.com' -- tag 06/20/2014
+					 -- , @blind_copy_recipients = 'rma@cvoptical.com' -- tag 06/20/2014
 					 , @copy_recipients = @slp_email 
 				END
 

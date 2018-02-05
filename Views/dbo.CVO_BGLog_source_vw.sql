@@ -21,6 +21,7 @@ CREATE view [dbo].[CVO_BGLog_source_vw] as
 -- v2.8	CT 20/10/2014 - Issue #1367 - For Sales Orders and Credit Returns, if net price > list price, set list = net and discount = 0 and disc_perc = 0
 -- v2.9 CB 12/03/2015 - Issue #1469 - Deal with finance and late charges and chargebacks
 -- v3.0 CB 22/01/2018 - Fix issue for BG when promo or discount applied
+-- v3.1 CB 27/01/2018 - Fix issue for BG when promo or discount applied
  
 -- 1 -- order h  - freight and tax
 -- tag - don't even look for detail lines... dont need them
@@ -100,12 +101,21 @@ t.days_due as trm,
 convert(varchar(12),dateadd(dd,(x.date_doc)-639906,'1/1/1753'),101) as inv_date,
 --convert(varchar(12), h.date_shipped, 101) as inv_date, 
 -- START v2.8 
-sum(round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2)) as inv_tot,
+-- v3.1 Start
+sum( CASE WHEN c.free_frame = 1 THEN 0 ELSE 
+		CASE WHEN cv.promo_id <> '' THEN ROUND(((d.curr_price - ROUND(c.amt_disc,2)) * d.shipped),2) ELSE CASE WHEN d.discount <> 0 THEN ROUND(((d.curr_price - ROUND(c.amt_disc,2)) * d.shipped),2) ELSE
+		round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2) END END END) as inv_tot, 
+sum( CASE WHEN c.free_frame = 1 THEN 0 ELSE 
+	CASE WHEN cv.promo_id <> '' THEN ROUND(((d.curr_price - ROUND(c.amt_disc,2)) * d.shipped),2) ELSE CASE WHEN d.discount <> 0 THEN ROUND(((d.curr_price - ROUND(c.amt_disc,2)) * d.shipped),2) ELSE
+round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2) END END END ) as mer_tot, 
+
+--sum(round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2)) as inv_tot,
 --sum(round((c.list_price * d.shipped),2)) as inv_tot,  
 -- END v2.8
 --sum(round((curr_price * d.shipped),2)) as inv_tot, 
 -- START v2.8 
-sum(round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2)) as mer_tot,  
+--sum(round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2)) as mer_tot,  
+-- v3.1 End
 --sum(round((c.list_price * d.shipped),2)) as mer_tot,  
 -- END v2.8
 --sum(round((curr_price * d.shipped),2)) as mer_tot,  

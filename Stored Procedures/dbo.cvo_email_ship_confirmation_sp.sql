@@ -4,6 +4,7 @@ SET ANSI_NULLS ON
 GO
 
 -- EXEC dbo.cvo_email_ship_confirmation_sp
+-- 2/2/18 - remove co@cvoptical.com
 
 CREATE PROC [dbo].[cvo_email_ship_confirmation_sp]  
 AS
@@ -215,7 +216,7 @@ BEGIN
 
 				EXEC @rc = msdb.dbo.sp_send_dbmail
 						 @recipients = @email_address,
-						 @blind_copy_recipients = 'co@cvoptical.com', --v1.2
+						 -- @blind_copy_recipients = 'co@cvoptical.com', --v1.2
 						 @body = @body_text, 
 						 @subject = @subject_line,
 						 @file_attachments = @attachment,
@@ -227,7 +228,7 @@ BEGIN
 				-- Call SQL email routine
 				EXEC @rc = msdb.dbo.sp_send_dbmail
 						 @recipients = @email_address,
-						 @blind_copy_recipients = 'co@cvoptical.com', --v1.2
+						 -- @blind_copy_recipients = 'co@cvoptical.com', --v1.2
 						 @body = @body_text, 
 						 @subject = @subject_line,
 						 @file_attachments = @attachment,

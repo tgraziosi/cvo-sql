@@ -698,6 +698,8 @@ CREATE NONCLUSTERED INDEX [armaster_all_ind_addrtype] ON [dbo].[armaster_all] ([
 GO
 CREATE NONCLUSTERED INDEX [armaster_all_ind_2] ON [dbo].[armaster_all] ([address_type], [status_type]) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [idx_armaster_phone] ON [dbo].[armaster_all] ([contact_phone]) ON [PRIMARY]
+GO
 CREATE UNIQUE CLUSTERED INDEX [armaster_all_ind_0] ON [dbo].[armaster_all] ([customer_code], [ship_to_code], [address_type]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [armaster_all_ind_3] ON [dbo].[armaster_all] ([price_code]) ON [PRIMARY]

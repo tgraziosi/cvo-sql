@@ -9,6 +9,7 @@ CREATE PROC [dbo].[cvo_email_cc_confirmation_sp] @customer_code varchar(8),
 AS
 BEGIN
 
+	-- 2/2/2018 - stop sending to co@cvoptical.com
 	-- EXEC dbo.cvo_email_cc_confirmation_sp '011111', '1.00','USD'
 	
 	-- Directives
@@ -30,8 +31,8 @@ BEGIN
 	WHERE	customer_code = @customer_code
 
 	IF (@email_address = '' OR PATINDEX('%@%',@email_address) = 0)
-		SET @email_address = 'co@cvoptical.com'
---		RETURN
+		-- SET @email_address = 'co@cvoptical.com'
+		RETURN
 
 	SELECT	@cur_symbol = symbol
 	FROM	dbo.mccu1_vw (NOLOCK)
@@ -67,7 +68,7 @@ BEGIN
 
 		EXEC @rc = msdb.dbo.sp_send_dbmail
 				 @recipients = @email_address,
-				 @blind_copy_recipients = 'co@cvoptical.com',
+				 --@blind_copy_recipients = 'co@cvoptical.com',
 				 @body = @body_text, 
 				 @subject = @subject_line,
 				 @body_format = 'HTML',
@@ -80,7 +81,7 @@ BEGIN
 		-- Call SQL email routine
 		EXEC @rc = msdb.dbo.sp_send_dbmail
 				 @recipients = @email_address,
-				 @blind_copy_recipients = 'co@cvoptical.com',
+				 -- @blind_copy_recipients = 'co@cvoptical.com',
 				 @body = @body_text, 
 				 @subject = @subject_line,
 				 @body_format = 'HTML',

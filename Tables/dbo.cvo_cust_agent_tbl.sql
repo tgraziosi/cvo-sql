@@ -7,6 +7,8 @@ CREATE TABLE [dbo].[cvo_cust_agent_tbl]
 [date_added] [datetime] NULL CONSTRAINT [DF__cvo_cust___date___294A05C3] DEFAULT (getdate())
 ) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [idx_cvo_cust_agent_phone] ON [dbo].[cvo_cust_agent_tbl] ([phone_num]) ON [PRIMARY]
+GO
 GRANT DELETE ON  [dbo].[cvo_cust_agent_tbl] TO [public]
 GO
 GRANT INSERT ON  [dbo].[cvo_cust_agent_tbl] TO [public]

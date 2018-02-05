@@ -88,7 +88,7 @@ BEGIN
 	END  
 	ELSE  
 	BEGIN  
-		select @cvo_accounting_email = 'lmagnano@cvoptical.com'  
+		select @cvo_accounting_email = 'mrodecker@cvoptical.com'  
 	END  
        
 	SELECT	@order_nox = CONVERT(char(10),order_no),  

@@ -4,6 +4,7 @@ SET ANSI_NULLS ON
 GO
 
 -- EXEC dbo.cvo_email_order_confirmation_sp 1421327, 0, '035192', '', 'cboston@epicor.com'
+-- 2/2/2018 - remove bcc to co@cvoptical.com
 
 CREATE PROC [dbo].[cvo_email_order_confirmation_sp] @order_no int,
 												@order_ext int,
@@ -225,7 +226,7 @@ BEGIN
 
 			EXEC @rc = msdb.dbo.sp_send_dbmail
 					 @recipients = @email_address,
-					 @blind_copy_recipients = 'co@cvoptical.com', -- v1.2
+					 -- @blind_copy_recipients = 'co@cvoptical.com', -- v1.2
 					 @body = @body_text, 
 					 @subject = @subject_line,
 					 @body_format = 'HTML',
@@ -236,7 +237,7 @@ BEGIN
 			-- Call SQL email routine
 			EXEC @rc = msdb.dbo.sp_send_dbmail
 					 @recipients = @email_address,
-					 @blind_copy_recipients = 'co@cvoptical.com', -- v1.2
+					 -- @blind_copy_recipients = 'co@cvoptical.com', -- v1.2
 					 @body = @body_text, 
 					 @subject = @subject_line,
 					 @body_format = 'HTML',
