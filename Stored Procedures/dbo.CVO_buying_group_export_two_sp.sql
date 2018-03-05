@@ -14,23 +14,21 @@ GO
                   
 CREATED BY: 			Bruce Bishop
 CREATED ON:			20111129
-PURPOSE:				Generate Buying Group Eport Files
+PURPOSE:				Generate Buying Group Export Files
 LAST UPDATE:			20120207
 
-
-
-EXEC CVO_buying_group_export_two_sp "invoice_date between '01/23/2012' and '01/23/2012'"
-
+EXEC CVO_buying_group_export_two_sp "invoice_date between '01/26/2018' and '02/25/2018'"
 
 -- Rev 1 BNM 9/11/2012 updated to resolve issue 728, installment invoice details on export
 -- v1.1	CT 20/10/2014 - Issue #1367 - For Sales Orders and Credit Returns, if net price > list price, set list = net and discount = 0
--- v1.2 CB 22/01/2018 - Fix issue for BG when promo or discount applied
--- v1.3 CB 24/01/2018 - Fix issue for BG when promo or discount applied
 **************************************************************************************/
 
 CREATE PROCEDURE [dbo].[CVO_buying_group_export_two_sp] (@WHERECLAUSE VARCHAR(1024))
 
 AS
+BEGIN
+
+SET NOCOUNT ON
 
 DECLARE 
 @SQL		VARCHAR(1000),
@@ -44,6 +42,8 @@ DECLARE
 @jul_from	int,
 @jul_to		int
 
+--DECLARE @whereclause VARCHAR(1024)
+--SELECT @whereclause = 'invoice_date between ''01/26/2018'' and ''02/25/2018'''
 
 -- create temp tables
 create table #buy_h
@@ -247,11 +247,13 @@ s.ship_via_name,
 a.terms_desc,
 v.inv_date,
 v.type
-order by  v.doc_ctrl_num
+-- order by  v.doc_ctrl_num
 
 -- 1a -- HEADER RECORD	(installments)
 -- 09/11/2012 BNM - resolve issue 728, extract installment headers 
-insert into #buy_h
+-- insert into #buy_h
+UNION ALL
+
 select 
 'H', --	record_type		
 left(v.parent,8)	customer, 
@@ -302,7 +304,7 @@ s.ship_via_name,
 a.terms_desc,
 v.inv_date,
 v.type
-order by  i.doc_ctrl_num		-- 09/11/2012 BNM - resolve issue 728, use original document number
+-- order by  i.doc_ctrl_num		-- 09/11/2012 BNM - resolve issue 728, use original document number
 
 create index idx_customer on  #buy_h (account_num) with fillfactor = 80
 create index idx_invoice on  #buy_h (invoice) with fillfactor = 80
@@ -330,7 +332,7 @@ select
 'D' as record_type,		
 h.account_num as account_num,
 h.invoice as invoice,
-left(convert(varchar(3),isnull(d.line_no,'')),3) as line_num,
+left(convert(varchar(5),isnull(d.line_no,'001')),3) as line_num,
 left(isnull(d.part_no,''),16) as item_no,
 left(isnull(d.description,''),16) as item_desc1,
 '' as item_desc2,
@@ -344,27 +346,16 @@ end	as qty_shipped,
 --	else left(convert(varchar(20),isnull(convert(money,d.price),'')),20) 
 --end as disc_unit,
 -- START v1.1
--- v1.3 Start
---CASE WHEN d.curr_price > c.list_price THEN 0
---ELSE
----- END v1.1
---	case when o.type = 'C' then 
---		left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100))))*-1,'')),20)
---		else left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100)))),'')),20) 
----- START v1.1
---	END
----- END v1.1
---end as disc_unit,
-case when o.type = 'I' then
-	left(convert(varchar(20),isnull(convert(money,(curr_price - ROUND((curr_price * (d.discount / 100)),2))),'')),20) 
-else 
-	left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100))))*-1,'')),20)
-end as disc_unit,
--- v1.3 End
--- v1.2 Start
-CASE WHEN cvo.promo_id <> '' THEN left(convert(varchar(20),isnull(convert(money,(curr_price - ROUND((curr_price * (d.discount / 100)),2))),'')),20) -- v1.3
-ELSE CASE WHEN d.discount <> 0 THEN left(convert(varchar(20),isnull(convert(money,(curr_price - ROUND((curr_price * (d.discount / 100)),2))),'')),20) -- v1.3
+CASE WHEN d.curr_price > c.list_price THEN '0'
 ELSE
+-- END v1.1
+	case when o.type = 'C' then 
+		left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100))))*-1,'')),20)
+		else left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100)))),'')),20) 
+-- START v1.1
+	END
+-- END v1.1
+end as disc_unit,
 case 
 	-- START v1.1
 	WHEN d.curr_price > c.list_price THEN 
@@ -375,23 +366,21 @@ case
 	ELSE
 		CASE
 	-- END v1.1
-			when o.type = 'c' and d.discount < 0 then 
+			when o.type = 'c' and d.discount < 0.0 then 
 			 left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100))))*-1,'')),20)
-			when o.type = 'i' and d.discount < 0 then
+			when o.type = 'i' and d.discount < 0.0 then
 			 left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100)))),'')),20)
-			when o.type = 'C' and d.discount >= 0 then left(convert(varchar(20),isnull(convert(money,c.list_price)*-1,'')),20) 
+			when o.type = 'C' and d.discount >= 0.0 then left(convert(varchar(20),isnull(convert(money,c.list_price)*-1,'')),20) 
 			else left(convert(varchar(20),isnull(convert(money,c.list_price),'')),20) 
 	-- START v1.1
 		END
 	-- END v1.1
-end END END as list_unit
--- v1.2 End
+end as list_unit
 from #buy_h h (nolock)
 join orders_invoice i (nolock) on h.invoice = i.doc_ctrl_num -- ltrim(rtrim(h.invoice)) = ltrim(rtrim(i.doc_ctrl_num))
 join orders_all o (nolock) on i.order_no = o.order_no and i.order_ext = o.ext
 join ord_list d (nolock) on i.order_no = d.order_no and i.order_ext = d.order_ext
 join Cvo_ord_list c (nolock) on  d.order_no =c.order_no and d.order_ext = c.order_ext and d.line_no = c.line_no
-join cvo_orders_all cvo (NOLOCK) ON o.order_no = cvo.order_no AND o.ext = cvo.ext
 where d.shipped > 0 or d.cr_shipped > 0
 and charindex('-',invoice) <= 0
 and o.terms not like 'INS%'
@@ -399,12 +388,14 @@ and o.terms not like 'INS%'
 
 
 -- 2b -- DETAIL RECORD FROM ORDERS	-- 09/11/2012 BNM - resolve issue 728, load installment invoice detail next
-insert into #buy_d
+-- insert into #buy_d
+UNION ALL
+
 select 
 'D' as record_type,		
 h.account_num as account_num,
 h.invoice as invoice,
-left(convert(varchar(3),isnull(d.line_no,'')),3) as line_num,
+left(convert(varchar(5),isnull(d.line_no,'001')),3) as line_num,
 left(isnull(d.part_no,''),16) as item_no,
 left(isnull(d.description,''),16) as item_desc1,
 '' as item_desc2,
@@ -413,28 +404,17 @@ case
 	when o.type = 'C' then left(convert(varchar(20),isnull(convert(int,d.cr_shipped)*-1,'')),20) 
 	else left(convert(varchar(20),isnull(convert(int,d.shipped),'')),20)
 end	as qty_shipped,
--- v1.3 Start
 -- START v1.1
---CASE WHEN d.curr_price > c.list_price THEN 0
---ELSE
----- END v1.1
---	case when o.type = 'C' then 
---		left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100))))*-1,'')),20)
---		else left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100)))),'')),20) 
----- START v1.1
---	END
----- END v1.1
---end as disc_unit,
-case when o.type = 'I' then
-	left(convert(varchar(20),isnull(convert(money,(curr_price - ROUND((curr_price * (d.discount / 100)),2))),'')),20) 
-else 
-	left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100))))*-1,'')),20)
-end as disc_unit,
--- v1.3 End
--- v1.2 Start
-CASE WHEN cvo.promo_id <> '' THEN left(convert(varchar(20),isnull(convert(money,(curr_price - ROUND((curr_price * (d.discount / 100)),2))),'')),20) -- v1.3
-ELSE CASE WHEN d.discount <> 0 THEN left(convert(varchar(20),isnull(convert(money,(curr_price - ROUND((curr_price * (d.discount / 100)),2))),'')),20) -- v1.3
+CASE WHEN d.curr_price > c.list_price THEN '0'
 ELSE
+-- END v1.1
+	case when o.type = 'C' then 
+		left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100))))*-1,'')),20)
+		else left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100)))),'')),20) 
+-- START v1.1
+	END
+-- END v1.1
+end as disc_unit,
 case 
 	-- START v1.1
 	WHEN d.curr_price > c.list_price THEN 
@@ -454,8 +434,7 @@ case
 	-- START v1.1
 		END
 	-- END v1.1
-end END END as list_unit
--- v1.2 End
+end as list_unit
 from #buy_h h (nolock)
 join orders_invoice i (nolock)
 	on i.doc_ctrl_num = ltrim(rtrim(h.invoice))
@@ -463,7 +442,6 @@ join orders_invoice i (nolock)
 join orders_all o (nolock) on i.order_no = o.order_no and i.order_ext = o.ext
 join ord_list d (nolock) on i.order_no = d.order_no and i.order_ext = d.order_ext
 join Cvo_ord_list c (nolock) on  d.order_no =c.order_no and d.order_ext = c.order_ext and d.line_no = c.line_no
-join cvo_orders_all cvo (NOLOCK) ON o.order_no = cvo.order_no AND o.ext = cvo.ext
 where h.invoice not in (select invoice from #buy_d (nolock))
 and (d.shipped > 0 or d.cr_shipped > 0)
 -- and charindex('-',invoice) > 0
@@ -471,12 +449,14 @@ and o.terms like 'INS%'
 
 
 -- 2 -- DETAIL RECORD FROM AR DOCUMENTS	-- 09/11/2012 BNM - resolve issue 728, load non-installment invoice detail
-insert into #buy_d
+-- insert into #buy_d
+UNION ALL
+
 select 
 'D' as record_type,		
 h.account_num as account_num,
 h.invoice as invoice,
-left(convert(varchar(3),isnull(d.sequence_id,'')),3) as line_num,
+left(convert(varchar(5),isnull(d.sequence_id,'001')),3) as line_num,
 left(isnull(d.item_code,''),16) as item_no,
 left(isnull(d.line_desc,''),16) as item_desc1,
 '' as item_desc2,
@@ -729,6 +709,8 @@ drop table #buy_h
 drop table #buy_d
 drop table #buy_out
 drop table #customer
+
+END
 
 GO
 GRANT EXECUTE ON  [dbo].[CVO_buying_group_export_two_sp] TO [public]

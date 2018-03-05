@@ -16,7 +16,8 @@ CREATE TABLE [dbo].[c_quote]
 [curr_key] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [start_date] [datetime] NULL,
 [style] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[res_type] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[res_type] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[net_only] [varchar] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
 SET QUOTED_IDENTIFIER OFF
@@ -400,13 +401,13 @@ END
 GO
 CREATE UNIQUE CLUSTERED INDEX [cquote1] ON [dbo].[c_quote] ([customer_key], [ship_to_no], [curr_key], [ilevel], [item], [min_qty], [date_expires], [style], [res_type]) ON [PRIMARY]
 GO
-GRANT REFERENCES ON  [dbo].[c_quote] TO [public]
-GO
-GRANT SELECT ON  [dbo].[c_quote] TO [public]
+GRANT DELETE ON  [dbo].[c_quote] TO [public]
 GO
 GRANT INSERT ON  [dbo].[c_quote] TO [public]
 GO
-GRANT DELETE ON  [dbo].[c_quote] TO [public]
+GRANT REFERENCES ON  [dbo].[c_quote] TO [public]
+GO
+GRANT SELECT ON  [dbo].[c_quote] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[c_quote] TO [public]
 GO

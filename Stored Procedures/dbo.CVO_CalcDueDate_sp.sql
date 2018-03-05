@@ -8,6 +8,7 @@ GO
 -- v1.6 31/08/2017 - Fix issue with month not incrementing correctly
 -- v1.7 03/11/2017 - Fix for Oct 31st invoices
 -- v1.8 26/01/2018 - If due date is past statement date then increment month but reduce day
+-- v1.9 20/02/2018 - Re-write to fix issues
 CREATE PROC [dbo].[CVO_CalcDueDate_sp]  @customer_code varchar(8),  
          @date_doc  int,  
          @date_due  int OUTPUT,  
@@ -22,7 +23,8 @@ BEGIN
 			@days_due  int,  
 			@skip   int, -- v1.2  
 			@max_days  int, -- v1.2  
-			@orig_month int -- v1.3
+			@orig_month int, -- v1.3
+			@month_multi int -- v1.9
   
 	SET @days_due = 0  
 	SET @skip = 0 -- v1.2  
@@ -48,187 +50,87 @@ BEGIN
 	-- if we are here then there are no installments, so just updated the statement date  
 	IF @statement_day > 0 AND @statement_day < 32  
 	BEGIN  
+
+		EXEC dbo.appdtjul_sp @year OUTPUT, @month OUTPUT, @day OUTPUT, @date_doc 
+
+		IF (@days_due IN (30,60,90,120))
+		BEGIN
+			SET @month_multi = @days_due / 30
+		
+			SET @month = @month + @month_multi
+
+			IF (@month > 12)
+			BEGIN
+				SET @year = @year + 1
+				SET @month = @month - 12
+			END
+
+			SET @max_days = 31  
   
-		-- Break out the invoice date  
-		EXEC dbo.appdtjul_sp @year OUTPUT, @month OUTPUT, @day OUTPUT, @date_doc  
-		SET @orig_month = @month -- v1.3
-
-		-- Calculate the next statement date  
-		IF (@day > @statement_day)   
-		BEGIN  
-			-- Increment the month  
-			SET @month = @month + 1  
-			IF @month > 12  
-			BEGIN  
-				-- Increment the year  
-				SET @year = @year + 1  
-				SET @month = 1  
-			END  
-			SET  @day = @statement_day - 1 -- v1.8
-
-			-- v1.7 Start
 			IF @month IN (2)  
 			BEGIN  
 				IF (((@year%100 != 0) AND (@year%400 = 0)) OR (@year%400 = 0))  
-				BEGIN
-					IF (@day > 29)
-					BEGIN
-						SET @day = 29  
-					END
-					ELSE  
-					BEGIN
-						SET @day = 28  
-					END
-				END
-			END  
-
-			IF @month IN (4,6,9,11)  
-			BEGIN  
-				IF @day = 31  
-				BEGIN
-					SET @day = 30  
-				END
-			END  
-			-- v1.7 End  
-
-			-- If we have incremented the dates then rebuild the date_doc
-			EXEC dbo.appjuldt_sp @year, @month, @day, @date_doc OUTPUT -- v1.6
-		END  
-  
-		-- Validate the day  
-		IF @statement_day > 28  
-		BEGIN  
-			IF @month IN (2)  
-			BEGIN  
-				IF (((@year%100 != 0) AND (@year%400 = 0)) OR (@year%400 = 0))  
-					SET @statement_day = 29  
+					SET @max_days = 29  
 				ELSE  
-					SET @statement_day = 28  
+					SET @max_days = 28    
 			END  
   
 			IF @month IN (4,6,9,11)  
 			BEGIN  
-				IF @statement_day = 31  
-					SET @statement_day = 30  
+				SET @max_days = 30  
 			END  
-		END  
-  
-		-- v1.2 Start  
-		-- Get the max days in the statement month  
-		SET @max_days = 31  
-  
-		IF @month IN (2)  
-		BEGIN  
-			IF (((@year%100 != 0) AND (@year%400 = 0)) OR (@year%400 = 0))  
-				SET @max_days = 29  
-			ELSE  
-				SET @max_days = 28    
-		END  
-  
-		IF @month IN (4,6,9,11)  
-		BEGIN  
-			SET @max_days = 30  
-		END  
-  
-		-- If the terms are greater than the max_days then do inv_date + terms else inv_date to next statement + terms  
-		IF @days_due > @max_days  
-		BEGIN  
-			SET @skip = 1  
-			SET @date_doc = @date_doc + @days_due  
 
-			EXEC dbo.appdtjul_sp @year OUTPUT, @month OUTPUT, @day OUTPUT, @date_doc
-			IF (	@orig_month = 2 and @max_days = 28) -- v1.4
-				SET @day = @statement_day -- -- v1.3
+			IF (@day > @max_days)
+				SET @day = @max_days
 
-			-- Calculate the next statement date  
-			-- TAG -- 2/28/2013 IF (@day > @statement_day)   
-			--IF (@day >= @statement_day) -- v1.3  
-			IF ((@day > @statement_day) OR (@orig_month = 1 AND @day >= @statement_day AND @days_due < 31)) -- v1.3 v1.5 
-			BEGIN  
-				-- Increment the month  
-				SET @month = @month + 1  
-				IF @month > 12  
-				BEGIN  
-					-- Increment the year  
-					SET @year = @year + 1  
-					SET @month = 1  
-				END  
-			END  
-  
+			EXEC dbo.appjuldt_sp @year, @month, @day, @date_doc OUTPUT 
+		END
+		ELSE
+		BEGIN
+			SET @date_doc = @date_doc + @days_due
+		END
+		  
+		-- Break out the invoice date  
+		EXEC dbo.appdtjul_sp @year OUTPUT, @month OUTPUT, @day OUTPUT, @date_doc 
+				 
+		IF (@day > @statement_day)
+		BEGIN
+			SET @day = @statement_day
+			SET @month = @month + 1
 
-			-- Validate the day  
-			IF @statement_day > 28  
-			BEGIN  
-				IF @month IN (2)  
-				BEGIN  
-					IF (((@year%100 != 0) AND (@year%400 = 0)) OR (@year%400 = 0))  
-						SET @statement_day = 29  
-					ELSE  
-						SET @statement_day = 28  
-				END  
+			IF (@month > 12)
+			BEGIN
+				SET @year = @year + 1
+				SET @month = 1
+			END
+
+			SET @max_days = 31  
   
-				IF @month IN (4,6,9,11)  
-				BEGIN  
-					IF @statement_day = 31  
-						SET @statement_day = 30  
-				END  
-			END  
-		END  
-		-- v1.2 End  
-    
-		-- Set the statement day  
-		SET @day = @statement_day  
-   
-		-- Get the julian date for the statement date  
-		EXEC dbo.appjuldt_sp @year, @month, @day, @date_due OUTPUT  
-  
-		-- Add the terms and recalc the statement date  
-		IF (@days_due <> 0) AND (@skip = 0) -- v1.2 If we have forced the alternate calc then do not do this  
-		BEGIN  
-			-- Add on the terms  
-			SET @date_due = @date_due + @days_due  
-   
-			-- Break out the invoice date  
-			EXEC dbo.appdtjul_sp @year OUTPUT, @month OUTPUT, @day OUTPUT, @date_due  
-     
-			-- Calculate the next statement date  
-			IF (@day > @statement_day)   
+			IF @month IN (2)  
 			BEGIN  
-				-- Increment the month  
-				SET @month = @month + 1  
-				IF @month > 12  
-				BEGIN  
-					-- Increment the year  
-					SET @year = @year + 1  
-					SET @month = 1  
-				END  
+				IF (((@year%100 != 0) AND (@year%400 = 0)) OR (@year%400 = 0))  
+					SET @max_days = 29  
+				ELSE  
+					SET @max_days = 28    
 			END  
   
-			-- Validate the day  
-			IF @statement_day > 28  
+			IF @month IN (4,6,9,11)  
 			BEGIN  
-				IF @month IN (2)  
-				BEGIN  
-					IF (((@year%100 != 0) AND (@year%400 = 0)) OR (@year%400 = 0))  
-						SET @statement_day = 29  
-					ELSE  
-						SET @statement_day = 28  
-				END  
-  
-				IF @month IN (4,6,9,11)  
-				BEGIN  
-					IF @statement_day = 31  
-						SET @statement_day = 30  
-				END  
+				SET @max_days = 30  
 			END  
-     
-			-- Set the statement day  
-			SET @day = @statement_day  
-  
-			-- Get the julian date for the statement date  
-			EXEC dbo.appjuldt_sp @year, @month, @day, @date_due OUTPUT  
-		END  
-	END  
+
+			IF (@day > @max_days)
+				SET @day = @max_days
+
+		END
+		ELSE
+		BEGIN
+			SET @day = @statement_day
+		END
+
+		EXEC dbo.appjuldt_sp @year, @month, @day, @date_due OUTPUT -- v1.6
+
+	END
 	ELSE  
 	BEGIN  
 		SET @date_due = @date_doc  

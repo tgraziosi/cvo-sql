@@ -12,10 +12,12 @@ CREATE PROCEDURE [dbo].[cvo_ST_Activity_log_sp]
 AS
 BEGIN
 
+	SET NOCOUNT ON;
+
     -- add RMA figures - 6/19/2014
     -- 06/07/2016 - tag - per HK remove these qualifications for regular dstribution to Mark McCann
 
-    -- exec cvo_ST_Activity_log_sp '01/01/2017','01/31/2017', null, -1 , 1
+    -- exec cvo_ST_Activity_log_sp '02/01/2018','02/28/2018', '50505', -1 , 1
 
     /*
 declare @startdate datetime, @enddate datetime
@@ -41,27 +43,31 @@ set @territory = '90614'
 
     CREATE TABLE #territory
     (
-        territory VARCHAR(10) NOT NULL
+        territory VARCHAR(10) NOT NULL,
+		region VARCHAR(10) NOT null
     );
 
     IF @Territory IS NULL
     BEGIN
         INSERT INTO #territory
         (
-            territory
+            territory,
+			region
         )
         SELECT DISTINCT
             territory_code
-        FROM dbo.armaster (NOLOCK)
-        WHERE territory_code IS NOT NULL;
+			, dbo.calculate_region_fn(ar.territory_code)
+        FROM dbo.armaster (NOLOCK) ar
+        WHERE ar.territory_code IS NOT NULL;
     END;
     ELSE
     BEGIN
         INSERT INTO #territory
         (
-            territory
+            territory,
+			region
         )
-        SELECT ListItem
+        SELECT distinct ListItem, dbo.calculate_region_fn(ListItem)
         FROM dbo.f_comma_list_to_table(@Territory);
     END;
 
@@ -115,6 +121,7 @@ set @territory = '90614'
     HS_order_no VARCHAR(255),
     source VARCHAR(1)
 );
+	CREATE NONCLUSTERED INDEX idx_t_cust ON #temp (cust_code, ship_to);
 
 	INSERT #temp
 	(
@@ -195,22 +202,11 @@ set @territory = '90614'
            o.date_sch_ship,
            o.date_shipped,
            o.status,
-           CASE o.status
-               WHEN 'A' THEN
-                   'Hold'
-               WHEN 'B' THEN
-                   'Credit Hold'
-               WHEN 'C' THEN
-                   'Credit Hold'
-               WHEN 'E' THEN
-                   'Other'
-               WHEN 'H' THEN
-                   'Hold'
-               WHEN 'M' THEN
-                   'Other'
-               WHEN 'N' THEN
-                   'Received'
-               WHEN 'P' THEN
+           CASE WHEN o.status IN ('A','H') THEN 'Hold'
+                WHEN o.status IN ('B','C') THEN 'Credit Hold'
+				WHEN O.STATUS IN ('E','M') THEN 'Other'
+                WHEN o.status IN ('N')     THEN 'Received'
+                WHEN o.status IN ('P') THEN
                    CASE
                        WHEN ISNULL(
                             (
@@ -232,20 +228,10 @@ set @territory = '90614'
                        ELSE
                            'Processing'
                    END
-               WHEN 'Q' THEN
-                   'Processing'
-               WHEN 'R' THEN
-                   'Shipped'
-               WHEN 'S' THEN
-                   'Shipped'
-               WHEN 'T' THEN
-                   'Shipped'
-               WHEN 'V' THEN
-                   'Void'
-               WHEN 'X' THEN
-                   'Void'
-               ELSE
-                   ''
+               WHEN o.status IN ('Q') THEN 'Processing'
+               WHEN o.status in ('R','S','T') THEN 'Shipped'
+               WHEN o.status in ('V','x') THEN 'Void'
+               ELSE ''
            END AS status_desc,
            o.who_entered,
            o.shipped_flag,
@@ -265,9 +251,9 @@ set @territory = '90614'
            o.HS_order_no,
            o.source
 
-    FROM dbo.cvo_adord_vw AS o WITH (NOLOCK)
-        INNER JOIN #territory t
-            ON t.territory = o.Territory
+    FROM #territory AS t
+		JOIN dbo.cvo_adord_vw AS o WITH (NOLOCK) 
+            ON o.territory = t.Territory
     WHERE 1 = 1
           AND o.status <> 'V'
           AND (o.date_entered
@@ -278,7 +264,8 @@ set @territory = '90614'
           -- and isnull(o.date_shipped,@enddate) <= @enddate
           AND o.who_entered <> 'BACKORDR'
           AND o.order_type LIKE 'ST%'
-          AND RIGHT(o.order_type, 2)NOT IN ( 'RB', 'TB' )
+          -- AND RIGHT(o.order_type, 2)NOT IN ( 'RB', 'TB' ) -- count TBB's 02/20/2018
+          AND 'RB' <> RIGHT(o.order_type, 2)  -- count TBB's 02/20/2018
           AND (o.total_amt_order - o.total_discount) > 0.00
           AND 0 < ISNULL(o.FramesOrdered, 0);
 
@@ -346,91 +333,41 @@ set @territory = '90614'
         o.sch_ship_date date_sch_ship,
         o.date_shipped,
         o.status,
-        CASE o.status
-            WHEN 'A' THEN
-                'Hold'
-            WHEN 'B' THEN
-                'Credit Hold'
-            WHEN 'C' THEN
-                'Credit Hold'
-            WHEN 'E' THEN
-                'Other'
-            WHEN 'H' THEN
-                'Hold'
-            WHEN 'M' THEN
-                'Other'
-            WHEN 'N' THEN
-                'Received'
-            WHEN 'P' THEN
-                CASE
-                    WHEN ISNULL(
-                         (
-                             SELECT TOP (1)
-                                 c.status
-                             FROM tdc_carton_tx c (NOLOCK)
-                             WHERE o.order_no = c.order_no
-                                   AND o.ext = c.order_ext
-                                   AND
-                                   (
-                                       c.void = 0
-                                       OR c.void IS NULL
-                                   )
-                         ),
-                         ''
-                               ) IN ( 'F', 'S', 'X' ) THEN
-                        'Shipped'
-                    ELSE
-                        'Processing'
-                END
-            WHEN 'Q' THEN
-                'Processing'
-            WHEN 'R' THEN
-                'Shipped'
-            WHEN 'S' THEN
-                'Shipped'
-            WHEN 'T' THEN
-                'Shipped'
-            WHEN 'V' THEN
-                'Void'
-            WHEN 'X' THEN
-                'Void'
-            ELSE
-                ''
-        END AS status_desc,
+           CASE WHEN o.status IN ('A','H') THEN 'Hold'
+                WHEN o.status IN ('B','C') THEN 'Credit Hold'
+				WHEN O.STATUS IN ('E','M') THEN 'Other'
+                WHEN o.status IN ('N')     THEN 'Received'
+                WHEN o.status IN ('P') THEN
+                   CASE
+                       WHEN ISNULL(
+                            (
+                                SELECT TOP (1)
+                                    c.status
+                                FROM dbo.tdc_carton_tx c (NOLOCK)
+                                WHERE o.order_no = c.order_no
+                                      AND o.ext = c.order_ext
+                                      AND
+                                      (
+                                          c.void = 0
+                                          OR c.void IS NULL
+                                      )
+                                ORDER BY c.carton_no
+                            ),
+                            ''
+                                  ) IN ( 'F', 'S', 'X' ) THEN
+                           'Shipped'
+                       ELSE
+                           'Processing'
+                   END
+               WHEN o.status IN ('Q') THEN 'Processing'
+               WHEN o.status in ('R','S','T') THEN 'Shipped'
+               WHEN o.status in ('V','x') THEN 'Void'
+               ELSE ''
+           END AS status_desc,
         o.who_entered,
-        shipped_flag = CASE o.status
-                           WHEN 'A' THEN
-                               'No'
-                           WHEN 'B' THEN
-                               'No'
-                           WHEN 'C' THEN
-                               'No'
-                           WHEN 'E' THEN
-                               'No'
-                           WHEN 'H' THEN
-                               'No'
-                           WHEN 'M' THEN
-                               'No'
-                           WHEN 'N' THEN
-                               'No'
-                           WHEN 'P' THEN
-                               'No'
-                           WHEN 'Q' THEN
-                               'No'
-                           WHEN 'R' THEN
-                               'Yes'
-                           WHEN 'S' THEN
-                               'Yes'
-                           WHEN 'T' THEN
-                               'Yes'
-                           WHEN 'V' THEN
-                               'No'
-                           WHEN 'X' THEN
-                               'No'
-                           ELSE
-                               ''
-                       END,
-        o.hold_reason,
+        CASE WHEN o.status IN ('r','s','t') THEN 'Yes'
+						ELSE 'No' END AS shipped_flag,
+		o.hold_reason,
         o.orig_no,
         o.orig_ext,
         co.promo_id,
@@ -442,11 +379,12 @@ set @territory = '90614'
         (
             SELECT SUM(ol.cr_ordered)
             FROM ord_list ol (NOLOCK)
-                JOIN inv_master i
+                JOIN inv_master i (NOLOCK)
                     ON ol.part_no = i.part_no
             WHERE o.order_no = ol.order_no
                   AND o.ext = ol.order_ext
                   AND i.type_code IN ( 'frame', 'sun' )
+				  -- AND ol.return_code LIKE '06%' -- 02/26/2018
         ),
         0
               ) AS FramesRMA,
@@ -464,15 +402,16 @@ set @territory = '90614'
             ON #temp.cust_code = o.cust_code
                AND #temp.ship_to = o.ship_to
         -- hs_order_no = isnull(o.user_def_fld4,'') -- only related to an order
-        JOIN CVO_orders_all co
+        JOIN CVO_orders_all co (NOLOCK)
             ON co.order_no = o.order_no
                AND co.ext = o.ext
-        LEFT OUTER JOIN orders_invoice oi
-            ON oi.order_no = o.order_no
-               AND oi.order_ext = o.ext
-        JOIN armaster ar
+		JOIN armaster ar (nolock)
             ON ar.customer_code = o.cust_code
                AND ar.ship_to_code = o.ship_to
+        LEFT OUTER JOIN orders_invoice oi (nolock)
+            ON oi.order_no = o.order_no
+               AND oi.order_ext = o.ext
+
     WHERE o.type = 'c'
           AND o.status <> 'v'
           AND o.date_entered
@@ -481,7 +420,7 @@ set @territory = '90614'
           AND EXISTS
     (
         SELECT 1
-        FROM ord_list ol
+        FROM ord_list ol (NOLOCK)
         WHERE ol.order_no = o.order_no
               AND ol.order_ext = o.ext
               AND ol.return_code LIKE '06%'
@@ -533,27 +472,26 @@ set @territory = '90614'
         0,
         0
 
-    FROM armaster (NOLOCK) a
-        INNER JOIN #territory t
-            ON t.territory = a.territory_code
-        INNER JOIN arsalesp slp (NOLOCK)
+    FROM #territory AS t 
+		JOIN dbo.armaster (NOLOCK) a ON a.territory_code = t.territory
+        INNER JOIN dbo.arsalesp slp (NOLOCK)
             ON slp.salesperson_code = a.salesperson_code
         LEFT OUTER JOIN
         (
             SELECT ar.territory_code,
                    SUM(   CASE
-                              WHEN user_category LIKE 'RX%' THEN
-                                  anet
+                              WHEN sd.user_category LIKE 'RX%' THEN sd.anet
                               ELSE
                                   0
                           END
                       ) Net_RX,
-                   SUM(anet) Net_sales
-            FROM dbo.cvo_sbm_details AS sd
-                JOIN armaster ar
+                   SUM(sd.anet) Net_sales
+            FROM #territory AS t2 (NOLOCK)
+			JOIN dbo.armaster ar (NOLOCK) ON ar.territory_code = t2.territory
+			JOIN dbo.cvo_sbm_details AS sd (nolock) 
                     ON ar.customer_code = sd.customer
                        AND ar.ship_to_code = sd.ship_to
-            WHERE yyyymmdd
+            WHERE sd.yyyymmdd
             BETWEEN @startdate AND @enddate
             GROUP BY ar.territory_code
         ) tsr
@@ -574,19 +512,18 @@ set @territory = '90614'
 		   #temp.ship_to,
 		   --ISNULL(cust_code, '') cust_code,
            --ship_to = ISNULL(#temp.ship_to, ''),
-           ship_To_door = CASE
-                              WHEN ca.door = 0 THEN
+            CASE WHEN ca.door = 0 THEN
                                   ''
                               ELSE
                                   ISNULL(#temp.ship_to, '')
-                          END,
-           ship_to_name,
+                          END AS ship_To_door,
+           #temp.ship_to_name,
            -- salesperson,
            -- MAX(ISNULL(#temp.salesperson_name, salesperson)) salesperson_name,
 		   slp.salesperson_code salesperson,
 		   slp.salesperson_name,
-           Territory,
-           dbo.calculate_region_fn(Territory) region, -- 10/31/2013
+           #temp.Territory,
+           t.region region, -- 10/31/2013
            SUM(total_amt_order) total_amt_order,
            SUM(total_discount) total_discount,
            SUM(total_tax) total_tax,
@@ -609,13 +546,14 @@ set @territory = '90614'
 
     INTO #finalselect
 
-    FROM #temp
-        LEFT OUTER JOIN CVO_armaster_all ca (NOLOCK)
+    FROM #territory AS t
+		JOIN #temp ON #temp.Territory = t.territory
+        LEFT OUTER JOIN dbo.CVO_armaster_all ca (NOLOCK)
             ON ca.customer_code = #temp.cust_code
                AND ca.ship_to = #temp.ship_to
         --LEFT OUTER JOIN arsalesp slp (NOLOCK)
         --    ON slp.salesperson_code = #temp.salesperson
-		LEFT OUTER JOIN arsalesp slp (nolock)
+		LEFT OUTER JOIN dbo.arsalesp slp (nolock)
 			ON slp.territory_code = #temp.Territory
     WHERE (
               ISNULL(FramesRMA, 0) > 0
@@ -624,20 +562,14 @@ set @territory = '90614'
           )
 		  AND ISNULL(slp.status_type,1) = 1 -- active salesperson in the territory
 		  
-    GROUP BY --ISNULL(cust_code, ''),
-             --ISNULL(#temp.ship_to, ''),
-			 #temp.cust_code,
-			 #temp.ship_to,
-             CASE
-                 WHEN ca.door = 0 THEN
-                     ''
-                 ELSE
-                     ISNULL(#temp.ship_to, '')
-             END,
-             ship_to_name,
-             slp.salesperson_code,
-             slp.salesperson_name,
-             Territory;
+    GROUP  BY CASE WHEN ca.door = 0 THEN '' ELSE ISNULL(#temp.ship_to, '') END,
+              cust_code,
+              #temp.ship_to,
+              ship_to_name,
+              slp.salesperson_code,
+              slp.salesperson_name,
+              #temp.Territory,
+              t.region
 
     -- , dbo.calculate_region_fn(Territory)
 
@@ -744,6 +676,11 @@ set @territory = '90614'
 
 
 END;
+
+
+
+
+
 
 
 GO

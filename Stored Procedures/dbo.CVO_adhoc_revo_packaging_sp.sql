@@ -98,6 +98,7 @@ insert into #temp_part_list
 select @loc, ISNULL(lb.bin_no, @bin), i.part_no, 500 - ISNULL(qty,0) , 1
 	FROM
 	inv_master i (NOLOCK)
+	JOIN inv_list il (nolock) ON il.part_no = i.part_no AND il.location = @loc -- 2/28/2017 - make sure item is extended to location
 	LEFT OUTER JOIN
 	lot_bin_stock lb (NOLOCK) ON i.part_no = lb.part_no AND lb.location = @loc 
 	AND lb.bin_no = (SELECT TOP 1 bin_no FROM lot_bin_stock l (NOLOCK) WHERE l.part_no = lb.part_no 
@@ -267,6 +268,7 @@ SELECT adj_no ,
        row_id FROM #adm_INV_ADJ_log
 
 END
+
 
 
 

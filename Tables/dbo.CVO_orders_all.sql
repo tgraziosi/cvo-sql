@@ -766,6 +766,8 @@ AS
 GO
 CREATE NONCLUSTERED INDEX [CVO_orders_all_bg_032814] ON [dbo].[CVO_orders_all] ([buying_group]) INCLUDE ([ext], [order_no]) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [cvo_ord_mgt_idx] ON [dbo].[CVO_orders_all] ([ext]) INCLUDE ([must_go_today], [order_no]) ON [PRIMARY]
+GO
 CREATE UNIQUE CLUSTERED INDEX [ord1] ON [dbo].[CVO_orders_all] ([order_no], [ext]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [coa_promo_idx] ON [dbo].[CVO_orders_all] ([promo_id]) INCLUDE ([ext], [order_no], [promo_level]) ON [PRIMARY]
@@ -786,13 +788,13 @@ CREATE NONCLUSTERED INDEX [coa_ra7_idx] ON [dbo].[CVO_orders_all] ([ra7]) ON [PR
 GO
 CREATE NONCLUSTERED INDEX [coa_ra8_idx] ON [dbo].[CVO_orders_all] ([ra8]) ON [PRIMARY]
 GO
-GRANT REFERENCES ON  [dbo].[CVO_orders_all] TO [public]
-GO
-GRANT SELECT ON  [dbo].[CVO_orders_all] TO [public]
+GRANT DELETE ON  [dbo].[CVO_orders_all] TO [public]
 GO
 GRANT INSERT ON  [dbo].[CVO_orders_all] TO [public]
 GO
-GRANT DELETE ON  [dbo].[CVO_orders_all] TO [public]
+GRANT REFERENCES ON  [dbo].[CVO_orders_all] TO [public]
+GO
+GRANT SELECT ON  [dbo].[CVO_orders_all] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[CVO_orders_all] TO [public]
 GO

@@ -11,8 +11,6 @@ CREATE TABLE [dbo].[tdc_custom_kits_packed_tbl]
 [qty] [decimal] (24, 8) NOT NULL
 ) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [tdc_custom_kits_packed_tbl_IDX1] ON [dbo].[tdc_custom_kits_packed_tbl] ([carton_no], [order_no], [order_ext], [line_no], [kit_part_no], [lot_ser], [bin_no], [qty]) ON [PRIMARY]
-GO
 CREATE NONCLUSTERED INDEX [tdc_custom_kits_packed_tbl_IDX2] ON [dbo].[tdc_custom_kits_packed_tbl] ([carton_no], [order_no], [order_ext], [line_no], [kit_part_no], [sub_kit_part_no], [lot_ser], [bin_no], [qty]) ON [PRIMARY]
 GO
 GRANT SELECT ON  [dbo].[tdc_custom_kits_packed_tbl] TO [public]

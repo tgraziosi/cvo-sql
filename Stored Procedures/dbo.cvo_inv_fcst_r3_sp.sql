@@ -2,50 +2,51 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE procedure [dbo].[cvo_inv_fcst_r3_sp] 
 
--- re-write for y1 figures not pulling enough history to properly generate
--- 3/21/2017 - pull out the ranking features; clean up; multi-location reporting; RA %
--- 8/31/2017 - switch to get usage by location and collection to correctly fill in items with 0 usage
--- 9/5/17 - fix PO line where there was a past due open po.  it did not total the current month total open po correctly.  was only showing the past due qty
+CREATE PROCEDURE [dbo].[cvo_inv_fcst_r3_sp]
 
-@asofdate datetime, 
-@location VARCHAR(1000),
-@endrel DATETIME = null, -- ending release date
-@current int = 1,
-@collection varchar(1000) = null,
-@Style varchar(8000) = NULL,
-@SpecFit varchar(1000) = NULL,
-@gender VARCHAR(1000) = NULL,
-@ResType VARCHAR(1000) = NULL,
-@usg_option CHAR(1) = 'O'
-, @Season_start int = NULL
-, @Season_end int = NULL
-, @Season_mult DECIMAL (20,8) = NULL
-, @spread VARCHAR(10) = NULL
--- 7/11/17
-, @WksOnHandGTLT CHAR(5) = 'ALL'
-, @WksOnHand INT = 0
-, @debug INT = 0
+    -- re-write for y1 figures not pulling enough history to properly generate
+    -- 3/21/2017 - pull out the ranking features; clean up; multi-location reporting; RA %
+    -- 8/31/2017 - switch to get usage by location and collection to correctly fill in items with 0 usage
+    -- 9/5/17 - fix PO line where there was a past due open po.  it did not total the current month total open po correctly.  was only showing the past due qty
+
+    @asofdate DATETIME,
+    @location VARCHAR(1000),
+    @endrel DATETIME = NULL, -- ending release date
+    @current INT = 1,
+    @collection VARCHAR(1000) = NULL,
+    @Style VARCHAR(8000) = NULL,
+    @SpecFit VARCHAR(1000) = NULL,
+    @gender VARCHAR(1000) = NULL,
+    @ResType VARCHAR(1000) = NULL,
+    @usg_option CHAR(1) = 'O',
+    @Season_start INT = NULL,
+    @Season_end INT = NULL,
+    @Season_mult DECIMAL(20, 8) = NULL,
+    @spread VARCHAR(10) = NULL,
+                             -- 7/11/17
+    @WksOnHandGTLT CHAR(5) = 'ALL',
+    @WksOnHand INT = 0,
+    @debug INT = 0
 --
 /*
- exec cvo_inv_fcst_r3_sp
+exec cvo_inv_fcst_r3_t_sp
 
- @asofdate = '01/01/2018', 
- @endrel = '01/01/2018', 
- @current = 0, 
- @collection = 'as', 
- @style = 'grand', 
- @specfit = null,
- @usg_option = 'o',
- @debug = 1, -- debug
- @location = '001',
- @restype = 'FRAME,SUN',
- @WKSONHANDGTLT = 'all',
- @WKSONHAND = 0
+@asofdate = '01/01/2018', 
+@endrel = '01/01/2018', 
+@current = 0, 
+@collection = 'dd', 
+@style = null, 
+@specfit = null,
+@usg_option = 'o',
+@debug = 0, -- debug
+@location = '001',
+@restype = 'frame,sun',
+@WKSONHANDGTLT = 'all',
+@WKSONHAND = 0
 
- select * From cvo_ifp_rank
- SELECT * fROM RELEASES WHERE PART_NO LIKE 'RE1014%'
+select * From cvo_ifp_rank
+SELECT * fROM RELEASES WHERE PART_NO LIKE 'RE1014%'
 
 */
 -- 090314 - tag
@@ -67,1395 +68,1994 @@ CREATE procedure [dbo].[cvo_inv_fcst_r3_sp]
 -- 07/15/2016 - calc starting inventory with allocations if usage is on orders, and without if usage is on shipments.
 -- 12/2016 - misc updates to add additional info like pricing shape materials
 -- 01/2018 - fix/update for multiple attributes on an item.
-	
-as 
-begin
 
-set nocount ON
-SET ANSI_WARNINGS OFF
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    SET ANSI_WARNINGS OFF;
 
 
-declare @startdate datetime, @enddate datetime, @pomdate datetime
-/* for testing
+    DECLARE @startdate DATETIME,
+            @enddate DATETIME,
+            @pomdate DATETIME;
+
+    /* for testing
 
 --, @asofdate datetime
 --, @current int
 */
 
-set @pomdate = @asofdate
-set @startdate = '01/01/1949'  -- starting release date
--- set @enddate = '12/31/2020' -- ending release date
--- set @enddate = @asofdate
-set @enddate = ISNULL(@endrel, @asofdate)
+    SET @pomdate = @asofdate;
+    SET @startdate = '01/01/1949';
+    SET @enddate = ISNULL(@endrel, @asofdate);
 
+    DECLARE @coll_list VARCHAR(1000),
+            @style_list VARCHAR(8000),
+            @sf VARCHAR(1000),
+            @gndr VARCHAR(1000),
+            @type_code VARCHAR(1000),
+            @s_start INT,
+            @s_end INT,
+            @s_mult DECIMAL(20, 8),
+            @sku VARCHAR(40),
+            @loc VARCHAR(1000);
 
+    SELECT @coll_list = @collection,
+           @style_list = @Style,
+           @sf = @SpecFit,
+           @gndr = @gender,
+           @type_code = @ResType,
+           @s_start = ISNULL(@Season_start, 1),
+           @s_end = ISNULL(@Season_end, 12),
+           @s_mult = ISNULL(@Season_mult, 1),
+           @loc = @location;
 
-declare @coll_list varchar(1000), @style_list varchar(8000), @sf VARCHAR(1000), @gndr VARCHAR(1000), @type_code VARCHAR(1000),
-		@s_start INT, @s_end INT, @s_mult DECIMAL(20,8), @sku VARCHAR(40), @loc VARCHAR(1000)
+    -- select @style_list
 
-select @coll_list = @collection, @style_list = @style, @SF = @SpecFit, @gndr = @gender, @type_code = @ResType
-	 , @s_start = ISNULL(@Season_start,1), @s_end = ISNULL(@Season_end,12), @S_mult = ISNULL(@Season_mult,1), @loc = @location
-
--- select @style_list
-
-CREATE TABLE #coll ([coll] VARCHAR(20))
-if @coll_list is null
-begin
-	insert into #coll
-	select distinct kys from category where void = 'n'
-end
-else
-begin
-	INSERT INTO #coll ([coll])
-	SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@coll_list)
-end
-
-CREATE TABLE #style_list ([style] VARCHAR(40))
-if @style_list is NULL OR @style_list LIKE '%*ALL*%'
-begin
-	insert into #style_list
-	select distinct field_2  from inv_master_add ia (nolock) 
-		inner join	inv_master i (nolock) on i.part_no = ia.part_no  
-		inner join #coll on #coll.coll = i.category
-		where i.void = 'n' 
-end
-else
-begin
-	INSERT INTO #style_list ([style])
-	SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@style_list)
-end
-
-CREATE TABLE #sf ([sf] VARCHAR(20))
-if @sf is NULL OR @sf LIKE '%*ALL*%'
-BEGIN
-	INSERT INTO #sf (sf) VALUES('')
-	insert into #sf (sf)
-	select distinct kys from cvo_specialty_fit where void = 'n'
-end
-else
-begin
-	INSERT INTO #sf ([sf])
-	SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@sf)
-END
-
-CREATE TABLE #loc ([location] VARCHAR(10))
-if @loc is NULL OR @loc LIKE '%*ALL*%'
-BEGIN
-	INSERT INTO #loc (location) VALUES ('')
-	insert into #loc (location)
-	select DISTINCT la.[location] from dbo.locations_all AS la WHERE la.void = 'n'
-end
-else
-BEGIN
-	INSERT INTO #loc ([location])
-	SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@loc)
-END
-
-IF @loc = 'CASES' AND @type_code = 'CASE'
-BEGIN
-	INSERT INTO #loc ([location])
-	SELECT DISTINCT L.LOCATION
-	FROM INV_MASTER I 
-	JOIN dbo.cvo_inventory2 AS L ON L.part_no = I.part_no
-	WHERE I.type_code = 'CASE'
-	AND I.VOID  <> 'V'
-	AND L.CVO_in_stock <> 0
-	DELETE FROM #loc WHERE location = 'CASES'
-	END
-
-IF @DEBUG > 0 SELECT * FROM #loc AS l
-
--- get gender selections
-
-CREATE TABLE #gender ([gender] VARCHAR(20))
-if @gndr is NULL OR @gndr LIKE '%*ALL*%'
-BEGIN
-	INSERT INTO #gender (gender) VALUES('')
-	insert into #gender (gender)
-	select distinct kys from dbo.CVO_Gender  where void = 'n'
-end
-else
-begin
-	INSERT INTO #gender ([gender])
-	SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@gndr)
-END
-
-CREATE TABLE #type (type_code VARCHAR(10))
-if @type_code is null
-begin
-	insert into #type
-	select distinct type_code from dbo.inv_master AS i
-end
-else
-begin
-	INSERT INTO #type (type_code)
-	SELECT  LISTITEM FROM dbo.f_comma_list_to_table(@type_code)
-END
-
-
---select * from #style_list
---select @style_list
-
---IF ISNULL(@debug,0) = 1
---BEGIN
---	SELECT @specfit
---	SELECT * FROM #sf
---end
-
---declare @loc varchar(10)
-----select @loc = '001'
---SELECT @loc = @location
-
-IF(OBJECT_ID('tempdb.dbo.#dmd_mult') is not null)  drop table #dmd_mult
-create table #dmd_mult
-(mm int,
-pct_sales decimal(20,8),
-mult decimal(20,8),
-s_mult DECIMAL(20,8),
-sort_seq int
-)
-
-
--- 8/17/2016
-SET @SPREAD = ISNULL(@SPREAD,'CORE')
-
-insert into #dmd_mult
-select mm, pct_sales, 0 , 0, 0 
-FROM cvo_dmd_mult
-where obs_date is NULL 
-AND asofdate = (SELECT MAX(asofdate) 
-				FROM cvo_dmd_mult WHERE asofdate <= GETDATE() AND SPREAD = @SPREAD)
--- alternate spread %'s
-AND spread = @spread
-
--- select sum(pct_sales) from #dmd_mult -- 1.0001 for 2015
--- 0.99980000 for 2/2015
-
-update #dmd_mult set sort_seq = 
-CASE when mm < month(@asofdate) then mm - MONTH(@ASOFDATE) + 13
-	 ELSE mm - MONTH(@ASOFDATE) + 1 END 
-
-declare @sort_seq int, @base_pct FLOAT, @flatten decimal(20,8)
-
-	set @base_pct = (select avg(pct_sales) from #dmd_mult where sort_seq in (10,11,12)/*(11,12,1)*/ ) -- last 3 months sales %
-	-- the multiplier s/b the average of the 3 months prior to the asofdate
-
-	set @sort_seq = 1
-	while @sort_seq <= 12
-	begin
- 	 UPDATE #dmd_mult set mult = round(1+((pct_sales-@base_pct)/@base_pct),4)
-		 , s_mult = CASE WHEN @sort_seq BETWEEN @s_start AND @s_end THEN @s_mult ELSE 1.0 end
-		 where sort_seq = @sort_seq
-
-	 set @sort_seq = @sort_seq + 1
-	end
-
-
-	select @flatten = sum(mult) from #dmd_mult
-	update #dmd_mult set mult = mult * (12/@flatten)
---END
-
--- select * From #dmd_mult
-
-IF(OBJECT_ID('tempdb.dbo.#sls_det') is not null)  drop table #sls_det
-IF(OBJECT_ID('tempdb.dbo.#cte') is not null)  drop table #cte
-IF(OBJECT_ID('tempdb.dbo.#style') is not null)  drop table #style
-IF(OBJECT_ID('tempdb.dbo.#tmp') is not null)  drop table #tmp
-IF(OBJECT_ID('tempdb.dbo.#t') is not null)  drop table #t
-IF(OBJECT_ID('tempdb.dbo.#SKU') is not null)  drop table #SKU
-IF(OBJECT_ID('tempdb.dbo.#usage') is not null)  drop table #usage
-
-CREATE TABLE #sku
+    DECLARE @coll_tbl TABLE
     (
-      LINE_TYPE VARCHAR(3) ,
-      sku VARCHAR(30) ,
-      location VARCHAR(12) ,
-      mm INT ,
-      bucket DATETIME ,
-      QOH INT ,
-      atp INT ,
-      reserve_qty INT ,
-      quantity INT ,
-      mult DECIMAL(20, 8) ,
-      s_mult DECIMAL(20, 8) ,
-      sort_seq INT,
-	  alloc_qty INT,
-	  non_alloc_qty INT -- 5/18/2017
+        coll VARCHAR(20) NOT NULL
+    );
+
+    IF @coll_list IS NULL
+    BEGIN
+        INSERT INTO @coll_tbl
+        SELECT DISTINCT
+               kys
+        FROM dbo.category
+        WHERE void = 'n';
+    END;
+    ELSE
+    BEGIN
+        INSERT INTO @coll_tbl
+        (
+            coll
+        )
+        SELECT ListItem
+        FROM dbo.f_comma_list_to_table(@coll_list);
+    END;
+
+    DECLARE @style_list_tbl TABLE
+    (
+        style VARCHAR(40) NULL
+    );
+
+    IF @style_list IS NULL
+       OR @style_list LIKE '%*ALL*%'
+    BEGIN
+        INSERT INTO @style_list_tbl
+        SELECT DISTINCT
+               ia.field_2
+        FROM @coll_tbl c
+			INNER JOIN dbo.inv_master i (NOLOCK)
+				ON i.category = c.coll
+			JOIN dbo.inv_master_add ia (NOLOCK)
+                ON i.part_no = ia.part_no
+        WHERE i.void = 'n';
+    END;
+    ELSE
+    BEGIN
+        INSERT INTO @style_list_tbl
+        (
+            style
+        )
+        SELECT ListItem
+        FROM dbo.f_comma_list_to_table(@style_list);
+    END;
+
+    DECLARE @sf_tbl TABLE
+    (
+        sf VARCHAR(20) NOT NULL
+    );
+
+    IF @sf IS NULL
+       OR @sf LIKE '%*ALL*%'
+    BEGIN
+        INSERT INTO @sf_tbl
+        (
+            sf
+        )
+        VALUES
+        ('' );
+
+        INSERT INTO @sf_tbl
+        (
+            sf
+        )
+        SELECT DISTINCT
+               kys
+        FROM dbo.cvo_specialty_fit
+        WHERE void = 'n';
+    END;
+    ELSE
+    BEGIN
+        INSERT INTO @sf_tbl
+        (
+            sf
+        )
+        SELECT ListItem
+        FROM dbo.f_comma_list_to_table(@sf);
+    END;
+
+    DECLARE @loc_tbl TABLE
+    (
+        location VARCHAR(10) NOT NULL
+    );
+
+    IF @loc IS NULL
+       OR @loc LIKE '%*ALL*%'
+    BEGIN
+        INSERT INTO @loc_tbl
+        (
+            location
+        )
+        VALUES
+        ('' );
+
+        INSERT INTO @loc_tbl
+        (
+            location
+        )
+        SELECT DISTINCT
+               la.location
+        FROM dbo.locations_all AS la
+        WHERE la.void = 'n';
+    END;
+    ELSE
+    BEGIN
+        INSERT INTO @loc_tbl
+        (
+            location
+        )
+        SELECT ListItem
+        FROM dbo.f_comma_list_to_table(@loc);
+    END;
+
+    IF @loc = 'CASES'
+       AND @type_code = 'CASE'
+    BEGIN
+        INSERT INTO @loc_tbl
+        (
+            location
+        )
+        SELECT DISTINCT
+               L.location
+        FROM dbo.inv_master I
+            JOIN dbo.cvo_inventory2 AS L
+                ON L.part_no = I.part_no
+        WHERE I.type_code = 'CASE'
+              AND I.void <> 'V'
+              AND L.cvo_in_stock <> 0;
+
+        DELETE FROM @loc_tbl
+        WHERE location = 'CASES';
+    END;
+
+    IF @debug > 0
+        SELECT l.location
+        FROM @loc_tbl AS l;
+
+    -- get gender selections
+
+    DECLARE @gender_tbl TABLE
+    (
+        gender VARCHAR(20) NOT NULL
+    );
+
+    IF @gndr IS NULL
+       OR @gndr LIKE '%*ALL*%'
+    BEGIN
+        INSERT INTO @gender_tbl
+        (
+            gender
+        )
+        VALUES
+        ('' );
+
+        INSERT INTO @gender_tbl
+        (
+            gender
+        )
+        SELECT DISTINCT
+               kys
+        FROM dbo.CVO_Gender
+        WHERE void = 'n';
+    END;
+    ELSE
+    BEGIN
+        INSERT INTO @gender_tbl
+        (
+            gender
+        )
+        SELECT ListItem
+        FROM dbo.f_comma_list_to_table(@gndr);
+    END;
+
+    DECLARE @type_tbl TABLE
+    (
+        type_code VARCHAR(10)
+    );
+
+    IF @type_code IS NULL
+    BEGIN
+        INSERT INTO @type_tbl
+        SELECT DISTINCT
+               type_code
+        FROM dbo.inv_master AS i;
+    END;
+    ELSE
+    BEGIN
+        INSERT INTO @type_tbl
+        (
+            type_code
+        )
+        SELECT ListItem
+        FROM dbo.f_comma_list_to_table(@type_code);
+    END;
+
+    DECLARE @dmd_mult_tbl TABLE
+    (
+        mm INT NOT NULL,
+        pct_sales DECIMAL(20, 8) NOT NULL,
+        mult DECIMAL(20, 8) NOT NULL,
+        s_mult DECIMAL(20, 8) NOT NULL,
+        sort_seq INT NOT NULL
     );
 
 
--- get weekly usage
+    -- 8/17/2016
+    SET @spread = ISNULL(@spread, 'CORE');
 
-CREATE TABLE #usage 
-( location VARCHAR(12), part_no VARCHAR(40)
-, usg_option CHAR(1), asofdate datetime
-, e4_wu INT, e12_wu INT, e26_wu INT, e52_wu INT
-, subs_w4 INT, subs_w12 INT, promo_w4 INT, promo_w12 INT
-, rx_w4 INT, rx_w12 INT -- 12/5/2016
-, ret_w4 int, ret_w12 int
-, wty_w4 int, wty_w12 INT
-, gross_w4 INT, gross_w12 int
-)
+    INSERT INTO @dmd_mult_tbl
+    SELECT mm,
+           pct_sales,
+           0,
+           0,
+           0
+    FROM dbo.cvo_dmd_mult
+    WHERE obs_date IS NULL
+          AND asofdate = (
+                         SELECT MAX(asofdate)
+                         FROM dbo.cvo_dmd_mult
+                         WHERE asofdate <= GETDATE()
+                               AND spread = @spread
+                         )
+          -- alternate spread %'s
+          AND spread = @spread;
 
--- 10/24/2016 - switch over to usage by collection for performance
+    -- select sum(pct_sales) from @dmd_mult_tbl -- 1.0001 for 2015
+    -- 0.99980000 for 2/2015
 
-DECLARE @co VARCHAR(20), @lo VARCHAR(10)
-SELECT @co = MIN(coll) FROM #coll AS c
-SELECT @lo = MIN(location) FROM #loc AS l
+    UPDATE @dmd_mult_tbl
+    SET sort_seq = CASE WHEN mm < MONTH(@asofdate) THEN mm - MONTH(@asofdate) + 13 ELSE mm - MONTH(@asofdate) + 1 END;
 
-WHILE @co IS NOT NULL 
-BEGIN
+    DECLARE @sort_seq INT,
+            @base_pct FLOAT,
+            @flatten DECIMAL(20, 8);
 
-	WHILE @lo IS NOT NULL
-    begin
-		INSERT INTO #usage 
-		(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, 
-		subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12,
-		ret_w4, ret_w12, wty_w4, wty_w12, gross_w4, gross_w12)
-		select location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, 
-		subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12,
-		ret_w4, ret_w12, wty_w4, wty_w12, gross_w4, gross_w12
-		from dbo.f_cvo_calc_weekly_usage_COLL_loc (@usg_option, @CO, @lo)
+    SET @base_pct = (
+                    SELECT AVG(pct_sales) FROM @dmd_mult_tbl WHERE sort_seq IN ( 10, 11, 12 )/*(11,12,1)*/
+                    );
+    -- last 3 months sales %
+    -- the multiplier s/b the average of the 3 months prior to the asofdate
 
-		SELECT @lo = MIN(location) FROM #loc WHERE location > @lo
-	end
+    SET @sort_seq = 1;
 
-	SELECT @CO = MIN(COLL) FROM #COLL WHERE COLL > @co
-	SELECT @lo = MIN(location) FROM #loc AS l
+    WHILE @sort_seq <= 12
+    BEGIN
+        UPDATE d
+        SET mult = ROUND(1 + ((pct_sales - @base_pct) / @base_pct), 4),
+            s_mult = CASE WHEN @sort_seq BETWEEN @s_start AND @s_end THEN @s_mult ELSE 1.0 END
+        FROM @dmd_mult_tbl d
+        WHERE sort_seq = @sort_seq;
 
-END
+        SET @sort_seq = @sort_seq + 1;
+    END;
 
---DELETE FROM #usage 
---	WHERE NOT EXISTS (SELECT 1 FROM #loc WHERE #loc.location = #usage.location)
---	OR NOT EXISTS (SELECT 1 FROM inv_list il WHERE il.part_no = #usage.part_no AND il.location = #usage.location)
 
----- fill in for locations with no usage
+    SELECT @flatten = SUM(mult)
+    FROM @dmd_mult_tbl;
 
---DECLARE @lo VARCHAR(20)
---SELECT @lo = MIN(#loc.location) FROM #loc WHERE NOT EXISTS (SELECT 1 FROM #usage WHERE #loc.location = #usage.location)
---WHILE @lo IS NOT NULL
---begin
---	INSERT INTO #usage 
---	(location, part_no, usg_option, asofdate, e4_wu, e12_wu, e26_wu, e52_wu, subs_w4, subs_w12, promo_w4, promo_w12, rx_w4, rx_w12,
---	ret_w4, ret_w12, wty_w4, wty_w12, gross_w4, gross_w12)
---	select DISTINCT @lo, #usage.part_no, usg_option, asofdate, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
---	FROM #usage
---	WHERE EXISTS (SELECT 1 FROM inv_list WHERE location = @lo AND part_no = #usage.part_no)
+    UPDATE @dmd_mult_tbl
+    SET mult = mult * (12 / @flatten);
 
---	SELECT @lo = MIN(#loc.location) 
---				FROM #loc
---			    LEFT OUTER JOIN #usage  ON #usage.location = #loc.location
---				WHERE #loc.location > @lo AND #usage.location IS NULL
+    --END
 
---END
+    -- select * From @dmd_mult_tbl
 
-IF @debug = 5 SELECT * FROM #usage AS u
+    IF (OBJECT_ID('tempdb.dbo.#sls_det') IS NOT NULL) DROP TABLE #sls_det;
 
--- get sales history
-select
-i.category brand,
-ia.field_2 style,
-il.location,
-i.part_no,
-i.type_code,
-isnull(ia.field_28,'1/1/1900') pom_date,
-ia.field_26 rel_date,
-datediff(m,ia.field_26, isnull(s.yyyymmdd,@asofdate)) as rel_month, 
-sum(case when isnull(s.yyyymmdd,@asofdate) < dateadd(mm,12,ia.field_26)
-		 then isnull(qsales,0)- isnull(qreturns,0) else 0 end) yr1_net_qty,
-sum(case when isnull(s.yyyymmdd,@asofdate) < @asofdate 
-		and datediff(m,ia.field_26,isnull(s.yyyymmdd,@asofdate)) <= 12 
-		then isnull(qsales,0) - isnull(qreturns,0) else 0 end) yr1_net_qty_b4_asof,
-sum(case when isnull(s.yyyymmdd,@asofdate) < @asofdate 
-		and datediff(m,ia.field_26,isnull(s.yyyymmdd,@asofdate)) BETWEEN 12 AND 24 
-		then isnull(qsales,0) - isnull(qreturns,0) else 0 end) yr2_net_qty_b4_asof,
-sum(isnull(qsales,0)) as sales_qty,
-sum(isnull(qreturns,0)) as ret_qty
+    IF (OBJECT_ID('tempdb.dbo.#cte') IS NOT NULL)     DROP TABLE #cte;
 
-into #sls_det
+    IF (OBJECT_ID('tempdb.dbo.#style') IS NOT NULL)   DROP TABLE #style;
 
-from #coll 
-JOIN inv_master i (nolock) ON i.category = #coll.coll
-INNER JOIN #type t ON t.type_code = i.type_code
-inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
-inner join #style_list on #style_list.style = ia.field_2
-INNER JOIN inv_list il ON il.part_no = i.part_no
-INNER JOIN #loc l ON l.location = il.location
-LEFT outer join cvo_sbm_details s (nolock) on s.part_no = i.part_no AND s.location = l.location
--- left outer join armaster a (nolock) on a.customer_code = s.customer and a.ship_to_code = s.ship_to
-where 
-1=1
-and ia.field_26 >= @startdate
-and i.void = 'N'
--- AND EXISTS (SELECT 1 FROM #sf WHERE #sf.sf = ISNULL(ia.field_32,''))
-AND ( 
-	EXISTS (SELECT 1 FROM #SF JOIN dbo.cvo_part_attributes pa ON pa.part_no = ia.part_no AND pa.attribute = #sf.sf ) 
-	OR EXISTS (SELECT 1 FROM #sf WHERE #sf.sf = ISNULL(ia.field_32,''))
-	)
+    IF (OBJECT_ID('tempdb.dbo.#tmp') IS NOT NULL)     DROP TABLE #tmp;
 
-AND EXISTS (SELECT 1 FROM #gender WHERE #gender.gender = ISNULL(ia.category_2,''))
--- AND EXISTS (select 1 FROM #loc WHERE #loc.location = ISNULL(s.location,#loc.location))
+    IF (OBJECT_ID('tempdb.dbo.#t') IS NOT NULL)       DROP TABLE #t;
 
-and isnull(s.customer,'') not in ('045733','019482','045217') -- stanton and insight and costco
-and isnull(s.return_code,'') = ''
-and isnull(s.iscl,0) = 0 -- no closeouts
--- and isnull(s.location,@loc) = @loc
+    IF (OBJECT_ID('tempdb.dbo.#usage') IS NOT NULL)   DROP TABLE #usage;
 
-group by ia.field_26, ia.field_28, i.category, ia.field_2, i.part_no, i.type_code, il.location, s.yyyymmdd -- end cte
+    IF (OBJECT_ID('tempdb.dbo.#sku_tbl') IS NOT NULL)   DROP TABLE #sku_tbl;
 
-IF @debug = 1 SELECT '#sls_det', * FROM #sls_det
 
-select 
-#sls_det.brand,
-#sls_det.style,
-max(type_code) type_code,
-ISNULL(tt.style_pom,MIN(#sls_det.pom_date)) pom_date,
-min(rel_date) rel_date,
-rel_month, 
-sum (yr1_net_qty) yr1_net_qty,
-sum (yr1_net_qty_b4_asof) yr1_net_qty_b4_asof,
-sum (yr2_net_qty_b4_asof) yr2_net_qty_b4_asof,
-sum (sales_qty) as sales_qty,
-sum (ret_qty) as ret_qty
-into #cte
-from #sls_det 
-LEFT OUTER JOIN 
-(SELECT t.Collection brand, t.model style, MAX(t.pom_date) style_pom
-FROM dbo.cvo_inv_master_r2_vw t
-JOIN #sls_det ON #sls_det.brand = t.COLLECTION AND #sls_det.style = t.MODEL
-GROUP BY	t.Collection , t.model
-HAVING COUNT(t.part_no) = COUNT(t.pom_date) -- fully pom'd style
-) AS tt ON tt.brand = #sls_det.brand AND tt.style = #sls_det.style
-group BY #sls_det.brand, #sls_det.style, #sls_det.rel_month, tt.style_pom
-
-IF @debug = 1 SELECT ' cte ' cte, * From #cte -- where style = '185' order by style, rel_month
-
--- Create style summary list
-
- select cte.brand, cte.style , '' as part_no, drp.location
- ,min(cte.pom_date) pom_date
- ,min(cte.rel_date) rel_date
- ,max(rel_month) mth_since_rel
-,sum(case when rel_month <=3 then cte.sales_qty else 0 end) [Sales M1-3] 
-,sum(case when rel_month <=12 THEN cte.sales_qty else 0 end) [Sales M1-12]
-, ISNULL(drp.s_e4_wu,0) s_e4_wu 
-, ISNULL(drp.s_e12_wu,0) s_e12_wu 
-, ISNULL(drp.s_e52_wu,0) s_e52_wu
-, ISNULL(drp.s_promo_w4,0) s_promo_w4
-, ISNULL(drp.s_promo_w12,0) s_promo_w12
-, ISNULL(drp.s_rx_w4,0) s_rx_w4
-, ISNULL(drp.s_rx_w12,0) s_rx_w12
-, ISNULL(drp.s_ret_w4,0) s_ret_w4
-, ISNULL(drp.s_ret_w12,0) s_ret_w12
-, ISNULL(drp.s_wty_w4,0) s_wty_w4
-, ISNULL(drp.s_wty_w12,0) s_wty_w12
-, ISNULL(drp.s_gross_w4,0) s_gross_w4
-, ISNULL(drp.s_gross_w12,0) s_gross_w12
-
- 
-into #style -- tally up style level information
-from #cte cte
-
-
-left outer join
-(select -- usage info
-i.category collection,
-ia.field_2 style, 
-drp.location,
-sum(ISNULL(e4_wu,0)) s_e4_wu, sum(ISNULL(e12_wu,0)) s_e12_wu, sum(ISNULL(e52_wu,0)) s_e52_wu
-, SUM(ISNULL(promo_w4,0)) s_promo_w4, SUM(ISNULL(promo_w12,0)) s_promo_w12
-, SUM(ISNULL(rx_w4,0)) s_rx_w4, SUM(ISNULL(rx_w12,0)) s_rx_w12
-, SUM(ISNULL(ret_w4,0)) s_ret_w4, SUM(ISNULL(ret_w12,0)) s_ret_w12
-, SUM(ISNULL(wty_w4,0)) s_wty_w4, SUM(ISNULL(wty_w12,0)) s_wty_w12
-, SUM(ISNULL(gross_w4,0)) s_gross_w4, SUM(ISNULL(gross_w12,0)) s_gross_w12
-from inv_master i (NOLOCK)
-LEFT OUTER JOIN #usage drp (nolock) ON i.part_no = drp.part_no
-INNER JOIN inv_master_add ia (NOLOCK) ON ia.part_no = i.part_no
-where i.void = 'N' 
-group by i.category, ia.field_2, drp.location
-) as drp
-on drp.collection = cte.brand and drp.style = cte.style
-
-group by cte.brand, cte.style, drp.location, drp.s_e4_wu, drp.s_e12_wu, drp.s_e52_wu, drp.s_promo_w4, drp.s_promo_w12, drp.s_rx_w4, drp.s_rx_w12
-, drp.s_ret_w4, drp.s_ret_w12
-, drp.s_wty_w4, drp.s_wty_w12
-, drp.s_gross_w4, drp.s_gross_w12
-order by cte.brand, cte.style
-
--- select * from #style where style = '185'
-
--- Check for current styles
-
-IF @debug = 1 SELECT * FROM #style
-
--- select * From #style where style = 'clarissa'
-
--- summarize further and start adding part level information
-
-select s.brand
-, s.style
-, S.location
-, i.part_no
-, s.rel_date
-, s.pom_date
-, s.mth_since_rel
-, isnull(s.s_e4_wu,0) s_e4_wu
-, isnull(s.s_e12_wu,0) s_e12_wu
-, isnull(s.s_e52_wu,0) s_e52_wu
-, isnull(s.s_promo_w4,0) s_promo_w4
-, ISNULL(s.s_promo_w12,0) s_promo_w12
-, isnull(s.s_rx_w4,0) s_rx_w4
-, ISNULL(s.s_rx_w12,0) s_rx_w12
-, isnull(s.s_ret_w4,0) s_ret_w4
-, ISNULL(s.s_ret_w12,0) s_ret_w12
-, isnull(s.s_wty_w4,0) s_wty_w4
-, ISNULL(s.s_wty_w12,0) s_wty_w12
-, isnull(s.s_gross_w4,0) s_gross_w4
-, ISNULL(s.s_gross_w12,0) s_gross_w12
-
-, isnull(drp.p_e4_wu,0) p_e4_wu
-, isnull(drp.p_e12_wu,0) p_e12_wu
-, isnull(drp.p_e52_wu,0) p_e52_wu
-, ISNULL(drp.p_subs_w4,0) p_subs_w4
-, ISNULL(drp.p_subs_w12,0) p_subs_w12
-, ISNULL(drp.p_rx_w4,0) p_rx_w4
-, ISNULL(drp.p_rx_w12,0) p_rx_w12
-, ISNULL(drp.p_ret_w4,0) p_ret_w4
-, ISNULL(drp.p_ret_w12,0) p_ret_w12
-, ISNULL(drp.p_wty_w4,0) p_wty_w4
-, ISNULL(drp.p_wty_w12,0) p_wty_w12
-, ISNULL(drp.p_gross_w4,0) p_gross_w4
-, ISNULL(drp.p_gross_w12,0) p_gross_w12
-
-, s_mth_usg = round(( case when mth_since_rel <= 3 then isnull(s_e4_wu,0)*52/12
-	else isnull(s_e12_wu,0)*52/12 end ) ,0,1)
-, p_mth_usg = round((case when mth_since_rel <= 3 then isnull(p_e4_wu,0)*52/12
-	else isnull(p_e12_wu,0)*52/12 end ) ,0,1)
-, s_mth_usg_mult = round((( case when mth_since_rel <= 3 then isnull(s_e4_wu,0)*52/12
-	else isnull(s_e12_wu,0)*52/12 end ) * mult) ,0,1)
-, p_mth_usg_mult = round(((case when mth_since_rel <= 3 then isnull(p_e4_wu,0)*52/12
-	else isnull(p_e12_wu,0)*52/12 end ) * mult) ,0,1) 
-, pct_of_style = round((case when isnull(CAST(s_e12_wu AS DECIMAL),0.00) <> 0.00	
-							 then isnull(CAST(p_e12_wu AS DECIMAL),0.00)/isnull(CAST(s_e12_wu AS DECIMAL),0) else 0.00 end),4)
-, first_po = isnull((select top 1 quantity From releases 
-	where part_no = i.part_no and location = '001' AND part_type = 'p' and status = 'c' 
-	order by release_date),0)
-, pct_first_po = cast (0 as float) -- calculate this later
-, p_sales_m1_3 = 0
-, pct_sales_style_m1_3 = cast(0 as float)
-, mm, mult, s_mult, sort_seq -- stuff from #dmd_mult
-, mth_demand_src = 'xxx' 
-, mth_demand_mult = null
-, p_po_qty_y1 = cast (0 as float)
-
-into #t
-
-From inv_master i (nolock)
-JOIN #type t ON t.type_code = i.type_code
-inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
-inner join #style s on s.brand = i.category and s.style = ia.field_2
--- and ia.field_26 between @startdate and @enddate
-and ia.field_26 >= @startdate
-left outer join
-(select -- drp info by part
-drp.location, drp.part_no, sum(ISNULL(e4_wu,0)) p_e4_wu, sum(ISNULL(e12_wu,0)) p_e12_wu, sum(ISNULL(e52_wu,0)) p_e52_wu
-, SUM(ISNULL(drp.subs_w4,0)) p_subs_w4, SUM(ISNULL(drp.subs_w12,0)) p_subs_w12
-, SUM(ISNULL(drp.rx_w4,0)) p_rx_w4, SUM(ISNULL(drp.rx_w12,0)) p_rx_w12
-, SUM(ISNULL(drp.ret_w4,0)) p_ret_w4, SUM(ISNULL(drp.ret_w12,0)) p_ret_w12
-, SUM(ISNULL(drp.wty_w4,0)) p_wty_w4, SUM(ISNULL(drp.wty_w12,0)) p_wty_w12
-, SUM(ISNULL(drp.gross_w4,0)) p_gross_w4, SUM(ISNULL(drp.gross_w12,0)) p_gross_w12
-from #usage drp (nolock)
-JOIN inv_master i ON i.part_no = drp.part_no
-JOIN #type t ON t.type_code = i.type_code
-group by drp.location, drp.part_no 
-) as drp
-on drp.part_no = i.part_no AND DRP.LOCATION = S.LOCATION
-
-
-cross join #dmd_mult
--- where i.type_code in ('FRAME','sun','BRUIT','PARTS') -- 11/1/16 - ADD PARTS
-WHERE 1=1
-  and i.void = 'n'
-
-create index idx_t on #t (part_no asc)
-
---IF ISNULL(@debug,0) = 1
---BEGIN
--- SELECT * FROM #dmd_mult
--- SELECT * FROM #t
-
--- SELECT brand, style, COUNT(DISTINCT rel_date) rel_date_cnt
---FROM #t 
---GROUP BY brand, style
---HAVING COUNT(DISTINCT rel_date) = 1
---AND MAX(rel_date) > @endrel
----- ) future_releases
-
---END 
-
--- figure out pct of first purchase
-;with x as 
-(select distinct 
-SKU.brand, sku.style, sku.part_no, sku.first_po, 
-style_first_po = (select sum(isnull(t.first_po,0)) 
-	from (select distinct #T.part_no, first_po 
-		FROM #t 
-		  JOIN inv_master i ON i.part_no = #t.part_no
-		  where #t.style = sku.style 
-		  AND #t.brand = sku.brand
-		  AND i.type_code IN ('frame','sun','bruit')
-		  AND #t.location > ''
-		  ) as t
-		  )
-from #t sku
-JOIN inv_master ii ON ii.part_no = sku.part_no
--- WHERE i.type_code IN ('frame','sun','bruit')
-)
-update #t set 
-pct_first_po = 
-	round((case when isnull(x.style_first_po,0.00) = 0.00 then 0.00
-	      else cast(isnull(x.first_po,0.00)/isnull(x.style_first_po,1) as float) end),4)
-from #t inner join x on #t.part_no = x.part_no 
-where isnull(x.style_first_po,0.00) <> 0.00
-;
-
-
-if @current = 1  -- if reporting current styles/skus only remove any pom skus 
-begin
-	delete from #t where exists (select 1 from inv_master_add where part_no = #t.part_no and field_28 is not null and field_28 < @asofdate )
-END
-
--- remove any skus after the ending release date (full styles only)
-
-
-DELETE FROM #t 
-	WHERE EXISTS (SELECT 1 FROM 
-	(SELECT brand, style, COUNT(DISTINCT rel_date) rel_date_cnt
-	FROM #t 
-	GROUP BY brand, style
-	HAVING COUNT(DISTINCT rel_date) = 1
-	AND MAX(rel_date) > @endrel
-	) future_releases
-	WHERE #t.brand = future_releases.brand AND #t.style = future_releases.style
-	)
-
-IF @debug = 1  SELECT 'after future_releases removed', * FROM #t AS t
-
-
--- where #t.style = 'clarissa'
-
--- figure out first 3 months sales by part
-
-;with x as 
-(
-select s.part_no, sum(s.sales_qty) p_sales_m1_3
-from #sls_det s
-where s.rel_month <=3
-AND s.location > ''
-group by part_no
---order by part_no
-)
-update #t set #t.p_sales_m1_3 = x.p_sales_m1_3
-, #t.pct_sales_style_m1_3 = round(x.p_sales_m1_3 /isnull(s.[sales m1-3],0),4)
-from #t 
-inner join x on #t.part_no = x.part_no
-inner join #style s on s.brand = #t.brand and s.style = #t.style AND s.location > ''
-where isnull(s.[sales m1-3],0) <> 0
--- select * From #t
-
-IF @debug = 4
-BEGIN
-	select s.part_no, sum(s.sales_qty) p_sales_m1_3
-	from #sls_det s
-	where s.rel_month <=3
-	AND s.location > ''
-	group by part_no
-	--order by part_no
-end
-
-insert into #sku
-select distinct mth_demand_src AS LINE_TYPE, 
-#t.part_no sku,
-#t.location,
-#t.mm,
-bucket = dateadd(m,#t.sort_seq-1, @asofdate),
-QOH = 0,
-atp = 0,
-reserve_qty = 0,
-ROUND(#t.mth_demand_mult,0,1) as quantity,
-#t.mult,
-#t.s_mult,
-#t.sort_seq,
-alloc_qty = 0,
-non_alloc_qty = 0
-
--- into #SKU
-from #t
-where mth_demand_src <> 'xxx'
-
--- order by #t.part_no, sort_seq
-
--- add DRP data too
-
-
-insert into #SKU
-SELECT 'DRP' AS LINE_TYPE, 
-#t.part_no sku,
-#t.location,
-#t.mm,
-bucket = dateadd(m,#t.sort_seq-1, @asofdate),
-QOH = 0,
-atp = 0, 
-reserve_qty = 0,
-quantity = round(#dmd_mult.mult * #dmd_mult.s_mult * (case when datediff(mm,ia.field_26, @asofdate) > 3 then isnull(p_e12_wu,0)*52/12 else isnull(p_e4_wu,0)*52/12 end),0,1),
-#t.mult,
-#t.s_mult,
-#t.sort_seq,
-alloc_qty = 0,
-non_alloc_qty = 0
-
-from #t 
-inner join #dmd_mult on #t.sort_seq = #dmd_mult.sort_seq
-inner join inv_master_add ia on ia.part_no = #t.part_no
-
--- order by #t.part_no, sort_seq
-
-
--- GET PURCHASE ORDER LINES MAPPED OUT BY MONTH UNTIL THE ENDING DATE
-insert into #SKU
-select -- 
-'PO' as line_type
-
-, #t.part_no sku
-,  #t.location
-, CASE when DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < @asofdate
-	 THEN month(@asofdate) 
-	 ELSE month(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) END
--- ,#t.mm
-, bucket = dateadd(m,#t.sort_seq-1, @asofdate)
-,QOH = 0
-,atp = 0
-,reserve_qty = 0
-,round(SUM(ISNULL(R.quantity,0))-SUM(ISNULL(R.received,0)),1) quantity, 
-#t.mult,
-#t.s_mult,
-#t.sort_seq,
-alloc_qty = 0,
-non_alloc_qty = 0
-From #t 
--- 9/15/2017 - SUPPORT FOR OUTSOURCING
-inner join inv_master_add i (nolock) on i.part_no = #t.part_no OR  I.PART_NO =  #t.part_no+'-MAKE'
-inner join inv_master inv (nolock) on inv.part_no = i.part_no
--- inner join #type t on t.type_code = inv.type_code 
-left outer join releases r (nolock) on I.part_no = r.part_no AND #t.location = CASE WHEN i.part_no LIKE '%-make' THEN '001' ELSE r.location end
-where 1=1
-and EXISTS (SELECT 1 FROM #type WHERE inv.type_code = #type.type_code OR inv.type_code = 'OUT')
-and  #t.mm = case when DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < @asofdate
-	 THEN month(@asofdate) 
-	 ELSE month(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) end
-and r.status = 'o' and r.part_type = 'p' -- and r.location = @loc
-and inv.void = 'N'
-AND DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < DATEADD(YEAR,1,@asofdate)
-group BY 
--- inv.category, i.field_2, 
-#t.part_no, #t.location
--- , DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)
-, CASE when DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0) < @asofdate
-	 THEN month(@asofdate) 
-	 ELSE month(DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)) end
--- , MONTH(r.inhouse_date), #t.mm
-, #t.mult, #t.s_mult, #t.sort_seq
-
-IF @debug = 1 select * From #SKU  WHERE LINE_TYPE = 'po' ORDER by sku, sort_seq
-
--- select * From #t
-
--- 090314 - tag
--- get sales since the asof date, and use it to consume the demand line
-
-insert into #SKU
-select -- 
-'SLS' as line_type
-
-,#t.part_no sku
-,#t.location
-, ISNULL(r.x_month,MONTH(@asofdate)) mm
-, bucket = dateadd(m,#t.sort_seq-1, @asofdate)
-, QOH = 0
-, atp = 0
-, reserve_qty = 0
-,round(sum(isnull(R.qsales,0)-ISNULL(r.qreturns,0)),0,1) quantity, 
-#t.mult,
-#t.s_mult,
-CASE when ISNULL(r.x_month,month(@asofdate)) < month(@asofdate) 
-		 then ISNULL(r.x_month,month(@asofdate)) - MONTH(@ASOFDATE) + 13
-		 ELSE ISNULL(r.x_month,MONTH(@asofdate)) - MONTH(@ASOFDATE) + 1 
-		 END  as sort_seq,
-alloc_qty = 0,
-non_alloc_qty = 0
-
-From #t 
-inner join inv_master_add i (nolock) on i.part_no = #t.part_no
-inner join inv_master inv (nolock) on inv.part_no = i.part_no
-left outer join cvo_sbm_details r (nolock) on #t.part_no = r.part_no AND #t.location = r.location AND r.X_MONTH = #t.mm
-where r.yyyymmdd >= @asofdate 
--- and @pomdate 
-and inv.void = 'N'
-GROUP BY ISNULL(r.x_month, MONTH(@asofdate)) ,
-         DATEADD(m, #t.sort_seq - 1, @asofdate) ,
-         CASE WHEN ISNULL(r.x_month, MONTH(@asofdate)) < MONTH(@asofdate)
-         THEN ISNULL(r.x_month, MONTH(@asofdate)) - MONTH(@ASOFDATE) + 13
-         ELSE ISNULL(r.x_month, MONTH(@asofdate)) - MONTH(@ASOFDATE) + 1
-         END ,
-         #t.part_no ,
-         #t.location ,
-         mult ,
-         s_mult
-
--- inv.category, i.field_2, #t.part_no, #t.location, r.x_month, #t.mult, #t.s_mult, #t.sort_seq
--- select * From #SKU  order by sku, sort_seq
--- select * From #t
-
--- 06/17/2015 - add orders line
-
-insert into #SKU
-select -- 
-'ORD' as line_type
-
-,#t.part_no sku
-,#t.location
-,rr.x_month mm
-,bucket = dateadd(m,#t.sort_seq-1, @asofdate)
-,QOH = 0
-, atp = 0
-, reserve_qty = 0
-,round(sum(isnull(Rr.open_qty,0)),0,1) quantity, 
-#t.mult,
-#t.s_mult,
-CASE when rr.x_month < month(@asofdate) 
-		 then rr.x_month - MONTH(@ASOFDATE) + 13
-		 ELSE rr.x_month - MONTH(@ASOFDATE) + 1 
-		 END  as sort_seq
-, alloc_qty = 0
-, non_alloc_qty = 0
-
-From #t 
-inner join inv_master_add i (nolock) on i.part_no = #t.part_no
-inner join inv_master inv (nolock) on inv.part_no = i.part_no
-LEFT OUTER JOIN
-(SELECT  ol.part_no ,
-ol.location,
-        X_MONTH = CASE when o.sch_ship_date < @asofdate THEN MONTH(@asofdate) ELSE MONTH(o.sch_ship_date) end,
-        YYYYMMDD = CASE WHEN o.sch_ship_date < @asofdate THEN @asofdate ELSE o.sch_ship_date end ,
-        open_qty = SUM(ol.ordered - ol.shipped - ISNULL(ha.qty, 0))
-		FROM    orders o ( NOLOCK )
-        INNER JOIN ord_list ol ( NOLOCK ) ON ol.order_no = o.order_no
-                                             AND ol.order_ext = o.ext
-        LEFT OUTER JOIN dbo.cvo_hard_allocated_vw ha ( NOLOCK ) ON ha.line_no = ol.line_no
-                                                              AND ha.order_ext = ol.order_ext
-                                                              AND ha.order_no = ol.order_no
-        LEFT OUTER JOIN cvo_soft_alloc_det sa ( NOLOCK ) ON sa.order_no = ol.order_no
-                                                            AND sa.order_ext = ol.order_ext
-                                                            AND sa.line_no = ol.line_no
-                                                            AND sa.part_no = ol.part_no
-WHERE   o.status < 'r'
-		AND o.status <> 'c'  -- 07/29/2015 - dont include credit hold orders
-        AND o.type = 'i'
-        AND ol.ordered > ol.shipped + ISNULL(ha.qty, 0)
-        AND ISNULL(sa.status, -3) = -3 -- future orders not yet soft allocated
-        AND ol.part_type = 'P'
-GROUP BY ol.part_no ,
-		 ol.location,
-        MONTH(o.sch_ship_date) ,
-        o.sch_ship_date
-) rr on #t.part_no = rr.part_no AND #t.location = rr.location AND rr.X_MONTH = #t.mm
-where rr.yyyymmdd >= @asofdate 
--- and @pomdate 
--- and inv.type_code in ('FRAME','sun','BRUIT','PARTS') -- 11/1/16 - ADD PARTS
--- and r.status = 'o' and r.part_type = 'p' and r.location = @loc
-and inv.void = 'N'
-group BY DATEADD(m, #t.sort_seq - 1, @asofdate) ,
-         CASE WHEN rr.x_month < MONTH(@asofdate)
-         THEN rr.x_month - MONTH(@ASOFDATE) + 13
-         ELSE rr.x_month - MONTH(@ASOFDATE) + 1
-         END ,
-         #t.part_no ,
-         #t.location ,
-         rr.X_MONTH ,
-         mult ,
-         s_mult 
-
---inv.category, i.field_2, #t.part_no, #t.location, rr.x_month, #t.mult, #t.s_mult, #t.sort_seq
--- select * From #SKU  order by sku, sort_seq
--- select * From #t
-
--- figure out the running total inv available line
--- 11/19/14 - Change INV line calculation to consume the demand line using the greater of fct/drp or sls as the demand line
--- 7/20/15 - add avail to promise
-
-declare @inv int, @last_inv int, @last_loc VARCHAR(10),  @INV_AVL INT, @drp int, @sls int, @po INT, @ord INT, @atp INT, @reserve_inv INT, @qty_ord INT,
-@alloc_qty INT, @non_alloc_qty int
-
-create index idx_f on #SKU (sku ASC, location asc)
-
-create index idx_sku_line_sort ON #SKU (sku ASC, LINE_TYPE ASC, sort_seq ASC, location ASC)
-
-select @sku = min(sku) from #SKU
-SELECT @last_loc = MIN(s.location) FROM #sku s WHERE s.sku = @sku
-
-IF @sku IS NOT NULL AND @last_loc IS NOT NULL
-BEGIN
-
--- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
-SELECT
-    @last_inv = 0, @atp = 0, @reserve_inv = 0, @qty_ord = 0, @alloc_qty = 0, @non_alloc_qty = 0
-;
-SELECT
-    @last_inv = ISNULL(cia.in_stock, 0) + ISNULL(cia.QcQty2, 0),
-                                             -- CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
-    @qty_ord = ISNULL(cia.SOF, 0) + ISNULL(cia.Allocated, 0),
-    @atp = ISNULL(qty_avl, 0),
-    @reserve_inv = ISNULL(cia.ReserveQty, 0),
-	@alloc_qty = ISNULL(cia.SOF, 0) + ISNULL(cia.Allocated, 0),
-	@non_alloc_qty = ISNULL(cia.Quarantine,0) + ISNULL(cia.Non_alloc,0) - ISNULL(cia.ReserveQty,0) + ISNULL(cia.QcQty2, 0)
-	 -- 12/5/2016
-FROM cvo_item_avail_vw cia
-WHERE
-    cia.part_no = @sku
-    AND cia.location = @last_loc
-;
-IF @debug = 1
-SELECT
-    @sku, @last_inv , @atp , @reserve_inv, @qty_ord , @alloc_qty , @non_alloc_qty
-;	   
--- SELECT * FROM dbo.cvo_item_avail_vw AS iav WHERE iav.Part_no = 'smchipbla5218' AND location = '001'
-
-		   IF EXISTS (SELECT 1 FROM #sku WHERE LINE_TYPE = 'ord' AND sort_seq = 1 AND location = @last_loc AND sku = @sku)
-			   UPDATE #sku SET quantity = quantity + @qty_ord 
-				WHERE sku = @sku AND LINE_TYPE = 'ord' AND sort_seq = 1 AND location = @last_loc
-			ELSE
-				insert into #SKU
-					select -- 
-					'ORD' as line_type
-					,@sku sku
-					,@last_loc
-					,#t.mm
-					,bucket = dateadd(m,#t.sort_seq-1, @asofdate)
-					,QOH = 0
-					, atp = 0
-					, reserve_qty = 0
-					,@qty_ord,
-					#t.mult,
-					#t.s_mult,
-					#t.sort_seq,
-					alloc_qty = 0,
-					non_alloc_qty = 0
-					FROM #T WHERE #T.PART_NO = @SKU AND #T.location = @last_loc AND #t.SORT_SEQ = 1
-
-
-
-select @sort_seq = 0
-SELECT @INV_AVL = @LAST_INV
-select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq+ 1 AND location = @last_loc
-select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq+ 1 AND location = @last_loc
-select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq+ 1 AND location = @last_loc
-select @ord = SUM(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq+ 1 AND location = @last_loc
-
-
-END
-
--- select * From cvo_item_avail_vw where part_no = 'etkatbur5018' and location = '001'
-
-IF @debug = 2 
-BEGIN
-SELECT * FROM #t AS t
-SELECT @sku, @last_loc, @last_inv, @sort_seq
-END
-
-while @sku is not null 
-BEGIN -- sku loop
-
-		IF @debug = 2 SELECT 'SKU LOOP' TAG, @sku, @last_loc, @last_inv, @sort_seq
-
-	WHILE @last_loc IS NOT NULL
-    begin
-
-			IF @debug = 2 SELECT 'LOC LOOP' TAG, @sku, @last_loc, @last_inv, @sort_seq
-	--IF @debug = 1 
-	--	BEGIN
-	--	 SELECT @sku, @last_inv, @atp, @reserve_inv
-	--	 SELECT * FROM dbo.cvo_item_avail_vw AS iav WHERE iav.part_no = @sku AND iav.location = @loc
-	--	END
-        
-
-	update #SKU set qoh = isnull(@last_inv,0)
-					, atp = ISNULL(@atp,0)
-					, reserve_qty = ISNULL(@reserve_inv,0)
-					, alloc_qty = ISNULL(@alloc_qty,0)
-					, non_alloc_qty = ISNULL(@non_alloc_qty,0)
-					  where sku = @sku AND location = @last_loc
-
-	WHILE @SORT_SEQ < 12
-	BEGIN
-	
-		IF @debug = 2 SELECT 'SORT SEQ LOOP' TAG, @sku, @last_loc, @last_inv, @sort_seq
-
-		SELECT @INV_AVL = @INV_AVL 
-		- case when @drp < @sls then @sls else @drp end
-		-- add back sales after the as of date (consume the demand line)
-		+ isnull(@sls, 0)
-		+ isnull(@po, 0)
-		- ISNULL(@ord, 0)
-
-		IF @DEBUG = 2
-		select 
-		'V' AS line_type
-		, sku = @sku
-		, #t.location
-		, mm= #t.mm
-		, bucket = DATEADD(m, @sort_seq, @asofdate)
-		, QOH = isnull(@LAST_INV,0)
-		, atp = ISNULL(@atp,0)
-		, reserve_qty = ISNULL(@reserve_inv,0)
-		, QUANTITY = isnull(@INV_AVL ,0)
-		, mult = #t.mult
-		, s_mult = #t.s_mult
-		,SORT_SEQ = #T.SORT_SEQ
-		FROM #T WHERE #T.PART_NO = @SKU AND #T.location = @last_loc AND SORT_SEQ = @SORT_SEQ + 1
-
-		INSERT #sku
-		select 
-		'V' AS line_type
-		, sku = @sku
-		, #t.location
-		, mm= #t.mm
-		, bucket = DATEADD(m, @sort_seq, @asofdate)
-		, QOH = isnull(@LAST_INV,0)
-		, atp = ISNULL(@atp,0)
-		, reserve_qty = ISNULL(@reserve_inv,0)
-		, QUANTITY = isnull(@INV_AVL ,0)
-		, mult = #t.mult
-		, s_mult = #t.s_mult
-		,SORT_SEQ = #T.SORT_SEQ
-		, alloc_qty = @alloc_qty
-		, non_alloc_qty = @non_alloc_qty
-		FROM #T WHERE #T.PART_NO = @SKU AND #T.location = @last_loc AND SORT_SEQ = @SORT_SEQ + 1
-
-		SELECT @SORT_SEQ = @SORT_SEQ + 1
-		select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq + 1 AND location = @last_loc
-		select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq + 1 AND location = @last_loc
-		select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq + 1 AND location = @last_loc
-		select @ord = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq + 1 AND location = @last_loc
-	END -- monthly buckets
-
-		SELECT @last_loc = MIN(location) FROM #SKU WHERE SKU = @SKU AND location > @last_loc
-
-		IF @last_loc IS NOT NULL AND @sku IS NOT null
-        begin
-	-- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
-SELECT
-    @last_inv = 0, @atp = 0, @reserve_inv = 0, @qty_ord = 0, @alloc_qty = 0, @non_alloc_qty = 0
-;
-SELECT
-    @last_inv = ISNULL(cia.in_stock, 0) + ISNULL(cia.QcQty2, 0),
-    -- CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
-    @qty_ord = ISNULL(cia.SOF, 0) + ISNULL(cia.Allocated, 0),
-    @atp = ISNULL(qty_avl, 0),
-    @reserve_inv = ISNULL(cia.ReserveQty, 0),
-	@alloc_qty = ISNULL(cia.SOF, 0) + ISNULL(cia.Allocated, 0),
-	@non_alloc_qty = ISNULL(cia.Quarantine,0) + ISNULL(cia.Non_alloc,0) - ISNULL(cia.ReserveQty,0)
-	FROM cvo_item_avail_vw cia
-WHERE
-    cia.part_no = @sku
-    AND cia.location = @last_loc
-;
-
-
-		   IF EXISTS (SELECT 1 FROM #sku WHERE LINE_TYPE = 'ord' AND sort_seq = 1 AND location = @last_loc AND sku = @sku)
-			   UPDATE #sku SET quantity = quantity + @qty_ord 
-				WHERE sku = @sku AND LINE_TYPE = 'ord' AND sort_seq = 1 AND location = @last_loc
-			ELSE
-				insert into #SKU
-					select -- 
-					'ORD' as line_type
-					,@sku sku
-					,@last_loc
-					,#t.mm
-					,bucket = dateadd(m,#t.sort_seq-1, @asofdate)
-					,QOH = 0
-					, atp = 0
-					, reserve_qty = 0
-					,@qty_ord,
-					#t.mult,
-					#t.s_mult,
-					#t.sort_seq,
-					alloc_qty = 0,
-					non_alloc_qty = 0
-					FROM #T WHERE #T.PART_NO = @SKU AND #T.location = @last_loc AND #t.SORT_SEQ = 1
-
-		select @sort_seq = 0
-		SELECT @INV_AVL = @LAST_INV
-		select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq + 1 AND location = @last_loc
-		select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq + 1 AND location = @last_loc
-		select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq + 1 AND location = @last_loc
-		select @ord = SUM(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq + 1 AND location = @last_loc
-		end
-	END -- location  loop
-
-	SELECT @SKU = MIN(SKU) FROM #SKU WHERE SKU > @SKU
-	SELECT @last_loc = MIN(location) FROM #sku WHERE sku = @sku 
-
-	IF (@sku IS NOT NULL AND @last_loc IS NOT null)
-	begin
--- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
-SELECT
-    @last_inv = 0, @atp = 0, @reserve_inv = 0, @qty_ord = 0, @alloc_qty = 0, @non_alloc_qty = 0
-;
-;
-SELECT
-    @last_inv = ISNULL(cia.in_stock, 0) + ISNULL(cia.QcQty2, 0),
-    -- CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
-    @qty_ord = ISNULL(cia.SOF, 0) + ISNULL(cia.Allocated, 0),
-    @atp = ISNULL(qty_avl, 0),
-    @reserve_inv = ISNULL(cia.ReserveQty, 0),
-	@alloc_qty = ISNULL(cia.SOF, 0) + ISNULL(cia.Allocated, 0),
-		@non_alloc_qty = ISNULL(cia.Quarantine,0) + ISNULL(cia.Non_alloc,0) - ISNULL(cia.ReserveQty,0)
-FROM cvo_item_avail_vw cia
-WHERE
-    cia.part_no = @sku
-    AND cia.location = @last_loc
-;
-
-		   IF EXISTS (SELECT 1 FROM #sku WHERE LINE_TYPE = 'ord' AND sort_seq = 1 AND location = @last_loc AND sku = @sku)
-			   UPDATE #sku SET quantity = quantity + @qty_ord 
-				WHERE sku = @sku AND LINE_TYPE = 'ord' AND sort_seq = 1 AND location = @last_loc
-			ELSE
-				insert into #SKU
-					select -- 
-					'ORD' as line_type
-					,@sku sku
-					,@last_loc
-					,#t.mm
-					,bucket = dateadd(m,#t.sort_seq-1, @asofdate)
-					,QOH = 0
-					, atp = 0
-					, reserve_qty = 0
-					,@qty_ord,
-					#t.mult,
-					#t.s_mult,
-					#t.sort_seq,
-					alloc_qty = 0,
-					non_alloc_qty = 0
-					FROM #T WHERE #T.PART_NO = @SKU AND #T.location = @last_loc AND #t.SORT_SEQ = 1
-	select @sort_seq = 0
-	SELECT @INV_AVL = @LAST_INV
-	select @drp = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'drp' and sort_seq = @sort_seq + 1 AND location = @last_loc
-	select @sls = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'sls' and sort_seq = @sort_seq + 1 AND location = @last_loc
-	select @po = sum(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'po' and sort_seq = @sort_seq + 1 AND location = @last_loc
-	select @ord = SUM(isnull(quantity,0)) from #sku where sku = @sku and line_type = 'ord' and sort_seq = @sort_seq + 1 AND location = @last_loc
-	end
-END -- sku loop
-
--- final select
-
-IF @debug = 1 
-	BEGIN
-		SELECT 'sku' sku, * FROM #sku
-		SELECT '#t' t, * FROM #t
-	end
-
-
--- IF @loc = 'cases'
--- BEGIN
-		DELETE FROM #sku 
-		WHERE sku+location in
-        (SELECT sku+location s_key
-		FROM #sku
-		WHERE location <> '001'
-		GROUP BY sku+location
-		HAVING SUM(quantity) = 0
-		)
--- END
-
-
---=iif(Parameters!WksOnHandGTLT.Value="ALL",true,iif(Parameters!WksOnHandGTLT.Value=">=",
---iif(Fields!p_e12_wu.Value<= 0,Parameters!WksOnHand.Value+1,Fields!qoh.Value/Fields!p_e12_wu.Value) >= Parameters!WksOnHand.Value,
---iif(Fields!p_e12_wu.Value<= 0,Parameters!WksOnHand.Value+1,Fields!qoh.Value/Fields!p_e12_wu.Value) <= Parameters!WksOnHand.Value)
---)
--- GET WEEKS ON HAND FOR FILTER
-
-SELECT
-    #t.brand,
-    #t.style,
-    #t.location,
-    #t.p_e12_wu,
-    #sku.QOH,
-    CASE
-		WHEN p_e12_wu <= 0 THEN 999
-        WHEN p_e12_wu <> 0 THEN
-            QOH / p_e12_wu
-        ELSE
-            0
-    END WOH
-INTO #WOH
-FROM
-    #t
-    JOIN #sku
-        ON #sku.location = #t.location
-           AND sku = #t.part_no
-;
-
-IF @debug = 5 SELECT * FROM #WOH AS w
-
-UPDATE #WOH
-SET WOH = 9999
-WHERE
+    create table #sku_tbl 
     (
-        WOH >= @WksOnHand
-        AND @WksOnHandGTLT = '>='
-    )
-    OR (
-           WOH <= @WksOnHand
-           AND @WksOnHandGTLT = '<='
-       )
-    OR @WksOnHandGTLT = 'ALL'
-;
+        LINE_TYPE VARCHAR(3) null,
+        sku VARCHAR(30) null,
+        location VARCHAR(12) NULL,
+        mm INT NULL, 
+        bucket DATETIME NULL,
+        QOH INT NULL,
+        atp INT NULL,
+        reserve_qty INT NULL,
+        quantity INT NULL,
+        mult DECIMAL(20, 8) NULL,
+        s_mult DECIMAL(20, 8) NULL,
+        sort_seq INT NULL,
+        alloc_qty INT NULL,
+        non_alloc_qty INT NULL -- 5/18/2017
+    );
 
-IF @debug = 5 SELECT * FROM #WOH AS w
 
+    -- get weekly usage
 
--- fixup
-SELECT DISTINCT
-    -- #style.*
-    #style.brand,
-    #style.style,
-    specs.vendor,
-    specs.type_code,
-    specs.gender,
-    specs.material,
-    specs.moq,
-    specs.watch,
-    specs.sf,
-    CASE
-        WHEN specs.rel_date = '1/1/1900' THEN
-            NULL
-        ELSE
-            specs.rel_date
-    END AS rel_date,
-                             --= (select min(release_date) From cvo_inv_master_r2_vw where collection = i.category
-                             --	and model = ia.field_2)
-    CASE
-        WHEN #style.pom_date = '1/1/1900' THEN
-            NULL
-        ELSE
-            #style.pom_date
-    END AS pom_date,
-    #style.mth_since_rel,
-    #style.[Sales M1-3] s_sales_m1_3,
-    #style.[Sales M1-12] s_sales_m1_12,
-    #style.s_e4_wu,
-    #style.s_e12_wu,
-    #style.s_e52_wu,
-    #style.s_promo_w4,
-    #style.s_promo_w12,
-    #style.s_gross_w4,
-    #style.s_gross_w12,
-                             -- , #SKU.*
-    #sku.LINE_TYPE,
-    #sku.sku,
-    #sku.location,
-    #sku.mm,
-    CASE
-        WHEN #style.rel_date <> ISNULL(ia.field_26, #style.rel_date) THEN
-            ia.field_26
-    END AS p_rel_date,
-    CASE
-        WHEN #style.pom_date <> ISNULL(ia.field_28, #style.pom_date) THEN
-            ia.field_28
-    END AS p_pom_date,
+    CREATE TABLE #usage
     (
-        SELECT lead_time
-        FROM inv_list il
-        WHERE
-            il.part_no = #sku.sku
-            AND il.location = '001'
-    ) lead_time,
-    #sku.bucket,
-    #sku.QOH,
-    #sku.atp,
-    #sku.reserve_qty,
-    #sku.quantity,
-    #sku.mult,
-    #sku.s_mult,
-    #sku.sort_seq,
-    #sku.alloc_qty,
-    #sku.non_alloc_qty,
-    #t.pct_of_style,
-    #t.pct_first_po,
-    #t.pct_sales_style_m1_3,
-    #t.p_e4_wu,
-    #t.p_e12_wu,
-    #t.p_e52_wu,
-    #t.p_subs_w4,
-    #t.p_subs_w12,
-    #t.s_mth_usg,
-    #t.p_mth_usg,
-    #t.s_mth_usg_mult,
-    #t.p_sales_m1_3,
-    p_po_qty_y1 = CASE
-                      WHEN #sku.LINE_TYPE = 'V'
-                           AND #sku.sort_seq = 1 THEN
-                          ISNULL(
-                          (
-                              SELECT SUM(qty_ordered)
-                              FROM
-                                  pur_list p (NOLOCK)
-                                  INNER JOIN inv_master i (NOLOCK)
-                                      ON i.part_no = p.part_no
-                                  INNER JOIN inv_master_add ia (NOLOCK)
-                                      ON ia.part_no = i.part_no
-                              WHERE
-                                  1 = 1
-                                  AND i.void = 'n'
-                                  AND p.void <> 'V' -- 8/3/2016
-                                  AND p.part_no = #sku.sku
-                                  AND p.rel_date <= DATEADD(yy, 1, ia.field_26)
-                                  AND p.type = 'p'
-                                  AND p.location = '001'
-                          ),
-                                    0
-                                )
-                      ELSE
-                          0
-                  END,
-    CASE
-        WHEN #style.pom_date IS NULL
-             OR #style.pom_date = '1/1/1900' THEN
-            r.ORDER_THRU_DATE
-        WHEN #style.pom_date < r.ORDER_THRU_DATE THEN
-            #style.pom_date
-        ELSE
-            r.ORDER_THRU_DATE
-    END AS ORDER_THRU_DATE,
-    r.TIER,                  -- 7/8/2016
-    i.type_code p_type_code, -- res type of sku, not style - 11/1/2016
-    #t.s_rx_w4,              -- 12/5/2016
-    #t.s_rx_w12,
-    #t.p_rx_w4,
-    #t.p_rx_w12,
-    #t.s_ret_w4,
-    #t.s_ret_w12,
-    #t.p_ret_w4,
-    #t.p_ret_w12,
-    #t.s_wty_w4,
-    #t.s_wty_w12,
-    #t.p_wty_w4,
-    #t.p_wty_w12,
-    #t.p_gross_w4,
-    #t.p_gross_w12,
-    specs.price,
-    specs.frame_type
-FROM
-    #sku
-    INNER JOIN #t
-        ON #t.part_no = #sku.sku
-           AND #t.mm = #sku.mm
-           AND #t.location = #sku.location
-           AND #t.mult = #sku.mult
-           AND #t.sort_seq = #sku.sort_seq
-    INNER JOIN inv_list IL
-        ON IL.location = #t.location
-           AND IL.part_no = #t.part_no
-    INNER JOIN inv_master i (NOLOCK)
-        ON #sku.sku = i.part_no
-    INNER JOIN inv_master_add ia (NOLOCK)
-        ON #sku.sku = ia.part_no
-    INNER JOIN #style
-        ON #style.brand = i.category
-           AND #style.style = ia.field_2
-           AND #style.location = #sku.location
-    LEFT OUTER JOIN
-    (
-        SELECT
-            i.category brand,
-            ia.field_2 style,
-            i.vendor,
-            MAX(i.type_code) type_code,
-            MAX(category_2) gender,
-                                                             -- MAX(i.cmdty_code) material ,
-            MAX(ISNULL(ia.field_10, i.cmdty_code)) material, -- 12/12/2016
-            MAX(ISNULL(ia.field_11, 'UNKNOWN')) frame_type,
-            MAX(ISNULL(ia.category_1, '')) watch,
+        location VARCHAR(12)  NULL,
+        part_no VARCHAR(40) NULL,
+        usg_option CHAR(1) NULL,
+        asofdate DATETIME NULL,
+        e4_wu INT NULL,
+        e12_wu INT NULL,
+        e26_wu INT NULL,
+        e52_wu INT NULL,
+        subs_w4 INT NULL,
+        subs_w12 INT NULL,
+        promo_w4 INT NULL,
+        promo_w12 INT NULL,
+        rx_w4 INT NULL,
+        rx_w12 INT NULL, -- 12/5/2016
+        ret_w4 INT NULL,
+        ret_w12 INT NULL,
+        wty_w4 INT NULL,
+        wty_w12 INT NULL,
+        gross_w4 INT NULL,
+        gross_w12 INT NULL
+    );
+
+    -- 10/24/2016 - switch over to usage by collection/ type for performance
+
+    DECLARE @co VARCHAR(20),
+            @lo VARCHAR(10),
+            @t CHAR(1);
+
+    IF @loc = 'CASES'
+       AND @type_code = 'CASE'
+        SELECT @co = 'CASE',
+               @t  = 'T';
+    ELSE
+        SELECT @co = MIN(coll),
+               @t  = 'C'
+        FROM @coll_tbl AS c;
+
+    SELECT @lo = MIN(location)
+    FROM @loc_tbl AS l;
+
+    WHILE @co IS NOT NULL
+    BEGIN
+
+        WHILE @lo IS NOT NULL
+        BEGIN
+            INSERT INTO #usage
             (
-                SELECT TOP 1 MOQ_info FROM cvo_Vendor_MOQ WHERE Vendor_Code = i.vendor
-            ) moq,
-            MAX(ISNULL(ia.field_32, '')) sf,
-            MIN(ISNULL(ia.field_26, '1/1/1900')) rel_date,
-            MAX(pp.price_a) price
-        FROM
-            inv_master i (NOLOCK)
-            JOIN #type AS t
-                ON t.type_code = i.type_code
-            INNER JOIN inv_master_add ia (NOLOCK)
+                location,
+                part_no,
+                usg_option,
+                asofdate,
+                e4_wu,
+                e12_wu,
+                e26_wu,
+                e52_wu,
+                subs_w4,
+                subs_w12,
+                promo_w4,
+                promo_w12,
+                rx_w4,
+                rx_w12,
+                ret_w4,
+                ret_w12,
+                wty_w4,
+                wty_w12,
+                gross_w4,
+                gross_w12
+            )
+            SELECT location,
+                   part_no,
+                   usg_option,
+                   ASofdate,
+                   e4_wu,
+                   e12_wu,
+                   e26_wu,
+                   e52_wu,
+                   subs_w4,
+                   subs_w12,
+                   promo_w4,
+                   promo_w12,
+                   rx_w4,
+                   rx_w12,
+                   ret_w4,
+                   ret_w12,
+                   wty_w4,
+                   wty_w12,
+                   gross_w4,
+                   gross_w12
+            FROM dbo.f_cvo_calc_weekly_usage_loc(@usg_option, @t, @co, @lo);
+
+            SELECT @lo = MIN(location)
+            FROM @loc_tbl
+            WHERE location > @lo;
+        END;
+
+
+        IF @loc = 'CASES'
+           AND @type_code = 'CASE'
+            SELECT @co = NULL,
+                   @t  = 'T';
+        ELSE
+            SELECT @co = MIN(coll),
+                   @t  = 'C'
+            FROM @coll_tbl AS c
+            WHERE coll > @co;
+
+        IF @co IS NULL
+            SELECT @lo = NULL;
+        ELSE
+            SELECT @lo = MIN(location)
+            FROM @loc_tbl AS l;
+
+    END;
+
+    IF @debug = 5
+        SELECT *
+        FROM #usage AS u;
+
+    -- get sales history
+    SELECT i.category brand,
+           ia.field_2 style,
+           il.location,
+           i.part_no,
+           i.type_code,
+           ISNULL(ia.field_28, '1/1/1900') pom_date,
+           ia.field_26 rel_date,
+           DATEDIFF(m, ia.field_26, ISNULL(s.yyyymmdd, @asofdate)) AS rel_month,
+           SUM(   CASE WHEN ISNULL(s.yyyymmdd, @asofdate) < DATEADD(mm, 12, ia.field_26) THEN
+                           ISNULL(s.qsales, 0) - ISNULL(s.qreturns, 0) ELSE 0
+                  END
+              ) yr1_net_qty,
+           SUM(   CASE WHEN ISNULL(s.yyyymmdd, @asofdate) < @asofdate
+                            AND DATEDIFF(m, ia.field_26, ISNULL(s.yyyymmdd, @asofdate)) <= 12 THEN
+                           ISNULL(s.qsales, 0) - ISNULL(s.qreturns, 0) ELSE 0
+                  END
+              ) yr1_net_qty_b4_asof,
+           SUM(   CASE WHEN ISNULL(s.yyyymmdd, @asofdate) < @asofdate
+                            AND DATEDIFF(m, ia.field_26, ISNULL(s.yyyymmdd, @asofdate))
+                            BETWEEN 12 AND 24 THEN ISNULL(s.qsales, 0) - ISNULL(s.qreturns, 0) ELSE 0
+                  END
+              ) yr2_net_qty_b4_asof,
+           SUM(ISNULL(s.qsales, 0)) AS sales_qty,
+           SUM(ISNULL(s.qreturns, 0)) AS ret_qty
+
+    INTO #sls_det
+
+    FROM @coll_tbl c
+        JOIN dbo.inv_master i (NOLOCK)
+            ON i.category = c.coll
+        INNER JOIN @type_tbl t
+            ON t.type_code = i.type_code
+        INNER JOIN dbo.inv_master_add ia (NOLOCK)
+            ON i.part_no = ia.part_no
+        INNER JOIN @style_list_tbl st
+            ON st.style = ia.field_2
+        INNER JOIN dbo.inv_list il
+            ON il.part_no = i.part_no
+        INNER JOIN @loc_tbl l
+            ON l.location = il.location
+        LEFT OUTER JOIN dbo.cvo_sbm_details s (NOLOCK)
+            ON s.part_no = i.part_no
+               AND s.location = l.location
+    -- left outer join armaster a (nolock) on a.customer_code = s.customer and a.ship_to_code = s.ship_to
+    WHERE 1 = 1
+          AND ia.field_26 >= @startdate
+          AND i.void = 'N'
+          -- AND EXISTS (SELECT 1 FROM @sf_tbl WHERE @sf_tbl.sf = ISNULL(ia.field_32,''))
+          AND (
+              EXISTS (
+                     SELECT 1
+                     FROM @sf_tbl sf
+                         JOIN dbo.cvo_part_attributes pa
+                             ON pa.part_no = ia.part_no
+                                AND pa.attribute = sf.sf
+                     )
+              OR EXISTS (
+                        SELECT 1 FROM @sf_tbl sf WHERE sf.sf = ISNULL(ia.field_32, '')
+                        )
+              )
+
+          AND EXISTS (
+                     SELECT 1 FROM @gender_tbl g WHERE g.gender = ISNULL(ia.category_2, '')
+                     )
+          -- AND EXISTS (select 1 FROM @loc_tbl WHERE @loc_tbl.location = ISNULL(s.location,@loc_tbl.location))
+
+          AND ISNULL(s.customer, '') NOT IN ( '045733', '019482', '045217' ) -- stanton and insight and costco
+          AND ISNULL(s.return_code, '') = ''
+          AND ISNULL(s.isCL, 0) = 0 -- no closeouts
+    -- and isnull(s.location,@loc) = @loc
+
+    GROUP BY ia.field_26,
+             ia.field_28,
+             i.category,
+             ia.field_2,
+             i.part_no,
+             i.type_code,
+             il.location,
+             s.yyyymmdd; -- end cte
+
+    IF @debug = 1
+        SELECT '#sls_det',
+               *
+        FROM #sls_det;
+
+    SELECT sls.brand,
+           sls.style,
+           MAX(type_code) type_code,
+           ISNULL(tt.style_pom, MIN(sls.pom_date)) pom_date,
+           MIN(rel_date) rel_date,
+           sls.rel_month,
+           SUM(yr1_net_qty) yr1_net_qty,
+           SUM(yr1_net_qty_b4_asof) yr1_net_qty_b4_asof,
+           SUM(yr2_net_qty_b4_asof) yr2_net_qty_b4_asof,
+           SUM(sales_qty) AS sales_qty,
+           SUM(ret_qty) AS ret_qty
+    INTO #cte
+    FROM #sls_det sls
+        LEFT OUTER JOIN
+        (
+        SELECT t.Collection brand,
+               t.model style,
+               MAX(t.pom_date) style_pom
+        FROM dbo.cvo_inv_master_r2_vw t
+            JOIN #sls_det s
+                ON s.brand = t.Collection
+                   AND s.style = t.model
+        GROUP BY t.Collection,
+                 t.model
+        HAVING COUNT(t.part_no) = COUNT(t.pom_date) -- fully pom'd style
+        ) AS tt
+            ON tt.brand = sls.brand
+               AND tt.style = sls.style
+    GROUP BY sls.brand,
+             sls.style,
+             sls.rel_month,
+             tt.style_pom;
+
+    IF @debug = 1
+        SELECT ' cte ' cte,
+               *
+        FROM #cte;
+
+    -- where style = '185' order by style, rel_month
+
+    -- Create style summary list
+
+    SELECT cte.brand,
+           cte.style,
+           '' AS part_no,
+           drp.location,
+           MIN(cte.pom_date) pom_date,
+           MIN(cte.rel_date) rel_date,
+           MAX(cte.rel_month) mth_since_rel,
+           SUM(CASE WHEN cte.rel_month <= 3 THEN cte.sales_qty ELSE 0 END) [Sales M1-3],
+           SUM(CASE WHEN cte.rel_month <= 12 THEN cte.sales_qty ELSE 0 END) [Sales M1-12],
+           ISNULL(drp.s_e4_wu, 0) s_e4_wu,
+           ISNULL(drp.s_e12_wu, 0) s_e12_wu,
+           ISNULL(drp.s_e52_wu, 0) s_e52_wu,
+           ISNULL(drp.s_promo_w4, 0) s_promo_w4,
+           ISNULL(drp.s_promo_w12, 0) s_promo_w12,
+           ISNULL(drp.s_rx_w4, 0) s_rx_w4,
+           ISNULL(drp.s_rx_w12, 0) s_rx_w12,
+           ISNULL(drp.s_ret_w4, 0) s_ret_w4,
+           ISNULL(drp.s_ret_w12, 0) s_ret_w12,
+           ISNULL(drp.s_wty_w4, 0) s_wty_w4,
+           ISNULL(drp.s_wty_w12, 0) s_wty_w12,
+           ISNULL(drp.s_gross_w4, 0) s_gross_w4,
+           ISNULL(drp.s_gross_w12, 0) s_gross_w12
+
+
+    INTO #style -- tally up style level information
+    FROM #cte cte
+
+
+        LEFT OUTER JOIN
+        (
+        SELECT -- usage info
+            i.category collection,
+            ia.field_2 style,
+            drp.location,
+            SUM(ISNULL(drp.e4_wu, 0)) s_e4_wu,
+            SUM(ISNULL(drp.e12_wu, 0)) s_e12_wu,
+            SUM(ISNULL(drp.e52_wu, 0)) s_e52_wu,
+            SUM(ISNULL(drp.promo_w4, 0)) s_promo_w4,
+            SUM(ISNULL(drp.promo_w12, 0)) s_promo_w12,
+            SUM(ISNULL(drp.rx_w4, 0)) s_rx_w4,
+            SUM(ISNULL(drp.rx_w12, 0)) s_rx_w12,
+            SUM(ISNULL(drp.ret_w4, 0)) s_ret_w4,
+            SUM(ISNULL(drp.ret_w12, 0)) s_ret_w12,
+            SUM(ISNULL(drp.wty_w4, 0)) s_wty_w4,
+            SUM(ISNULL(drp.wty_w12, 0)) s_wty_w12,
+            SUM(ISNULL(drp.gross_w4, 0)) s_gross_w4,
+            SUM(ISNULL(drp.gross_w12, 0)) s_gross_w12
+        FROM dbo.inv_master i (NOLOCK)
+            LEFT OUTER JOIN #usage drp (NOLOCK)
+                ON i.part_no = drp.part_no
+            INNER JOIN dbo.inv_master_add ia (NOLOCK)
                 ON ia.part_no = i.part_no
-            INNER JOIN part_price pp (NOLOCK)
+        WHERE i.void = 'N'
+        GROUP BY i.category,
+                 ia.field_2,
+                 drp.location
+        ) AS drp
+            ON drp.collection = cte.brand
+               AND drp.style = cte.style
+
+    GROUP BY cte.brand,
+             cte.style,
+             drp.location,
+             drp.s_e4_wu,
+             drp.s_e12_wu,
+             drp.s_e52_wu,
+             drp.s_promo_w4,
+             drp.s_promo_w12,
+             drp.s_rx_w4,
+             drp.s_rx_w12,
+             drp.s_ret_w4,
+             drp.s_ret_w12,
+             drp.s_wty_w4,
+             drp.s_wty_w12,
+             drp.s_gross_w4,
+             drp.s_gross_w12
+    ORDER BY cte.brand,
+             cte.style;
+
+    -- select * from #style where style = '185'
+
+    -- Check for current styles
+
+    IF @debug = 1
+        SELECT *
+        FROM #style;
+
+    -- select * From #style where style = 'clarissa'
+
+    -- summarize further and start adding part level information
+
+    SELECT s.brand,
+           s.style,
+           s.location,
+           i.part_no,
+           s.rel_date,
+           s.pom_date,
+           s.mth_since_rel,
+           ISNULL(s.s_e4_wu, 0) s_e4_wu,
+           ISNULL(s.s_e12_wu, 0) s_e12_wu,
+           ISNULL(s.s_e52_wu, 0) s_e52_wu,
+           ISNULL(s.s_promo_w4, 0) s_promo_w4,
+           ISNULL(s.s_promo_w12, 0) s_promo_w12,
+           ISNULL(s.s_rx_w4, 0) s_rx_w4,
+           ISNULL(s.s_rx_w12, 0) s_rx_w12,
+           ISNULL(s.s_ret_w4, 0) s_ret_w4,
+           ISNULL(s.s_ret_w12, 0) s_ret_w12,
+           ISNULL(s.s_wty_w4, 0) s_wty_w4,
+           ISNULL(s.s_wty_w12, 0) s_wty_w12,
+           ISNULL(s.s_gross_w4, 0) s_gross_w4,
+           ISNULL(s.s_gross_w12, 0) s_gross_w12
+
+    ,
+           ISNULL(drp.p_e4_wu, 0) p_e4_wu,
+           ISNULL(drp.p_e12_wu, 0) p_e12_wu,
+           ISNULL(drp.p_e52_wu, 0) p_e52_wu,
+           ISNULL(drp.p_subs_w4, 0) p_subs_w4,
+           ISNULL(drp.p_subs_w12, 0) p_subs_w12,
+           ISNULL(drp.p_rx_w4, 0) p_rx_w4,
+           ISNULL(drp.p_rx_w12, 0) p_rx_w12,
+           ISNULL(drp.p_ret_w4, 0) p_ret_w4,
+           ISNULL(drp.p_ret_w12, 0) p_ret_w12,
+           ISNULL(drp.p_wty_w4, 0) p_wty_w4,
+           ISNULL(drp.p_wty_w12, 0) p_wty_w12,
+           ISNULL(drp.p_gross_w4, 0) p_gross_w4,
+           ISNULL(drp.p_gross_w12, 0) p_gross_w12
+
+    ,
+           ROUND(
+                    (CASE WHEN s.mth_since_rel <= 3 THEN ISNULL(s.s_e4_wu, 0) * 52 / 12 ELSE
+                                                                                          ISNULL(s.s_e12_wu, 0) * 52 / 12 END
+                    ),
+                    0,
+                    1
+                ) s_mth_usg,
+           ROUND(
+                    (CASE WHEN s.mth_since_rel <= 3 THEN ISNULL(drp.p_e4_wu, 0) * 52 / 12 ELSE
+                                                                                          ISNULL(drp.p_e12_wu, 0) * 52 / 12 END
+                    ),
+                    0,
+                    1
+                ) p_mth_usg,
+           ROUND(
+                    ((CASE WHEN s.mth_since_rel <= 3 THEN ISNULL(s.s_e4_wu, 0) * 52 / 12 ELSE
+                                                                                            ISNULL(s.s_e12_wu, 0) * 52
+                                                                                            / 12 END
+                     ) * dmd.mult
+                    ),
+                    0,
+                    1
+                ) s_mth_usg_mult,
+           ROUND(
+                    ((CASE WHEN s.mth_since_rel <= 3 THEN ISNULL(drp.p_e4_wu, 0) * 52 / 12 ELSE
+                                                                                               ISNULL(drp.p_e12_wu, 0)
+                                                                                               * 52 / 12 END
+                     )
+                     * dmd.mult
+                    ),
+                    0,
+                    1
+                ) p_mth_usg_mult,
+           ROUND(
+                    (CASE WHEN ISNULL(CAST(s.s_e12_wu AS DECIMAL), 0.00) <> 0.00 THEN
+                              ISNULL(CAST(drp.p_e12_wu AS DECIMAL), 0.00) / ISNULL(CAST(s.s_e12_wu AS DECIMAL), 0) ELSE
+                                                                                                                       0.00
+                     END
+                    ),
+                    4
+                ) pct_of_style,
+           ISNULL((
+                  SELECT TOP (1)
+                         quantity
+                  FROM dbo.releases
+                  WHERE part_no = i.part_no
+                        AND location = '001'
+                        AND part_type = 'p'
+                        AND status = 'c'
+                  ORDER BY release_date
+                  ),
+                  0
+                 ) first_po,
+           CAST(0 AS FLOAT) pct_first_po, -- calculate this later
+           0 p_sales_m1_3,
+           CAST(0 AS FLOAT) pct_sales_style_m1_3,
+           dmd.mm,
+           dmd.mult,
+           dmd.s_mult,
+           dmd.sort_seq,                  -- stuff from @dmd_mult_tbl
+           'xxx' mth_demand_src,
+           NULL mth_demand_mult,
+           CAST(0 AS FLOAT) p_po_qty_y1
+
+    INTO #t
+
+    FROM dbo.inv_master i (NOLOCK)
+        JOIN @type_tbl t
+            ON t.type_code = i.type_code
+        INNER JOIN dbo.inv_master_add ia (NOLOCK)
+            ON i.part_no = ia.part_no
+        INNER JOIN #style s
+            ON s.brand = i.category
+               AND s.style = ia.field_2
+               -- and ia.field_26 between @startdate and @enddate
+               AND ia.field_26 >= @startdate
+        LEFT OUTER JOIN
+        (
+        SELECT -- drp info by part
+            drp.location,
+            drp.part_no,
+            SUM(ISNULL(drp.e4_wu, 0)) p_e4_wu,
+            SUM(ISNULL(drp.e12_wu, 0)) p_e12_wu,
+            SUM(ISNULL(drp.e52_wu, 0)) p_e52_wu,
+            SUM(ISNULL(drp.subs_w4, 0)) p_subs_w4,
+            SUM(ISNULL(drp.subs_w12, 0)) p_subs_w12,
+            SUM(ISNULL(drp.rx_w4, 0)) p_rx_w4,
+            SUM(ISNULL(drp.rx_w12, 0)) p_rx_w12,
+            SUM(ISNULL(drp.ret_w4, 0)) p_ret_w4,
+            SUM(ISNULL(drp.ret_w12, 0)) p_ret_w12,
+            SUM(ISNULL(drp.wty_w4, 0)) p_wty_w4,
+            SUM(ISNULL(drp.wty_w12, 0)) p_wty_w12,
+            SUM(ISNULL(drp.gross_w4, 0)) p_gross_w4,
+            SUM(ISNULL(drp.gross_w12, 0)) p_gross_w12
+        FROM #usage drp (NOLOCK)
+            JOIN dbo.inv_master i
+                ON i.part_no = drp.part_no
+            JOIN @type_tbl t
+                ON t.type_code = i.type_code
+        GROUP BY drp.location,
+                 drp.part_no
+        ) AS drp
+            ON drp.part_no = i.part_no
+               AND drp.location = s.location
+
+
+        CROSS JOIN @dmd_mult_tbl dmd
+    -- where i.type_code in ('FRAME','sun','BRUIT','PARTS') -- 11/1/16 - ADD PARTS
+    WHERE 1 = 1
+          AND i.void = 'n';
+
+    CREATE NONCLUSTERED INDEX idx_t ON #t (part_no ASC);
+
+    WITH x
+    AS (SELECT DISTINCT
+               sku.brand,
+               sku.style,
+               sku.part_no,
+               sku.first_po,
+               (
+               SELECT SUM(ISNULL(tt.first_po, 0))
+               FROM
+               (
+               SELECT DISTINCT
+                      t.part_no,
+                      t.first_po
+               FROM #t t
+                   JOIN dbo.inv_master i
+                       ON i.part_no = t.part_no
+               WHERE t.style = sku.style
+                     AND t.brand = sku.brand
+                     AND i.type_code IN ( 'frame', 'sun', 'bruit' )
+                     AND t.location > ''
+               ) AS tt
+               ) style_first_po
+        FROM #t sku
+            JOIN dbo.inv_master ii
+                ON ii.part_no = sku.part_no
+    -- WHERE i.type_code IN ('frame','sun','bruit')
+    )
+    UPDATE t
+    SET pct_first_po = ROUND(
+                                (CASE WHEN ISNULL(x.style_first_po, 0.00) = 0.00 THEN 0.00 ELSE
+                                                                                               CAST(ISNULL(
+                                                                                                              x.first_po,
+                                                                                                              0.00
+                                                                                                          )
+                                                                                                    / ISNULL(
+                                                                                                                x.style_first_po,
+                                                                                                                1
+                                                                                                            ) AS FLOAT)
+                                 END
+                                ),
+                                4
+                            )
+    FROM #t t
+        INNER JOIN x
+            ON t.part_no = x.part_no
+    WHERE ISNULL(x.style_first_po, 0.00) <> 0.00;
+
+
+    IF @current = 1 -- if reporting current styles/skus only remove any pom skus 
+    BEGIN
+        DELETE FROM #t
+        WHERE EXISTS (
+                     SELECT 1
+                     FROM dbo.inv_master_add
+                     WHERE part_no = #t.part_no
+                           AND field_28 IS NOT NULL
+                           AND field_28 < @asofdate
+                     );
+    END;
+
+    -- remove any skus after the ending release date (full styles only)
+
+
+    DELETE FROM #t
+    WHERE EXISTS (
+                 SELECT 1
+                 FROM
+                 (
+                 SELECT brand,
+                        style,
+                        COUNT(DISTINCT rel_date) rel_date_cnt
+                 FROM #t
+                 GROUP BY brand,
+                          style
+                 HAVING COUNT(DISTINCT rel_date) = 1
+                        AND MAX(rel_date) > @endrel
+                 ) future_releases
+                 WHERE #t.brand = future_releases.brand
+                       AND #t.style = future_releases.style
+                 );
+
+    IF @debug = 1
+        SELECT 'after future_releases removed',
+               *
+        FROM #t AS t;
+
+    WITH x
+    AS (SELECT s.part_no,
+               SUM(s.sales_qty) p_sales_m1_3
+        FROM #sls_det s
+        WHERE s.rel_month <= 3
+              AND s.location > ''
+        GROUP BY part_no
+    --order by part_no
+    )
+    UPDATE t
+    SET t.p_sales_m1_3 = x.p_sales_m1_3,
+        t.pct_sales_style_m1_3 = ROUND(x.p_sales_m1_3 / ISNULL(s.[Sales M1-3], 0), 4)
+    FROM #t t
+        INNER JOIN x
+            ON t.part_no = x.part_no
+        INNER JOIN #style s
+            ON s.brand = t.brand
+               AND s.style = t.style
+               AND s.location > ''
+    WHERE ISNULL(s.[Sales M1-3], 0) <> 0;
+
+    -- select * From #t
+
+    IF @debug = 4
+    BEGIN
+        SELECT s.part_no,
+               SUM(s.sales_qty) p_sales_m1_3
+        FROM #sls_det s
+        WHERE s.rel_month <= 3
+              AND s.location > ''
+        GROUP BY part_no;
+    --order by part_no
+    END;
+
+    INSERT INTO #sku_tbl
+    SELECT DISTINCT
+           mth_demand_src AS LINE_TYPE,
+           t.part_no sku,
+           t.location,
+           t.mm,
+           DATEADD(m, t.sort_seq - 1, @asofdate) bucket,
+           0 QOH,
+           0 atp,
+           0 reserve_qty,
+           ROUND(t.mth_demand_mult, 0, 1) AS quantity,
+           t.mult,
+           t.s_mult,
+           t.sort_seq,
+           0 alloc_qty,
+           0 non_alloc_qty
+
+    -- into #sku_tbl
+    FROM #t t
+    WHERE t.mth_demand_src <> 'xxx';
+
+    -- order by #t.part_no, sort_seq
+
+    -- add DRP data too
+
+
+    INSERT INTO #sku_tbl
+    SELECT 'DRP' AS LINE_TYPE,
+           t.part_no sku,
+           t.location,
+           t.mm,
+           DATEADD(m, t.sort_seq - 1, @asofdate) bucket,
+           0 QOH,
+           0 atp,
+           0 reserve_qty,
+           ROUND(
+                    dmd.mult * dmd.s_mult
+                    * (CASE WHEN DATEDIFF(mm, ia.field_26, @asofdate) > 3 THEN ISNULL(t.p_e12_wu, 0) * 52 / 12 ELSE
+                                                                                                                     ISNULL(
+                                                                                                                               t.p_e4_wu,
+                                                                                                                               0
+                                                                                                                           )
+                                                                                                                     * 52
+                                                                                                                     / 12
+                       END
+                      ),
+                    0,
+                    1
+                ) quantity,
+           t.mult,
+           t.s_mult,
+           t.sort_seq,
+           0 alloc_qty,
+           0 non_alloc_qty
+
+    FROM #t t
+        INNER JOIN @dmd_mult_tbl dmd
+            ON t.sort_seq = dmd.sort_seq
+        INNER JOIN dbo.inv_master_add ia
+            ON ia.part_no = t.part_no;
+
+    -- order by #t.part_no, sort_seq
+
+
+    -- GET PURCHASE ORDER LINES MAPPED OUT BY MONTH UNTIL THE ENDING DATE
+    INSERT INTO #sku_tbl
+    SELECT -- 
+        'PO' AS line_type
+
+    ,
+        t.part_no sku,
+        t.location,
+        CASE WHEN DATEADD(m, DATEDIFF(m, 0, r.inhouse_date), 0) < @asofdate THEN MONTH(@asofdate) ELSE
+                                                                                                      MONTH(DATEADD(
+                                                                                                                       m,
+                                                                                                                       DATEDIFF(
+                                                                                                                                   m,
+                                                                                                                                   0,
+                                                                                                                                   r.inhouse_date
+                                                                                                                               ),
+                                                                                                                       0
+                                                                                                                   )
+                                                                                                           )
+        END,
+        -- ,#t.mm
+        DATEADD(m, t.sort_seq - 1, @asofdate) bucket,
+        0 QOH,
+        0 atp,
+        0 reserve_qty,
+        ROUND(SUM(ISNULL(r.quantity, 0)) - SUM(ISNULL(r.received, 0)), 1) quantity,
+        t.mult,
+        t.s_mult,
+        t.sort_seq,
+        0 alloc_qty, 
+        0 non_alloc_qty
+    FROM #t t
+        -- 9/15/2017 - SUPPORT FOR OUTSOURCING
+        INNER JOIN inv_master_add i (NOLOCK)
+            ON i.part_no = t.part_no
+               OR i.part_no = t.part_no + '-MAKE'
+        INNER JOIN dbo.inv_master inv (NOLOCK)
+            ON inv.part_no = i.part_no
+        -- inner join @type_tbl t on t.type_code = inv.type_code 
+        LEFT OUTER JOIN dbo.releases r (NOLOCK)
+            ON i.part_no = r.part_no
+               AND t.location = CASE WHEN i.part_no LIKE '%-make' THEN '001' ELSE r.location END
+    WHERE 1 = 1
+          AND EXISTS (
+                     SELECT 1
+                     FROM @type_tbl t
+                     WHERE inv.type_code = t.type_code
+                           OR inv.type_code = 'OUT'
+                     )
+          AND t.mm = CASE WHEN DATEADD(m, DATEDIFF(m, 0, r.inhouse_date), 0) < @asofdate THEN MONTH(@asofdate) ELSE
+                                                                                                                    MONTH(DATEADD(
+                                                                                                                                     m,
+                                                                                                                                     DATEDIFF(
+                                                                                                                                                 m,
+                                                                                                                                                 0,
+                                                                                                                                                 r.inhouse_date
+                                                                                                                                             ),
+                                                                                                                                     0
+                                                                                                                                 )
+                                                                                                                         )
+                      END
+          AND r.status = 'o'
+          AND r.part_type = 'p' -- and r.location = @loc
+          AND inv.void = 'N'
+          AND DATEADD(m, DATEDIFF(m, 0, r.inhouse_date), 0) < DATEADD(YEAR, 1, @asofdate)
+    GROUP BY
+        -- inv.category, i.field_2, 
+        t.part_no,
+        t.location,
+        -- , DATEADD(m,DATEDIFF(m,0,r.inhouse_date),0)
+        CASE WHEN DATEADD(m, DATEDIFF(m, 0, r.inhouse_date), 0) < @asofdate THEN MONTH(@asofdate) ELSE
+                                                                                                      MONTH(DATEADD(
+                                                                                                                       m,
+                                                                                                                       DATEDIFF(
+                                                                                                                                   m,
+                                                                                                                                   0,
+                                                                                                                                   r.inhouse_date
+                                                                                                                               ),
+                                                                                                                       0
+                                                                                                                   )
+                                                                                                           )
+        END,
+        -- , MONTH(r.inhouse_date), #t.mm
+        t.mult,
+        t.s_mult,
+        t.sort_seq;
+
+    IF @debug = 1
+        SELECT *
+        FROM #sku_tbl
+        WHERE LINE_TYPE = 'po'
+        ORDER BY sku,
+                 sort_seq;
+
+    -- select * From #t
+
+    -- 090314 - tag
+    -- get sales since the asof date, and use it to consume the demand line
+
+    INSERT INTO #sku_tbl
+    SELECT -- 
+        'SLS' AS line_type
+
+    ,
+        t.part_no sku,
+        t.location,
+        ISNULL(r.X_MONTH, MONTH(@asofdate)) mm,
+        DATEADD(m, t.sort_seq - 1, @asofdate) bucket,
+        0 QOH,
+        0 atp,
+        0 reserve_qty,
+        ROUND(SUM(ISNULL(r.qsales, 0) - ISNULL(r.qreturns, 0)), 0, 1) quantity,
+        t.mult,
+        t.s_mult,
+        CASE WHEN ISNULL(r.X_MONTH, MONTH(@asofdate)) < MONTH(@asofdate) THEN
+                 ISNULL(r.X_MONTH, MONTH(@asofdate)) - MONTH(@asofdate) + 13 ELSE
+                                                                                 ISNULL(r.X_MONTH, MONTH(@asofdate))
+                                                                                 - MONTH(@asofdate) + 1
+        END AS sort_seq,
+        0 alloc_qty,
+        0 non_alloc_qty
+
+    FROM #t t
+        INNER JOIN dbo.inv_master_add i (NOLOCK)
+            ON i.part_no = t.part_no
+        INNER JOIN dbo.inv_master inv (NOLOCK)
+            ON inv.part_no = i.part_no
+        LEFT OUTER JOIN dbo.cvo_sbm_details r (NOLOCK)
+            ON t.part_no = r.part_no
+               AND t.location = r.location
+               AND r.X_MONTH = t.mm
+    WHERE r.yyyymmdd >= @asofdate
+          -- and @pomdate 
+          AND inv.void = 'N'
+    GROUP BY ISNULL(r.X_MONTH, MONTH(@asofdate)),
+             DATEADD(m, t.sort_seq - 1, @asofdate),
+             CASE WHEN ISNULL(r.X_MONTH, MONTH(@asofdate)) < MONTH(@asofdate) THEN
+                      ISNULL(r.X_MONTH, MONTH(@asofdate)) - MONTH(@asofdate) + 13 ELSE
+                                                                                      ISNULL(
+                                                                                                r.X_MONTH,
+                                                                                                MONTH(@asofdate)
+                                                                                            ) - MONTH(@asofdate) + 1
+             END,
+             t.part_no,
+             t.location,
+             t.mult,
+             t.s_mult;
+
+    -- inv.category, i.field_2, #t.part_no, #t.location, r.x_month, #t.mult, #t.s_mult, #t.sort_seq
+    -- select * From #sku_tbl  order by sku, sort_seq
+    -- select * From #t
+
+    -- 06/17/2015 - add orders line
+
+    INSERT INTO #sku_tbl
+    SELECT -- 
+        'ORD' AS line_type
+
+    ,
+        t.part_no sku,
+        t.location,
+        rr.X_MONTH mm,
+        DATEADD(m, t.sort_seq - 1, @asofdate) bucket,
+        0 QOH,
+        0 atp,
+        0 reserve_qty,
+        ROUND(SUM(ISNULL(rr.open_qty, 0)), 0, 1) quantity,
+        t.mult,
+        t.s_mult,
+        CASE WHEN rr.X_MONTH < MONTH(@asofdate) THEN rr.X_MONTH - MONTH(@asofdate) + 13 ELSE
+                                                                                            rr.X_MONTH
+                                                                                            - MONTH(@asofdate) + 1 END AS sort_seq,
+        0 alloc_qty,
+        0 non_alloc_qty
+
+    FROM #t t
+        INNER JOIN dbo.inv_master_add i (NOLOCK)
+            ON i.part_no = t.part_no
+        INNER JOIN dbo.inv_master inv (NOLOCK)
+            ON inv.part_no = i.part_no
+        LEFT OUTER JOIN
+        (
+        SELECT ol.part_no,
+               ol.location,
+               CASE WHEN o.sch_ship_date < @asofdate THEN MONTH(@asofdate) ELSE MONTH(o.sch_ship_date) END X_MONTH,
+               CASE WHEN o.sch_ship_date < @asofdate THEN @asofdate ELSE o.sch_ship_date END YYYYMMDD,
+               SUM(ol.ordered - ol.shipped - ISNULL(ha.qty, 0)) open_qty
+        FROM dbo.orders o (NOLOCK)
+            INNER JOIN dbo.ord_list ol (NOLOCK)
+                ON ol.order_no = o.order_no
+                   AND ol.order_ext = o.ext
+            LEFT OUTER JOIN dbo.cvo_hard_allocated_vw ha (NOLOCK)
+                ON ha.line_no = ol.line_no
+                   AND ha.order_ext = ol.order_ext
+                   AND ha.order_no = ol.order_no
+            LEFT OUTER JOIN dbo.cvo_soft_alloc_det sa (NOLOCK)
+                ON sa.order_no = ol.order_no
+                   AND sa.order_ext = ol.order_ext
+                   AND sa.line_no = ol.line_no
+                   AND sa.part_no = ol.part_no
+        WHERE o.status < 'r'
+              AND o.status <> 'c' -- 07/29/2015 - dont include credit hold orders
+              AND o.type = 'i'
+              AND ol.ordered > ol.shipped + ISNULL(ha.qty, 0)
+              AND ISNULL(sa.status, -3) = -3 -- future orders not yet soft allocated
+              AND ol.part_type = 'P'
+        GROUP BY ol.part_no,
+                 ol.location,
+                 MONTH(o.sch_ship_date),
+                 o.sch_ship_date
+        ) rr
+            ON t.part_no = rr.part_no
+               AND t.location = rr.location
+               AND rr.X_MONTH = t.mm
+    WHERE rr.YYYYMMDD >= @asofdate
+          -- and @pomdate 
+          -- and inv.type_code in ('FRAME','sun','BRUIT','PARTS') -- 11/1/16 - ADD PARTS
+          -- and r.status = 'o' and r.part_type = 'p' and r.location = @loc
+          AND inv.void = 'N'
+    GROUP BY DATEADD(m, t.sort_seq - 1, @asofdate),
+             CASE WHEN rr.X_MONTH < MONTH(@asofdate) THEN rr.X_MONTH - MONTH(@asofdate) + 13 ELSE
+                                                                                                 rr.X_MONTH
+                                                                                                 - MONTH(@asofdate) + 1 END,
+             t.part_no,
+             t.location,
+             rr.X_MONTH,
+             t.mult,
+             t.s_mult;
+
+    --inv.category, i.field_2, #t.part_no, #t.location, rr.x_month, #t.mult, #t.s_mult, #t.sort_seq
+    -- select * From #sku_tbl  order by sku, sort_seq
+    -- select * From #t
+
+    -- figure out the running total inv available line
+    -- 11/19/14 - Change INV line calculation to consume the demand line using the greater of fct/drp or sls as the demand line
+    -- 7/20/15 - add avail to promise
+
+    DECLARE @inv INT,
+            @last_inv INT,
+            @last_loc VARCHAR(10),
+            @INV_AVL INT,
+            @drp INT,
+            @sls INT,
+            @po INT,
+            @ord INT,
+            @atp INT,
+            @reserve_inv INT,
+            @qty_ord INT,
+            @alloc_qty INT,
+            @non_alloc_qty INT;
+
+     CREATE INDEX idx_f ON #sku_tbl (sku ASC, location ASC);
+
+    CREATE INDEX idx_sku_line_sort
+    ON #sku_tbl
+    (
+    sku ASC,
+    LINE_TYPE ASC,
+    sort_seq ASC,
+    location ASC
+    );
+
+    SELECT @sku = MIN(sku)
+    FROM #sku_tbl;
+
+    SELECT @last_loc = MIN(s.location)
+    FROM #sku_tbl s
+    WHERE s.sku = @sku;
+
+    IF @sku IS NOT NULL
+       AND @last_loc IS NOT NULL
+    BEGIN
+
+        -- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
+        SELECT @last_inv = 0,
+               @atp = 0,
+               @reserve_inv = 0,
+               @qty_ord = 0,
+               @alloc_qty = 0,
+               @non_alloc_qty = 0;
+
+        SELECT @last_inv = ISNULL(cia.in_stock, 0) + ISNULL(cia.QcQty2, 0),
+               -- CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
+               @qty_ord = ISNULL(cia.SOF, 0) + ISNULL(cia.Allocated, 0),
+               @atp = ISNULL(qty_avl, 0),
+               @reserve_inv = ISNULL(cia.ReserveQty, 0),
+               @alloc_qty = ISNULL(cia.SOF, 0) + ISNULL(cia.Allocated, 0),
+               @non_alloc_qty
+                   = ISNULL(cia.Quarantine, 0) + ISNULL(cia.Non_alloc, 0) - ISNULL(cia.ReserveQty, 0)
+                     + ISNULL(cia.QcQty2, 0)
+        -- 12/5/2016
+        FROM dbo.cvo_item_avail_vw cia
+        WHERE cia.part_no = @sku
+              AND cia.location = @last_loc;
+
+        IF @debug = 1
+            SELECT @sku,
+                   @last_inv,
+                   @atp,
+                   @reserve_inv,
+                   @qty_ord,
+                   @alloc_qty,
+                   @non_alloc_qty;
+
+        -- SELECT * FROM dbo.cvo_item_avail_vw AS iav WHERE iav.Part_no = 'smchipbla5218' AND location = '001'
+
+        IF EXISTS (
+                  SELECT 1
+                  FROM #sku_tbl
+                  WHERE LINE_TYPE = 'ord'
+                        AND sort_seq = 1
+                        AND location = @last_loc
+                        AND sku = @sku
+                  )
+            UPDATE #sku_tbl
+            SET quantity = quantity + @qty_ord
+            WHERE sku = @sku
+                  AND LINE_TYPE = 'ord'
+                  AND sort_seq = 1
+                  AND location = @last_loc;
+        ELSE
+            INSERT INTO #sku_tbl
+            SELECT -- 
+                'ORD' AS line_type,
+                @sku sku,
+                @last_loc,
+                t.mm,
+                DATEADD(m, t.sort_seq - 1, @asofdate) bucket,
+                0 QOH,
+                0 atp,
+                0 reserve_qty,
+                @qty_ord,
+                t.mult,
+                t.s_mult,
+                t.sort_seq,
+                0 alloc_qty,
+                0 non_alloc_qty
+            FROM #t t
+            WHERE t.part_no = @sku
+                  AND t.location = @last_loc
+                  AND t.sort_seq = 1;
+
+
+
+        SELECT @sort_seq = 0;
+
+        SELECT @INV_AVL = @last_inv;
+
+        SELECT @drp = SUM(ISNULL(quantity, 0))
+        FROM #sku_tbl
+        WHERE sku = @sku
+              AND LINE_TYPE = 'drp'
+              AND sort_seq = @sort_seq + 1
+              AND location = @last_loc;
+
+        SELECT @sls = SUM(ISNULL(quantity, 0))
+        FROM #sku_tbl
+        WHERE sku = @sku
+              AND LINE_TYPE = 'sls'
+              AND sort_seq = @sort_seq + 1
+              AND location = @last_loc;
+
+        SELECT @po = SUM(ISNULL(quantity, 0))
+        FROM #sku_tbl
+        WHERE sku = @sku
+              AND LINE_TYPE = 'po'
+              AND sort_seq = @sort_seq + 1
+              AND location = @last_loc;
+
+        SELECT @ord = SUM(ISNULL(quantity, 0))
+        FROM #sku_tbl
+        WHERE sku = @sku
+              AND LINE_TYPE = 'ord'
+              AND sort_seq = @sort_seq + 1
+              AND location = @last_loc;
+
+
+    END;
+
+    -- select * From cvo_item_avail_vw where part_no = 'etkatbur5018' and location = '001'
+
+    IF @debug = 2
+    BEGIN
+        SELECT *
+        FROM #t AS t;
+
+        SELECT @sku,
+               @last_loc,
+               @last_inv,
+               @sort_seq;
+    END;
+
+    WHILE @sku IS NOT NULL
+    BEGIN -- sku loop
+
+        IF @debug = 2
+            SELECT 'SKU LOOP' TAG,
+                   @sku,
+                   @last_loc,
+                   @last_inv,
+                   @sort_seq;
+
+        WHILE @last_loc IS NOT NULL
+        BEGIN
+
+            IF @debug = 2
+                SELECT 'LOC LOOP' TAG,
+                       @sku,
+                       @last_loc,
+                       @last_inv,
+                       @sort_seq;
+
+            --IF @debug = 1 
+            --	BEGIN
+            --	 SELECT @sku, @last_inv, @atp, @reserve_inv
+            --	 SELECT * FROM dbo.cvo_item_avail_vw AS iav WHERE iav.part_no = @sku AND iav.location = @loc
+            --	END
+
+
+            UPDATE #sku_tbl
+            SET QOH = ISNULL(@last_inv, 0),
+                atp = ISNULL(@atp, 0),
+                reserve_qty = ISNULL(@reserve_inv, 0),
+                alloc_qty = ISNULL(@alloc_qty, 0),
+                non_alloc_qty = ISNULL(@non_alloc_qty, 0)
+            WHERE sku = @sku
+                  AND location = @last_loc;
+
+            WHILE @sort_seq < 12
+            BEGIN
+
+                IF @debug = 2
+                    SELECT 'SORT SEQ LOOP' TAG,
+                           @sku,
+                           @last_loc,
+                           @last_inv,
+                           @sort_seq;
+
+                SELECT @INV_AVL = @INV_AVL - CASE WHEN @drp < @sls THEN @sls ELSE @drp END
+                                  -- add back sales after the as of date (consume the demand line)
+                                  + ISNULL(@sls, 0) + ISNULL(@po, 0) - ISNULL(@ord, 0);
+
+                IF @debug = 2
+                    SELECT 'V' AS line_type,
+                           @sku sku,
+                           t.location,
+                           t.mm mm,
+                           DATEADD(m, @sort_seq, @asofdate) bucket,
+                           ISNULL(@last_inv, 0) qoh,
+                           ISNULL(@atp, 0) atp,
+                           ISNULL(@reserve_inv, 0) reserve_qty,
+                           ISNULL(@INV_AVL, 0) QUANTITY,
+                           t.mult,
+                           t.s_mult,
+                           t.sort_seq
+                    FROM #t t
+                    WHERE t.part_no = @sku
+                          AND t.location = @last_loc
+                          AND SORT_SEQ = @sort_seq + 1;
+
+                INSERT #sku_tbl
+                SELECT 'V' AS line_type,
+                       @sku sku,
+                       t.location,
+                       t.mm,
+                       DATEADD(m, @sort_seq, @asofdate) bucket,
+                       ISNULL(@last_inv, 0) qoh,
+                       ISNULL(@atp, 0) atp,
+                       ISNULL(@reserve_inv, 0) reserve_qty,
+                       ISNULL(@INV_AVL, 0) quantity,
+                       t.mult,
+                       t.s_mult,
+                       t.sort_seq,
+                       @alloc_qty alloc_qty,
+                       @non_alloc_qty non_alloc_qty
+                FROM #t t
+                WHERE t.part_no = @sku
+                      AND t.location = @last_loc
+                      AND t.SORT_SEQ = @sort_seq + 1;
+
+                SELECT @sort_seq = @sort_seq + 1;
+
+                SELECT @drp = SUM(ISNULL(quantity, 0))
+                FROM #sku_tbl s
+                WHERE s.sku = @sku
+                      AND s.LINE_TYPE = 'drp'
+                      AND s.sort_seq = @sort_seq + 1
+                      AND s.location = @last_loc;
+
+                SELECT @sls = SUM(ISNULL(quantity, 0))
+                FROM #sku_tbl
+                WHERE sku = @sku
+                      AND LINE_TYPE = 'sls'
+                      AND sort_seq = @sort_seq + 1
+                      AND location = @last_loc;
+
+                SELECT @po = SUM(ISNULL(quantity, 0))
+                FROM #sku_tbl
+                WHERE sku = @sku
+                      AND LINE_TYPE = 'po'
+                      AND sort_seq = @sort_seq + 1
+                      AND location = @last_loc;
+
+                SELECT @ord = SUM(ISNULL(quantity, 0))
+                FROM #sku_tbl
+                WHERE sku = @sku
+                      AND LINE_TYPE = 'ord'
+                      AND sort_seq = @sort_seq + 1
+                      AND location = @last_loc;
+            END; -- monthly buckets
+
+            SELECT @last_loc = MIN(location)
+            FROM #sku_tbl
+            WHERE sku = @sku
+                  AND location > @last_loc;
+
+            IF @last_loc IS NOT NULL
+               AND @sku IS NOT NULL
+            BEGIN
+                -- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
+                SELECT @last_inv = 0,
+                       @atp = 0,
+                       @reserve_inv = 0,
+                       @qty_ord = 0,
+                       @alloc_qty = 0,
+                       @non_alloc_qty = 0;
+
+                SELECT @last_inv = ISNULL(cia.in_stock, 0) + ISNULL(cia.QcQty2, 0),
+                       -- CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
+                       @qty_ord = ISNULL(cia.SOF, 0) + ISNULL(cia.Allocated, 0),
+                       @atp = ISNULL(qty_avl, 0),
+                       @reserve_inv = ISNULL(cia.ReserveQty, 0),
+                       @alloc_qty = ISNULL(cia.SOF, 0) + ISNULL(cia.Allocated, 0),
+                       @non_alloc_qty
+                           = ISNULL(cia.Quarantine, 0) + ISNULL(cia.Non_alloc, 0) - ISNULL(cia.ReserveQty, 0)
+                FROM dbo.cvo_item_avail_vw cia
+                WHERE cia.part_no = @sku
+                      AND cia.location = @last_loc;
+
+
+                IF EXISTS (
+                          SELECT 1
+                          FROM #sku_tbl
+                          WHERE LINE_TYPE = 'ord'
+                                AND sort_seq = 1
+                                AND location = @last_loc
+                                AND sku = @sku
+                          )
+                    UPDATE #sku_tbl
+                    SET quantity = quantity + @qty_ord
+                    WHERE sku = @sku
+                          AND LINE_TYPE = 'ord'
+                          AND sort_seq = 1
+                          AND location = @last_loc;
+                ELSE
+                    INSERT INTO #sku_tbl
+                    SELECT -- 
+                        'ORD' AS line_type,
+                        @sku sku,
+                        @last_loc,
+                        t.mm,
+                        DATEADD(m, t.sort_seq - 1, @asofdate) bucket,
+                        0 QOH,
+                        0 atp,
+                        0 reserve_qty,
+                        @qty_ord,
+                        t.mult,
+                        t.s_mult,
+                        t.sort_seq,
+                        0 alloc_qty,
+                        0 non_alloc_qty
+                    FROM #t t
+                    WHERE t.part_no = @sku
+                          AND t.location = @last_loc
+                          AND t.sort_seq = 1;
+
+                SELECT @sort_seq = 0;
+
+                SELECT @INV_AVL = @last_inv;
+
+                SELECT @drp = SUM(ISNULL(quantity, 0))
+                FROM #sku_tbl
+                WHERE sku = @sku
+                      AND LINE_TYPE = 'drp'
+                      AND sort_seq = @sort_seq + 1
+                      AND location = @last_loc;
+
+                SELECT @sls = SUM(ISNULL(quantity, 0))
+                FROM #sku_tbl
+                WHERE sku = @sku
+                      AND LINE_TYPE = 'sls'
+                      AND sort_seq = @sort_seq + 1
+                      AND location = @last_loc;
+
+                SELECT @po = SUM(ISNULL(quantity, 0))
+                FROM #sku_tbl
+                WHERE sku = @sku
+                      AND LINE_TYPE = 'po'
+                      AND sort_seq = @sort_seq + 1
+                      AND location = @last_loc;
+
+                SELECT @ord = SUM(ISNULL(quantity, 0))
+                FROM #sku_tbl
+                WHERE sku = @sku
+                      AND LINE_TYPE = 'ord'
+                      AND sort_seq = @sort_seq + 1
+                      AND location = @last_loc;
+            END;
+        END; -- location  loop
+
+        SELECT @sku = MIN(sku)
+        FROM #sku_tbl
+        WHERE sku > @sku;
+
+        SELECT @last_loc = MIN(location)
+        FROM #sku_tbl
+        WHERE sku = @sku;
+
+        IF (@sku IS NOT NULL AND @last_loc IS NOT NULL)
+        BEGIN
+            -- 7/15/2016 - calc starting inventory with allocations if usage is on orders.
+            SELECT @last_inv = 0,
+                   @atp = 0,
+                   @reserve_inv = 0,
+                   @qty_ord = 0,
+                   @alloc_qty = 0,
+                   @non_alloc_qty = 0;
+
+            ;
+
+            SELECT @last_inv = ISNULL(cia.in_stock, 0) + ISNULL(cia.QcQty2, 0),
+                   -- CASE WHEN @usg_option = 'O' THEN 0 else isnull(cia.sof,0) + isnull(cia.allocated,0) end 
+                   @qty_ord = ISNULL(cia.SOF, 0) + ISNULL(cia.Allocated, 0),
+                   @atp = ISNULL(qty_avl, 0),
+                   @reserve_inv = ISNULL(cia.ReserveQty, 0),
+                   @alloc_qty = ISNULL(cia.SOF, 0) + ISNULL(cia.Allocated, 0),
+                   @non_alloc_qty = ISNULL(cia.Quarantine, 0) + ISNULL(cia.Non_alloc, 0) - ISNULL(cia.ReserveQty, 0)
+            FROM dbo.cvo_item_avail_vw cia
+            WHERE cia.part_no = @sku
+                  AND cia.location = @last_loc;
+
+            IF EXISTS (
+                      SELECT 1
+                      FROM #sku_tbl
+                      WHERE LINE_TYPE = 'ord'
+                            AND sort_seq = 1
+                            AND location = @last_loc
+                            AND sku = @sku
+                      )
+                UPDATE #sku_tbl
+                SET quantity = quantity + @qty_ord
+                WHERE sku = @sku
+                      AND LINE_TYPE = 'ord'
+                      AND sort_seq = 1
+                      AND location = @last_loc;
+            ELSE
+                INSERT INTO #sku_tbl
+                SELECT -- 
+                    'ORD' AS line_type,
+                    @sku sku,
+                    @last_loc,
+                    t.mm,
+                    DATEADD(m, t.sort_seq - 1, @asofdate) bucket,
+                    0 QOH,
+                    0 atp,
+                    0 reserve_qty,
+                    @qty_ord,
+                    t.mult,
+                    t.s_mult,
+                    t.sort_seq,
+                    0 alloc_qty,
+                    0 non_alloc_qty
+                FROM #t t
+                WHERE t.part_no = @sku
+                      AND t.location = @last_loc
+                      AND t.sort_seq = 1;
+
+            SELECT @sort_seq = 0;
+
+            SELECT @INV_AVL = @last_inv;
+
+            SELECT @drp = SUM(ISNULL(quantity, 0))
+            FROM #sku_tbl
+            WHERE sku = @sku
+                  AND LINE_TYPE = 'drp'
+                  AND sort_seq = @sort_seq + 1
+                  AND location = @last_loc;
+
+            SELECT @sls = SUM(ISNULL(quantity, 0))
+            FROM #sku_tbl
+            WHERE sku = @sku
+                  AND LINE_TYPE = 'sls'
+                  AND sort_seq = @sort_seq + 1
+                  AND location = @last_loc;
+
+            SELECT @po = SUM(ISNULL(quantity, 0))
+            FROM #sku_tbl
+            WHERE sku = @sku
+                  AND LINE_TYPE = 'po'
+                  AND sort_seq = @sort_seq + 1
+                  AND location = @last_loc;
+
+            SELECT @ord = SUM(ISNULL(quantity, 0))
+            FROM #sku_tbl
+            WHERE sku = @sku
+                  AND LINE_TYPE = 'ord'
+                  AND sort_seq = @sort_seq + 1
+                  AND location = @last_loc;
+        END;
+    END;
+
+    -- sku loop
+
+    -- final select
+
+    IF @debug = 1
+    BEGIN
+        SELECT 'sku' sku,
+               *
+        FROM #sku_tbl;
+
+        SELECT '#t' t,
+               *
+        FROM #t;
+    END;
+
+
+    -- IF @loc = 'cases'
+    -- BEGIN
+    DELETE FROM #sku_tbl
+    WHERE sku + location IN (
+                            SELECT sku + location s_key
+                            FROM #sku_tbl
+                            WHERE location <> '001'
+                            GROUP BY sku + location
+                            HAVING SUM(quantity) = 0
+                            );
+
+    -- END
+
+
+    --=iif(Parameters!WksOnHandGTLT.Value="ALL",true,iif(Parameters!WksOnHandGTLT.Value=">=",
+    --iif(Fields!p_e12_wu.Value<= 0,Parameters!WksOnHand.Value+1,Fields!qoh.Value/Fields!p_e12_wu.Value) >= Parameters!WksOnHand.Value,
+    --iif(Fields!p_e12_wu.Value<= 0,Parameters!WksOnHand.Value+1,Fields!qoh.Value/Fields!p_e12_wu.Value) <= Parameters!WksOnHand.Value)
+    --)
+    -- GET WEEKS ON HAND FOR FILTER
+
+    SELECT t.brand,
+           t.style,
+           t.location,
+           t.p_e12_wu,
+           sku.QOH,
+           CASE WHEN t.p_e12_wu <= 0 THEN 999 WHEN t.p_e12_wu <> 0 THEN sku.QOH / t.p_e12_wu ELSE 0 END WOH
+    INTO #WOH
+    FROM #t t
+        JOIN #sku_tbl sku
+            ON sku.location = t.location
+               AND sku.sku = t.part_no;
+
+    IF @debug = 5
+        SELECT *
+        FROM #WOH AS w;
+
+    UPDATE #WOH
+    SET WOH = 9999
+    WHERE (
+          WOH >= @WksOnHand
+          AND @WksOnHandGTLT = '>='
+          )
+          OR (
+             WOH <= @WksOnHand
+             AND @WksOnHandGTLT = '<='
+             )
+          OR @WksOnHandGTLT = 'ALL';
+
+    IF @debug = 5
+        SELECT *
+        FROM #WOH AS w;
+
+
+    -- fixup
+    SELECT DISTINCT
+           s.brand,
+           s.style,
+           specs.vendor,
+           specs.type_code,
+           specs.gender,
+           specs.material,
+           specs.moq,
+           specs.watch,
+           specs.sf,
+           CASE WHEN specs.rel_date = '1/1/1900' THEN NULL ELSE specs.rel_date END AS rel_date,
+                                    --= (select min(release_date) From cvo_inv_master_r2_vw where collection = i.category
+                                    --	and model = ia.field_2)
+           CASE WHEN s.pom_date = '1/1/1900' THEN NULL ELSE s.pom_date END AS pom_date,
+           s.mth_since_rel,
+           s.[Sales M1-3] s_sales_m1_3,
+           s.[Sales M1-12] s_sales_m1_12,
+           s.s_e4_wu,
+           s.s_e12_wu,
+           s.s_e52_wu,
+           s.s_promo_w4,
+           s.s_promo_w12,
+           s.s_gross_w4,
+           s.s_gross_w12,
+                                    -- , #sku_tbl.*
+           sku.LINE_TYPE,
+           sku.sku,
+           sku.location,
+           sku.mm,
+           CASE WHEN s.rel_date <> ISNULL(ia.field_26, s.rel_date) THEN ia.field_26 END AS p_rel_date,
+           CASE WHEN s.pom_date <> ISNULL(ia.field_28, s.pom_date) THEN ia.field_28 END AS p_pom_date,
+           (
+           SELECT TOP (1)
+                  lead_time
+           FROM dbo.inv_list il
+           WHERE il.part_no = sku.sku
+                 AND il.location = '001'
+           ORDER BY il.part_no
+           ) lead_time,
+           sku.bucket,
+           sku.QOH,
+           sku.atp,
+           sku.reserve_qty,
+           sku.quantity,
+           sku.mult,
+           sku.s_mult,
+           sku.sort_seq,
+           sku.alloc_qty,
+           sku.non_alloc_qty,
+           t.pct_of_style,
+           t.pct_first_po,
+           t.pct_sales_style_m1_3,
+           t.p_e4_wu,
+           t.p_e12_wu,
+           t.p_e52_wu,
+           t.p_subs_w4,
+           t.p_subs_w12,
+           t.s_mth_usg,
+           t.p_mth_usg,
+           t.s_mth_usg_mult,
+           t.p_sales_m1_3,
+           CASE WHEN sku.LINE_TYPE = 'V'
+                     AND sku.sort_seq = 1 THEN ISNULL((
+                                                      SELECT SUM(p.qty_ordered)
+                                                      FROM dbo.pur_list p (NOLOCK)
+                                                          INNER JOIN dbo.inv_master i (NOLOCK)
+                                                              ON i.part_no = p.part_no
+                                                          INNER JOIN dbo.inv_master_add ia (NOLOCK)
+                                                              ON ia.part_no = i.part_no
+                                                      WHERE 1 = 1
+                                                            AND i.void = 'n'
+                                                            AND p.void <> 'V' -- 8/3/2016
+                                                            AND p.part_no = sku.sku
+                                                            AND p.rel_date <= DATEADD(yy, 1, ia.field_26)
+                                                            AND p.type = 'p'
+                                                            AND p.location = '001'
+                                                      ),
+                                                      0
+                                                     ) ELSE 0
+           END AS p_po_qty_y1,
+           CASE WHEN s.pom_date IS NULL
+                     OR s.pom_date = '1/1/1900' THEN r.ORDER_THRU_DATE
+               WHEN s.pom_date < r.ORDER_THRU_DATE THEN s.pom_date ELSE r.ORDER_THRU_DATE
+           END AS ORDER_THRU_DATE,
+           r.TIER,                  -- 7/8/2016
+           i.type_code p_type_code, -- res type of sku, not style - 11/1/2016
+           t.s_rx_w4,               -- 12/5/2016
+           t.s_rx_w12,
+           t.p_rx_w4,
+           t.p_rx_w12,
+           t.s_ret_w4,
+           t.s_ret_w12,
+           t.p_ret_w4,
+           t.p_ret_w12,
+           t.s_wty_w4,
+           t.s_wty_w12,
+           t.p_wty_w4,
+           t.p_wty_w12,
+           t.p_gross_w4,
+           t.p_gross_w12,
+           specs.price,
+           specs.frame_type
+    FROM #sku_tbl sku
+        INNER JOIN #t t
+            ON t.part_no = sku.sku
+               AND t.mm = sku.mm
+               AND t.location = sku.location
+               AND t.mult = sku.mult
+               AND t.sort_seq = sku.sort_seq
+        INNER JOIN dbo.inv_list IL
+            ON IL.location = t.location
+               AND IL.part_no = t.part_no
+        INNER JOIN dbo.inv_master i (NOLOCK)
+            ON sku.sku = i.part_no
+        INNER JOIN dbo.inv_master_add ia (NOLOCK)
+            ON sku.sku = ia.part_no
+        INNER JOIN #style s
+            ON s.brand = i.category
+               AND s.style = ia.field_2
+               AND s.location = sku.location
+        LEFT OUTER JOIN
+        (
+        SELECT i.category brand,
+               ia.field_2 style,
+               i.vendor,
+               MAX(i.type_code) type_code,
+               MAX(ia.category_2) gender,
+                                                                -- MAX(i.cmdty_code) material ,
+               MAX(ISNULL(ia.field_10, i.cmdty_code)) material, -- 12/12/2016
+               MAX(ISNULL(ia.field_11, 'UNKNOWN')) frame_type,
+               MAX(ISNULL(ia.category_1, '')) watch,
+               (
+               SELECT TOP (1)
+                      MOQ_info
+               FROM dbo.cvo_Vendor_MOQ
+               WHERE Vendor_Code = i.vendor
+               ORDER BY Vendor_Code
+               ) moq,
+                                                                -- MAX(ISNULL(ia.field_32, '')) sf,
+               MAX(ISNULL(pa.attribute, '')) sf,
+               MIN(ISNULL(ia.field_26, '1/1/1900')) rel_date,
+               MAX(pp.price_a) price
+        FROM dbo.inv_master i (NOLOCK)
+            JOIN @type_tbl AS t
+                ON t.type_code = i.type_code
+            INNER JOIN dbo.inv_master_add ia (NOLOCK)
+                ON ia.part_no = i.part_no
+            INNER JOIN dbo.part_price pp (NOLOCK)
                 ON pp.part_no = i.part_no
-        WHERE
-            1 = 1
-            -- AND i.type_code IN ( 'frame', 'sun', 'bruit' )
-            AND i.void = 'n'
-            -- AND ISNULL(ia.field_32, '') <> 'SpecialOrd'
-        GROUP BY
-            i.category,
-            ia.field_2,
-            i.vendor
-    ) AS specs
-        ON specs.brand = #style.brand
-           AND specs.style = #style.style
-    INNER JOIN
-    (SELECT DISTINCT brand, style 
-		FROM #WOH
-		WHERE woh = 9999 ) WOH
-        ON WOH.brand = #style.brand
-           AND WOH.style = #style.style
-    LEFT OUTER JOIN cvo_ifp_rank r
-        ON r.brand = #style.brand
-           AND r.style = #style.style
-;
+            LEFT OUTER JOIN
+            (
+            SELECT c.part_no,
+                   STUFF((
+                         SELECT '; ' + attribute
+                         FROM dbo.cvo_part_attributes pa2 (NOLOCK)
+                         WHERE pa2.part_no = c.part_no
+                         FOR XML PATH('')
+                         ),
+                         1,
+                         1,
+                         ''
+                        ) attribute
+            FROM dbo.cvo_part_attributes c
+            ) AS pa
+                ON pa.part_no = i.part_no
+        WHERE 1 = 1
+        GROUP BY i.category,
+                 ia.field_2,
+                 i.vendor
+        ) AS specs
+            ON specs.brand = s.brand
+               AND specs.style = s.style
+        INNER JOIN
+        (SELECT DISTINCT brand, style FROM #WOH WHERE WOH = 9999) WOH
+            ON WOH.brand = s.brand
+               AND WOH.style = s.style
+        LEFT OUTER JOIN dbo.cvo_ifp_rank r
+            ON r.brand = s.brand
+               AND r.style = s.style;
 
-end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+END;
 
 
 GO

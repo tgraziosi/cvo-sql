@@ -11,10 +11,6 @@ CREATE TABLE [dbo].[cmerrdef]
 GO
 CREATE UNIQUE CLUSTERED INDEX [cmerrdef_ind_0] ON [dbo].[cmerrdef] ([client_id], [e_code]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [cmerrdef_ind_2] ON [dbo].[cmerrdef] ([e_code]) ON [PRIMARY]
-GO
-CREATE NONCLUSTERED INDEX [cmerrdef_ind_1] ON [dbo].[cmerrdef] ([e_sdesc]) ON [PRIMARY]
-GO
 GRANT REFERENCES ON  [dbo].[cmerrdef] TO [public]
 GO
 GRANT SELECT ON  [dbo].[cmerrdef] TO [public]

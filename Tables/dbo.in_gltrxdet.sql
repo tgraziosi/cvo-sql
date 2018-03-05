@@ -136,10 +136,6 @@ else
 END
 
 GO
-CREATE NONCLUSTERED INDEX [ingltrxdet_4] ON [dbo].[in_gltrxdet] ([account_code], [apply_date]) INCLUDE ([part_no], [tran_line], [tran_no], [tran_ext]) ON [PRIMARY]
-GO
-CREATE NONCLUSTERED INDEX [ingltrxdet_3] ON [dbo].[in_gltrxdet] ([apply_date], [account_code]) ON [PRIMARY]
-GO
 CREATE NONCLUSTERED INDEX [ingltrxdet_0] ON [dbo].[in_gltrxdet] ([posted_flag], [apply_date], [row_id]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [ingltrxdet_1] ON [dbo].[in_gltrxdet] ([row_id]) ON [PRIMARY]

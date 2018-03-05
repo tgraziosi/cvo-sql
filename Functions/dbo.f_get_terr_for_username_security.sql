@@ -3,7 +3,7 @@ GO
 SET ANSI_NULLS ON
 GO
 
--- select top (1) * from dbo.f_get_terr_for_username_security('cvoptical\lgraham','9573')
+-- select top (100) * from dbo.f_get_terr_for_username_security('cvoptical\jborges','8812')
 -- insert into cvo_work_day_cal values ('09/26/2013','C') -- Closing Day
 -- delete from cvo_work_day_cal where date_type = 'C'
 -- 2/4/2013 - tag - added option for SAles Support users
@@ -42,7 +42,7 @@ Begin
 			select DISTINCT t.territory_code 
 			from cvo_territoryxref x (nolock) 
 			left join arterr t (nolock)
-			on left(convert(varchar,x.territory_code),3) = left(t.territory_code,3)
+			on left(convert(VARCHAR(8),x.territory_code),3) = left(t.territory_code,3)
 			where x.user_name = @username
 	return
 	END
@@ -55,7 +55,7 @@ Begin
 			select t.territory_code
 			from cvo_territoryxref x (nolock)
 			left join arterr t (nolock)
-			on convert(varchar,x.territory_code) = t.territory_code
+			on convert(VARCHAR(8),x.territory_code) = t.territory_code
 			where x.user_name = @username
 	return	
 	END
@@ -81,6 +81,7 @@ Begin
 END
 RETURN
 END
+
 
 
 GO

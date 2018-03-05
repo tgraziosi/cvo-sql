@@ -294,8 +294,6 @@ END
 GO
 CREATE NONCLUSTERED INDEX [apmaster_all_ind_2] ON [dbo].[apmaster_all] ([addr_sort1]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [apmaster_all_ind_3] ON [dbo].[apmaster_all] ([addr_sort2]) ON [PRIMARY]
-GO
 CREATE NONCLUSTERED INDEX [apmaster_all_ind_4] ON [dbo].[apmaster_all] ([addr_sort3]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [apmaster_all_ind_1] ON [dbo].[apmaster_all] ([address_name]) ON [PRIMARY]

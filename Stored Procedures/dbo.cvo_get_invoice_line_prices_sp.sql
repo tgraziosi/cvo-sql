@@ -31,7 +31,9 @@ BEGIN
 			@discount_perc	decimal(20,8),
 			@customer_code	varchar(10), -- v1.2
 			@part_no		varchar(30), -- v1.2
-			@order_date		datetime -- v1.2
+			@order_date		datetime, -- v1.2
+			@quote_net_only char(1), -- v1.7
+			@IsCredit		char(1) -- v1.9
 
 	-- PROCESSING
 	SELECT	@buying_group = ISNULL(buying_group,''),
@@ -40,6 +42,13 @@ BEGIN
 	FROM	cvo_orders_all (NOLOCK)
 	WHERE	order_no = @order_no
 	AND		ext = @order_ext
+
+	-- v1.9 Start
+	SELECT	@isCredit = CASE type WHEN 'C' THEN 'Y' ELSE 'N' END
+	FROM	orders_all (NOLOCK)
+	WHERE	order_no = @order_no
+	AND		ext = @order_ext
+	-- v1.9 End
 
 	SET @customer_code = @cust_code
 
@@ -60,7 +69,7 @@ BEGIN
 	AND		line_no = @line_no
 
 	-- v1.2 Start
-	IF (@IsQuoted = 1 AND @IsBg = 1)
+	IF (@IsQuoted = 1) -- v1.5 AND @IsBg = 1)
 	BEGIN
 		IF NOT EXISTS (SELECT 1 FROM dbo.c_quote (NOLOCK) WHERE customer_key = @customer_code AND ilevel = 0 
 						AND item = @part_no AND start_date <= @order_date AND date_expires >= @order_date)
@@ -69,6 +78,18 @@ BEGIN
 		END
 	END
 	-- v1.2 End
+
+	-- v1.7 Start
+	SET @quote_net_only = 'N'
+	IF (@IsQuoted = 1)
+	BEGIN
+		IF EXISTS (SELECT 1 FROM dbo.c_quote (NOLOCK) WHERE customer_key = @customer_code AND ilevel = 0 
+						AND item = @part_no AND start_date <= @order_date AND date_expires >= @order_date AND net_only = 'Y')
+		BEGIN
+			SET @quote_net_only = 'Y'
+		END
+	END
+	-- v1.7 End
 
 	IF (@promo_id <> '')
 	BEGIN
@@ -134,20 +155,40 @@ BEGIN
 
 			IF (@IsQuoted = 1)
 			BEGIN
-				SELECT	@gross_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
-						@discount_price = 0,
-						@discount_perc = 0,
-						@net_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
-						@ext_net_price = ((ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) * @qty)
-				FROM	ord_list a (NOLOCK)
-				JOIN	cvo_ord_list b (NOLOCK)
-				ON		a.order_no = b.order_no
-				AND		a.order_ext = b.order_ext
-				AND		a.line_no = b.line_no
-				WHERE	a.order_no = @order_no
-				AND		a.order_ext = @order_ext
-				AND		a.line_no = @line_no
-
+				-- v1.7 Start
+				IF (@quote_net_only = 'N')
+				BEGIN
+					SELECT	@gross_price = CASE WHEN b.amt_disc = 0 THEN ROUND(b.list_price,2) ELSE ROUND(a.curr_price,2) END,
+							@discount_price = CASE WHEN b.amt_disc = 0 THEN (ROUND(b.list_price,2) - ROUND(a.curr_price,2)) ELSE ROUND(b.amt_disc,2) END,
+							@discount_perc = 0,
+							@net_price = CASE WHEN b.amt_disc = 0 THEN ROUND(a.curr_price,2) ELSE (ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) END,
+							@ext_net_price = CASE WHEN b.amt_disc = 0 THEN (ROUND(a.curr_price,2) * @qty) ELSE ((ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) * @qty) END
+					FROM	ord_list a (NOLOCK)
+					JOIN	cvo_ord_list b (NOLOCK)
+					ON		a.order_no = b.order_no
+					AND		a.order_ext = b.order_ext
+					AND		a.line_no = b.line_no
+					WHERE	a.order_no = @order_no
+					AND		a.order_ext = @order_ext
+					AND		a.line_no = @line_no
+				END
+				ELSE -- v1.7 End
+				BEGIN
+					SELECT	@gross_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
+							@discount_price = 0,
+							@discount_perc = 0,
+							@net_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
+							@ext_net_price = ((ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) * @qty)
+					FROM	ord_list a (NOLOCK)
+					JOIN	cvo_ord_list b (NOLOCK)
+					ON		a.order_no = b.order_no
+					AND		a.order_ext = b.order_ext
+					AND		a.line_no = b.line_no
+					WHERE	a.order_no = @order_no
+					AND		a.order_ext = @order_ext
+					AND		a.line_no = @line_no
+				END
+			
 
 				RETURN
 			END
@@ -174,19 +215,39 @@ BEGIN
 			END
 			IF (@IsQuoted = 1)
 			BEGIN
-				SELECT	@gross_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
-						@discount_price = 0,
-						@discount_perc = 0,
-						@net_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
-						@ext_net_price = ((ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) * @qty)
-				FROM	ord_list a (NOLOCK)
-				JOIN	cvo_ord_list b (NOLOCK)
-				ON		a.order_no = b.order_no
-				AND		a.order_ext = b.order_ext
-				AND		a.line_no = b.line_no
-				WHERE	a.order_no = @order_no
-				AND		a.order_ext = @order_ext
-				AND		a.line_no = @line_no
+				-- v1.7 Start
+				IF (@quote_net_only = 'N')
+				BEGIN
+					SELECT	@gross_price = CASE WHEN b.amt_disc = 0 THEN ROUND(b.list_price,2) ELSE ROUND(a.curr_price,2) END,
+							@discount_price = CASE WHEN b.amt_disc = 0 THEN (ROUND(b.list_price,2) - ROUND(a.curr_price,2)) ELSE ROUND(b.amt_disc,2) END,
+							@discount_perc = 0,
+							@net_price = CASE WHEN b.amt_disc = 0 THEN ROUND(a.curr_price,2) ELSE (ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) END,
+							@ext_net_price = CASE WHEN b.amt_disc = 0 THEN (ROUND(a.curr_price,2) * @qty) ELSE ((ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) * @qty) END
+					FROM	ord_list a (NOLOCK)
+					JOIN	cvo_ord_list b (NOLOCK)
+					ON		a.order_no = b.order_no
+					AND		a.order_ext = b.order_ext
+					AND		a.line_no = b.line_no
+					WHERE	a.order_no = @order_no
+					AND		a.order_ext = @order_ext
+					AND		a.line_no = @line_no
+				END
+				ELSE -- v1.7 End
+				BEGIN
+					SELECT	@gross_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
+							@discount_price = 0,
+							@discount_perc = 0,
+							@net_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
+							@ext_net_price = ((ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) * @qty)
+					FROM	ord_list a (NOLOCK)
+					JOIN	cvo_ord_list b (NOLOCK)
+					ON		a.order_no = b.order_no
+					AND		a.order_ext = b.order_ext
+					AND		a.line_no = b.line_no
+					WHERE	a.order_no = @order_no
+					AND		a.order_ext = @order_ext
+					AND		a.line_no = @line_no
+				END		
 
 				RETURN
 			END
@@ -198,11 +259,26 @@ BEGIN
 		BEGIN
 			IF (@IsQuoted = 0)
 			BEGIN
-				SELECT	@gross_price = ROUND(a.curr_price,2),
-						@discount_price = ROUND(b.amt_disc,2),
+				-- v1.6 Start
+--				SELECT	@gross_price = ROUND(a.curr_price,2),
+--						@discount_price = ROUND(b.amt_disc,2),
+--						@discount_perc = a.discount,
+--						@net_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
+--						@ext_net_price = ((ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) * @qty)
+
+-- v1.8 Start
+--				SELECT	@gross_price = ROUND(b.list_price,2),
+--						@discount_price = ROUND(b.list_price,2) - ROUND(a.curr_price,2),
+--						@discount_perc = a.discount,
+--						@net_price = ROUND(a.curr_price,2), 
+--						@ext_net_price = (ROUND(a.curr_price,2) * @qty)
+				-- v1.6 End
+				SELECT	@gross_price = CASE WHEN a.discount = 100 THEN ROUND(b.list_price,2) ELSE ROUND(b.list_price,2) END,
+						@discount_price = CASE WHEN a.discount = 100 THEN ROUND(b.list_price,2) ELSE ROUND(b.list_price,2) - ROUND(a.curr_price,2) END,
 						@discount_perc = a.discount,
-						@net_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
-						@ext_net_price = ((ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) * @qty)
+						@net_price = CASE WHEN a.discount = 100 THEN 0 ELSE ROUND(a.curr_price,2) END, 
+						@ext_net_price = CASE WHEN a.discount = 100 THEN 0 ELSE (ROUND(a.curr_price,2) * @qty) END
+-- v1.8 End
 				FROM	ord_list a (NOLOCK)
 				JOIN	cvo_ord_list b (NOLOCK)
 				ON		a.order_no = b.order_no
@@ -216,19 +292,40 @@ BEGIN
 			END
 			IF (@IsQuoted = 1)
 			BEGIN
-				SELECT	@gross_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
-						@discount_price = 0,
-						@discount_perc = 0,
-						@net_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
-						@ext_net_price = ((ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) * @qty)
-				FROM	ord_list a (NOLOCK)
-				JOIN	cvo_ord_list b (NOLOCK)
-				ON		a.order_no = b.order_no
-				AND		a.order_ext = b.order_ext
-				AND		a.line_no = b.line_no
-				WHERE	a.order_no = @order_no
-				AND		a.order_ext = @order_ext
-				AND		a.line_no = @line_no
+				-- v1.7 Start
+				IF (@quote_net_only = 'N')
+				BEGIN
+
+					SELECT	@gross_price = CASE WHEN b.amt_disc = 0 THEN ROUND(b.list_price,2) ELSE ROUND(a.curr_price,2) END,
+							@discount_price = CASE WHEN b.amt_disc = 0 THEN (ROUND(b.list_price,2) - ROUND(a.curr_price,2)) ELSE ROUND(b.amt_disc,2) END,
+							@discount_perc = 0,
+							@net_price = CASE WHEN b.amt_disc = 0 THEN ROUND(a.curr_price,2) ELSE (ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) END,
+							@ext_net_price = CASE WHEN b.amt_disc = 0 THEN (ROUND(a.curr_price,2) * @qty) ELSE ((ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) * @qty) END
+					FROM	ord_list a (NOLOCK)
+					JOIN	cvo_ord_list b (NOLOCK)
+					ON		a.order_no = b.order_no
+					AND		a.order_ext = b.order_ext
+					AND		a.line_no = b.line_no
+					WHERE	a.order_no = @order_no
+					AND		a.order_ext = @order_ext
+					AND		a.line_no = @line_no
+				END
+				ELSE -- v1.7 End
+				BEGIN
+					SELECT	@gross_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
+							@discount_price = 0,
+							@discount_perc = 0,
+							@net_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
+							@ext_net_price = ((ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) * @qty)
+					FROM	ord_list a (NOLOCK)
+					JOIN	cvo_ord_list b (NOLOCK)
+					ON		a.order_no = b.order_no
+					AND		a.order_ext = b.order_ext
+					AND		a.line_no = b.line_no
+					WHERE	a.order_no = @order_no
+					AND		a.order_ext = @order_ext
+					AND		a.line_no = @line_no
+				END
 
 				RETURN
 			END
@@ -302,11 +399,19 @@ BEGIN
 			END
 			IF (@IsQuoted = 0)
 			BEGIN
+
+-- v1.9 Start
+--				SELECT	@gross_price = ROUND(a.curr_price,2),
+--						@discount_price = ROUND(b.amt_disc,2),
+--						@discount_perc = a.discount,
+--						@net_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
+--						@ext_net_price = ((ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) * @qty)
 				SELECT	@gross_price = ROUND(a.curr_price,2),
-						@discount_price = ROUND(b.amt_disc,2),
-						@discount_perc = a.discount,
-						@net_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
-						@ext_net_price = ((ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) * @qty)
+						@discount_price = CASE @isCredit WHEN 'Y' THEN 0 ELSE ROUND(b.amt_disc,2) END,
+						@discount_perc = CASE @isCredit WHEN 'Y' THEN 0 ELSE a.discount END,
+						@net_price = ROUND(a.curr_price,2) - CASE @isCredit WHEN 'Y' THEN 0 ELSE ROUND(b.amt_disc,2) END,
+						@ext_net_price = ((ROUND(a.curr_price,2) - CASE @isCredit WHEN 'Y' THEN 0 ELSE ROUND(b.amt_disc,2) END) * @qty)
+-- v1.9 End
 				FROM	ord_list a (NOLOCK)
 				JOIN	cvo_ord_list b (NOLOCK)
 				ON		a.order_no = b.order_no
@@ -320,19 +425,39 @@ BEGIN
 			END
 			IF (@IsQuoted = 1)
 			BEGIN
-				SELECT	@gross_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
-						@discount_price = 0,
-						@discount_perc = 0,
-						@net_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
-						@ext_net_price = ((ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) * @qty)
-				FROM	ord_list a (NOLOCK)
-				JOIN	cvo_ord_list b (NOLOCK)
-				ON		a.order_no = b.order_no
-				AND		a.order_ext = b.order_ext
-				AND		a.line_no = b.line_no
-				WHERE	a.order_no = @order_no
-				AND		a.order_ext = @order_ext
-				AND		a.line_no = @line_no
+				-- v1.7 Start
+				IF (@quote_net_only = 'N')
+				BEGIN
+					SELECT	@gross_price = CASE WHEN b.amt_disc = 0 THEN ROUND(b.list_price,2) ELSE ROUND(a.curr_price,2) END,
+							@discount_price = CASE WHEN b.amt_disc = 0 THEN (ROUND(b.list_price,2) - ROUND(a.curr_price,2)) ELSE ROUND(b.amt_disc,2) END,
+							@discount_perc = 0,
+							@net_price = CASE WHEN b.amt_disc = 0 THEN ROUND(a.curr_price,2) ELSE (ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) END,
+							@ext_net_price = CASE WHEN b.amt_disc = 0 THEN (ROUND(a.curr_price,2) * @qty) ELSE ((ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) * @qty) END
+					FROM	ord_list a (NOLOCK)
+					JOIN	cvo_ord_list b (NOLOCK)
+					ON		a.order_no = b.order_no
+					AND		a.order_ext = b.order_ext
+					AND		a.line_no = b.line_no
+					WHERE	a.order_no = @order_no
+					AND		a.order_ext = @order_ext
+					AND		a.line_no = @line_no
+				END
+				ELSE -- v1.7 End
+				BEGIN
+					SELECT	@gross_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
+							@discount_price = 0,
+							@discount_perc = 0,
+							@net_price = ROUND(a.curr_price,2) - ROUND(b.amt_disc,2),
+							@ext_net_price = ((ROUND(a.curr_price,2) - ROUND(b.amt_disc,2)) * @qty)
+					FROM	ord_list a (NOLOCK)
+					JOIN	cvo_ord_list b (NOLOCK)
+					ON		a.order_no = b.order_no
+					AND		a.order_ext = b.order_ext
+					AND		a.line_no = b.line_no
+					WHERE	a.order_no = @order_no
+					AND		a.order_ext = @order_ext
+					AND		a.line_no = @line_no
+				END
 
 				RETURN
 			END

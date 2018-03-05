@@ -11,8 +11,6 @@ CREATE TABLE [dbo].[arerrdef]
 GO
 CREATE UNIQUE CLUSTERED INDEX [arerrdef_idx_0] ON [dbo].[arerrdef] ([e_code]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [arerrdef_idx_1] ON [dbo].[arerrdef] ([e_sdesc]) ON [PRIMARY]
-GO
 GRANT REFERENCES ON  [dbo].[arerrdef] TO [public]
 GO
 GRANT SELECT ON  [dbo].[arerrdef] TO [public]

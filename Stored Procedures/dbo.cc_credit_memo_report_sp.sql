@@ -16,6 +16,7 @@ GO
 -- v2.9 CT 20/10/2014 - Issue #1367 - If net price > list price, set list = net and discount = 0
 -- v3.0 CT 23/10/2014 - Issue #1504 - Fix calculation for credit returns with a discount percentage
 -- v3.1 CB 13/12/2017 - Discount not displaying correctly
+-- v3.2 CB 12/01/2018 - Add routine to correct pricing
 
 CREATE PROCEDURE [dbo].[cc_credit_memo_report_sp]  	@my_id varchar(255),
 													@user_name	varchar(30) = '',
@@ -423,6 +424,103 @@ SET	amt_gross = ROUND(isnull(amt_gross,0),curr_precision),
 	WHERE	b.buying_group <> a.so_bill_to
 	-- v2.8 End
 
+	-- v3.2 Start
+	DECLARE @c_gross_price		decimal(20,8),
+			@c_discount_amount	decimal(20,8),
+			@c_net_price		decimal(20,8), 
+			@c_ext_net_price	decimal(20,8),
+			@c_order_no			int,
+			@c_order_ext		int,
+			@c_line_no			int,
+			@c_cust_code		varchar(10),
+			@c_qty				decimal(20,8),
+			@row_id				int,
+			@parent				varchar(10),
+			@IsBG				int,
+			@trx_ctrl_num		varchar(16)
+
+	CREATE TABLE #inv_pricing (
+		row_id		int IDENTITY(1,1),
+		order_no	int,
+		order_ext	int,
+		line_no		int,
+		cust_code	varchar(10),
+		qty			decimal(20,8),
+		trx_ctrl_num varchar(16))
+
+	INSERT	#inv_pricing (order_no,	order_ext, line_no, cust_code, qty, trx_ctrl_num)
+	SELECT	LEFT(order_ctrl_num, CHARINDEX('-',order_ctrl_num)-1),
+			RIGHT(order_ctrl_num,LEN (order_ctrl_num) - CHARINDEX('-',order_ctrl_num)),
+			sequence_id,
+			customer_code,
+			qty_returned,
+			trx_ctrl_num
+	FROM	#cc_archarge_work
+	WHERE	charindex('-',order_ctrl_num) > 0
+
+	SET @row_id = 0
+
+	WHILE (1 = 1)
+	BEGIN
+		SELECT	TOP 1 @row_id = row_id,
+				@c_order_no = order_no,
+				@c_order_ext = order_ext,
+				@c_line_no = line_no,			
+				@c_cust_code = cust_code,
+				@c_qty = qty,
+				@trx_ctrl_num = trx_ctrl_num
+		FROM	#inv_pricing
+		WHERE	row_id > @row_id
+		ORDER BY row_id ASC
+
+		IF (@@ROWCOUNT = 0)
+			BREAK
+
+		SET @c_gross_price = 0
+		SET @c_discount_amount = 0
+		SET @c_net_price = 0
+		SET @c_ext_net_price = 0
+
+		EXEC dbo.cvo_get_invoice_line_prices_sp	@c_order_no, @c_order_ext, @c_line_no, @c_cust_code, @c_qty, @c_gross_price OUTPUT, @c_discount_amount OUTPUT,
+						@c_net_price OUTPUT, @c_ext_net_price OUTPUT
+
+		SELECT	@parent = ISNULL(buying_group,'') 
+		FROM	CVO_orders_all (NOLOCK) 
+		WHERE	order_no = @c_order_no 
+		AND		ext = @c_order_ext
+
+		IF (@parent <> '')
+		BEGIN
+			SET @c_cust_code = @parent
+		END
+
+		SELECT	@isBG = ISNULL(alt_location_code,0) 
+		FROM	arcust (NOLOCK)
+		WHERE	customer_code = @c_cust_code
+
+		IF (@isBG = 1)
+		BEGIN
+			IF EXISTS (SELECT 1 FROM ord_list (NOLOCK) WHERE order_no = @c_order_no AND order_ext = @c_order_ext AND line_no = @c_line_no AND discount = 100)
+			BEGIN
+				SET @c_discount_amount = @c_gross_price
+				SET @c_net_price = 0
+				SET @c_ext_net_price = 0
+			END
+		END
+
+		UPDATE	#cc_archarge_work
+		SET		list_amt = @c_gross_price,
+				discount_amt = @c_discount_amount,
+				amt_discount = @c_discount_amount,
+				unit_price = @c_net_price,
+				extended_price = @c_ext_net_price
+		WHERE	trx_ctrl_num = @trx_ctrl_num
+		AND		sequence_id = @c_line_no
+
+	END
+
+	DROP TABLE #inv_pricing
+	-- v3.2 End
 
 
 SELECT trx_ctrl_num,
@@ -511,7 +609,6 @@ FROM #cc_archarge_work, arco -- glco -- v2.2
 
 
 DELETE cc_trx_table WHERE my_id = @my_id
-
 
 GO
 GRANT EXECUTE ON  [dbo].[cc_credit_memo_report_sp] TO [public]

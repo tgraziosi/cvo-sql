@@ -143,7 +143,8 @@ sum(ROUND(d.Shipped * (d.curr_price - (d.curr_price * ((CASE WHEN d.curr_price >
 --p.disc_perc,
 --disc_perc = CASE WHEN max(d.discount) > 0 THEN max(d.discount/100) ELSE p.disc_perc END,
 -- START v2.7
-disc_perc = CASE WHEN (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) > 0 THEN (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END)/100 ELSE (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) END,
+CASE WHEN (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) > 0 THEN (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END)/100 ELSE (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) END
+AS disc_perc,
 --disc_perc = CASE WHEN d.discount > 0 THEN d.discount/100 ELSE p.disc_perc END,
 -- END v2.7
 --right(convert(varchar(12), dateadd(dd, datediff(dd, '1/1/1753', h.date_doc) + 639906 + convert(int,right(m.terms_code,2)) - 639906, '1/1/1753'),101) ,4)
@@ -186,6 +187,7 @@ AND dbo.f_cvo_get_buying_group(o.cust_code, CONVERT(varchar(10),DATEADD(DAY,h.da
 group by r.parent, m.customer_name, o.cust_code, b.customer_name, h.doc_ctrl_num, z.installment_days, o.type, h.date_due,h.date_doc, (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END), (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE disc_perc END), z.installment_prc
 --group by r.parent, m.customer_name, o.cust_code, b.customer_name, h.doc_ctrl_num, z.installment_days, o.type, h.date_due,h.date_doc, d.discount, disc_perc, z.installment_prc
 -- END v2.7
+
 
 
 

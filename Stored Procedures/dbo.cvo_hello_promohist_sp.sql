@@ -6,7 +6,7 @@ CREATE PROCEDURE [dbo].[cvo_hello_promohist_sp]
     @customer VARCHAR(10) = NULL, @ship_to VARCHAR(10) = NULL
 AS
 
--- exec cvo_hello_promohist_sp '039226'
+-- exec cvo_hello_promohist_sp '052388'
 
 BEGIN
 
@@ -36,12 +36,13 @@ BEGIN
         LEFT OUTER JOIN inv_master i (NOLOCK)
             ON i.part_no = sbm.part_no
                AND i.type_code IN ( 'frame', 'sun' )
+
     WHERE
         sbm.customer = ISNULL(@customer, '')
         AND sbm.ship_to = ISNULL(@ship_to, '')
 		and sbm.promo_id <> ''
-        AND sbm.yyyymmdd
-        BETWEEN @st AND @end
+		AND 'RB'<> RIGHT(sbm.user_category,2) -- 2/13/18        
+		AND sbm.yyyymmdd BETWEEN @st AND @end
     GROUP BY sbm.promo_id + ',' + sbm.promo_level, sbm.customer, sbm.ship_to
     ;
 
@@ -54,6 +55,7 @@ GRANT EXECUTE
 ON dbo.cvo_hello_promohist_sp
 TO  PUBLIC
 ;
+
 
 
 

@@ -173,9 +173,10 @@ AS
 
 
 		INSERT #p (promo_id,promo_level,sdate,Program)
-		SELECT promo_id, promo_level, promo_start_date, 'REVO'
+		SELECT promo_id, promo_level, '1/1/2015' promo_start_date, 'REVO'
 		FROM cvo_promotions WHERE promo_id IN ('REVO') AND 
-		promo_level IN ('1','2','3','LAUNCH 1','LAUNCH 2','LAUNCH 3');
+		promo_level IN ('18','24','36','48');
+		--promo_level IN ('1','2','3','LAUNCH 1','LAUNCH 2','LAUNCH 3');
 
 		INSERT #p (promo_id,promo_level,sdate,Program)
 		SELECT promo_id, promo_level, '1/1/2017', 'ASPIRE'
@@ -472,6 +473,7 @@ AS
 
 
     END;
+
 
 
 

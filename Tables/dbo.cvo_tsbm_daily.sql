@@ -14,7 +14,5 @@ CREATE TABLE [dbo].[cvo_tsbm_daily]
 [yyyymmdd] [datetime] NULL
 ) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [idx_cvo_tsbm_shipto] ON [dbo].[cvo_tsbm_daily] ([territory], [otype], [month], [year], [yyyymmdd]) ON [PRIMARY]
-GO
 GRANT SELECT ON  [dbo].[cvo_tsbm_daily] TO [public]
 GO

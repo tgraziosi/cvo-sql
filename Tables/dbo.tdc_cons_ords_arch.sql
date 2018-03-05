@@ -13,8 +13,6 @@ CREATE TABLE [dbo].[tdc_cons_ords_arch]
 GO
 ALTER TABLE [dbo].[tdc_cons_ords_arch] ADD CONSTRAINT [PK_tdc_cons_ords_arch_12] PRIMARY KEY CLUSTERED  ([consolidation_no], [order_no], [order_ext], [location]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [idx_cons_ords_arch1] ON [dbo].[tdc_cons_ords_arch] ([consolidation_no], [order_no], [order_ext]) ON [PRIMARY]
-GO
 CREATE NONCLUSTERED INDEX [idx_cons_ords_arch2] ON [dbo].[tdc_cons_ords_arch] ([order_no], [order_ext]) ON [PRIMARY]
 GO
 GRANT SELECT ON  [dbo].[tdc_cons_ords_arch] TO [public]

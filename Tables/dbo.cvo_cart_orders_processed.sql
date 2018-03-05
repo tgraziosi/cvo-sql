@@ -11,5 +11,7 @@ CREATE TABLE [dbo].[cvo_cart_orders_processed]
 [cart_no] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [PR_ORDERS] ON [dbo].[cvo_cart_orders_processed] ([order_no], [scan_user], [scan_date], [cart_no]) ON [PRIMARY]
+GO
 CREATE NONCLUSTERED INDEX [cart_orders_proc_idx1] ON [dbo].[cvo_cart_orders_processed] ([order_status], [processed_date], [order_no]) ON [PRIMARY]
 GO

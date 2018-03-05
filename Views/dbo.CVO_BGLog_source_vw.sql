@@ -6,7 +6,7 @@ GO
   
 CREATE view [dbo].[CVO_BGLog_source_vw] as  
 -- select  * From cvo_bglog_source_vw where DOC_CTRL_NUM = 'inv0388976'
--- select * From cvo_bglog_source_vw where inv_date between '04/01/2013' and '04/10/2013'
+-- select * From cvo_bglog_source_vw where inv_date between '08/26/2017' and '09/25/2017'
 -- v2.0 TM 04/27/2012 - Ignore AR Records that are Voided  
 -- tag - 072712 - ar only credit's - dont qualify on the terms, as it doesn't matter  
 -- tag - 1/3/2012 - fix so that mixed discount orders dont merge  
@@ -20,9 +20,8 @@ CREATE view [dbo].[CVO_BGLog_source_vw] as
 -- v2.7 CHANGES MADE BY CVO
 -- v2.8	CT 20/10/2014 - Issue #1367 - For Sales Orders and Credit Returns, if net price > list price, set list = net and discount = 0 and disc_perc = 0
 -- v2.9 CB 12/03/2015 - Issue #1469 - Deal with finance and late charges and chargebacks
--- v3.0 CB 22/01/2018 - Fix issue for BG when promo or discount applied
--- v3.1 CB 27/01/2018 - Fix issue for BG when promo or discount applied
- 
+-- vTAG - 030518 - performance.  Dont use get_buying_group_name function. remove arnarel from joins - don't need. re-arrange joins
+
 -- 1 -- order h  - freight and tax
 -- tag - don't even look for detail lines... dont need them
 select   
@@ -31,7 +30,8 @@ select
 -- v2.6 dbo.f_cvo_get_buying_group_name	(dbo.f_cvo_get_buying_group(h.cust_code, CONVERT(varchar(10),DATEADD(DAY, x.date_doc - 693596, '01/01/1900'),121))) parent_name, -- v2.5
 -- v2.5 m.customer_name as parent_name, 
 cv.buying_group parent, -- v2.6  
-dbo.f_cvo_get_buying_group_name	(cv.buying_group) parent_name, -- v2.6 
+bg.customer_name parent_name,
+-- dbo.f_cvo_get_buying_group_name	(cv.buying_group) parent_name, -- v2.6 
 h.cust_code,  
 b.customer_name as customer_name,  
 i.doc_ctrl_num,  
@@ -58,21 +58,24 @@ as due_year_month,
 x.date_doc as xinv_date
 -- convert(int,datediff(dd,'1/1/1753',h.date_shipped) + 639906) as xinv_date
 --,NULL as ndd -- v2.1   -- v2.4
-from orders h (nolock)  
-join orders_invoice i (nolock) on h.order_no =i.order_no and h.ext = i.order_ext  
+
+from dbo.cvo_orders_all cv (NOLOCK) -- v2.6
+JOIN dbo.orders h (nolock)  ON   h.order_no = cv.order_no  -- v2.6
+	AND  h.ext = cv.ext   -- v2.6
+join dbo.orders_invoice i (nolock) on h.order_no =i.order_no and h.ext = i.order_ext  
 --join artrx x (nolock) on i.doc_ctrl_num = x.doc_ctrl_num  
-join artrx x (nolock) on i.trx_ctrl_num = x.trx_ctrl_num  
-left join arnarel r (nolock) on h.cust_code = r.child  
-left join arcust m (nolock)on r.parent = m.customer_code  
-join arcust B (nolock)on h.cust_code = b.customer_code  
+join dbo.artrx x (nolock) on i.trx_ctrl_num = x.trx_ctrl_num  
+--left join dbo.arnarel r (nolock) on h.cust_code = r.child  
+--left join dbo.arcust m (nolock)on r.parent = m.customer_code  
+LEFT JOIN arcust bg (nolock) ON bg.customer_code = cv.buying_group
+join dbo.arcust B (nolock)on h.cust_code = b.customer_code  
 --join ord_list d (nolock) on h.order_no = d.order_no and h.ext = d.order_ext  
 --join Cvo_ord_list c (nolock) on  d.order_no =c.order_no and d.order_ext = c.order_ext and d.line_no = c.line_no  
 --join CVO_disc_percent p (nolock) on d.order_no = p.order_no and d.order_ext = p.order_ext and d.line_no = p.line_no  
-join arterms t (nolock) on  h.terms = t.terms_code  
---join CVO_min_display_vw z (nolock) on z.order_no = d.order_no and h.ext = z.order_ext and d.display_line = z.min_line  
-JOIN cvo_orders_all cv (NOLOCK) -- v2.6
-ON   h.order_no = cv.order_no  -- v2.6
-AND  h.ext = cv.ext   -- v2.6
+join dbo.arterms t (nolock) on  h.terms = t.terms_code  
+--join CVO_min_display_vw z (nolock) on z.order_no = d.order_no and h.ext = z.order_ext and d.display_line = z.min_line
+ 
+
 where (h.freight <> 0 or h.total_tax <> 0)  
 and h.type = 'I'  
 and h.terms not like 'INS%'   
@@ -81,7 +84,7 @@ AND cv.buying_group > '' -- v2.6
 -- v2.6 AND dbo.f_cvo_get_buying_group(h.cust_code, CONVERT(varchar(10),DATEADD(DAY, x.date_doc - 693596, '01/01/1900'),121)) > '' -- v2.5
 
 
-union  
+union  all
   
 -- 2 -- order lines  
 select   
@@ -90,7 +93,8 @@ select
 -- v2.6 dbo.f_cvo_get_buying_group_name	(dbo.f_cvo_get_buying_group(h.cust_code, CONVERT(varchar(10),DATEADD(DAY, x.date_doc - 693596, '01/01/1900'),121))) parent_name, -- v2.5
 -- v2.5 m.customer_name as parent_name, 
 cv.buying_group parent, -- v2.6  
-dbo.f_cvo_get_buying_group_name	(cv.buying_group) parent_name, -- v2.6 
+-- dbo.f_cvo_get_buying_group_name	(cv.buying_group) parent_name, -- v2.6 
+bg.customer_name parent_name,
 h.cust_code,  
 b.customer_name as customer_name,  
 i.doc_ctrl_num,  
@@ -101,21 +105,12 @@ t.days_due as trm,
 convert(varchar(12),dateadd(dd,(x.date_doc)-639906,'1/1/1753'),101) as inv_date,
 --convert(varchar(12), h.date_shipped, 101) as inv_date, 
 -- START v2.8 
--- v3.1 Start
-sum( CASE WHEN c.free_frame = 1 THEN 0 ELSE 
-		CASE WHEN cv.promo_id <> '' THEN ROUND(((d.curr_price - ROUND(c.amt_disc,2)) * d.shipped),2) ELSE CASE WHEN d.discount <> 0 THEN ROUND(((d.curr_price - ROUND(c.amt_disc,2)) * d.shipped),2) ELSE
-		round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2) END END END) as inv_tot, 
-sum( CASE WHEN c.free_frame = 1 THEN 0 ELSE 
-	CASE WHEN cv.promo_id <> '' THEN ROUND(((d.curr_price - ROUND(c.amt_disc,2)) * d.shipped),2) ELSE CASE WHEN d.discount <> 0 THEN ROUND(((d.curr_price - ROUND(c.amt_disc,2)) * d.shipped),2) ELSE
-round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2) END END END ) as mer_tot, 
-
---sum(round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2)) as inv_tot,
+sum(round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2)) as inv_tot,
 --sum(round((c.list_price * d.shipped),2)) as inv_tot,  
 -- END v2.8
 --sum(round((curr_price * d.shipped),2)) as inv_tot, 
 -- START v2.8 
---sum(round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2)) as mer_tot,  
--- v3.1 End
+sum(round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2)) as mer_tot,  
 --sum(round((c.list_price * d.shipped),2)) as mer_tot,  
 -- END v2.8
 --sum(round((curr_price * d.shipped),2)) as mer_tot,  
@@ -125,9 +120,9 @@ round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_pric
 --sum(round(((d.curr_price*(1-(d.discount/100)) * d.shipped)),2)) as mer_disc,  
 --sum(round(((d.curr_price*(1-(d.discount/100)) * d.shipped)),2)) as inv_due,  
 -- START v2.8
-sum(d.Shipped * ROUND(curr_price - ROUND((curr_price * ((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) / 100)),2),2)) as mer_disc, -- v3.0
+sum(d.Shipped * ROUND(curr_price -(curr_price * ((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) / 100)),2)) as mer_disc, 
 --sum(d.Shipped * ROUND(curr_price -(curr_price * (d.discount / 100)),2)) as mer_disc,  
-sum(d.Shipped * ROUND(curr_price - ROUND((curr_price * ((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) / 100)),2),2)) as inv_due, -- v3.0
+sum(d.Shipped * ROUND(curr_price -(curr_price * ((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) / 100)),2)) as inv_due,   
 --sum(d.Shipped * ROUND(curr_price -(curr_price * (d.discount / 100)),2)) as inv_due,  
 -- END v2.8
 -- p.disc_perc,  
@@ -135,14 +130,15 @@ sum(d.Shipped * ROUND(curr_price - ROUND((curr_price * ((CASE WHEN d.curr_price 
 --disc_perc = CASE WHEN max(d.discount) > 0 THEN max(d.discount/100) ELSE p.disc_perc END,  
 --disc_perc = CASE WHEN avg(round(d.discount,2)) > 0 THEN avg(round(d.discount/100,2)) ELSE p.disc_perc END, 
 -- START v2.8
-disc_perc = CASE 	when SUM(CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) = 0 then 0
+CASE 	when SUM(CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) = 0 then 0
 WHEN (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) > 0 and (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) <> 0 then -- two levels of discount in play
 		round(1 - (sum(d.shipped*round(curr_price-(curr_price*((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) END)/100)),2)) 
 		/
 		sum(round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2)) ), 2)
 	WHEN (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) > 0 AND (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) = 0 THEN 
 		(CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END)/100 
-	ELSE (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) END,  
+	ELSE (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) END
+	AS disc_perc,  
 /*
 disc_perc = CASE 	when SUM(c.list_price) = 0 then 0
 	WHEN d.discount > 0 and p.disc_perc <> 0 then -- two levels of discount in play
@@ -165,34 +161,40 @@ as due_year_month,
 x.date_doc as xinv_date
 -- convert(int,datediff(dd,'1/1/1753',h.date_shipped) + 639906) as xinv_date
 -- ,NULL as ndd -- v2.1    -- v2.4
-from orders h (nolock)  
+from 
+cvo_orders_all cv (NOLOCK) -- v2.6
+
+JOIN orders h (nolock)  
+ON   h.order_no = cv.order_no  -- v2.6
+AND  h.ext = cv.ext   -- v2.6 
 join orders_invoice i (nolock) on h.order_no =i.order_no and h.ext = i.order_ext  
 join arterms t (nolock) on h.terms = t.terms_code  
 join artrx x (nolock) on i.doc_ctrl_num = x.doc_ctrl_num  
-left join arnarel r (nolock) on h.cust_code = r.child  
-left join arcust m (nolock)on r.parent = m.customer_code  
+--left join dbo.arnarel r (nolock) on h.cust_code = r.child  
+--left join dbo.arcust m (nolock)on r.parent = m.customer_code  
+LEFT JOIN arcust bg (nolock) ON bg.customer_code = cv.buying_group
 join arcust B (nolock)on h.cust_code = b.customer_code  
 join ord_list d (nolock) on h.order_no = d.order_no and h.ext = d.order_ext  
 join Cvo_ord_list c (nolock) on  d.order_no =c.order_no and d.order_ext = c.order_ext and d.line_no = c.line_no  
 join CVO_disc_percent p (nolock) on d.order_no = p.order_no and d.order_ext = p.order_ext and d.line_no = p.line_no 
-JOIN cvo_orders_all cv (NOLOCK) -- v2.6
-ON   h.order_no = cv.order_no  -- v2.6
-AND  h.ext = cv.ext   -- v2.6 
-where d.shipped > 0  
+
+where 
+cv.buying_group > '' -- v2.6
+AND d.shipped > 0  
 --and (d.display_line  <> 1 or (h.freight = 0 and h.total_tax = 0))  
 and h.type = 'I'  
 and h.terms not like 'INS%'   
 and x.void_flag <> 1     --v2.0  
 -- v2.6 AND dbo.f_cvo_get_buying_group(h.cust_code, CONVERT(varchar(10),DATEADD(DAY, x.date_doc - 693596, '01/01/1900'),121)) > '' -- v2.5
-AND cv.buying_group > '' -- v2.6
-group by cv.buying_group, m.customer_name, h.cust_code, b.customer_name, i.doc_ctrl_num, -- v2.6
+
+group by cv.buying_group, bg.customer_name, h.cust_code, b.customer_name, i.doc_ctrl_num, -- v2.6
 -- START v2.8
 t.days_due, h.type, x.date_doc, (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END), (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END)  
 --t.days_due, h.type, x.date_doc, d.discount, disc_perc  
 -- END v2.8
   
   
-union   
+union   all
   
 -- 3 -- cr order header  - tax and freight portion
 select   
@@ -201,7 +203,8 @@ select
 -- v2.6 dbo.f_cvo_get_buying_group_name	(dbo.f_cvo_get_buying_group(h.cust_code, CONVERT(varchar(10),DATEADD(DAY, x.date_doc - 693596, '01/01/1900'),121))) parent_name, -- v2.5
 -- v2.5 m.customer_name as parent_name, 
 cv.buying_group parent, -- v2.6  
-dbo.f_cvo_get_buying_group_name	(cv.buying_group) parent_name, -- v2.6 
+-- dbo.f_cvo_get_buying_group_name	(cv.buying_group) parent_name, -- v2.6 
+bg.customer_name parent_name,
 h.cust_code,  
 b.customer_name as customer_name,  
 i.doc_ctrl_num,  
@@ -225,31 +228,36 @@ as due_year_month,
 x.date_doc as xinv_date
 -- convert(int,datediff(dd,'1/1/1753',h.date_shipped) + 639906) as xinv_date
 -- ,NULL as ndd -- v2.1    -- v2.4
-from orders h (nolock)  
+FROM
+cvo_orders_all cv (NOLOCK) -- v2.6
+
+join orders h (nolock) 
+ON   h.order_no = cv.order_no  -- v2.6
+AND  h.ext = cv.ext   -- v2.6 
 join orders_invoice i (nolock) on h.order_no =i.order_no and h.ext = i.order_ext  
 join artrx x (nolock) on i.doc_ctrl_num = x.doc_ctrl_num and x.trx_type = 2032  
 --join ord_list d (nolock) on h.order_no = d.order_no and h.ext = d.order_ext  
-left join arnarel r (nolock) on h.cust_code = r.child  
-left join arcust m (nolock)on r.parent = m.customer_code  
+--left join arnarel r (nolock) on h.cust_code = r.child  
+--left join arcust m (nolock)on r.parent = m.customer_code  
+JOIN arcust bg (nolock) ON bg.customer_code = cv.buying_group
 join arcust B (nolock)on h.cust_code = b.customer_code  
 --join Cvo_ord_list c (nolock) on  d.order_no =c.order_no and d.order_ext = c.order_ext and d.line_no = c.line_no  
 --join CVO_disc_percent p (nolock) on d.order_no = p.order_no and d.order_ext = p.order_ext and d.line_no = p.line_no  
 join arterms t (nolock) on h.terms = t.terms_code  
 --join CVO_min_display_vw z (nolock) on z.order_no = d.order_no and z.order_ext = d.order_ext and d.display_line = z.min_line  
-JOIN cvo_orders_all cv (NOLOCK) -- v2.6
-ON   h.order_no = cv.order_no  -- v2.6
-AND  h.ext = cv.ext   -- v2.6
-where (h.freight <> 0 or h.total_tax <> 0)  
+
+WHERE cv.buying_group > '' -- v2.6
+and (h.freight <> 0 or h.total_tax <> 0)  
 and h.type = 'C'  
 and h.terms not like 'INS%'   
 and x.void_flag <> 1     --v2.0  
-AND cv.buying_group > '' -- v2.6
+
 -- v2.6 AND dbo.f_cvo_get_buying_group(h.cust_code, CONVERT(varchar(10),DATEADD(DAY, x.date_doc - 693596, '01/01/1900'),121)) > '' -- v2.5
  
 --and x.date_doc between dbo.adm_get_pltdate_f('04/01/2013') and dbo.adm_get_pltdate_F('04/10/2013')
  
   
-union  
+union  all
   --  4 -- cr order lines  
 select   
 -- v2.6 dbo.f_cvo_get_buying_group(h.cust_code, CONVERT(varchar(10),DATEADD(DAY, x.date_doc - 693596, '01/01/1900'),121)) parent, -- v2.5
@@ -257,7 +265,8 @@ select
 -- v2.6 dbo.f_cvo_get_buying_group_name	(dbo.f_cvo_get_buying_group(h.cust_code, CONVERT(varchar(10),DATEADD(DAY, x.date_doc - 693596, '01/01/1900'),121))) parent_name, -- v2.5
 -- v2.5 m.customer_name as parent_name,   
 cv.buying_group parent, -- v2.6  
-dbo.f_cvo_get_buying_group_name	(cv.buying_group) parent_name, -- v2.6 
+-- dbo.f_cvo_get_buying_group_name	(cv.buying_group) parent_name, -- v2.6 
+bg.customer_name parent_name,
 h.cust_code,  
 b.customer_name as customer_name,  
 i.doc_ctrl_num,  
@@ -290,14 +299,15 @@ sum(d.cr_shipped * ROUND(curr_price -(curr_price * ((CASE WHEN d.curr_price > c.
 -- p.disc_perc,  
 --disc_perc = CASE WHEN max(d.discount) > 0 THEN max(d.discount/100) ELSE p.disc_perc END,  
 -- START v2.8
-disc_perc = CASE WHEN sum(CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) = 0 then 0 
+CASE WHEN sum(CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) = 0 then 0 
 	when (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) > 0 and (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) <> 0 then -- two levels of discount in play
 		round(1 - (sum(d.cr_shipped*round(curr_price-(curr_price*((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) END)/100)),2)) 
 		/
 		sum(round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.cr_shipped),2)) ), 2)
 	WHEN (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) > 0 AND (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) = 0 THEN 
 		(CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) /100 
-	ELSE (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) END,    
+	ELSE (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) END
+	AS disc_perc,    
 /*
 disc_perc = CASE WHEN sum(c.list_price) = 0 then 0 
 	when d.discount > 0 and p.disc_perc <> 0 then -- two levels of discount in play
@@ -319,35 +329,40 @@ as due_year_month,
 x.date_doc as xinv_date
 --convert(int,datediff(dd,'1/1/1753',h.date_shipped) + 639906) as xinv_date
 -- ,SUM(CASE d.part_no WHEN 'Credit Return Fee' THEN (d.cr_shipped * ROUND(curr_price -(curr_price * (d.discount / 100)),2,1)) ELSE 0 END) * -1 AS ndd -- v2.1  -- v2.4
-from orders h (nolock)  
+from 
+cvo_orders_all cv (NOLOCK) -- v2.6
+
+JOIN orders h (nolock)  
+ON   h.order_no = cv.order_no  -- v2.6
+AND  h.ext = cv.ext   -- v2.6
 join orders_invoice i (nolock) on h.order_no =i.order_no and h.ext = i.order_ext  
 join artrx x (nolock) on i.doc_ctrl_num = x.doc_ctrl_num and x.trx_type = 2032  
-left join arnarel r (nolock) on h.cust_code = r.child  
-left join arcust m (nolock)on r.parent = m.customer_code  
+--left join arnarel r (nolock) on h.cust_code = r.child  
+--left join arcust m (nolock)on r.parent = m.customer_code
+JOIN arcust bg (nolock) ON bg.customer_code = cv.buying_group  
 join arcust B (nolock)on h.cust_code = b.customer_code  
 join ord_list d (nolock) on h.order_no = d.order_no and h.ext = d.order_ext  
 join Cvo_ord_list c (nolock) on  d.order_no =c.order_no and d.order_ext = c.order_ext and d.line_no = c.line_no  
 join CVO_disc_percent p (nolock) on d.order_no = p.order_no and d.order_ext = p.order_ext and d.line_no = p.line_no  
 join arterms t (nolock) on h.terms = t.terms_code  
-JOIN cvo_orders_all cv (NOLOCK) -- v2.6
-ON   h.order_no = cv.order_no  -- v2.6
-AND  h.ext = cv.ext   -- v2.6
-where d.cr_shipped > 0  
+
+WHERE cv.buying_group > '' -- v2.6
+and d.cr_shipped > 0  
 --and (d.display_line  <> 1 or (h.freight = 0 and h.total_tax = 0))  
 and h.type = 'C'  
 and h.terms not like 'INS%'   
 and x.void_flag <> 1     --v2.0 
 AND d.part_no <> 'Credit Return Fee' -- v2.4 
-AND cv.buying_group > '' -- v2.6
+
 -- v2.6 AND dbo.f_cvo_get_buying_group(h.cust_code, CONVERT(varchar(10),DATEADD(DAY, x.date_doc - 693596, '01/01/1900'),121)) > '' -- v2.5
 
-group by cv.buying_group, m.customer_name, h.cust_code, b.customer_name, i.doc_ctrl_num, t.days_due, x.date_due, h.type, -- v2.6 
+group by cv.buying_group, bg.customer_name, h.cust_code, b.customer_name, i.doc_ctrl_num, t.days_due, x.date_due, h.type, -- v2.6 
 -- START v2.8
 x.date_doc, (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END), (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END)  
 --x.date_doc, d.discount, disc_perc 
 -- END v2.8
   
-union  
+union  all
   
 -- 5 -- AR only records invoice  
 select   
@@ -384,8 +399,8 @@ h.date_doc as xinv_date
 -- ,NULL as ndd -- v2.1    -- v2.4
 from artrx_all h (nolock)  
 join artrxcdt d (nolock) on h.trx_ctrl_num = d.trx_ctrl_num  
-left join arnarel r (nolock) on h.customer_code = r.child  
-left join arcust m (nolock)on r.parent = m.customer_code  
+--left join arnarel r (nolock) on h.customer_code = r.child  
+--left join arcust m (nolock)on r.parent = m.customer_code  
 join arcust B (nolock)on h.customer_code = b.customer_code  
 join arterms t (nolock) on h.terms_code = t.terms_code  
 where (h.order_ctrl_num = '' or left(h.doc_desc,3) not in ('SO:', 'CM:'))  
@@ -397,7 +412,7 @@ and h.void_flag <> 1     --v2.0
 AND dbo.f_cvo_get_buying_group(h.customer_code, CONVERT(varchar(10),DATEADD(DAY, h.date_doc - 693596, '01/01/1900'),121)) > '' -- v2.5
 
   
-union  
+union  all
   
 -- 6 -- AR only records credit  
 select   
@@ -457,8 +472,8 @@ h.date_doc as xinv_date
 --,NULL as ndd -- v2.1    -- v2.4
 from artrx_all h (nolock)  
 join artrxcdt d (nolock) on h.trx_ctrl_num = d.trx_ctrl_num  
-left join arnarel r (nolock) on h.customer_code = r.child  
-left join arcust m (nolock)on r.parent = m.customer_code  
+--left join arnarel r (nolock) on h.customer_code = r.child  
+--left join arcust m (nolock)on r.parent = m.customer_code  
 join arcust B (nolock)on h.customer_code = b.customer_code  
 left join arterms t (nolock) on b.terms_code = t.terms_code    --v3.0 Use Customer Terms as CM does not have terms code  
 where left(h.doc_desc,3) not in ('SO:', 'CM:')  
@@ -473,7 +488,7 @@ AND dbo.f_cvo_get_buying_group(h.customer_code, CONVERT(varchar(10),DATEADD(DAY,
 and not exists (select 1 from cvo_debit_promo_customer_det where trx_ctrl_num = h.trx_ctrl_num)
 -- END v2.7
 
-union  
+union  all
   
 -- 6 AR Split only records  *** NEW ***  
 select   
@@ -504,7 +519,8 @@ union all
 -- 8 -- cr debit promo tax line  
 select   
 cv.buying_group parent, -- v1.2  
-dbo.f_cvo_get_buying_group_name	(cv.buying_group) parent_name, -- v1.2  
+--dbo.f_cvo_get_buying_group_name	(cv.buying_group) parent_name, -- v1.2  
+bg.customer_name parent_name,
 b.customer_code cust_code,  
 b.customer_name as customer_name,  
 x.doc_ctrl_num,  
@@ -534,8 +550,9 @@ x.date_doc as xinv_date
 from 
 (select distinct dd.trx_ctrl_num, co.order_no, co.ext, buying_group from  cvo_debit_promo_customer_det dd inner join  cvo_orders_all co on dd.order_no = co.order_no and dd.ext = co.ext) cv 
 join artrx x (nolock) on cv.trx_ctrl_num = x.trx_ctrl_num
-left join arnarel r (nolock) on r.child = x.customer_code
+-- left join arnarel r (nolock) on r.child = x.customer_code
 join arcust B (nolock) on b.customer_code  = x.customer_code
+JOIN arcust bg (NOLOCK) ON bg.customer_code = cv.buying_group
 join arterms t (nolock) on b.terms_code = t.terms_code  
 where (x.amt_tax <> 0) 
 and x.trx_type = 2032
@@ -544,12 +561,13 @@ and x.void_flag <> 1
 AND cv.buying_group > '' -- v1.2
 
   
-union  
+union  all
   
 --  4 -- cr order lines - debit promos 
 select   
 cv.buying_group parent, -- v1.2  
-dbo.f_cvo_get_buying_group_name	(cv.buying_group) parent_name, -- v1.2   
+-- dbo.f_cvo_get_buying_group_name	(cv.buying_group) parent_name, -- v1.2   
+bg.customer_name parent_name,
 h.cust_code,  
 b.customer_name as customer_name,  
 xx.doc_ctrl_num,  
@@ -591,14 +609,15 @@ else
 sum(d.shipped * ROUND(curr_price -(curr_price * (d.discount / 100)),2,1)) * -1
 end as inv_due,  
 */
-disc_perc = CASE 	when SUM(CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) = 0 then 0
+CASE 	when SUM(CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) = 0 then 0
 	WHEN (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) > 0 and (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) <> 0 then -- two levels of discount in play
 		round(1 - (sum(d.shipped*round(curr_price-(curr_price*((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END)/100)),2)) 
 		/
 		sum(round(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2)) ), 2)
 	WHEN (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) > 0 AND (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) = 0 THEN 
 		(CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END)/100 
-	ELSE (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) END,
+	ELSE (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) END
+	AS disc_perc,
 /*
 disc_perc = CASE 	when suM(c.list_price) = 0 then 0
 	WHEN d.discount > 0 and p.disc_perc <> 0 then -- two levels of discount in play
@@ -628,24 +647,27 @@ cvo_debit_promo_customer_det dd
 inner join ord_list d (nolock) on d.order_no = dd.order_no and d.order_ext = dd.ext and d.line_no = dd.line_no
 
 inner join orders h (nolock)  on h.order_no = dd.order_no and h.ext = dd.ext
+JOIN cvo_orders_all cv (NOLOCK) -- v1.2
+ON   h.order_no = cv.order_no  -- v1.2
+AND  h.ext = cv.ext   -- v1.2
 join artrx xx on dd.trx_ctrl_num = xx.trx_ctrl_num
 join orders_invoice i (nolock) on h.order_no =i.order_no and h.ext = i.order_ext  
 join artrx x (nolock) on i.trx_ctrl_num = x.trx_ctrl_num   
-left join arnarel r (nolock) on h.cust_code = r.child  
-left join arcust m (nolock)on r.parent = m.customer_code  
+--left join arnarel r (nolock) on h.cust_code = r.child  
+--left join arcust m (nolock)on r.parent = m.customer_code  
+JOIN arcust bg (NOLOCK) ON bg.customer_code = cv.buying_group
 join arcust B (nolock)on h.cust_code = b.customer_code  
 join Cvo_ord_list c (nolock) on  d.order_no =c.order_no and d.order_ext = c.order_ext and d.line_no = c.line_no  
 join CVO_disc_percent p (nolock) on d.order_no = p.order_no and d.order_ext = p.order_ext and d.line_no = p.line_no  
 join arterms t (nolock) on h.terms = t.terms_code  
-JOIN cvo_orders_all cv (NOLOCK) -- v1.2
-ON   h.order_no = cv.order_no  -- v1.2
-AND  h.ext = cv.ext   -- v1.2
-where d.shipped > 0  
+
+WHERE cv.buying_group > '' -- v1.2 
+AND d.shipped > 0  
 and h.terms not like 'INS%'   
 and x.void_flag <> 1     
-AND cv.buying_group > '' -- v1.2
 
-group by cv.buying_group, m.customer_name, h.cust_code, b.customer_name, xx.doc_ctrl_num, t.days_due, x.date_due, h.type, -- v1.2
+
+group by cv.buying_group, bg.customer_name, h.cust_code, b.customer_name, xx.doc_ctrl_num, t.days_due, x.date_due, h.type, -- v1.2
 -- START v2.8
 x.date_doc, (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END), (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END)  
 --x.date_doc, d.discount, disc_perc  
@@ -653,7 +675,7 @@ x.date_doc, (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END), 
 -- END v2.7
 
 -- v2.9 Start
-UNION
+UNION all
 
 select   
 dbo.f_cvo_get_buying_group(h.customer_code, CONVERT(varchar(10),DATEADD(DAY, h.date_doc - 693596, '01/01/1900'),121)) parent, -- v1.1
@@ -684,8 +706,8 @@ END
 as due_year_month,  
 h.date_doc as xinv_date
 from artrx_all h (nolock)  
-left join arnarel r (nolock) on h.customer_code = r.child  
-left join arcust m (nolock)on r.parent = m.customer_code  
+--left join arnarel r (nolock) on h.customer_code = r.child  
+--left join arcust m (nolock)on r.parent = m.customer_code  
 join arcust B (nolock)on h.customer_code = b.customer_code  
 where h.trx_type in (2061,2071)  
 and h.doc_ctrl_num not like 'CB%'   
@@ -693,7 +715,7 @@ and h.terms_code not like 'INS%'
 and h.void_flag <> 1  
 AND dbo.f_cvo_get_buying_group(h.customer_code, CONVERT(varchar(10),DATEADD(DAY, h.date_doc - 693596, '01/01/1900'),121)) > '' 
 
-UNION
+UNION all
 
 select   
 dbo.f_cvo_get_buying_group(h.customer_code, CONVERT(varchar(10),DATEADD(DAY, h.date_doc - 693596, '01/01/1900'),121)) parent, -- v1.1
@@ -724,14 +746,17 @@ END
 as due_year_month,  
 h.date_doc as xinv_date
 from artrx_all h (nolock)  
-left join arnarel r (nolock) on h.customer_code = r.child  
-left join arcust m (nolock)on r.parent = m.customer_code  
+--left join arnarel r (nolock) on h.customer_code = r.child  
+--left join arcust m (nolock)on r.parent = m.customer_code  
 join arcust B (nolock)on h.customer_code = b.customer_code  
 where h.trx_ctrl_num like 'CB%'   
 and h.terms_code not like 'INS%'   
 and h.void_flag <> 1  
 AND dbo.f_cvo_get_buying_group(h.customer_code, CONVERT(varchar(10),DATEADD(DAY, h.date_doc - 693596, '01/01/1900'),121)) > '' 
 -- v2.9 End
+
+
+
 GO
 GRANT REFERENCES ON  [dbo].[CVO_BGLog_source_vw] TO [public]
 GO

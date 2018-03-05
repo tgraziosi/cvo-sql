@@ -2,13 +2,12 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-create PROCEDURE [dbo].[cvo_tdc_lot_archive_sp] @m int = NULL
+create PROCEDURE [dbo].[cvo_tdc_log_archive_sp] @m int = NULL
 AS 
 
--- execute cvo_tdc_lot_archive_sp @m=2
+-- execute cvo_tdc_log_archive_sp @m=6
 
 BEGIN
-
 
 SET NOCOUNT ON;
 
@@ -18,11 +17,11 @@ SELECT @asofdate  = '1/1/1900';
 IF @m IS NULL SELECT @m = 1;
 
 SELECT @asofdate = DATEADD(m, @m, MIN(tran_date))
-FROM   tdc_log WHERE tran_date < DATEADD(y,-2,GETDATE());  -- keep 2 years in the live file
+FROM   dbo.tdc_log WHERE tran_date < DATEADD(y,-2,GETDATE());  -- keep 2 years in the live file
 
-IF OBJECT_ID('dbo.cvo_tdc_log_archive') IS NULL
+IF OBJECT_ID('dbo.cvo_tdc_log_archive_tbl') IS NULL
     BEGIN
-        CREATE TABLE dbo.cvo_tdc_log_archive
+        CREATE TABLE dbo.cvo_tdc_log_archive_tbl
             (
                 tran_date DATETIME NOT NULL ,
                 UserID VARCHAR(50) NOT NULL ,
@@ -40,7 +39,7 @@ IF OBJECT_ID('dbo.cvo_tdc_log_archive') IS NULL
             ) ON [PRIMARY];
         /****** Object:  Index [tdc_log_idx1]    Script Date: 9/13/2017 12:42:10 PM ******/
         CREATE NONCLUSTERED INDEX tdc_log_idx_arch_1
-            ON dbo.cvo_tdc_log_archive
+            ON dbo.cvo_tdc_log_archive_tbl
         (
             tran_date ASC ,
             location ASC ,
@@ -49,13 +48,17 @@ IF OBJECT_ID('dbo.cvo_tdc_log_archive') IS NULL
                    SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF ,
                    ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON ) ON [PRIMARY];
         GRANT ALL
-            ON dbo.cvo_tdc_log_archive
+            ON dbo.cvo_tdc_log_archive_tbl
             TO PUBLIC;
     END;
 
 IF (@asofdate IS NOT NULL AND  @asofdate <> '1/1/1900')
-begin
-INSERT INTO dbo.cvo_tdc_log_archive ( tran_date ,
+BEGIN
+
+; WITH i AS 
+( SELECT TOP (100) PERCENT t.* FROM dbo.tdc_log t WHERE tran_date < @asofdate ORDER BY t.tran_date)
+
+INSERT INTO dbo.cvo_tdc_log_archive_tbl ( tran_date ,
                                       UserID ,
                                       trans_source ,
                                       module ,
@@ -68,23 +71,46 @@ INSERT INTO dbo.cvo_tdc_log_archive ( tran_date ,
                                       location ,
                                       quantity ,
                                       data )
-            SELECT *
-            FROM   tdc_log (nolock)
-            WHERE  tran_date < @asofdate;
+            SELECT tran_date,
+                   UserID,
+                   trans_source,
+                   module,
+                   trans,
+                   tran_no,
+                   tran_ext,
+                   part_no,
+                   lot_ser,
+                   bin_no,
+                   location,
+                   quantity,
+                   data
+            FROM   i;
 
-DELETE FROM tdc_log WITH (tablock)
-WHERE tran_date < @asofdate;
-END
+DECLARE @recs BIGINT;
 
-SELECT MIN(tran_date), COUNT(*)
-FROM   tdc_log;
-SELECT max(tran_date), COUNT(*)
-FROM   dbo.cvo_tdc_log_archive AS tla;
+SELECT @recs = COUNT(*) FROM dbo.tdc_log t  WHERE t.tran_date < @asofdate;
+
+WHILE @recs > 0
+BEGIN
+
+; WITH d AS 
+( SELECT TOP (100000) t.tran_date FROM dbo.tdc_log t WHERE tran_date < @asofdate ORDER BY t.tran_date )
+delete from d
+
+SELECT @recs = COUNT(*) FROM dbo.tdc_log t  WHERE t.tran_date < @asofdate;
 
 END;
 
-GRANT EXECUTE ON cvo_tdc_lot_archive_sp TO PUBLIC;
+END;
+
+
+SELECT MIN(tran_date), COUNT(*)
+FROM   dbo.tdc_log;
+SELECT max(tran_date), COUNT(*)
+FROM   dbo.cvo_tdc_log_archive_tbl AS tla;
+
+END;
 
 GO
-GRANT EXECUTE ON  [dbo].[cvo_tdc_lot_archive_sp] TO [public]
+GRANT EXECUTE ON  [dbo].[cvo_tdc_log_archive_sp] TO [public]
 GO

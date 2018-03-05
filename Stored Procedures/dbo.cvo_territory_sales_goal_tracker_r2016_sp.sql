@@ -274,7 +274,7 @@ into #promotrkr
 FROM  #territory t 
 INNER join cvo_adord_vw AS o WITH (nolock) on t.territory = o.territory
 where 1=1
-AND ( (o.promo_id IN ('revo') and o.promo_level in ('launch 1','launch 2','launch 3','1','2','3'))
+AND ( (o.promo_id IN ('revo') and o.promo_level IN ('18','24','36','48')) -- ('launch 1','launch 2','launch 3','1','2','3'))
 	OR (o.promo_id IN ('Blue') AND o.promo_level IN ('1','kids','suns'))
 	OR (o.promo_id IN ('sunps') AND o.promo_level IN ('OP'))
 	OR (promo_id IN ('aspire') AND promo_level IN ('1','3','vew','launch','new'))
@@ -459,5 +459,6 @@ GROUP BY CASE WHEN promo_id = 'blue' THEN 'BT'
                 AND ( g.Stat_Year = CAST(@cy AS VARCHAR(5)) );
 	
     END;
+
 
 GO

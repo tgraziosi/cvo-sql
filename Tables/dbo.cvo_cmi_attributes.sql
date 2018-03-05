@@ -11,5 +11,3 @@ CREATE TABLE [dbo].[cvo_cmi_attributes]
 GO
 ALTER TABLE [dbo].[cvo_cmi_attributes] ADD CONSTRAINT [PK__cvo_cmi_attribut__0816F613] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [ATTR_IDX] ON [dbo].[cvo_cmi_attributes] ([field_name]) ON [PRIMARY]
-GO

@@ -38,7 +38,7 @@ EXEC CVo_inv_fcst_summ_sp
     @asofdate DATETIME,
     @location VARCHAR(10),
     @endrel DATETIME = NULL, -- ending release date
-    @current INT = 0,        -- show all
+--    @current INT = 0,        -- show all
     @collection VARCHAR(1000) = NULL,
     @Style VARCHAR(8000) = NULL,
     @SpecFit VARCHAR(1000) = NULL,
@@ -145,9 +145,9 @@ BEGIN
                                 @Style = @Style,
                                 @SpecFit = @SpecFit,
                                 @location = @location,
-                                @current = @current,
                                 @gender = @gender,
-                                @ResType = 'frame,sun';
+                                @ResType = 'frame,sun',
+								@current = 0 -- show all;
 
     SELECT t.brand,
            t.style,
@@ -248,25 +248,24 @@ BEGIN
             ON il.part_no = t.sku
                AND il.location = @location
 
-
         LEFT OUTER JOIN
         (
         SELECT part_no,
-               SUM(CASE WHEN DATEDIFF(WEEK, yyyymmdd, @asofdate) <= 12 THEN anet ELSE 0 END) s_w12_net_sales,
-               SUM(CASE WHEN DATEDIFF(WEEK, yyyymmdd, @asofdate) <= 12 THEN qnet ELSE 0 END) s_w12_net_qty,
-               SUM(CASE WHEN DATEDIFF(WEEK, yyyymmdd, @asofdate) <= 12 THEN asales ELSE 0 END) s_w12_gross_sales,
-               SUM(CASE WHEN DATEDIFF(WEEK, yyyymmdd, @asofdate) <= 12 THEN qsales ELSE 0 END) s_w12_gross_qty,
-               SUM(CASE WHEN isBO = 1 AND DATEDIFF(WEEK, yyyymmdd, @asofdate) <= 12 THEN qnet ELSE 0 END) w12_bo_qty,
-               SUM(CASE WHEN DATEDIFF(WEEK, yyyymmdd, @asofdate) > 12 THEN anet ELSE 0 END) s_w26_net_sales,
-               SUM(CASE WHEN DATEDIFF(WEEK, yyyymmdd, @asofdate) > 12 THEN qnet ELSE 0 END) s_w26_net_qty,
-               SUM(CASE WHEN DATEDIFF(WEEK, yyyymmdd, @asofdate) > 12 THEN asales ELSE 0 END) s_w26_gross_sales,
-               SUM(CASE WHEN DATEDIFF(WEEK, yyyymmdd, @asofdate) > 12 THEN qsales ELSE 0 END) s_w26_gross_qty,
-               SUM(CASE WHEN isBO = 1 AND DATEDIFF(WEEK, yyyymmdd, @asofdate) > 12 THEN qnet ELSE 0 END) w26_bo_qty
+               SUM(isnull(CASE WHEN DATEDIFF(month, yyyymmdd, @asofdate) <= 3 THEN anet ELSE 0 END,0)) s_w12_net_sales,
+               SUM(isnull(CASE WHEN DATEDIFF(month, yyyymmdd, @asofdate) <= 3 and 'rb' <> RIGHT(sd.user_category,2) THEN qnet ELSE 0 END,0)) s_w12_net_qty,
+               SUM(isnull(CASE WHEN DATEDIFF(month, yyyymmdd, @asofdate) <= 3 THEN asales ELSE 0 END, 0)) s_w12_gross_sales,
+               SUM(isnull(CASE WHEN DATEDIFF(month, yyyymmdd, @asofdate) <= 3 and 'rb' <> RIGHT(sd.user_category,2) THEN qsales ELSE 0 END,0)) s_w12_gross_qty,
+               SUM(isnull(CASE WHEN isBO = 1 AND DATEDIFF(month, yyyymmdd, @asofdate) <= 3 and 'rb' <> RIGHT(sd.user_category,2) THEN qnet ELSE 0 END,0)) w12_bo_qty,
+               SUM(isnull(CASE WHEN DATEDIFF(month, yyyymmdd, @asofdate) > 3 THEN anet ELSE 0 END,0)) s_w26_net_sales,
+               SUM(isnull(CASE WHEN DATEDIFF(month, yyyymmdd, @asofdate) > 3 and 'rb' <> RIGHT(sd.user_category,2) THEN qnet ELSE 0 END,0)) s_w26_net_qty,
+               SUM(isnull(CASE WHEN DATEDIFF(month, yyyymmdd, @asofdate) > 3 THEN asales ELSE 0 END,0)) s_w26_gross_sales,
+               SUM(isnull(CASE WHEN DATEDIFF(month, yyyymmdd, @asofdate) > 3 and 'rb' <> RIGHT(sd.user_category,2) THEN qsales ELSE 0 END,0)) s_w26_gross_qty,
+               SUM(isnull(CASE WHEN isBO = 1 AND DATEDIFF(month, yyyymmdd, @asofdate) > 3 and 'rb' <> RIGHT(sd.user_category,2) THEN qnet ELSE 0 END,0)) w26_bo_qty
 
         FROM dbo.cvo_sbm_details AS sd (nolock)
         WHERE isCL = 0
               AND sd.return_code = ''
-              AND yyyymmdd >= DATEADD(WEEK, -26, @asofdate)
+              AND yyyymmdd between DATEADD(month, -6, @asofdate) and @asofdate
               AND sd.location = @location
         GROUP BY sd.part_no
         ) sbm
@@ -275,21 +274,21 @@ BEGIN
         LEFT OUTER JOIN -- sales in other locations
         (
         SELECT part_no,
-               SUM(CASE WHEN DATEDIFF(WEEK, yyyymmdd, @asofdate) <= 12 THEN anet ELSE 0 END) s_w12_net_sales,
-               SUM(CASE WHEN DATEDIFF(WEEK, yyyymmdd, @asofdate) <= 12 THEN qnet ELSE 0 END) s_w12_net_qty,
-               SUM(CASE WHEN DATEDIFF(WEEK, yyyymmdd, @asofdate) <= 12 THEN asales ELSE 0 END) s_w12_gross_sales,
-               SUM(CASE WHEN DATEDIFF(WEEK, yyyymmdd, @asofdate) <= 12 THEN qsales ELSE 0 END) s_w12_gross_qty,
-               SUM(CASE WHEN isBO = 1 AND DATEDIFF(WEEK, yyyymmdd, @asofdate) <= 12 THEN qnet ELSE 0 END) w12_bo_qty,
-               SUM(CASE WHEN DATEDIFF(WEEK, yyyymmdd, @asofdate) > 12 THEN anet ELSE 0 END) s_w26_net_sales,
-               SUM(CASE WHEN DATEDIFF(WEEK, yyyymmdd, @asofdate) > 12 THEN qnet ELSE 0 END) s_w26_net_qty,
-               SUM(CASE WHEN DATEDIFF(WEEK, yyyymmdd, @asofdate) > 12 THEN asales ELSE 0 END) s_w26_gross_sales,
-               SUM(CASE WHEN DATEDIFF(WEEK, yyyymmdd, @asofdate) > 12 THEN qsales ELSE 0 END) s_w26_gross_qty,
-               SUM(CASE WHEN isBO = 1 AND DATEDIFF(WEEK, yyyymmdd, @asofdate) > 12 THEN qnet ELSE 0 END) w26_bo_qty
+               SUM(CASE WHEN DATEDIFF(month, yyyymmdd, @asofdate) <= 3 THEN anet ELSE 0 END) s_w12_net_sales,
+               SUM(CASE WHEN DATEDIFF(month, yyyymmdd, @asofdate) <= 3 and 'rb' <> RIGHT(sd.user_category,2) THEN qnet ELSE 0 END) s_w12_net_qty,
+               SUM(CASE WHEN DATEDIFF(month, yyyymmdd, @asofdate) <= 3 THEN asales ELSE 0 END) s_w12_gross_sales,
+               SUM(CASE WHEN DATEDIFF(month, yyyymmdd, @asofdate) <= 3 and 'rb' <> RIGHT(sd.user_category,2) THEN qsales ELSE 0 END) s_w12_gross_qty,
+               SUM(CASE WHEN isBO = 1 AND DATEDIFF(month, yyyymmdd, @asofdate) <= 3 and 'rb' <> RIGHT(sd.user_category,2) THEN qnet ELSE 0 END) w12_bo_qty,
+               SUM(CASE WHEN DATEDIFF(month, yyyymmdd, @asofdate) > 3 THEN anet ELSE 0 END) s_w26_net_sales,
+               SUM(CASE WHEN DATEDIFF(month, yyyymmdd, @asofdate) > 3 and 'rb' <> RIGHT(sd.user_category,2) THEN qnet ELSE 0 END) s_w26_net_qty,
+               SUM(CASE WHEN DATEDIFF(month, yyyymmdd, @asofdate) > 3 THEN asales ELSE 0 END) s_w26_gross_sales,
+               SUM(CASE WHEN DATEDIFF(month, yyyymmdd, @asofdate) > 3 and 'rb' <> RIGHT(sd.user_category,2) THEN qsales ELSE 0 END) s_w26_gross_qty,
+               SUM(CASE WHEN isBO = 1 AND DATEDIFF(month, yyyymmdd, @asofdate) > 3 and 'rb' <> RIGHT(sd.user_category,2) THEN qnet ELSE 0 END) w26_bo_qty
 
         FROM dbo.cvo_sbm_details AS sd (nolock)
         WHERE isCL = 0
               AND sd.return_code = ''
-              AND yyyymmdd >= DATEADD(WEEK, -26, @asofdate)
+              AND yyyymmdd between DATEADD(month, -6, @asofdate) AND @asofdate
               AND sd.location <> @location
         GROUP BY sd.part_no
         ) sbm_other_loc
@@ -329,6 +328,8 @@ BEGIN
 
     ;
 END;
+
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_inv_fcst_summ_sp] TO [public]
 GO

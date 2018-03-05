@@ -191,7 +191,7 @@ CREATE NONCLUSTERED INDEX [artrx_all_ind_0] ON [dbo].[artrx_all] ([customer_code
 GO
 CREATE NONCLUSTERED INDEX [artrx_all_ind_7] ON [dbo].[artrx_all] ([customer_code], [trx_type], [void_flag]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [artrx_all_ind_3] ON [dbo].[artrx_all] ([date_applied], [trx_type]) ON [PRIMARY]
+CREATE NONCLUSTERED INDEX [artrx_all_ind_3] ON [dbo].[artrx_all] ([date_applied], [trx_type]) INCLUDE ([doc_ctrl_num], [doc_desc], [trx_ctrl_num]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [EAI_Integration] ON [dbo].[artrx_all] ([ddid]) ON [PRIMARY]
 GO
@@ -209,11 +209,11 @@ CREATE NONCLUSTERED INDEX [artrx_all_ind_12_042413] ON [dbo].[artrx_all] ([void_
 GO
 CREATE NONCLUSTERED INDEX [idx_void_trx_date] ON [dbo].[artrx_all] ([void_flag], [trx_type], [date_applied]) INCLUDE ([customer_code], [doc_ctrl_num], [doc_desc], [salesperson_code], [ship_to_code], [terms_code], [trx_ctrl_num]) ON [PRIMARY]
 GO
-GRANT SELECT ON  [dbo].[artrx_all] TO [public]
+GRANT DELETE ON  [dbo].[artrx_all] TO [public]
 GO
 GRANT INSERT ON  [dbo].[artrx_all] TO [public]
 GO
-GRANT DELETE ON  [dbo].[artrx_all] TO [public]
+GRANT SELECT ON  [dbo].[artrx_all] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[artrx_all] TO [public]
 GO

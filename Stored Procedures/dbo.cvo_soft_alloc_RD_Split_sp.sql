@@ -1046,15 +1046,15 @@ BEGIN
 
 			IF @freight_charge = 1
 			BEGIN
-				IF NOT EXISTS (SELECT 1 FROM dbo.orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @new_ext AND LEFT(user_category,2) IN ('ST','DO'))
-				BEGIN
+-- v2.0			IF NOT EXISTS (SELECT 1 FROM dbo.orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @new_ext AND LEFT(user_category,2) IN ('ST','DO'))
+-- v2.0			BEGIN
 					EXEC dbo.CVO_GetFreight_tot_sp @order_no, @new_ext, @tot_ord_freight, @zip, @weight, @routing, @freight_allow_type, @order_value, @freight_amt OUTPUT
 
 					UPDATE	orders_all
 					SET		tot_ord_freight = @freight_amt
 					WHERE	order_no = @order_no
 					AND		ext = @new_ext
-				END
+--  v2.0		END
 			END
 			ELSE
 			BEGIN
@@ -1127,6 +1127,74 @@ BEGIN
 		ORDER BY order_ext ASC 
 
 	END
+
+	-- v2.0 Update the original order
+	-- If its not been allocated then manually call the freight calculation
+	SELECT	@promo_id = ISNULL(promo_id,''),
+			@promo_level = ISNULL(promo_level,''),
+			@free_shipping = ISNULL(free_shipping,'N')
+	FROM	cvo_orders_all (NOLOCK)
+	WHERE	order_no = @order_no
+	AND		ext = @order_ext
+
+	IF @promo_id > '' AND @free_shipping = 'Y'
+	BEGIN
+		UPDATE	orders_all
+		SET		tot_ord_freight = 0
+		WHERE	order_no = @order_no
+		AND		ext = @order_ext
+	END
+	ELSE
+	BEGIN
+
+		SELECT	@tot_ord_freight = tot_ord_freight,
+				@zip = ship_to_zip,
+				@routing = routing,
+				@freight_allow_type	= ISNULL(freight_allow_type,''),
+				@order_value = total_amt_order
+		FROM	dbo.orders_all (NOLOCK)
+		WHERE	order_no = @order_no
+		AND		ext = @order_ext
+
+		SELECT	@weight	= SUM(ordered * ISNULL(weight_ea,0.0))
+		FROM	dbo.ord_list (NOLOCK)
+		WHERE	order_no = @order_no
+		AND		order_ext = @order_ext
+
+		SELECT	@freight_charge = ISNULL(freight_charge,0)
+		FROM	cvo_armaster_all (NOLOCK)
+		WHERE	customer_code = @customer_code
+		AND		address_type = 0
+
+		IF @freight_charge = 1
+		BEGIN
+				EXEC dbo.CVO_GetFreight_tot_sp @order_no, @order_ext, @tot_ord_freight, @zip, @weight, @routing, @freight_allow_type, @order_value, @freight_amt OUTPUT
+
+				UPDATE	orders_all
+				SET		tot_ord_freight = @freight_amt
+				WHERE	order_no = @order_no
+				AND		ext = @order_ext
+		END
+		ELSE
+		BEGIN
+			UPDATE	orders
+			SET		tot_ord_freight = 0.00, 
+					freight_allow_type = 'FRTOVRID'
+			WHERE	order_no = @order_no
+			AND		ext = @new_ext
+		END
+	END
+	
+	-- If its not been allocated then manually call the tax calculation
+	IF EXISTS (SELECT 1 FROM orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @order_ext AND LEFT(user_category,2) = 'RX')
+	BEGIN		
+		EXEC dbo.fs_calculate_oetax_wrap @order_no, @order_ext, 0, -1
+	END
+
+	-- Manually call the update order totals
+	EXEC dbo.fs_updordtots @order_no, @order_ext
+-- v2.0 End
+
 
 	DROP TABLE #rd_split
 	DROP TABLE #splits

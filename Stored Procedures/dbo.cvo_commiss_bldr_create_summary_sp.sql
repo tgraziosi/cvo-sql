@@ -112,7 +112,7 @@ select a.Salesperson ,
 	   , prior_month_bal = CASE WHEN pfphist.net_pay IS NULL OR pfphist.net_pay = 0 THEN ISNULL(pfp.net_pay,0)
 							ELSE pfphist.net_pay
 						   end
-	   , commission = case WHEN ISNULL(r.commission,0) IN (0,12) THEN 12 ELSE r.commission end, 
+	   , commission = case WHEN ISNULL(r.commission,0) IN (0,12) AND r.salesperson_code <> r.territory_code THEN 12 ELSE r.commission end, 
 	   -- 11/8/2016 - empty territories don't get incentives :)
 	incentivePC = case when (ISNULL(r.commission,0) IN (0, 12) OR r.salesperson_code IN ('WitteBu','OhlhauTh')) AND r.salesperson_code <> r.territory_code
 					then case when amount >= 60000 then 2
@@ -267,6 +267,7 @@ UPDATE d SET
 		AND d.salesperson = ISNULL(@slp, d.salesperson)
 
 -- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt where report_month = '09/2016'
+
 
 
 

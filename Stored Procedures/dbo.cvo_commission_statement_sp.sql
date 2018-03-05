@@ -6,7 +6,7 @@ CREATE PROCEDURE [dbo].[cvo_commission_statement_sp]
     @FiscalPeriod VARCHAR(10)
 AS 
 
--- exec cvo_commission_statement_sp '06/2017'
+-- exec cvo_commission_statement_sp '01/2018'
 
     SET NOCOUNT ON;
 
@@ -22,7 +22,7 @@ AS
 			@i INT;
         
 --DECLARE @fiscalperiod VARCHAR(10)
--- SELECT @fiscalperiod = '08/2017'
+-- SELECT @fiscalperiod = '01/2018'
 
         SELECT  @fp = @FiscalPeriod;
 
@@ -88,7 +88,7 @@ AS
 								ccswt.commission,
                                 RIGHT('00' + CAST(@i AS VARCHAR(2)), 2) mm
                         FROM    dbo.cvo_commission_summary_work_tbl AS ccswt
-						JOIN arsalesp sp ON ccswt.salesperson = sp.salesperson_code 
+						JOIN dbo.arsalesp sp ON ccswt.salesperson = sp.salesperson_code 
 						-- AND ccswt.territory = sp.territory_code
 						UNION ALL
                         SELECT DISTINCT
@@ -102,7 +102,7 @@ AS
 								sp.salesperson_type,
 								sp.commission,
                                 RIGHT('00' + CAST(@i AS VARCHAR(2)), 2) mm
-                        FROM    arsalesp sp
+                        FROM    dbo.arsalesp sp
 						WHERE sp.status_type = 1 AND NOT EXISTS 
 						(SELECT 1 FROM dbo.cvo_commission_summary_work_tbl AS ccswt WHERE ccswt.salesperson = sp.salesperson_code
 							AND RIGHT(@FiscalPeriod,4) = RIGHT(ccswt.report_month,4)
@@ -117,30 +117,30 @@ AS
                 #mm.hiredate ,
 				#mm.termdate ,
                 ISNULL(ty.amount, 0) amount ,
+				ISNULL(ty.acc_amount, 0) acc_amount,
                 ISNULL(ty.comm_amt, 0) comm_amt ,
                 ISNULL(ty.draw_amount, 0.00) draw_amount ,
                 ty.draw_weeks ,
                 ISNULL(ty.commission, #mm.commission) commission ,
                 ISNULL(ty.incentivePC, 0) incentivePC ,
                 ISNULL(ty.incentive, 0) incentive ,
-                addition1 = addition1.addition1,
-				addition2 = addition2.addition2,
-                addition3 = addition3.addition3,
-
-                additionrsn1 = addition1.additionrsn1,
-				additionrsn2 = CASE WHEN #mm.mm = additionalrsn2.month_num
+                addition1.addition1 addition1,
+				addition2.addition2 addition2,
+                addition3.addition3 addition3,
+				addition1.additionrsn1 additionrsn1,
+				CASE WHEN #mm.mm = additionalrsn2.month_num
                                     THEN ISNULL(additionalrsn2.promo_details,
                                                 '')
                                     ELSE ''
-                               END ,
-                additionrsn3 = CASE WHEN #mm.mm = additionalrsn3.month_num
+                               END  additionrsn2,
+                CASE WHEN #mm.mm = additionalrsn3.month_num
                                     THEN ISNULL(additionalrsn3.additionalrsn3,
                                                 '')
                                     ELSE ''
-                               END ,
+                               END additionrsn3,
 
-                reduction1 = reductionrsn1.reduction1 ,
-                reductionrsn1 = reductionrsn1.reductionrsn1 ,
+                reductionrsn1.reduction1 reduction1,
+                reductionrsn1.reductionrsn1 reductionrsn1 ,
                 -- iSNULL(ty.rep_type, 0) rep_type ,
                 -- ISNULL(ty.status_type, 0) status_type ,
 				#mm.rep_type,
@@ -161,36 +161,46 @@ AS
                      THEN lyhist.total_earnings
                      ELSE ISNULL(ly.total_earnings, 0)
                 END AS total_earnings_ly ,
-                general_note = general.comments ,
+                general.comments general_note ,
                 spec_pay.spec_pay
 		INTO #final
         FROM    #mm
-                LEFT OUTER JOIN ( SELECT    id ,
-                                            salesperson ,
-                                            amount ,
-                                            comm_amt ,
-                                            draw_amount ,
-                                            draw_weeks ,
-                                            commission ,
-                                            incentivePC ,
-                                            incentive ,
-                                            other_additions ,
-                                            reduction ,
-                                            addition_rsn ,
-                                            reduction_rsn ,
-                                            territory ,
-                                            region ,
-                                            total_earnings ,
-                                            total_draw ,
-                                            prior_month_bal ,
-                                            net_pay ,
-                                            report_month ,
-                                            current_flag ,
-                                            promo_detail ,
-                                            promo_sum
-                                  FROM      cvo_commission_summary_work_tbl
-                                  WHERE     @year = CAST(RIGHT(report_month, 4) AS INT)
-                                            AND @month > = CAST(LEFT(report_month,
+                LEFT OUTER JOIN ( SELECT    cswt.id ,
+                                            cswt.salesperson ,
+                                            cswt.amount ,
+											ISNULL(acc.acc_amount,0)  acc_amount,
+                                            cswt.comm_amt ,
+                                            cswt.draw_amount ,
+                                            cswt.draw_weeks ,
+                                            cswt.commission ,
+                                            cswt.incentivePC ,
+                                            cswt.incentive ,
+                                            cswt.other_additions ,
+                                            cswt.reduction ,
+                                            cswt.addition_rsn ,
+                                            cswt.reduction_rsn ,
+                                            cswt.territory ,
+                                            cswt.region ,
+                                            cswt.total_earnings ,
+                                            cswt.total_draw ,
+                                            cswt.prior_month_bal ,
+                                            cswt.net_pay ,
+                                            cswt.report_month ,
+                                            cswt.current_flag ,
+                                            cswt.promo_detail ,
+                                            cswt.promo_sum
+                                  FROM      dbo.cvo_commission_summary_work_tbl cswt
+
+								  LEFT OUTER JOIN
+                                  ( SELECT cbwt.fiscal_period, salesperson, territory, SUM(amount) acc_amount FROM dbo.cvo_commission_bldr_work_tbl AS cbwt 
+								   WHERE brand = 'ACC'
+								   GROUP BY cbwt.fiscal_period,
+											cbwt.Salesperson,
+                                            cbwt.Territory
+								  ) acc ON acc.Salesperson = cswt.salesperson AND acc.Territory = cswt.territory AND acc.fiscal_period = cswt.report_month
+
+                                  WHERE     @year = CAST(RIGHT(cswt.report_month, 4) AS INT)
+                                            AND @month > = CAST(LEFT(cswt.report_month,
                                                               2) AS INT)
                                 ) ty ON ty.salesperson = #mm.salesperson
                                         AND #mm.mm = LEFT(ty.report_month, 2)
@@ -199,7 +209,7 @@ AS
 											 c.territory,
                                             LEFT(c.report_month, 2) month_num ,
                                             c.total_earnings
-                                  FROM      cvo_commission_history_tbl c
+                                  FROM      dbo.cvo_commission_history_tbl c
                                   WHERE     CAST(RIGHT(c.report_month, 4) AS INT) = @year
                                             AND @month > = CAST(LEFT(report_month,
                                                               2) AS INT)
@@ -210,7 +220,7 @@ AS
 											c.territory,
                                             LEFT(c.report_month, 2) month_num ,
                                             ISNULL(total_earnings, 0.00) total_earnings
-                                  FROM      cvo_commission_summary_work_tbl c
+                                  FROM      dbo.cvo_commission_summary_work_tbl c
                                   WHERE     CAST(RIGHT(c.report_month, 4) AS INT) = @prior_year
                                 ) ly ON #mm.salesperson = ly.salesperson
                                         AND #mm.mm = ly.month_num
@@ -219,7 +229,7 @@ AS
 											c.territory,
                                             LEFT(c.report_month, 2) month_num ,
                                             c.total_earnings
-                                  FROM      cvo_commission_history_tbl c
+                                  FROM      dbo.cvo_commission_history_tbl c
                                   WHERE     CAST(RIGHT(c.report_month, 4) AS INT) = @prior_year
                                 ) lyhist ON #mm.salesperson = lyhist.salesperson
                                             AND lyhist.month_num = #mm.mm
@@ -415,41 +425,42 @@ AS
 
 		SELECT DISTINCT f.id ,
                f.salesperson ,
-               salesperson_name ,
-               hiredate ,
-               termdate ,
-               amount ,
-               comm_amt ,
-               draw_amount ,
-               draw_weeks ,
-               commission ,
-               incentivePC ,
-               incentive ,
-               addition1 ,
-               addition2 ,
-               addition3 ,
-               additionrsn1 ,
-               additionrsn2 ,
-               additionrsn3 ,
-               reduction1 ,
-               reductionrsn1 ,
-               rep_type ,
-               status_Type ,
+               f.salesperson_name ,
+               f.hiredate ,
+               f.termdate ,
+               f.amount ,
+			   f.acc_amount ,
+               f.comm_amt ,
+               f.draw_amount ,
+               f.draw_weeks ,
+               f.commission ,
+               f.incentivePC ,
+               f.incentive ,
+               f.addition1 ,
+               f.addition2 ,
+               f.addition3 ,
+               f.additionrsn1 ,
+               f.additionrsn2 ,
+               f.additionrsn3 ,
+               f.reduction1 ,
+               f.reductionrsn1 ,
+               f.rep_type ,
+               f.status_Type ,
                f.territory ,
-               region ,
-               total_earnings ,
-               total_draw ,
-               prior_month_bal ,
-               net_pay ,
+               f.region ,
+               f.total_earnings ,
+               f.total_draw ,
+               f.prior_month_bal ,
+               f.net_pay ,
                f.report_month ,
-               current_flag ,
-               promo_detail ,
-               promo_sum ,
-               month_num ,
-               year_ly ,
-               total_earnings_ly ,
-               general_note ,
-               spec_pay FROM #final f
+               f.current_flag ,
+               f.promo_detail ,
+               f.promo_sum ,
+               f.month_num ,
+               f.year_ly ,
+               f.total_earnings_ly ,
+               f.general_note ,
+               f.spec_pay FROM #final f
 			   LEFT OUTER JOIN 
 			   (SELECT MAX(fin.id) id, fin.salesperson, fin.territory, fin.report_month FROM #final fin 
 			   GROUP BY fin.salesperson, fin.territory, fin.report_month) ff
@@ -457,6 +468,8 @@ AS
 			   ;
 
     END;
+
+
 
 
 

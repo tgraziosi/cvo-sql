@@ -57,7 +57,3 @@ CREATE TABLE [dbo].[DPR_Report]
 [type_code] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [idx_drp_forcir] ON [dbo].[DPR_Report] ([collection], [style], [location]) WITH (ALLOW_PAGE_LOCKS=OFF) ON [PRIMARY]
-GO
-CREATE NONCLUSTERED INDEX [idx_drp_main] ON [dbo].[DPR_Report] ([collection], [style], [location], [type_code]) INCLUDE ([part_no]) ON [PRIMARY]
-GO

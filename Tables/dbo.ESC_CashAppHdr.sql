@@ -15,8 +15,6 @@ CREATE TABLE [dbo].[ESC_CashAppHdr]
 GO
 CREATE CLUSTERED INDEX [ESC_CashAppHdr_ix0] ON [dbo].[ESC_CashAppHdr] ([ParentRecID]) WITH (ALLOW_PAGE_LOCKS=OFF) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [idx02] ON [dbo].[ESC_CashAppHdr] ([PayerCustCode]) WITH (ALLOW_PAGE_LOCKS=OFF) ON [PRIMARY]
-GO
 GRANT REFERENCES ON  [dbo].[ESC_CashAppHdr] TO [public]
 GO
 GRANT SELECT ON  [dbo].[ESC_CashAppHdr] TO [public]

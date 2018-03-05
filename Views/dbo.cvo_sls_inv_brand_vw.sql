@@ -20,6 +20,7 @@ GO
 --*/
 
 -- 8/16/2016 - remove 999 from inventory to include.  They want it as part of salesperson bags, as per DL
+-- 2/16/2018 - add pogo Accessories
 
 --SELECT @MONTH = 7
 --SELECT @YEAR = 2013
@@ -29,22 +30,23 @@ case when category = 'UN' then 'ME'
     when category = 'izx' then 'IZOD'
     WHEN CATEGORY = 'CORP' THEN 'CVO'
     ELSE CATEGORY END AS BRAND, 
-'FRAME' as TYPE_CODE, 
+CASE WHEN INV.type_code IN ('frame','sun') THEN 'FRAME' ELSE INV.type_code end as TYPE_CODE, 
 sum(isnull(cvo_in_stock,0)+isnull(pns_qty,0)+isnull(qc_qty,0)+isnull(int_qty,0))
  AS tot_qty,
 sum(isnull(cvo_ext_value,0)+isnull(pns_value,0)+isnull(qc_value,0)+isnull(int_value,0)) as tot_value,
 obs, location, datepart(month,asofdate) month, datepart(year,asofdate) year
-from cvo_inv_val_month
+from DBO.cvo_inv_val_month INV
 where
  -- (location <= '200 - AAAA' or location >= '999')
  (location <= '200 - AAAA' or location > '999')
-and type_code in ('frame','sun') 
+and type_code in ('frame','sun','ACC') 
 --AND @MONTH = DATEPART(MONTH,ASOFDATE) AND @YEAR = DATEPART(YEAR,ASOFDATE)
-group by 
+group BY 
 case when category = 'UN' then 'ME'
     when category = 'izx' then 'IZOD'
     WHEN CATEGORY = 'CORP' THEN 'CVO'
     ELSE CATEGORY END, 
+	CASE WHEN INV.type_code IN ('frame','sun') THEN 'FRAME' ELSE INV.type_code END,
     obs, location, datepart(month,asofdate), datepart(year,asofdate)
 
 UNION ALL
@@ -55,8 +57,9 @@ case when category = 'UN' then 'ME'
     WHEN CATEGORY = 'CORP' THEN 'CVO'
     ELSE CATEGORY END AS BRAND, 
     -- 102113 - show ALL sales per DL request
-case when I.TYPE_CODE in ('sun','FRAME') then 'FRAME'
-    else 'PARTS' end as type_code,
+case when I.TYPE_CODE in ('sun','FRAME') then 'FRAME' 
+	 WHEN I.type_code = 'ACC' THEN 'ACC'
+	 ELSE 'PARTS' END as type_code,
 SUM(ISNULL(QNET,0)) AS TOT_QTY,
 SUM(ISNULL(ANET,0)) AS TOT_VALUE,
 CASE WHEN I.OBSOLETE = 0 THEN 'No'
@@ -73,8 +76,11 @@ GROUP BY case when category = 'UN' then 'ME'
     when category = 'izx' then 'IZOD'
     WHEN CATEGORY = 'CORP' THEN 'CVO'
     ELSE CATEGORY END, 
-    case when I.TYPE_CODE in ('sun','FRAME') then 'FRAME' else 'PARTS' end, 
+    case when I.TYPE_CODE in ('sun','FRAME') then 'FRAME' 
+		 WHEN I.type_code = 'ACC' THEN 'ACC' 
+		 ELSE 'PARTS' end, 
     I.obsolete, sbm.location, sbm.c_month, sbm.c_year
+
 
 
 

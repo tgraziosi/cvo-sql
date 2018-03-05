@@ -16,8 +16,6 @@ CREATE TABLE [dbo].[glerrlst]
 [int_parm_2] [int] NULL
 ) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [glerrlst_ind_1] ON [dbo].[glerrlst] ([client_id], [e_code]) ON [PRIMARY]
-GO
 CREATE UNIQUE CLUSTERED INDEX [glerrlst_ind_0] ON [dbo].[glerrlst] ([seq_id]) ON [PRIMARY]
 GO
 GRANT REFERENCES ON  [dbo].[glerrlst] TO [public]

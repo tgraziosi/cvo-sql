@@ -10,6 +10,7 @@ v1.3 - CB 14/09/2015 - #1550 - Add location
 v1.4 - CB 10/11/2015 - Fix for list price
 v1.5 - CB 04/02/2016 - #1588 Add flat dollar discount to promos
 v1.6 - CB 31/05/2016 - Include orders on hold
+v1.7 - CB 07/02/2018 - Fix issue with promo price not being picked up
 Returns:	0 = Sucess
 			-1 = Nothing marked to process
 			1 = Not all orders processed
@@ -413,8 +414,10 @@ BEGIN
 				WHERE
 					promo_id = @promo_id
 					AND promo_level = @promo_level
-					AND ((ISNULL(brand,'') = '') OR (ISNULL(brand,'') <> @brand))
-					AND ((ISNULL(category,'') = '') OR (ISNULL(category,'') <> @category))
+					AND ((ISNULL(brand,'') = '') OR (ISNULL(brand,'') = @brand)) -- v1.7
+					AND ((ISNULL(category,'') = '') OR (ISNULL(category,'') = @category)) -- v1.7
+-- v1.7 ?????		AND ((ISNULL(brand,'') = '') OR (ISNULL(brand,'') <> @brand))
+-- v1.7 ?????		AND ((ISNULL(category,'') = '') OR (ISNULL(category,'') <> @category))
 				ORDER BY
 					line_no
 

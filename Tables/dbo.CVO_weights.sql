@@ -6,8 +6,6 @@ CREATE TABLE [dbo].[CVO_weights]
 [charge] [decimal] (20, 8) NULL
 ) ON [PRIMARY]
 GO
-CREATE UNIQUE NONCLUSTERED INDEX [cvo_weights] ON [dbo].[CVO_weights] ([ID]) ON [PRIMARY]
-GO
 CREATE CLUSTERED INDEX [cvo_weights_idx1] ON [dbo].[CVO_weights] ([Weight_code], [wgt]) ON [PRIMARY]
 GO
 GRANT REFERENCES ON  [dbo].[CVO_weights] TO [public]

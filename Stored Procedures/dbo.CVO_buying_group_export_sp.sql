@@ -94,33 +94,33 @@ create index idx_id on #buy(ID)
 create table #buy_out  
 (  
 ID              int,  
-customer  varchar(8),  
-account_num  varchar(8),  
-child   varchar(12),  
-member_name  varchar(30),  
-issue   varchar(3),  
+customer  varchar(8),	 -- 1-8
+account_num  varchar(8), -- 9-16
+child   varchar(12),	 -- 17-28
+member_name  varchar(30), -- 29-58
+issue   varchar(3),		-- 59-61
   
-discount  varchar(4),  
-type   varchar(1),  
-invoice   varchar(12),  
-split   varchar(3),  
-invoice_date varchar(8),  
+discount  varchar(4),	 -- 62-65
+type   varchar(1),		 -- 66
+invoice   varchar(12),		-- 67-78
+split   varchar(3),		 -- 79-81
+invoice_date varchar(8),  -- 82-89
   
-terms   varchar(3),  
-bill_mon  varchar(2),  
-bill_year  varchar(4),  
-merch   varchar(12),  
-non_merch  varchar(12),  
+terms   varchar(3),		 -- 90-92
+bill_mon  varchar(2),	 -- 93-94 
+bill_year  varchar(4),   -- 95-98
+merch   varchar(12),	 -- 99-110
+non_merch  varchar(12),  -- 111-122
   
-freight   varchar(10),  
-tax    varchar(10),  
-misc   varchar(12),  
-non_disc  varchar(12),  
-total   varchar(12),  
+freight   varchar(10),  -- 123-132
+tax    varchar(10),		-- 133-142
+misc   varchar(12),		-- 143-154,
+non_disc  varchar(12),  -- 155-166
+total   varchar(12),	-- 167-178
   
-mer_disc  varchar(12),  
-tot_due   varchar(12),  
-inv_seq   varchar(2),  
+mer_disc  varchar(12),  -- 179-190
+tot_due   varchar(12),  -- 191-202
+inv_seq   varchar(2),   -- 203-204
 terms_code  varchar(8)  
 )  
  
@@ -392,6 +392,7 @@ and round(total,2) = 0
 -- tag - 071013
 update #buy set merch = '0.00' where discount = 0 and merch <> '0.00' and non_merch <> '0.00'
 
+/*
 -- START v1.2
 -- Loop through #bg_log table and apply credit return fees for any matching credits
 SET @doc_ctrl_num = ''
@@ -456,7 +457,7 @@ BEGIN
 	END
 END
 -- END v1.2
-  
+*/ 
  
 
 -- update results  
@@ -636,7 +637,7 @@ Begin
             update #Buy  
             set   
 			-- tag 092514 - fix for installment with no -01 ...
-   split = case when charindex('-',@invoice) > 0 then
+			split = case when charindex('-',@invoice) > 0 then
 			right('000'+ substring(@invoice,charindex('-',@invoice)+1,len(@invoice)-charindex('-',@invoice)),3)  
 			else '001' end
    where invoice = @invoice  
@@ -842,6 +843,9 @@ exec CVO_buying_group_export_two_sp @WHERECLAUSE
   
   
 --drop table ##exp1_temp  
+
+
+
 GO
 GRANT EXECUTE ON  [dbo].[CVO_buying_group_export_sp] TO [public]
 GO

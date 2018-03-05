@@ -34,11 +34,7 @@ CREATE TABLE [dbo].[artrxpdt]
 [org_id] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [artrxpdt_ind_2] ON [dbo].[artrxpdt] ([apply_to_num], [trx_type]) ON [PRIMARY]
-GO
 CREATE CLUSTERED INDEX [artrxpdt_ind_0] ON [dbo].[artrxpdt] ([customer_code], [doc_ctrl_num], [trx_type], [trx_ctrl_num], [sequence_id]) ON [PRIMARY]
-GO
-CREATE NONCLUSTERED INDEX [artrxpdt_ind_3] ON [dbo].[artrxpdt] ([customer_code], [doc_ctrl_num], [trx_type], [void_flag]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [artrxpdt_ind_4] ON [dbo].[artrxpdt] ([sub_apply_num], [sub_apply_type]) ON [PRIMARY]
 GO

@@ -15,8 +15,6 @@ CREATE TABLE [dbo].[tdc_log]
 [data] [varchar] (7500) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [tdc_log_idx3] ON [dbo].[tdc_log] ([bin_no], [location]) WITH (ALLOW_PAGE_LOCKS=OFF) ON [PRIMARY]
-GO
 CREATE NONCLUSTERED INDEX [tdc_log_idx4] ON [dbo].[tdc_log] ([tran_date]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [tdc_log_idx1] ON [dbo].[tdc_log] ([tran_date], [location], [part_no]) ON [PRIMARY]

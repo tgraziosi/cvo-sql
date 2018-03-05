@@ -15,8 +15,6 @@ CREATE TABLE [dbo].[CVO_drawdown_promo_qualified_lines]
 GO
 CREATE NONCLUSTERED INDEX [CVO_drawdown_promo_qualified_lines_inx02] ON [dbo].[CVO_drawdown_promo_qualified_lines] ([SPID], [promo_id], [promo_level]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [CVO_drawdown_promo_qualified_lines_inx01] ON [dbo].[CVO_drawdown_promo_qualified_lines] ([SPID], [rec_id]) ON [PRIMARY]
-GO
 GRANT REFERENCES ON  [dbo].[CVO_drawdown_promo_qualified_lines] TO [public]
 GO
 GRANT SELECT ON  [dbo].[CVO_drawdown_promo_qualified_lines] TO [public]

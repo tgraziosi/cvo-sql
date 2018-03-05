@@ -15,8 +15,6 @@ CREATE TABLE [dbo].[ewnumber]
 [fill4] [char] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL
 ) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [ewnumber_ind_1] ON [dbo].[ewnumber] ([mask]) ON [PRIMARY]
-GO
 CREATE UNIQUE CLUSTERED INDEX [ewnumber_ind_0] ON [dbo].[ewnumber] ([num_type]) ON [PRIMARY]
 GO
 GRANT REFERENCES ON  [dbo].[ewnumber] TO [public]

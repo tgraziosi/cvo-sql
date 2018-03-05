@@ -18,7 +18,5 @@ CREATE TABLE [dbo].[cvo_psbm]
 [yyyymmdd] [datetime] NULL
 ) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [idx_cvo_psbm] ON [dbo].[cvo_psbm] ([part_no], [Brand], [Model], [month], [year], [yyyymmdd]) ON [PRIMARY]
-GO
 GRANT SELECT ON  [dbo].[cvo_psbm] TO [public]
 GO
