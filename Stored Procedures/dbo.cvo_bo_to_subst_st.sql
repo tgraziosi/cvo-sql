@@ -320,7 +320,7 @@ BEGIN
         WHERE LINE_TYPE = 'v'
               AND sort_seq = 4
               AND atp > 0
-              AND quantity > 0
+              AND quantity > 50
         ) AS ifp
             ON O.brand = ifp.brand
                AND O.style = ifp.style
@@ -629,6 +629,7 @@ BEGIN
              order_no;
 
 END;
+
 
 
 
