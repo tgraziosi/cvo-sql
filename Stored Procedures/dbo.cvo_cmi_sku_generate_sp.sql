@@ -21,7 +21,7 @@ BEGIN
 -- 
 -- exec [cvo_cmi_sku_generate_sp] 'OP', '853', NULL, null, '12/31/2017','N', 1
 
--- exec [cvo_cmi_sku_generate_sp] 'IZOD', '2057', NULL, null, '12/21/2018','N', 1
+-- exec [cvo_cmi_sku_generate_sp] 'cvo', 'alice', NULL, null, '12/21/2019','N', 1
 
 -- updates:
 -- 6/8/2016 - fixup hang tag and upc parts for retail sku's.  
@@ -133,9 +133,9 @@ SELECT part_no ,
        ws_ship1_qty ,
        ws_ship2_qty ,
        ws_ship3_qty ,
-       img_34 ,
-       img_temple ,
-       img_front ,
+       --img_34 ,
+       --img_temple ,
+       --img_front ,
        img_sku ,
        print_flag ,
        upc_code ,
@@ -2418,6 +2418,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

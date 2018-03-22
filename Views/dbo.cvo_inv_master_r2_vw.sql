@@ -6,7 +6,7 @@ GO
 
 -- select top 100 * From cvo_inv_master_r2_vw where collection = 'op' and model = '808'
 -- select * From cvo_cmi_catalog_view where model = 'simona'
--- select top 1000 * from cvo_inv_master_r2_vw
+-- select top 1000 * from cvo_inv_master_r2_vw where collection = 'bcbg' and model = 'festive'
 
 CREATE VIEW [dbo].[cvo_inv_master_r2_vw] AS 
 
@@ -15,12 +15,12 @@ cia.item_code,
 i.category Collection,
 cat.description AS CollectionName,  -- EL added 10/14/2013
 ia.field_2 model, 
-cia.img_front, 
-cia.img_temple,
-cia.img_34, -- 052114
-cia.img_front_hr,
-cia.img_temple_hr,
-cia.img_34_hr, -- 040214
+--cia.img_front, 
+--cia.img_temple,
+--cia.img_34, -- 052114
+--cia.img_front_hr,
+--cia.img_temple_hr,
+--cia.img_34_hr, -- 040214
 cia.IMG_SKU, -- 082415
 CIA.IMG_WEB, -- 022516
 cia.img_specialtyfit,
@@ -91,7 +91,9 @@ pp.front_cost
  WHEN ia.category_2 LIKE '%child%' THEN 'kids'
  ELSE ISNULL(g.description,'') END) AS PrimaryDemo_Web,
  ISNULL(pa.attribute,'') attributes -- 1/8/2018 - multiple attributes
-
+ , isnull(x.special_components,'') as special_components
+ , ISNULL(x.suns_only,'') suns_only
+ , ISNULL(x.lens_base,'') lens_base
 
 FROM inv_master i (NOLOCK)
 INNER JOIN inv_master_add ia (NOLOCK) ON i.part_no = ia.part_no
@@ -123,7 +125,15 @@ LEFT OUTER JOIN cvo_inv_features_vw pf ON
 	AND pf.feature_group = 'Progressive Friendly'
 -- 12/4/2015 get a,b,ed from cmi if available
 LEFT OUTER JOIN 
-(SELECT part_no, a_size, b_size, ed_size, d.dim_unit, m.eye_shape
+(SELECT part_no, a_size, b_size, ed_size, d.dim_unit, m.eye_shape, m.suns_only, m.lens_base
+-- 3/8/2018 - for AK
+, ISNULL(m.component_1,'')+
+CASE WHEN ISNULL(m.component_2,'') = '' THEN '' ELSE '|'+m.component_2 END +
+CASE WHEN ISNULL(m.component_3,'') = '' THEN '' ELSE '|'+m.component_3 END +
+CASE WHEN ISNULL(m.component_4,'') = '' THEN '' ELSE '|'+m.component_4 END + 
+CASE WHEN ISNULL(m.component_5,'') = '' THEN '' ELSE '|'+m.component_5 END +
+CASE WHEN ISNULL(m.component_6,'') = '' THEN '' ELSE '|'+m.component_6 END 
+as special_components
  FROM dbo.cvo_cmi_sku_xref xref
  JOIN dbo.cvo_cmi_dimensions d ON xref.dim_id = d.id
   JOIN dbo.cvo_cmi_models m ON m.id = d.model_id
@@ -143,6 +153,8 @@ WHERE i.void='n' AND i.type_code IN ('frame','sun')
 
 
 -- select * From cvo_part_price_cost_vw where part_no = 'cvellblu5114'
+
+
 
 
 

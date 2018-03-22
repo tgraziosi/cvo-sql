@@ -76,7 +76,7 @@ BEGIN
         )
         SELECT DISTINCT
                kys
-        FROM category
+        FROM dbo.category
         WHERE void = 'n';
     END;
     ELSE
@@ -128,7 +128,7 @@ BEGIN
         )
         SELECT DISTINCT
                parent
-        FROM arnarel;
+        FROM dbo.arnarel;
 
         INSERT INTO @bg_tbl
         (
@@ -174,7 +174,7 @@ BEGIN
     END;
 
     IF @debug = 1
-        SELECT *
+        SELECT a.code
         FROM @activedes_tbl AS a;
 
     -- Lookup 0 & 9 affiliated Accounts
@@ -185,8 +185,8 @@ BEGIN
            a.customer_code AS from_cust,
            a.affiliated_cust_code AS to_cust
     INTO #Rank_Aff
-    FROM armaster a (NOLOCK)
-        INNER JOIN armaster b (NOLOCK)
+    FROM dbo.armaster a (NOLOCK)
+        INNER JOIN dbo.armaster b (NOLOCK)
             ON a.affiliated_cust_code = b.customer_code
     WHERE a.address_type <> 9
           AND ISNULL(a.affiliated_cust_code, '') <> ''
@@ -232,9 +232,9 @@ BEGIN
     (
     SELECT -- t1.customer_code ,
         RIGHT(t1.customer_code, 5) MergeCust,
-        ship_to = CASE WHEN @CustOpt = 'B' THEN '' ELSE t1.ship_to_code END,
+        CASE WHEN @CustOpt = 'B' THEN '' ELSE t1.ship_to_code END ship_to,
         territory_code AS Terr,
-        Door = CASE WHEN T2.door = 1 THEN 'Y' ELSE '' END,
+        CASE WHEN T2.door = 1 THEN 'Y' ELSE '' END Door,
         address_name,
         ISNULL(addr2, '') addr2,
         CASE WHEN addr3 LIKE '%, __ %' THEN '' ELSE addr3 END AS addr3,
@@ -965,6 +965,7 @@ BEGIN
             ON T1.customer = ar.customer;
 
 END;
+
 GO
 
 GRANT EXECUTE ON  [dbo].[RankCust_all_sp] TO [public]

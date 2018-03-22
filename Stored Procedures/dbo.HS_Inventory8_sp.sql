@@ -35,7 +35,7 @@ GO
 -- 11/8/2017 - tweaks for 2018 sunps/presell season
 -- 12/18/2017 - change to look at cvo_part_attributes table instead of field_32
 -- 2/5/2018 - misc performance udpates
---
+-- 3/9/2018 - setup temp table for usage instead of joining to the function - performance.
 -- =============================================
 
 CREATE PROCEDURE [dbo].[HS_Inventory8_sp]
@@ -86,7 +86,7 @@ BEGIN
     -- 8/26/2015
     DELETE @EOS 
 	FROM @EOS EOS
-	join DBO.inv_master_add ia on ia.part_no = EOS.part_no
+	join DBO.inv_master_add ia (nolock) on ia.part_no = EOS.part_no
     WHERE (EOS.Brand = 'ch' AND @today >= @CH
           )
           OR (EOS.Brand = 'me' AND @today >= @ME
@@ -96,6 +96,77 @@ BEGIN
           OR (isnull(IA.field_36,'')) = 'SUNPS'
 	;	  
 
+	-- get usage data
+
+	
+	CREATE TABLE #DRP
+	(
+		location VARCHAR(10),
+		part_no VARCHAR(7500),
+		usg_option CHAR(1),
+		ASofdate DATETIME,
+		e4_wu INT,
+		e12_wu INT,
+		e26_wu INT,
+		e52_wu INT,
+		subs_w4 INT,
+		subs_w12 INT,
+		promo_w4 INT,
+		promo_w12 INT,
+		rx_w4 INT,
+		rx_w12 INT,
+		ret_w4 INT,
+		ret_w12 INT,
+		wty_w4 INT,
+		wty_w12 INT,
+		gross_w4 INT,
+		gross_w12 INT
+	);
+
+	INSERT #DRP
+	(
+	    location,
+	    part_no,
+	    usg_option,
+	    ASofdate,
+	    e4_wu,
+	    e12_wu,
+	    e26_wu,
+	    e52_wu,
+	    subs_w4,
+	    subs_w12,
+	    promo_w4,
+	    promo_w12,
+	    rx_w4,
+	    rx_w12,
+	    ret_w4,
+	    ret_w12,
+	    wty_w4,
+	    wty_w12,
+	    gross_w4,
+	    gross_w12
+	)
+	SELECT location,
+           part_no,
+           usg_option,
+           ASofdate,
+           e4_wu,
+           e12_wu,
+           e26_wu,
+           e52_wu,
+           subs_w4,
+           subs_w12,
+           promo_w4,
+           promo_w12,
+           rx_w4,
+           rx_w12,
+           ret_w4,
+           ret_w12,
+           wty_w4,
+           wty_w12,
+           gross_w4,
+           gross_w12
+		   from dbo.f_cvo_calc_weekly_usage_coll_loc('o', NULL, @location)
 
     -- make a list of Costco sku's from history
     IF (OBJECT_ID('tempdb.dbo.#cc') IS NOT NULL)
@@ -132,7 +203,9 @@ BEGIN
                                    I.category = 'as'
                                    AND IA.field_2 = 'colorful'
                                    ) THEN RTRIM(LEFT(I.part_no, 6)) -- 9/6/2016 put all colorful together
+						  when ia.field_2 = 'G-LILAH' AND I.CATEGORY = 'BCBG' THEN 'BCGLIA'
                           WHEN I.type_code IN ( 'sun', 'frame' ) THEN LEFT(I.part_no, LEN(I.part_no) - 7)ELSE ''
+						 
                       END
                   ) AS mastersku,
            CASE WHEN I.category IN ( 'revo', 'op' )
@@ -202,7 +275,7 @@ BEGIN
                WHEN I.category = 'BCBG'
                     AND EXISTS (
                                SELECT 1
-                               FROM dbo.cvo_part_attributes AS pa
+                               FROM dbo.cvo_part_attributes AS pa (nolock)
                                WHERE pa.part_no = I.part_no
                                      AND pa.attribute = 'RETAIL'
                                ) THEN 'BCBGR SELLDWN'
@@ -244,7 +317,7 @@ BEGIN
                     AND ISNULL(IA.field_36, '') = 'SUNPS'
                     AND NOT EXISTS (
                                    SELECT 1
-                                   FROM dbo.cvo_part_attributes AS pa
+                                   FROM dbo.cvo_part_attributes AS pa (nolock)
                                    WHERE pa.part_no = IA.part_no
                                          AND pa.attribute = 'retail'
                                    ) THEN 'FASHION'
@@ -328,21 +401,21 @@ ELSE '' END GENDER,
         LEFT OUTER JOIN #cc c
             ON c.part_no = I.part_no
         -- 030215 -- get apr info from table
-        LEFT OUTER JOIN dbo.cvo_apr_tbl apr
+        LEFT OUTER JOIN dbo.cvo_apr_tbl apr (nolock)
             ON apr.sku = I.part_no
                AND @today
                BETWEEN apr.eff_date AND apr.obs_date -- 3/2/2015 tag
         -- 032615 use drp 4 week usage as safety stock
         --LEFT OUTER JOIN DPR_Report drp ( NOLOCK ) ON drp.part_no = I.part_no
         --                                             AND drp.location = @location
-        LEFT OUTER JOIN dbo.f_cvo_calc_weekly_usage_coll_loc('o', NULL, @location) AS drp
+        LEFT OUTER JOIN #DRP drp
             ON drp.part_no = I.part_no
     WHERE I.void <> 'V'
           AND I.category NOT IN ( 'CORP', 'FP' )
           AND (
               NOT EXISTS (
                          SELECT 1
-                         FROM dbo.cvo_part_attributes AS pa
+                         FROM dbo.cvo_part_attributes AS pa (nolock)
                          WHERE pa.part_no = IA.part_no
                                AND pa.attribute IN ( 'HVC', 'RETAIL', 'COSTCO', 'SpecialOrd', 'btconvert', 'customtmpl' )
                          )
@@ -364,7 +437,7 @@ ELSE '' END GENDER,
               OR (
                  EXISTS (
                         SELECT 1
-                        FROM dbo.cvo_part_attributes AS pa2
+                        FROM dbo.cvo_part_attributes AS pa2 (nolock)
                         WHERE pa2.part_no = I.part_no
                               AND pa2.attribute = 'retaiL'
                         )
@@ -547,20 +620,20 @@ ELSE '' END GENDER,
            SUNPS
     FROM #Data1
     WHERE SUNPS <> ''
-    UNION ALL
-    SELECT DISTINCT
-           mastersku,
-           6 AS num,
-           'Selldown'
-    FROM #Data1 d
-    WHERE [category:1] IN ( 'qop', 'eor' )
-          AND COLL IN ( 'bcbg', 'et' )
-          AND NOT EXISTS (
-                         SELECT 1
-                         FROM #Data1 dd
-                         WHERE d.mastersku = dd.mastersku
-                               AND dd.[category:1] NOT IN ( 'qop', 'eor' )
-                         )
+    --UNION ALL
+    --SELECT DISTINCT
+    --       mastersku,
+    --       6 AS num,
+    --       'Selldown'
+    --FROM #Data1 d
+    --WHERE [category:1] IN ( 'qop', 'eor' )
+    --      AND COLL IN ( 'bcbg', 'et' )
+    --      AND NOT EXISTS (
+    --                     SELECT 1
+    --                     FROM #Data1 dd
+    --                     WHERE d.mastersku = dd.mastersku
+    --                           AND dd.[category:1] NOT IN ( 'qop', 'eor' )
+    --                     )
     --UNION ALL
     --SELECT mastersku, 6 AS num, '1.1' FROM #data1 WHERE ReleaseDate = '11/2/2015' AND COLL = 'AS'
     --UNION ALL
@@ -874,6 +947,39 @@ ELSE '' END GENDER,
     END;
 
     INSERT INTO dbo.cvo_hs_inventory_8
+    (
+        sku,
+        mastersku,
+        name,
+        unitPrice,
+        minQty,
+        multQty,
+        Manufacturer,
+        barcode,
+        longdesc,
+        VariantDescription,
+        imageURLs,
+        [category:1],
+        [category:2],
+        Color,
+        Size,
+        [|],
+        COLL,
+        Model,
+        POMDate,
+        ReleaseDate,
+        Status,
+        GENDER,
+        SpecialtyFit,
+        APR,
+        New,
+        SUNPS,
+        CostCo,
+        ShelfQty,
+        NextPODueDate,
+        hide,
+        MasterHIDE
+    )
     SELECT t1.sku,
            t1.mastersku,
            t1.name,
@@ -991,12 +1097,12 @@ ELSE '' END GENDER,
     WITH cte
     AS (SELECT i8.mastersku,
                MIN(#cats.crank) newcat
-        FROM dbo.cvo_hs_inventory_8 i8
+        FROM dbo.cvo_hs_inventory_8 i8 (nolock)
             LEFT OUTER JOIN #cats
                 ON #cats.category = i8.[category:1]
         WHERE i8.mastersku IN (
                               SELECT mastersku
-                              FROM cvo_hs_inventory_8
+                              FROM cvo_hs_inventory_8 (nolock)
                               WHERE [category:1] <> 'pop'
                                     AND mastersku <> ''
                               GROUP BY mastersku
@@ -1015,7 +1121,7 @@ ELSE '' END GENDER,
                          )
     -- select cte.mastersku, cte.newcat, (select category from #cats where crank = cte.newcat)  
     FROM cte
-        INNER JOIN dbo.cvo_hs_inventory_8 i
+        INNER JOIN dbo.cvo_hs_inventory_8 i (nolock)
             ON i.mastersku = cte.mastersku;
 
     /*
@@ -1110,4 +1216,7 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
     WHERE [category:1] = 'ME SELL-DOWN';
 
 END;
+
+
+
 GO

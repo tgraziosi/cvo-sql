@@ -42,6 +42,11 @@ AS
         --SELECT * FROM   dbo.cvo_sc_transfers_allocation AS sta;
         --SELECT * FROM   cvo_sc_transfers_templates AS stt;
 
+		--SELECT * 
+		--FROM cvo_sc_transfers t
+		--JOIN dbo.cvo_sc_transfers_templates AS stt ON stt.template_group = t.template_group
+		--WHERE isactive = 1;
+
 		-- SELECT * FROM cvo_transfer_vw WHERE date_entered > '10/18/2017'
 		--INSERT dbo.cvo_sc_transfers_allocation (transfer_id, template_id, SKU, alloc_date, TEMPLATE_GROUP)
 		--SELECT transfer_id, template_id, 'CVZBOPTTRAY', sta.alloc_date, TEMPLATE_GROUP
@@ -77,7 +82,7 @@ AS
                  LEFT OUTER JOIN inv_list il ON il.part_no = sta.sku -- part/location must exist
                                                 AND il.location = stt.location
         WHERE    st.isActive = 1
-				 AND not stt.territory_code IN ('50534','i-sales') -- 534-broo
+				 AND not stt.territory_code IN ('50534','70770') -- 534-broo
         ORDER BY stt.location ,
                  sta.sku;
 
@@ -134,8 +139,8 @@ AS
                        @to_loc_addr1 = sav.addr1 ,
                        @to_loc_addr2 = sav.addr2 ,
                        @to_loc_addr3 = sav.addr3 ,
-					   @to_loc_addr4 = '',
-					   @to_loc_addr5 = '',
+					   @to_loc_addr4 = sav.addr4 ,
+					   @to_loc_addr5 = sav.addr5 ,
 					   @routing = CASE WHEN ISNULL(@routing,'') = '' THEN sav.ship_via_code else @routing end
                 FROM   locations_all l
 				JOIN cvo_sc_addr_vw sav ON sav.location = l.location
@@ -327,6 +332,8 @@ AS
     GRANT EXECUTE
         ON dbo.cvo_sc_transfer_create_sp
         TO PUBLIC;
+
+
 
 
 

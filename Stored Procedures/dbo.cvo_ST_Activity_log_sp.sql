@@ -384,7 +384,7 @@ set @territory = '90614'
             WHERE o.order_no = ol.order_no
                   AND o.ext = ol.order_ext
                   AND i.type_code IN ( 'frame', 'sun' )
-				  -- AND ol.return_code LIKE '06%' -- 02/26/2018
+				  AND ol.return_code LIKE '06%' -- 02/26/2018
         ),
         0
               ) AS FramesRMA,
@@ -676,6 +676,7 @@ set @territory = '90614'
 
 
 END;
+
 
 
 

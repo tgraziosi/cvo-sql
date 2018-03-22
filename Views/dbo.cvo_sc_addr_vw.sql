@@ -3,22 +3,39 @@ GO
 SET ANSI_NULLS ON
 GO
 
-
-
-
-
----- select   reverse(left(reverse(rtrim(ltrim(slp.addr3+' '+slp.addr4+' '+slp.addr5))),
---   charindex(' ',reverse(rtrim(ltrim(slp.addr3+' '+slp.addr4+' '+slp.addr5))))-1))  from cvo_sc_addr_vw slp
-
 -- SELECT * FROM dbo.cvo_sc_addr_vw AS sav
 
 CREATE view [dbo].[cvo_sc_addr_vw] 
 as 
 
-
 -- select * From cvo_sc_addr_vw where rsm_territory_code is null
+SELECT sc.salesperson_code,
+       sc.salesperson_name,
+       sc.addr1,
+       sc.addr2,
+       sc.addr3,
+       sc.addr4,
+       sc.addr5,
+       sc.addr6,
+       CASE WHEN ISNUMERIC(LEFT(sc.postal_code,1)) = 1 THEN sc.postal_code ELSE '' END postal_code,
+       sc.slp_email,
+       sc.phone,
+       sc.ship_via,
+       sc.territory_code,
+       sc.user_name,
+       sc.security_code,
+       sc.email_address,
+       sc.salesperson_type,
+       sc.sales_mgr_code,
+       sc.sales_mgr_name,
+       sc.sales_mgr_email,
+       sc.rsm_territory_code,
+       sc.region,
+       sc.location,
+       sc.customer_code,
+       sc.ship_via_code FROM 
 
-select  
+(select  
 slp.salesperson_code,
 slp.salesperson_name,
 slp.addr1,
@@ -26,15 +43,35 @@ slp.addr2,
 slp.addr3,
 slp.addr4,
 slp.addr5,
-reverse(left(reverse(rtrim(ltrim(isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')+' '+isnull(slp.addr5,'')))),
-charindex(' ',reverse(rtrim(ltrim(isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')+' '+isnull(slp.addr5,'')))))-1)) postal_code,
+slp.addr6,
+-- '' postal_code,
+CASE WHEN ISNULL(slp.addr6,'') > '' THEN
+		reverse(left(reverse(rtrim(ltrim(isnull(slp.addr4,'')+' '+isnull(slp.addr5,'')+' '+isnull(slp.addr6,'')))),
+		CHARINDEX(' ',reverse(rtrim(ltrim(isnull(slp.addr4,'')+' '+isnull(slp.addr6,'')+' '+isnull(slp.addr6,'')))))-1))
+	 WHEN ISNULL(slp.addr5,'') > '' THEN
+		reverse(left(reverse(rtrim(ltrim(isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')+' '+isnull(slp.addr5,'')))),
+		CHARINDEX(' ',reverse(rtrim(ltrim(isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')+' '+isnull(slp.addr5,'')))))-1))
+	 WHEN ISNULL(slp.addr4,'') > '' THEN
+		reverse(left(reverse(rtrim(ltrim(isnull(slp.addr2,'')+' '+isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')))),
+		CHARINDEX(' ',reverse(rtrim(ltrim(isnull(slp.addr2,'')+' '+isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')))))-1))
+	 WHEN ISNULL(slp.addr3,'') > '' THEN
+		reverse(left(reverse(rtrim(ltrim(isnull(slp.addr1,'')+' '+isnull(slp.addr2,'')+' '+isnull(slp.addr3,'')))),
+		CHARINDEX(' ',reverse(rtrim(ltrim(isnull(slp.addr1,'')+' '+isnull(slp.addr2,'')+' '+isnull(slp.addr3,'')))))-1))
+	WHEN ISNULL(slp.addr2,'') > '' THEN
+		reverse(left(reverse(rtrim(ltrim(isnull(slp.addr1,'')+' '+isnull(slp.addr2,'')))),
+		CHARINDEX(' ',reverse(rtrim(ltrim(isnull(slp.addr1,'')+' '+isnull(slp.addr2,'')))))-1))
+	ELSE ''
+	END postal_code,
+
+--reverse(left(reverse(rtrim(ltrim(isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')+' '+isnull(slp.addr5,'')))),
+--charindex(' ',reverse(rtrim(ltrim(isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')+' '+isnull(slp.addr5,'')))))-1)) postal_code,
 slp.addr_sort2 slp_email,
 slp.phone_1 phone,
 isnull(x.ship_via,'NONE')  ship_via,
 cast( isnull(slp.territory_code,'') as varchar(8) ) territory_code, 
-user_name = case when x.status =1 then x.user_name else '' end, 
-security_code = case when x.status = 1 then x.security_code else '' end,
-email_address = case when x.status = 1 then x.email_address else '' end, 
+case when x.status = 1 then x.user_name else '' END user_name, 
+case when x.status = 1 then x.security_code else '' END security_code,
+case when x.status = 1 then x.email_address else '' END email_address, 
 slp.salesperson_type,
 slp.sales_mgr_code,
 rsm.salesperson_name sales_mgr_name,
@@ -70,6 +107,7 @@ LA.ADDR1 addr2,
 LA.ADDR2 addr3,
 LA.ADDR3 addr4,
 LA.ADDR4 addr5,
+'' addr6,
 LA.zip postal_code,
 LA.addr_sort2 slp_email,
 LA.PHONE phone,
@@ -90,6 +128,7 @@ lA.location, -- 10/5/2017
 
 FROM dbo.locations_all AS la WHERE location = '014'
 
+) sc
 
 
 

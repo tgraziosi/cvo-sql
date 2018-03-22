@@ -28,6 +28,9 @@ CREATE PROCEDURE [dbo].[CVO_buying_group_export_sp] (@WHERECLAUSE VARCHAR(1024))
 -- tag 053013 - various updates, exclude 100% discount items
 -- v1.4 - tg - 031814 - updates for debit promo activity
 AS  
+
+BEGIN
+
 DECLARE   
 @SQL  VARCHAR(1000),  
 @FILENAME  VARCHAR(200),  
@@ -846,6 +849,7 @@ exec CVO_buying_group_export_two_sp @WHERECLAUSE
 
 
 
+end
 GO
 GRANT EXECUTE ON  [dbo].[CVO_buying_group_export_sp] TO [public]
 GO

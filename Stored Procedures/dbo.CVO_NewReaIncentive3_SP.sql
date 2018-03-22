@@ -12,6 +12,7 @@ GO
 --insert into cvo_new_reactive_temp1 
 --EXEC  CVO_NewReaIncentive4_SP
 --12/2/2014 - ADDED PARAMETER FOR DESIGNATION CODE WILCARD SEARCH
+-- 3/9/2018 - add parent code
 -- =============================================
 CREATE PROCEDURE [dbo].[CVO_NewReaIncentive3_SP]
     @DateFrom DATETIME = NULL ,
@@ -326,31 +327,36 @@ AS
 
         -- select * from #Primary
 
-        IF ISNULL(@desig, '*ALL*') = '*ALL*'
-            BEGIN
-                SELECT   DISTINCT d.* ,
+          SELECT   DISTINCT d.Region,
+                            d.Terr,
+                            d.Salesperson,
+                            d.date_of_hire,
+                            d.ClassOf,
+                            d.Status,
+                            d.Territory,
+                            d.customer_code,
+                            d.ship_to_code,
+                            d.Door,
+                            d.added_by_date,
+                            d.FirstST_new,
+                            d.PrevST_new,
+                            d.StatusType ,
                          ISNULL(LTRIM(RTRIM(de.designations)), '') AS Designations ,
-                         ISNULL(p.code, '') AS PriDesig
+                         ISNULL(p.code, '') AS PriDesig,
+						 ISNULL(NA.PARENT,'') AS Parent -- 3/9/2018
                 FROM     #DATA3 d
                          LEFT OUTER JOIN #desig de ON de.customer_code = d.customer_code
                          LEFT OUTER JOIN #Primary p ON p.customer_code = d.customer_code
+						 LEFT OUTER JOIN dbo.ARNAREL NA (NOLOCK) ON NA.CHILD = DE.customer_code
                 WHERE    1 = 1
                          AND ISNULL(Terr, '') <> ''
+						 AND DE.designations LIKE 
+							CASE WHEN ISNULL(@desig,'*ALL*') = '*ALL*' 
+								THEN DE.designations 
+								ELSE '%' + ISNULL(@desig, '') + '%'
+								END
+
                 ORDER BY Terr;
-            END;
-        ELSE
-            BEGIN
-                SELECT   DISTINCT d.* ,
-                         ISNULL(LTRIM(RTRIM(de.designations)), '') AS Designations ,
-                         ISNULL(p.code, '') AS PriDesig
-                FROM     #DATA3 d
-                         LEFT OUTER JOIN #desig de ON de.customer_code = d.customer_code
-                         LEFT OUTER JOIN #Primary p ON p.customer_code = d.customer_code
-                WHERE    1 = 1
-                         AND ISNULL(Terr, '') <> ''
-                         AND de.designations LIKE '%' + ISNULL(@desig, '') + '%'
-                ORDER BY Terr;
-            END;
 
 
     -- EXEC CVO_NewReaIncentive3_SP '1/1/2014','11/1/2014'
@@ -358,6 +364,7 @@ AS
 
 
     END;
+
 
 
 GO

@@ -7,8 +7,8 @@ CREATE TABLE [dbo].[cvo_crm_leads_main]
 [ship_to] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [territory] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [region] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[lead_date] [datetime] NULL CONSTRAINT [DF__cvo_crm_l__lead___2B8753F0] DEFAULT (getdate())
+[lead_date] [datetime] NULL CONSTRAINT [DF__cvo_crm_l__lead___4200A4F4] DEFAULT (getdate())
 ) ON [PRIMARY]
 GO
-ALTER TABLE [dbo].[cvo_crm_leads_main] ADD CONSTRAINT [PK__cvo_crm_leads_ma__2A932FB7] PRIMARY KEY CLUSTERED  ([lead_id]) ON [PRIMARY]
+ALTER TABLE [dbo].[cvo_crm_leads_main] ADD CONSTRAINT [PK__cvo_crm_leads_ma__410C80BB] PRIMARY KEY CLUSTERED  ([lead_id]) ON [PRIMARY]
 GO

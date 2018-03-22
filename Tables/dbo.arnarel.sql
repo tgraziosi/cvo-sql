@@ -457,7 +457,8 @@ BEGIN
 	WHILE @@fetch_status = 0
 	BEGIN
 	
-		  UPDATE arcust SET price_code = (SELECT price_code FROM arcust WHERE customer_code = @parent) 
+		  UPDATE arcust SET price_code = (SELECT price_code FROM arcust WHERE customer_code = @parent) ,
+							alt_location_code = (SELECT alt_location_code FROM arcust WHERE customer_code = @parent) -- 030718 - tag
 		  Where customer_code = @child--child 
 
 		fetch next from cur 
@@ -470,15 +471,59 @@ BEGIN
 
 END
 GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_NULLS ON
+GO
+CREATE TRIGGER [dbo].[CVO_PARENT_del]
+
+ON [dbo].[arnarel]
+
+FOR delete
+
+AS
+
+BEGIN
+
+	DECLARE @parent as varchar(20)
+	DECLARE @child  as varchar(20)
+
+	DECLARE cur CURSOR FOR
+	SELECT parent,child  FROM Deleted
+
+	OPEN cur
+
+	fetch next FROM cur
+	INTO @parent, @child
+
+	WHILE @@fetch_status = 0
+	BEGIN
+	
+		  UPDATE arcust SET alt_location_code = 0 -- 030718 - tag
+		  Where customer_code = @child--child 
+		  AND addr_sort1 <> 'buying group'
+		  AND alt_location_code <> 0
+
+		fetch next from cur 
+		into @parent, @child
+	end
+	
+	close cur
+	deallocate cur
+
+
+END
+
+GO
 CREATE UNIQUE CLUSTERED INDEX [arnarel_ind_0] ON [dbo].[arnarel] ([relation_code], [parent], [child]) ON [PRIMARY]
+GO
+GRANT DELETE ON  [dbo].[arnarel] TO [public]
+GO
+GRANT INSERT ON  [dbo].[arnarel] TO [public]
 GO
 GRANT REFERENCES ON  [dbo].[arnarel] TO [public]
 GO
 GRANT SELECT ON  [dbo].[arnarel] TO [public]
-GO
-GRANT INSERT ON  [dbo].[arnarel] TO [public]
-GO
-GRANT DELETE ON  [dbo].[arnarel] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[arnarel] TO [public]
 GO

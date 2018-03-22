@@ -3,7 +3,7 @@ GO
 SET ANSI_NULLS ON
 GO
 
--- select * from cvo_cmi_catalog_view where collection = 'bt'
+-- select * from cvo_cmi_catalog_view where collection = 'as'
 -- 6/20/17 - add release and pom dates
 -- 12/19/2017 - add sub-brand
 
@@ -99,9 +99,9 @@ AS
            d.ws_ship1_qty ,
            d.ws_ship2_qty ,
            d.ws_ship3_qty ,
-           i.img_34 img_34 ,
-           i.img_temple AS img_temple ,
-           i.img_front AS img_front ,
+           --i.img_34 img_34 ,
+           --i.img_temple AS img_temple ,
+           --i.img_front AS img_front ,
            i.IMG_SKU ,
            i.IMG_WEB ,                                            -- 02/25/16
            bm.print_flag ,
@@ -124,6 +124,13 @@ AS
                   END ,
                   bm.pom_date) dim_pom_date,
 			ISNULL(tip_sku,0) tip_sku -- 12/1/2017 - 1 if model has temple tips
+			, ISNULL(bm.component_1,'')+
+				CASE WHEN ISNULL(bm.component_2,'') = '' THEN '' ELSE '|'+bm.component_2 END +
+				CASE WHEN ISNULL(bm.component_3,'') = '' THEN '' ELSE '|'+bm.component_3 END +
+				CASE WHEN ISNULL(bm.component_4,'') = '' THEN '' ELSE '|'+bm.component_4 END + 
+				CASE WHEN ISNULL(bm.component_5,'') = '' THEN '' ELSE '|'+bm.component_5 END +
+				CASE WHEN ISNULL(bm.component_6,'') = '' THEN '' ELSE '|'+bm.component_6 END 
+				as special_components
     FROM   cvo_cmi_models bm
            LEFT JOIN cvo_cmi_variants v ON ( v.model_id = bm.id )
            LEFT JOIN cvo_cmi_dimensions d ON ( v.id = d.variant_id )
@@ -134,6 +141,8 @@ AS
     --AND d.eye_size =  i.eye_size AND v.color = i.colorname
 
     WHERE  v.isActive = 1;
+
+
 
 
 

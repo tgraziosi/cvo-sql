@@ -285,7 +285,8 @@ select #t.id,
        #t.pc_units,
        #t.rx_units,
        #t.net_sales,
-       #t.tot_net_sales
+       #t.tot_net_sales,
+	   s.salesperson_name -- 3/13/2018
 , isnull(#newrea.newrea,'') NewRea
 , c.description brand_name
 , dbo.calculate_region_fn(#t.territory_code) region
@@ -293,6 +294,7 @@ select #t.id,
  left outer join #newrea on #t.customer_code = #newrea.customer_code 
 	and #t.ship_to_code = #newrea.ship_to_code
  inner join category c on c.kys = #t.brand
+ INNER JOIN arsalesp s ON s.territory_code = #t.territory_code AND s.status_type = 1
  where
 (fo_units <> 0 or st_units <> 0 or pc_units <> 0 or rx_units <> 0 or net_sales <> 0)
  order by customer_code
@@ -302,6 +304,7 @@ select #t.id,
 
 
  END;
+
 
 
 GO

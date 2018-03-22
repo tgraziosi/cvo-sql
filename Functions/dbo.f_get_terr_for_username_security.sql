@@ -3,12 +3,12 @@ GO
 SET ANSI_NULLS ON
 GO
 
--- select top (100) * from dbo.f_get_terr_for_username_security('cvoptical\jborges','8812')
+-- select top (100) * from dbo.f_get_terr_for_username_security('cvoptical\tgraziosi','pbirs')
 -- insert into cvo_work_day_cal values ('09/26/2013','C') -- Closing Day
 -- delete from cvo_work_day_cal where date_type = 'C'
 -- 2/4/2013 - tag - added option for SAles Support users
 -- 9/24/2013 - tag - add functionality for Closing Days to not run reports.
-
+-- 03192018 - bypass security code for power bi
 
 CREATE FUNCTION [dbo].[f_get_terr_for_username_security] (@username varchar(30),@security varchar(10))
 RETURNS @rettab table (territory_code varchar(10))
@@ -29,9 +29,11 @@ begin
         return
 end
    
-IF(@security = (Select TOP(1) security_code From cvo_territoryxref
-                Where user_name = @username)             
-                )
+IF(@security in (
+			    (Select TOP(1) security_code From cvo_territoryxref
+                Where user_name = @username            
+                ), 'pbirs' 
+				))
 Begin               
 
 	if (select distinct s.salesperson_type from cvo_territoryxref x (nolock), arsalesp s (nolock)
@@ -81,6 +83,7 @@ Begin
 END
 RETURN
 END
+
 
 
 

@@ -11,7 +11,7 @@ CREATE PROCEDURE [dbo].[cvo_hello_framesearch_sp]
 AS
 
 -- exec cvo_hello_backorders_sp '028590'
--- exec cvo_hello_framesearch_sp '20206', 'expressive',null,null,365
+-- exec cvo_hello_framesearch_sp '20206', 'asm',null,null,365
 
 -- SELECT * FROM dbo.cvo_hs_inventory_8 AS hi WHERE model = 'vince'
 
@@ -32,6 +32,14 @@ BEGIN
 		SELECT DISTINCT hi.sku 
 		FROM dbo.cvo_hs_inventory_8 AS hi WHERE @sku = hi.mastersku OR @sku = hi.Model OR @sku = hi.sku
 
+	IF @@ROWCOUNT = 0
+	begin
+    SELECT @sku = '%'+@sku+'%';
+		INSERT #sku (part_no)
+		SELECT DISTINCT hi.sku 
+		FROM dbo.cvo_hs_inventory_8 AS hi WHERE hi.mastersku LIKE @sku  OR hi.model LIKE @sku OR hi.sku like @sku
+	END
+    
 		
 	IF (SELECT OBJECT_ID('tempdb..#terr')) IS NOT NULL BEGIN DROP TABLE #terr  END
 	CREATE TABLE #terr (territory VARCHAR(12))
@@ -87,6 +95,7 @@ TO  PUBLIC
 --AND ar.territory_code = '20206'
 --AND sbm.user_category = 'st'
 --ORDER BY sbm.part_no
+
 
 
 

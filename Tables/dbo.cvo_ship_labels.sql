@@ -26,6 +26,7 @@ CREATE TABLE [dbo].[cvo_ship_labels]
 [package_weight] [float] NULL,
 [isArchived] [tinyint] NULL CONSTRAINT [DF__cvo_ship___isArc__5A103441] DEFAULT ((0)),
 [last_track_updated] [datetime] NULL,
-[int_transfer_id] [int] NULL
+[int_transfer_id] [int] NULL,
+[isEmailed] [tinyint] NULL CONSTRAINT [DF__cvo_ship___isEma__76746D33] DEFAULT ((0))
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO

@@ -28,13 +28,13 @@ CREATE VIEW [dbo].[cvo_web_style_vw] AS
 			 FROM cvo_inv_master_r2_vw ci
 			 WHERE ci.collection = c.collection AND ci.model = c.model AND ISNULL(ci.web_saleable_flag,'') = 'Y'
 			 FOR XML PATH('') ),1,1, '' ) AS skus
-		, image = ISNULL((SELECT TOP 1 ISNULL(IMG_WEB,ISNULL(img_sku,CASE WHEN CHARINDEX('.jpg',img_34_hr)>0 THEN img_34_hr ELSE '' END) )
+		, image = ISNULL((SELECT TOP 1 ISNULL(IMG_WEB,ISNULL(img_sku,'') )
 						  FROM cvo_inv_master_r2_vw cc 
 						  WHERE cc.collection = c.collection AND cc.model = c.model
 						  AND ISNULL(cc.web_saleable_flag,'') = 'Y'
 						  AND ISNULL(cc.prim_img,0) = 1 ),'')
 		, images_all = 
-			STUFF ((
+			ISNULL(STUFF ((
 			SELECT DISTINCT ';' + '/'+collection+'/'+images 
 			FROM 
 			(
@@ -42,9 +42,9 @@ CREATE VIEW [dbo].[cvo_web_style_vw] AS
 			SELECT DISTINCT Collection, model, ISNULL(IMG_WEB,'') IMAGES FROM dbo.cvo_inv_master_r2_vw AS cimrv
 			UNION ALL
 			SELECT DISTINCT collection, model, ISNULL(img_sku,'') images FROM cvo_inv_master_r2_vw
-			UNION ALL
-			SELECT DISTINCT collection, model, ISNULL(CASE WHEN CHARINDEX('.jpg',img_34_hr) > 0 THEN img_34_hr ELSE '' END,'') images 
-			FROM cvo_inv_master_r2_vw
+			--UNION ALL
+			--SELECT DISTINCT collection, model, ISNULL(CASE WHEN CHARINDEX('.jpg',img_34_hr) > 0 THEN img_34_hr ELSE '' END,'') images 
+			--FROM cvo_inv_master_r2_vw
 						--SELECT  DISTINCT collection, model, ISNULL(img_front,'') images FROM cvo_inv_master_r2_vw
 			--	WHERE img_front IS NOT NULL AND img_34 IS NULL
 			--UNION ALL
@@ -54,7 +54,7 @@ CREATE VIEW [dbo].[cvo_web_style_vw] AS
 			) AS T
 			WHERE t.images IS NOT NULL AND t.images <> 'null' AND t.images <> ''
 			AND t.collection = c.collection AND t.model = c.model
-			FOR XML PATH('') ),1,1, '' )
+			FOR XML PATH('') ),1,1, '' ), '')
 		, res_type
 		, primarydemographic
 		, target_age
@@ -101,6 +101,7 @@ CREATE VIEW [dbo].[cvo_web_style_vw] AS
 		--, img_front_hr
 		--, img_front
 	
+
 
 
 

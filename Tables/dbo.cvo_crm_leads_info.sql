@@ -9,9 +9,9 @@ CREATE TABLE [dbo].[cvo_crm_leads_info]
 [fax] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [email] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [notes] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[interest] [int] NULL,
-[info_date] [datetime] NULL CONSTRAINT [DF__cvo_crm_l__info___304C090D] DEFAULT (getdate())
+[interest] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[info_date] [datetime] NULL CONSTRAINT [DF__cvo_crm_l__info___44DD119F] DEFAULT (getdate())
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
-ALTER TABLE [dbo].[cvo_crm_leads_info] ADD CONSTRAINT [PK__cvo_crm_leads_in__2F57E4D4] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
+ALTER TABLE [dbo].[cvo_crm_leads_info] ADD CONSTRAINT [PK__cvo_crm_leads_in__43E8ED66] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
 GO

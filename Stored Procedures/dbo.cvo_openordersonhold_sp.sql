@@ -9,8 +9,8 @@ BEGIN
 
 	SET NOCOUNT ON;
 
-    --declare @ToDate datetime
-    --select  @ToDate = getdate()
+    -- declare @ToDate datetime
+    -- select  @ToDate = getdate()
     -- exec cvo_openordersonhold_sp '08/21/2017', 0, 1
 
     IF @ToDate IS NULL
@@ -94,7 +94,7 @@ BEGIN
         END AS hold_dept,
         ar.addr_sort1 AS CustomerType,
         C.OpenAR,
-        DaysToShip = CASE
+        CASE
                          WHEN DATEDIFF(DAY, oo.date_sch_ship, @ToDate) > 28 THEN
                              'Past Due: over 4 wks'
                          WHEN DATEDIFF(DAY, oo.date_sch_ship, @ToDate) > 14 THEN
@@ -109,7 +109,8 @@ BEGIN
                              'Future: < 2 wks'
                          WHEN DATEDIFF(DAY, oo.date_sch_ship, @ToDate) = 0 THEN
                              'Today'
-                     END,
+						 ELSE ''
+                     END DaysToShip,
         r12.net_sales
 		
     INTO #ooh
@@ -136,7 +137,7 @@ BEGIN
         (
             SELECT
                 sd.customer, ROUND(SUM(anet), 0) net_sales
-            FROM dbo.cvo_sbm_details AS sd
+            FROM dbo.cvo_sbm_details AS sd (nolock)
             WHERE
                 yyyymmdd
             BETWEEN DATEADD(YEAR, -1, DATEDIFF(dd, 0, @ToDate)) AND DATEDIFF(dd, 0, @ToDate)
@@ -145,7 +146,7 @@ BEGIN
             ON r12.customer = oo.cust_code
     WHERE
         oo.status IN ( 'a', 'b', 'c' )
-        AND who_entered <> 'BACKORDR'
+        AND oo.who_entered <> 'BACKORDR'
         AND (
                 (oo.date_sch_ship < DATEADD(d, 1, @ToDate))
                 OR (
@@ -312,8 +313,76 @@ BEGIN
         TRUNCATE TABLE dbo.cvo_openordersonhold_tbl
         ;
 
-        INSERT cvo_openordersonhold_tbl
-        SELECT
+        INSERT dbo.cvo_openordersonhold_tbl
+        (
+            order_no,
+            ext,
+            cust_code,
+            ship_to,
+            ship_to_name,
+            location,
+            cust_po,
+            routing,
+            fob,
+            attention,
+            tax_id,
+            terms,
+            curr_key,
+            salesperson,
+            Territory,
+            total_amt_order,
+            total_discount,
+            Net_Sale_Amount,
+            total_tax,
+            freight,
+            qty_ordered,
+            qty_shipped,
+            total_invoice,
+            invoice_no,
+            doc_ctrl_num,
+            date_invoice,
+            date_entered,
+            date_sch_ship,
+            date_shipped,
+            status,
+            status_desc,
+            who_entered,
+            shipped_flag,
+            hold_reason,
+            orig_no,
+            orig_ext,
+            promo_id,
+            promo_level,
+            order_type,
+            FramesOrdered,
+            FramesShipped,
+            back_ord_flag,
+            Cust_type,
+            HS_order_no,
+            allocation_date,
+            x_date_invoice,
+            x_date_entered,
+            x_date_sch_ship,
+            x_date_shipped,
+            source,
+            Region,
+            hold_descr,
+            adm_hold_reason,
+            hold_dept,
+            CustomerType,
+            OpenAR,
+            DaysToShip,
+            net_sales,
+            salesperson_name,
+            email_address,
+            slp_phone,
+            contact_phone,
+            fill_pct,
+            action_rep,
+            action_cus,
+            note
+        )
+		SELECT
             o.order_no,
             o.ext,
             o.cust_code,
@@ -382,21 +451,21 @@ BEGIN
             notes.note
         FROM
             #ooh AS o
-            LEFT OUTER JOIN dbo.cvo_sc_addr_vw AS  slp
+            LEFT OUTER JOIN dbo.cvo_sc_addr_vw AS  slp (nolock)
                 ON slp.salesperson_code = o.salesperson
-			LEFT OUTER JOIN armaster ar 
+			LEFT OUTER JOIN armaster ar (nolock)
 				ON ar.customer_code = o.cust_code AND ar.ship_to_code = o.ship_to
             LEFT OUTER JOIN
             (
                 SELECT
                     bn.order_num, bn.ext, bn.action_rep, bn.action_cus, bn.note
                 FROM
-                    cvo_openorder_notes bn
+                    cvo_openorder_notes bn (nolock)
                     JOIN
                     (
                         SELECT
                             order_num, ext, MAX(NOtetime) max_time
-                        FROM dbo.cvo_openorder_notes AS bn
+                        FROM dbo.cvo_openorder_notes AS bn (nolock)
                         GROUP BY
                             bn.order_num, bn.ext
                     ) mt
@@ -415,6 +484,7 @@ BEGIN
 
 END
 ;
+
 
 
 

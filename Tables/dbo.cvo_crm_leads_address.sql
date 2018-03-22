@@ -8,9 +8,9 @@ CREATE TABLE [dbo].[cvo_crm_leads_address]
 [state] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [zip_code] [varchar] (12) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [country] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[isVerified] [tinyint] NULL CONSTRAINT [DF__cvo_crm_l__isVer__332875B8] DEFAULT ((0)),
-[addr_date] [datetime] NULL CONSTRAINT [DF__cvo_crm_l__addr___341C99F1] DEFAULT (getdate())
+[isVerified] [tinyint] NULL CONSTRAINT [DF__cvo_crm_l__isVer__3E301410] DEFAULT ((0)),
+[addr_date] [datetime] NULL CONSTRAINT [DF__cvo_crm_l__addr___3F243849] DEFAULT (getdate())
 ) ON [PRIMARY]
 GO
-ALTER TABLE [dbo].[cvo_crm_leads_address] ADD CONSTRAINT [PK__cvo_crm_leads_ad__3234517F] PRIMARY KEY CLUSTERED  ([addr_id]) ON [PRIMARY]
+ALTER TABLE [dbo].[cvo_crm_leads_address] ADD CONSTRAINT [PK__cvo_crm_leads_ad__3D3BEFD7] PRIMARY KEY CLUSTERED  ([addr_id]) ON [PRIMARY]
 GO

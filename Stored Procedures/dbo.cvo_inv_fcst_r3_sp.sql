@@ -119,7 +119,7 @@ BEGIN
         coll VARCHAR(20) NOT NULL
     );
 
-    IF @coll_list IS NULL
+    IF @coll_list IS NULL OR @coll_list LIKE '%*ALL*%'
     BEGIN
         INSERT INTO @coll_tbl
         SELECT DISTINCT
@@ -608,7 +608,10 @@ BEGIN
                      )
           -- AND EXISTS (select 1 FROM @loc_tbl WHERE @loc_tbl.location = ISNULL(s.location,@loc_tbl.location))
 
-          AND ISNULL(s.customer, '') NOT IN ( '045733', '019482', '045217' ) -- stanton and insight and costco
+     -- show Costco sales in non-001 locations - 030618
+	 
+	      AND ( (ISNULL(s.customer, '') NOT IN ( '045733', '019482', '045217' ) AND l.location = '001') -- stanton and insight and costco
+				OR l.location <> '001' )
           AND ISNULL(s.return_code, '') = ''
           AND ISNULL(s.isCL, 0) = 0 -- no closeouts
     -- and isnull(s.location,@loc) = @loc
@@ -2056,6 +2059,9 @@ BEGIN
                AND r.style = s.style;
 
 END;
+
+
+
 
 
 GO
