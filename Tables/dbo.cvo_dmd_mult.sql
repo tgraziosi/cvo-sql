@@ -7,3 +7,5 @@ CREATE TABLE [dbo].[cvo_dmd_mult]
 [spread] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
+GRANT SELECT ON  [dbo].[cvo_dmd_mult] TO [public]
+GO

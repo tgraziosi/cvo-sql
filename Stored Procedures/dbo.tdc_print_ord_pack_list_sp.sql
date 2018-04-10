@@ -893,12 +893,12 @@ BEGIN
 				END
 				ELSE
 				BEGIN
-					SELECT	@list_price	= CAST(@c_net_price AS DECIMAL (20,2)), 
+					SELECT	@list_price	= CAST(@c_gross_price AS DECIMAL (20,2)), 
 							@order_ext_list = 0,
 							@gross_price	= '0.00',
 							@net_price		= '0.00',
 							@ext_net_price	= '', 
-							@discount_amount = CAST(@c_net_price AS DECIMAL (20,2)), 
+							@discount_amount = CAST(@c_gross_price AS DECIMAL (20,2)), 
 							@discount_pct = '' 
 				END	
 				INSERT INTO #tdc_print_ticket (print_value) VALUES('LP_BUYING_GROUP,Buying Group: Yes') 

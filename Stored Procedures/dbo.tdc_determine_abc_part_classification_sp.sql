@@ -18,10 +18,10 @@ BEGIN
 
     /*
 EXEC dbo.tdc_determine_abc_part_classification_sp @upper_percentage = 80, -- decimal(20, 8)
-                                                  @lower_percentage = 20, -- decimal(20, 8)
+                                                  @lower_percentage = 50, -- decimal(20, 8)
                                                   @location = '001',           -- varchar(12)
-                                                  @start_date = '1/11/2017',         -- varchar(35)
-                                                  @end_date = '1/11/2018',           -- varchar(35)
+                                                  @start_date = '4/1/2017',         -- varchar(35)
+                                                  @end_date = '03/30/2018',           -- varchar(35)
                                                   @processing_option = 2,   -- int
                                                   @part_type = '<ALL>',          -- char(5)
                                                   @part_group = '<ALL>'          -- varchar(10)
@@ -551,6 +551,7 @@ EXEC dbo.tdc_determine_abc_part_classification_sp @upper_percentage = 80, -- dec
 
 
 END;
+
 GO
 GRANT EXECUTE ON  [dbo].[tdc_determine_abc_part_classification_sp] TO [public]
 GO

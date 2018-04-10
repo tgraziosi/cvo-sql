@@ -185,8 +185,8 @@ source varchar(3)
 insert into #junk
 select distinct cmi.collection, cmi.model, 
 -- eye_size, 
-case when isnull(cmi.img_34,'') <> '' then img_34 else '' /*isnull(cmi.img_front,'')*/ end, 
-case when isnull(cmi.img_34,'') <> '' then img_34 else ''/*isnull(cmi.img_temple,'')*/ end, 
+case when isnull(cmi.img_sku,'') <> '' then img_sku else '' /*isnull(cmi.img_front,'')*/ end, 
+case when isnull(cmi.img_sku,'') <> '' then img_sku else ''/*isnull(cmi.img_temple,'')*/ end, 
 cmi.prim_img, isnull(cmi.colorname,'') colorname, 'cmi'
 from cvo_cmi_catalog_view cmi 
 inner join #line_sheet l on l.collection = cmi.collection and l.style = cmi.model
@@ -201,8 +201,8 @@ AND ISNULL(#pom.tl,'') NOT IN ('R')
 insert into #junk 
 select distinct i.category , ia.field_2, 
 -- ia.field_17, 
-case when isnull(img_34,'') <> '' then img_34 else '' /*isnull(cia.img_front_hr,'')*/ end, 
-case when isnull(img_34,'') <> '' then img_34 else '' /*isnull(CIA.img_temple_hr,'')*/ end, 
+case when isnull(img_sku,'') <> '' then img_sku else '' /*isnull(cia.img_front_hr,'')*/ end, 
+case when isnull(img_sku,'') <> '' then img_sku else '' /*isnull(CIA.img_temple_hr,'')*/ end, 
 cia.prim_img, isnull(ia.field_3,''), 'cvo' 
 from inv_master i (nolock) 
 inner join inv_master_add ia (nolock) on i.part_no = ia.part_no
@@ -686,6 +686,7 @@ and l.source = 'cvo'
 
    
 END
+
 
 
 

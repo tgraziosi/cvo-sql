@@ -33,6 +33,7 @@ GO
 -- v7.0 CB 23/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 -- v7.1 CB 25/09/2017 - Fix issue with manual case qty
 -- v7.2 CB 20/12/2017 - Change "Plrzd Ln" to "Line"
+-- v7.3 CB 23/03/2018 - Use display line for polarized item
 
 CREATE PROCEDURE [dbo].[tdc_print_plw_so_pick_ticket_sp]  
  @user_id     varchar(50),  
@@ -71,7 +72,8 @@ DECLARE @printed_on_the_page int,
  @man_case int, -- v6.7
  @man_count int, -- v6.9
  @kit_count int, -- v7.0
- @man_qty decimal(20,8) -- v7.1
+ @man_qty decimal(20,8), -- v7.1
+ @pol_line int -- v7.3
    
 DECLARE @sku_code VARCHAR(16), @height DECIMAL(20,8), @width DECIMAL(20,8), @cubic_feet DECIMAL(20,8),  
   @length DECIMAL(20,8), @cmdty_code VARCHAR(8), @weight_ea DECIMAL(20,8), @so_qty_increment DECIMAL(20,8),   
@@ -1263,7 +1265,12 @@ END
 	IF EXISTS (SELECT 1 FROM #cvo_ord_list WHERE from_line_no = @line_no AND is_polarized = 1)
 	BEGIN
 -- v7.2	SELECT @polarized_line = ISNULL(@part_no,'') + ' (Plrzd Ln ' + CAST(line_no as varchar(10)) + ')' FROM #cvo_ord_list WHERE from_line_no = @line_no AND is_polarized = 1
-		SELECT @polarized_line = ISNULL(@part_no,'') + ' (Line ' + CAST(line_no as varchar(10)) + ')' FROM #cvo_ord_list WHERE from_line_no = @line_no AND is_polarized = 1 -- v7.2
+		-- v7.3 Start
+		SELECT	@pol_line = a.display_line FROM ord_list a (NOLOCK) JOIN #cvo_ord_list b ON a.line_no = b.line_no 
+		WHERE a.order_no = @order_no AND a.order_ext = @order_ext AND from_line_no = @line_no AND is_polarized = 1
+		SELECT @polarized_line = ISNULL(@part_no,'') + ' (Line ' + CAST(@pol_line as varchar(10)) + ')'
+--		SELECT @polarized_line = ISNULL(@part_no,'') + ' (Line ' + CAST(line_no as varchar(10)) + ')' FROM #cvo_ord_list WHERE from_line_no = @line_no AND is_polarized = 1 -- v7.2
+		-- v7.3 End
 		INSERT INTO #tdc_print_ticket (print_value) SELECT 'LP_PART_NO_'      + RTRIM(CAST(@printed_on_the_page AS char(4))) + ',' + isnull(@polarized_line,'')
 	END
 	ELSE

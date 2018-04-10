@@ -17,7 +17,8 @@ BEGIN
     DECLARE @asofdate DATETIME,
             @location VARCHAR(10),
             @collection VARCHAR(1000),
-            @Style_list VARCHAR(8000)
+            @Style_list VARCHAR(8000),
+			@qty_threshold int
             ;
 
     DECLARE @today DATETIME;
@@ -25,6 +26,7 @@ BEGIN
 
     SELECT @asofdate = DATEADD(mm, DATEDIFF(mm, 0, GETDATE()), 0);
 
+	SELECT @qty_threshold = 50;
 
     IF OBJECT_ID('tempdb..#orders') IS NOT NULL
         DROP TABLE #orders;
@@ -87,6 +89,8 @@ BEGIN
         JOIN dbo.CVO_armaster_all car (NOLOCK)
             ON car.customer_code = o.cust_code
                AND car.ship_to = o.ship_to
+		JOIN dbo.armaster ar (nolock) 
+			ON ar.customer_code = o.cust_code AND ar.ship_to_code = o.ship_to
         LEFT OUTER JOIN dbo.cvo_hard_allocated_vw alloc (NOLOCK)
             ON alloc.order_no = o.order_no
                AND alloc.order_ext = o.ext
@@ -96,6 +100,7 @@ BEGIN
           AND ia.field_26 <= @today
           AND ISNULL(iav.qty_avl, 0) <= 0
           AND ISNULL(car.allow_substitutes, 0) = 1
+		  and ar.addr_sort1 <> 'Key Account' -- 032718 per Km request
           AND o.type = 'i'
           -- and o.who_entered in ('backordr','outofstock')
           AND o.sch_ship_date < @today
@@ -304,7 +309,7 @@ BEGIN
            ia.field_17 size,
            ifp.part_no sub_part_no,
            ifp.location,
-           ifp.SOF qty_avl_to_sub
+           ifp.atp qty_avl_to_sub -- switch from month 4 qty to atp - 04/3/2018
     INTO #subs
     FROM #orders O
         INNER JOIN
@@ -320,13 +325,20 @@ BEGIN
         WHERE LINE_TYPE = 'v'
               AND sort_seq = 4
               AND atp > 0
-              AND quantity > 50
+              AND quantity > @qty_threshold
         ) AS ifp
             ON O.brand = ifp.brand
                AND O.style = ifp.style
                AND O.location = ifp.location
         INNER JOIN DBO.inv_master_add ia
             ON ia.part_no = ifp.part_no
+		JOIN
+        (
+		SELECT sku  FROM #ifp WHERE line_type = 'v' AND ( sort_seq BETWEEN 1 AND 4 ) AND quantity > 0
+		GROUP BY sku
+		HAVING COUNT(DISTINCT sort_seq) = 4
+		) good_inv_pos ON good_inv_pos.sku = ifp.part_no
+
     WHERE 1 = 1
           AND o.part_no <> ifp.part_no;
 
@@ -629,6 +641,9 @@ BEGIN
              order_no;
 
 END;
+
+
+
 
 
 

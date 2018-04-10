@@ -6,6 +6,7 @@ CREATE PROCEDURE [dbo].[cvo_bo_to_alloc_rx] @ss INT = NULL
 AS -- RX backorders to allocate
 -- exec cvo_bo_to_alloc_rx
 -- 030915 - change safety stock figure based on pom date
+-- 04/09/2018 - add comments
 
     SET NOCOUNT ON;
     -- SET ANSI_WARNINGS OFF;
@@ -94,12 +95,13 @@ AS -- RX backorders to allocate
                 )
             AND o.type = 'i' 
 -- and o.who_entered in ('backordr','outofstock')
-            AND o.sch_ship_date < @today
+            -- AND o.sch_ship_date < @today
+			AND DATEDIFF(d, o.sch_ship_date, @today) > 21 -- per KM 032618
             AND ol.ordered > ( ol.shipped + ISNULL(alloc.qty, 0) )
             AND i.type_code <> 'case'
             AND ( o.user_category LIKE 'rx%'
                   OR o.user_category = 'st-tr'
-				  OR (o.user_category NOT LIKE 'rx%' AND DATEDIFF(d, o.sch_ship_date, @today) > 42) -- 5/5/2017 per CP request
+				  -- OR (o.user_category NOT LIKE 'rx%' AND DATEDIFF(d, o.sch_ship_date, @today) > 42) -- 5/5/2017 per CP request
                 )
             AND col.is_customized = 'n'
             AND ol.part_type = 'p';
@@ -287,8 +289,8 @@ AS -- RX backorders to allocate
             type_code ,
             pom_date ,
             ss ,
-            order_no ,
-            ext , 
+            #t.order_no ,
+            #t.ext , 
 -- line_no, 
             user_category ,
             date_entered ,
@@ -322,12 +324,16 @@ AS -- RX backorders to allocate
             ship_to ,
             description ,
             bo_days ,
-            DaysOverDue
+            DaysOverDue,
+			ISNULL(c.comment,'<Click here to enter a comment>') comment -- 4/9/2018
     FROM    #t
+	LEFT OUTER JOIN cvo_rxbo_comment_tbl c ON c.order_no = #t.order_no AND c.ext = #t.ext
     WHERE   1 = 1
 -- and qty_to_alloc > 0 
 ORDER BY    part_no ,
             qty_avl_to_alloc DESC;
+
+
 
 
 

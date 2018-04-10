@@ -9,7 +9,8 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT * FROM dbo.cvo_hs_inventory_8 where  ReleaseDate > '1/1/2018' AND SpecialtyFit = '[multiple]'
+-- SELECT * FROM dbo.cvo_hs_inventory_8 WHERE SKU LIKE 'DD%' where [category:1] = 'sun' where  ReleaseDate > '1/1/2018' AND SpecialtyFit = '[multiple]'
+-- SELECT DISTINCT [category:1],[category:2] FROM dbo.cvo_hs_inventory_8 AS hi WHERE [hi].[category:1] = 'sun'
 -- DROP TABLE dbo.cvo_hs_inventory_8
 -- 		
 -- 072814 - tag - 1) add special values, 2) performance updates
@@ -204,7 +205,9 @@ BEGIN
                                    AND IA.field_2 = 'colorful'
                                    ) THEN RTRIM(LEFT(I.part_no, 6)) -- 9/6/2016 put all colorful together
 						  when ia.field_2 = 'G-LILAH' AND I.CATEGORY = 'BCBG' THEN 'BCGLIA'
-                          WHEN I.type_code IN ( 'sun', 'frame' ) THEN LEFT(I.part_no, LEN(I.part_no) - 7)ELSE ''
+                          WHEN I.type_code IN ( 'sun', 'frame' ) THEN LEFT(I.part_no, LEN(I.part_no) - 7)
+						  WHEN IA.FIELD_2 = 'EAR LOCKS' THEN LEFT(I.part_no, 5)
+						  ELSE ''
 						 
                       END
                   ) AS mastersku,
@@ -241,7 +244,7 @@ BEGIN
                                                                                                                     )
                                                                                                                 )
            END AS longDesc,
-           CASE WHEN I.type_code IN ( 'other', 'pop' ) THEN I.description
+           CASE WHEN I.type_code IN ( 'other', 'pop', 'PARTS' ) THEN I.description
                WHEN I.type_code = 'sun' THEN
                    CONVERT(
                               VARCHAR(150),
@@ -299,7 +302,9 @@ BEGIN
                WHEN DATEDIFF(m, ISNULL(IA.field_28, @today), @today) >= 24
                     AND I.type_code <> 'SUN' THEN 'EOR'
                WHEN DATEDIFF(m, ISNULL(IA.field_28, @today), @today) >= 9
-                    AND I.type_code <> 'SUN' THEN 'QOP' ELSE I.type_code
+                    AND I.type_code <> 'SUN' THEN 'QOP'
+			   WHEN i.category = 'dd' and i.type_code = 'PARTS' THEN 'FRAME'
+			   ELSE I.TYPE_CODE
            END AS [category:1],
            CASE
                -- WHEN ia.field_32 = 'lastchance' THEN '' 
@@ -434,6 +439,8 @@ ELSE '' END GENDER,
                  AND I.type_code = 'FRAME'
                  AND @today >= @UN
                  )
+			  OR (i.part_no = 'DDZEARKIT' OR I.part_no IN (SELECT PART_NO FROM WHAT_PART WHERE asm_no = 'DDZEARKIT')
+				 )
               OR (
                  EXISTS (
                         SELECT 1
@@ -503,7 +510,7 @@ ELSE '' END GENDER,
         name = variantdescription,
         Size = '' --, model = 'READER'
     WHERE sku IN ( 'ETREADER', 'izztr90kit', 'bczdisplaykit', 'izodinter', 'opsherbetm', 'ascolo6pckit',
-                   'ascolo12pckit', 'ascolo18pckit', 'bcbgslp', 'BTZADULTS', 'BTZKIDS'
+                   'ascolo12pckit', 'ascolo18pckit', 'bcbgslp', 'BTZADULTS', 'BTZKIDS', 'DDZEARKIT'
                  ); -- 9/8/2016
 
     UPDATE #Data1
@@ -1216,6 +1223,9 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
     WHERE [category:1] = 'ME SELL-DOWN';
 
 END;
+
+
+
 
 
 

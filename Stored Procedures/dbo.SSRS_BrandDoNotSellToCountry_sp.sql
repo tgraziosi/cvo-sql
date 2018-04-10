@@ -136,9 +136,11 @@ AS
                            AND category IN ( 'ET', 'OP' )
                          )  --dominican republic
 --OR (ship_to_country_cd in ('EC') and category in ('ET','OP') )  --ecuador -- 022015
---OR (ship_to_country_cd in ('SV') and category in ('OP') )  --el salvador -- 022015
+					  OR (ship_to_country_cd in ('SV') 
+							AND category in ('OP') 
+						  )  --el salvador -- 022015
                       OR ( ship_to_country_cd IN ( 'EC' )
-                           AND category IN ( 'ET' )
+                           AND category IN ( 'ET','OP' )
                          )  --ecuador -- 022015
 -- OR (ship_to_country_cd in ('SV') and category in () )  --el salvador all -- 022015
                       OR ( ship_to_country_cd IN ( 'EE' )
@@ -348,6 +350,7 @@ AS
         FROM    #LIST;
 
     END;
+
 
 
 

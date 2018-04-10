@@ -32,26 +32,28 @@ BEGIN
         field_29 = DATEADD(DAY, 89, field_28)    -- cs_date per KM request 7/28/16
     FROM inv_master_add T1
     WHERE (
-          datetime_2 IS NULL
-          OR field_29 IS NULL
+              datetime_2 IS NULL
+              OR field_29 IS NULL
           )
-          AND (
+          AND
+          (
               field_28 IS NOT NULL
               AND field_28 <= GETDATE()
-              ); -- dont mark future poms - 08/26/2016 tag
+          ); -- dont mark future poms - 08/26/2016 tag
 
     UPDATE T1
     SET datetime_2 = NULL,
         field_29 = NULL
     FROM inv_master_add T1
     WHERE (
-          datetime_2 IS NOT NULL
-          OR field_29 IS NOT NULL
+              datetime_2 IS NOT NULL
+              OR field_29 IS NOT NULL
           )
-          AND (
+          AND
+          (
               field_28 IS NULL
               OR field_28 >= GETDATE()
-              );
+          );
 
     --EL 7/15/2014 -- dont mark future poms - 082616 tag
 
@@ -64,10 +66,11 @@ BEGIN
     FROM inv_master i,
          inv_master_add a
     WHERE i.part_no = a.part_no
-          AND (
+          AND
+          (
               a.datetime_2 <= GETDATE()
               AND i.obsolete = 0
-              );
+          );
 
     UPDATE inv_master
     SET obsolete = 1
@@ -82,14 +85,15 @@ BEGIN
     FROM inv_master i,
          inv_master_add a
     WHERE i.part_no = a.part_no
-          AND (
+          AND
+          (
               (
-              a.datetime_2 IS NULL
-              OR a.datetime_2 > GETDATE()
+                  a.datetime_2 IS NULL
+                  OR a.datetime_2 > GETDATE()
               )
               AND i.obsolete = 1
               AND void <> 'v'
-              );
+          );
 
     --EL 7/15/2014
 
@@ -114,9 +118,10 @@ BEGIN
 
     -- SELECT * 
     DELETE FROM dbo.inv_master_add
-    WHERE NOT EXISTS (
-                     SELECT 1 FROM inv_master WHERE inv_master.part_no = inv_master_add.part_no
-                     );
+    WHERE NOT EXISTS
+    (
+        SELECT 1 FROM inv_master WHERE inv_master.part_no = inv_master_add.part_no
+    );
 
     -- MAINTAIN CVO_INV_MASTER_ADD TABLE
     INSERT cvo_inv_master_add
@@ -127,9 +132,10 @@ BEGIN
     SELECT part_no,
            0 AS PRIM_IMG
     FROM inv_master I
-    WHERE NOT EXISTS (
-                     SELECT 1 FROM cvo_inv_master_add WHERE part_no = I.part_no
-                     )
+    WHERE NOT EXISTS
+    (
+        SELECT 1 FROM cvo_inv_master_add WHERE part_no = I.part_no
+    )
           AND type_code IN ( 'FRAME', 'SUN' );
 
     -- turn on web saleable for new items.
@@ -169,23 +175,6 @@ BEGIN
                AND c.ryg_stat = 'R'
                AND ISNULL(web_saleable_flag, 'N') = 'Y';
 
-    -- remove web-sellable for pom items with no inventory too
-
-    UPDATE i
-    SET i.web_saleable_flag = 'N'
-    -- SELECT i.part_no, i.web_saleable_flag, iav.POM_date, iav.qty_avl
-    FROM dbo.inv_master i (ROWLOCK)
-        LEFT OUTER JOIN dbo.cvo_item_avail_vw AS iav
-            ON iav.part_no = i.part_no
-               AND iav.location = '001'
-    WHERE 1 = 1
-          AND i.web_saleable_flag = 'Y'
-          AND ISNULL(iav.POM_date, GETDATE()) < DATEADD(MONTH, -3, GETDATE())
-          AND iav.qty_avl <= 0;
-
-    -- ORDER BY iav.POM_date DESC
-
-
     -- 1/29/2015 - tag turn off APR status if the release date has passed
 
     UPDATE inv_master_add WITH (ROWLOCK)
@@ -195,6 +184,36 @@ BEGIN
           AND ISNULL(field_26, GETDATE()) < GETDATE();
 
 END;
+
+-- 1/2018 - maintain cycle types in inv_master based on ABC classifications
+
+UPDATE -- TOP (2500) 
+    I
+SET I.cycle_type = CASE
+                       WHEN rank_class = 'A' THEN
+                           'QTRLY'
+                       WHEN RANK_CLASS = 'B' THEN
+                           'BI-ANNUAL'
+                       WHEN RANK_CLASS = 'C' THEN
+                           'ANNUAL'
+                       ELSE
+                           'NEVER'
+                   END
+
+FROM inv_list (NOLOCK)
+    JOIN inv_master I (ROWLOCK)
+        ON I.part_no = inv_list.part_no
+WHERE location = '001'
+      AND I.cycle_type <> CASE
+                       WHEN rank_class = 'A' THEN
+                           'QTRLY'
+                       WHEN RANK_CLASS = 'B' THEN
+                           'BI-ANNUAL'
+                       WHEN RANK_CLASS = 'C' THEN
+                           'ANNUAL'
+                       ELSE
+                           'NEVER'
+                          END;
 GO
 GRANT EXECUTE ON  [dbo].[cvo_inv_master_fixup_sp] TO [public]
 GO

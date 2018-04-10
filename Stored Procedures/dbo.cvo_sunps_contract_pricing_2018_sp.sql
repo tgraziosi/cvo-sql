@@ -30,7 +30,8 @@ BEGIN
         curr_key,
         start_date,
         style,
-        res_type
+        res_type,
+		net_only
     )
     SELECT DISTINCT
            t.cust_code,
@@ -48,7 +49,8 @@ BEGIN
            'USD' curr_key,
            '1/1/2018' start_date,
            '' style,
-           'SUN' res_type
+           'SUN' res_type,
+		   'Y' net_only
     FROM
     (
     SELECT DISTINCT
@@ -81,6 +83,7 @@ BEGIN
 END;
 
 GRANT ALL ON dbo.cvo_sunps_contract_pricing_2018_sp TO PUBLIC
+
 
 
 GO

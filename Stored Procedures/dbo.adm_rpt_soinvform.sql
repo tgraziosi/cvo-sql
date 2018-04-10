@@ -1383,7 +1383,7 @@ CREATE TABLE #inv_pricing (
 INSERT	#inv_pricing (order_no,	order_ext, line_no, cust_code, qty)
 SELECT	o_order_no, o_ext, l_line_no, o_cust_code, l_shipped
 FROM	#rpt_soinvform
-WHERE	o_type = 'I'
+-- v12.8 WHERE	o_type = 'I'
 ORDER BY o_order_no, o_ext, l_line_no
 
 SET @row_id = 0

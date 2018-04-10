@@ -69,7 +69,8 @@ AS
 			bm.relative_point_x,
 			bm.relative_point_y,
 			bm.modified_by,
-			bm.last_modified_date
+			bm.last_modified_date,
+			i.void inv_void
 
     FROM    inv_master i ( NOLOCK ) 
 			INNER JOIN inv_master_add ia (nolock) ON ia.part_no = i.part_no
@@ -86,7 +87,7 @@ AS
             
 
     WHERE   1 = 1
-		AND i.void = 'n'
+		-- AND i.void = 'n'
     UNION -- assigned bins with no inventory
     SELECT	DISTINCT
 			i.part_no ,
@@ -147,7 +148,8 @@ AS
 			bm.relative_point_x,
 			bm.relative_point_y,
 			bm.modified_by,
-			bm.last_modified_date
+			bm.last_modified_date,
+			i.void inv_void
 
 
     FROM    tdc_bin_part_qty s ( NOLOCK )
@@ -210,7 +212,8 @@ AS
 			bm.relative_point_x ,
 			bm.relative_point_y,
 			bm.modified_by,
-			bm.last_modified_date
+			bm.last_modified_date,
+			'N' inv_void
 
     FROM    tdc_bin_master bm (NOLOCK)
 			WHERE 
@@ -220,6 +223,7 @@ AS
 			
 			;
     
+
 
 
 

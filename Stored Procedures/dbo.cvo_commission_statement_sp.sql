@@ -6,7 +6,7 @@ CREATE PROCEDURE [dbo].[cvo_commission_statement_sp]
     @FiscalPeriod VARCHAR(10)
 AS 
 
--- exec cvo_commission_statement_sp '01/2018'
+-- exec cvo_commission_statement_sp '03/2018'
 
     SET NOCOUNT ON;
 
@@ -81,14 +81,15 @@ AS
                                 sp.salesperson_name ,
                                 ccswt.territory ,
                                 dbo.calculate_region_fn(ccswt.territory) region ,
-								ISNULL(dbo.adm_format_pltdate_f(sp.date_hired),'1/1/1900') hiredate,
-								ISNULL(dbo.adm_format_pltdate_f(sp.date_terminated),'12/31/2099') termdate,
+								ISNULL(dbo.adm_format_pltdate_f(sp.date_hired),'1/1/1900') hiredate ,
+								ISNULL(dbo.adm_format_pltdate_f(sp.date_terminated),'12/31/2099') termdate ,
 								sp.status_type,
 								sp.salesperson_type,
-								ccswt.commission,
+								CASE WHEN ccswt.report_month = @FiscalPeriod THEN ccswt.commission ELSE sp.commission END commission,
                                 RIGHT('00' + CAST(@i AS VARCHAR(2)), 2) mm
-                        FROM    dbo.cvo_commission_summary_work_tbl AS ccswt
-						JOIN dbo.arsalesp sp ON ccswt.salesperson = sp.salesperson_code 
+                        FROM    dbo.cvo_commission_summary_work_tbl AS ccswt (nolock)
+						JOIN dbo.arsalesp sp (NOLOCK) ON ccswt.salesperson = sp.salesperson_code 
+						
 						-- AND ccswt.territory = sp.territory_code
 						UNION ALL
                         SELECT DISTINCT
@@ -96,15 +97,16 @@ AS
                                 sp.salesperson_name ,
                                 sp.territory_code territory ,
                                 dbo.calculate_region_fn(sp.territory_code) region ,
-								ISNULL(dbo.adm_format_pltdate_f(sp.date_hired),'1/1/1900') hiredate,
-								ISNULL(dbo.adm_format_pltdate_f(sp.date_terminated),'12/31/2099') termdate,
+								ISNULL(dbo.adm_format_pltdate_f(sp.date_hired),'1/1/1900') hiredate ,
+								ISNULL(dbo.adm_format_pltdate_f(sp.date_terminated),'12/31/2099') termdate ,
 								sp.status_type,
 								sp.salesperson_type,
 								sp.commission,
                                 RIGHT('00' + CAST(@i AS VARCHAR(2)), 2) mm
                         FROM    dbo.arsalesp sp
 						WHERE sp.status_type = 1 AND NOT EXISTS 
-						(SELECT 1 FROM dbo.cvo_commission_summary_work_tbl AS ccswt WHERE ccswt.salesperson = sp.salesperson_code
+						(SELECT 1 FROM dbo.cvo_commission_summary_work_tbl AS ccswt (NOLOCK) 
+								  WHERE ccswt.salesperson = sp.salesperson_code
 							AND RIGHT(@FiscalPeriod,4) = RIGHT(ccswt.report_month,4)
 							AND ccswt.territory = sp.territory_code) -- 7/17
 						;
@@ -205,7 +207,7 @@ AS
                                 ) ty ON ty.salesperson = #mm.salesperson
                                         AND #mm.mm = LEFT(ty.report_month, 2)
 										AND #mm.territory = ty.territory -- 7/17
-                 LEFT OUTER JOIN ( SELECT    c.salesperson ,
+                 LEFT OUTER JOIN ( SELECT    DISTINCT c.salesperson ,
 											 c.territory,
                                             LEFT(c.report_month, 2) month_num ,
                                             c.total_earnings
@@ -216,7 +218,7 @@ AS
                                 ) tyhist ON #mm.salesperson = tyhist.salesperson
                                             AND #mm.mm = tyhist.month_num
 											AND #mm.territory = tyhist.territory
-                LEFT OUTER JOIN ( SELECT    c.salesperson ,
+                LEFT OUTER JOIN ( SELECT    DISTINCT c.salesperson ,
 											c.territory,
                                             LEFT(c.report_month, 2) month_num ,
                                             ISNULL(total_earnings, 0.00) total_earnings
@@ -225,7 +227,7 @@ AS
                                 ) ly ON #mm.salesperson = ly.salesperson
                                         AND #mm.mm = ly.month_num
 										AND #mm.territory = ly.territory -- 7/17
-                LEFT OUTER JOIN ( SELECT    c.salesperson ,
+                LEFT OUTER JOIN ( SELECT    DISTINCT c.salesperson ,
 											c.territory,
                                             LEFT(c.report_month, 2) month_num ,
                                             c.total_earnings
@@ -468,6 +470,8 @@ AS
 			   ;
 
     END;
+
+
 
 
 

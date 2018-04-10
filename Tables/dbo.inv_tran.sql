@@ -46,17 +46,19 @@ CREATE TABLE [dbo].[inv_tran]
 GO
 CREATE NONCLUSTERED INDEX [inv_tran2] ON [dbo].[inv_tran] ([curr_date]) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [inv_tran_plc] ON [dbo].[inv_tran] ([part_no], [location], [curr_date]) ON [PRIMARY]
+GO
 CREATE NONCLUSTERED INDEX [inv_tran_idx1_042413] ON [dbo].[inv_tran] ([part_no], [tran_no], [tran_ext]) ON [PRIMARY]
 GO
 CREATE UNIQUE CLUSTERED INDEX [PK_inv_tran] ON [dbo].[inv_tran] ([tran_id]) ON [PRIMARY]
 GO
-GRANT REFERENCES ON  [dbo].[inv_tran] TO [public]
-GO
-GRANT SELECT ON  [dbo].[inv_tran] TO [public]
+GRANT DELETE ON  [dbo].[inv_tran] TO [public]
 GO
 GRANT INSERT ON  [dbo].[inv_tran] TO [public]
 GO
-GRANT DELETE ON  [dbo].[inv_tran] TO [public]
+GRANT REFERENCES ON  [dbo].[inv_tran] TO [public]
+GO
+GRANT SELECT ON  [dbo].[inv_tran] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[inv_tran] TO [public]
 GO

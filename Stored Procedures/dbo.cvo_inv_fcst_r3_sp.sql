@@ -30,16 +30,16 @@ CREATE PROCEDURE [dbo].[cvo_inv_fcst_r3_sp]
     @debug INT = 0
 --
 /*
-exec cvo_inv_fcst_r3_t_sp
+exec cvo_inv_fcst_r3_sp
 
-@asofdate = '01/01/2018', 
-@endrel = '01/01/2018', 
+@asofdate = '04/01/2018', 
+@endrel = '04/01/2018', 
 @current = 0, 
-@collection = 'dd', 
+@collection = 'bt', 
 @style = null, 
 @specfit = null,
 @usg_option = 'o',
-@debug = 0, -- debug
+@debug = 1, -- debug
 @location = '001',
 @restype = 'frame,sun',
 @WKSONHANDGTLT = 'all',
@@ -303,7 +303,8 @@ BEGIN
         INSERT INTO @type_tbl
         SELECT DISTINCT
                type_code
-        FROM dbo.inv_master AS i;
+        FROM dbo.inv_master AS i
+		WHERE void = 'n';
     END;
     ELSE
     BEGIN
@@ -540,6 +541,12 @@ BEGIN
     IF @debug = 5
         SELECT *
         FROM #usage AS u;
+
+	IF @debug <> 0 
+	BEGIN
+		SELECT @ResType, @type_code
+		SELECT * FROM @type_tbl
+	end
 
     -- get sales history
     SELECT i.category brand,
@@ -2021,8 +2028,7 @@ BEGIN
                MIN(ISNULL(ia.field_26, '1/1/1900')) rel_date,
                MAX(pp.price_a) price
         FROM dbo.inv_master i (NOLOCK)
-            JOIN @type_tbl AS t
-                ON t.type_code = i.type_code
+			INNER JOIN @type_tbl AS tt ON tt.type_code = i.type_code
             INNER JOIN dbo.inv_master_add ia (NOLOCK)
                 ON ia.part_no = i.part_no
             INNER JOIN dbo.part_price pp (NOLOCK)
@@ -2043,7 +2049,8 @@ BEGIN
             FROM dbo.cvo_part_attributes c
             ) AS pa
                 ON pa.part_no = i.part_no
-        WHERE 1 = 1
+        WHERE 1 = 1 AND i.void = 'N' 
+
         GROUP BY i.category,
                  ia.field_2,
                  i.vendor
@@ -2064,4 +2071,8 @@ END;
 
 
 
+
+
+GO
+GRANT EXECUTE ON  [dbo].[cvo_inv_fcst_r3_sp] TO [public]
 GO

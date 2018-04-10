@@ -51,19 +51,19 @@ SELECT ISNULL(i.vendor, '') vendor,
        x.frame_category
 
 FROM inv_master i
-    LEFT OUTER JOIN inv_master_add ia
-        ON i.part_no = ia.part_no
-    LEFT OUTER JOIN uom_id_code u
+    LEFT OUTER JOIN inv_master_add ia (nolock)
+        ON i.part_no = ia.part_no 
+    LEFT OUTER JOIN uom_id_code u (nolock)
         ON i.part_no = u.part_no
-    LEFT OUTER JOIN part_price p
+    LEFT OUTER JOIN part_price p (nolock)
         ON i.part_no = p.part_no
            AND p.curr_key = 'USD'
-    LEFT OUTER JOIN vendor_sku v
+    LEFT OUTER JOIN vendor_sku v (nolock)
         ON i.part_no = v.sku_no
            AND i.vendor = v.vendor_no
            AND v.curr_key = 'USD'
            AND v.last_recv_date > GETDATE()
-    LEFT OUTER JOIN inv_list l
+    LEFT OUTER JOIN inv_list l (nolock)
         ON i.part_no = l.part_no
            AND l.location = '001'
     LEFT OUTER JOIN gl_country CN (NOLOCK)
@@ -88,7 +88,7 @@ FROM inv_master i
         ON x.part_no = i.part_no
     LEFT OUTER JOIN
     (
-        SELECT c.part_no,
+        SELECT DISTINCT c.part_no,
                STUFF(
                (
                    SELECT '; ' + attribute
@@ -105,6 +105,7 @@ FROM inv_master i
         ON pa.part_no = i.part_no;
 
 --WHERE ia.field_2 = 't 5607'
+
 GO
 GRANT REFERENCES ON  [dbo].[CVO_items_vw] TO [public]
 GO
