@@ -4,6 +4,7 @@ SET ANSI_NULLS ON
 GO
 
 
+
   
   
 CREATE VIEW [dbo].[CVO_BGLog_source_vw2] AS  
@@ -16,6 +17,7 @@ CREATE VIEW [dbo].[CVO_BGLog_source_vw2] AS
 -- v1.6 CB 30/04/2015 - For credits do not check terms code
 -- v1.7 CB 05/05/2015 - Issue #1538 - Not displaying free frames correctly for BGs
 -- vTAG - 030518 - performance
+-- v1.8 CB 11/04/2018 - Issue #1663 - Invoice Option for Contract Pricing
 
   
 -- 1 -- order h  
@@ -104,10 +106,32 @@ t.days_due AS trm,
 CASE WHEN h.type = 'I' THEN 'Invoice' ELSE 'Credit' END AS type,   
 CONVERT(VARCHAR(12),DATEADD(d,x.date_doc-639906,'1/1/1753'),101) AS inv_date,
 --convert(varchar(12), h.date_shipped, 101) as inv_date,  
+-- v1.8 Start
+CASE WHEN MAX(ISNULL(q2.net_only,'N')) = 'N' THEN
+	CASE WHEN MAX(ISNULL(q.net_only,'N')) = 'N' THEN
+	SUM(ROUND(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2)) 
+	ELSE
+	SUM(ROUND(d.curr_price * d.shipped,2)) END
+ELSE
+	SUM(ROUND(d.curr_price * d.shipped,2)) END
+AS inv_tot, 
+--sum(round((c.list_price * d.shipped),2)) as inv_tot,  
+-- END v2.8
+--sum(round((curr_price * d.shipped),2)) as inv_tot, 
+-- START v2.8 
+CASE WHEN MAX(ISNULL(q2.net_only,'N')) = 'N' THEN
+	CASE WHEN MAX(ISNULL(q.net_only,'N')) = 'N' THEN
+	SUM(ROUND(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2)) 
+	ELSE
+	SUM(ROUND(d.curr_price * d.shipped,2)) END
+ELSE
+	SUM(ROUND(d.curr_price * d.shipped,2)) END
+AS mer_tot,
+-- v1.8 End
 -- START v1.4
-SUM( CASE WHEN c.free_frame = 1 THEN 0 ELSE ROUND(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2) END) AS inv_tot, -- v1.7
+--SUM( CASE WHEN c.free_frame = 1 THEN 0 ELSE ROUND(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2) END) AS inv_tot, -- v1.7
 --sum(round((c.list_price * d.shipped),2)) as inv_tot,   
-SUM( CASE WHEN c.free_frame = 1 THEN 0 ELSE ROUND(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2) END ) AS mer_tot,  -- v1.7
+--SUM( CASE WHEN c.free_frame = 1 THEN 0 ELSE ROUND(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2) END ) AS mer_tot,  -- v1.7
 --sum(round((c.list_price * d.shipped),2)) as mer_tot,    
 -- END v1.4
 0.00 AS net_amt,  
@@ -121,15 +145,20 @@ SUM(d.Shipped * ROUND(curr_price -(curr_price * ((CASE WHEN d.curr_price > c.lis
 -- END v1.4
 -- disc_perc = CASE WHEN round(d.discount,2) > 0 THEN round(d.discount/100,2) ELSE p.disc_perc END,  
 -- START v1.4
-CASE 	WHEN SUM((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END)) = 0 THEN 0
+-- v1.8 Start
+--CASE WHEN (ISNULL(q2.net_only,'N')) = 'N' THEN
+	CASE WHEN ((ISNULL(q.net_only,'N')) = 'N' OR (ISNULL(q2.net_only,'N')) = 'N') THEN 
+	CASE 	WHEN SUM(CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) = 0 THEN 0
 	WHEN (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) > 0 AND (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) <> 0 THEN -- two levels of discount in play
-		ROUND(1 - (SUM(d.shipped*ROUND(curr_price-(curr_price*((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END)/100)),2)) 
-		/
-		SUM(ROUND(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2)) ), 2)
-	WHEN (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) > 0 AND (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) = 0 THEN 
-		(CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END)/100 
-	ELSE (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) END
-	AS disc_perc, 
+			ROUND(1 - (SUM(d.shipped*ROUND(curr_price-(curr_price*((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) END)/100)),2)) 
+			/
+			SUM(ROUND(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped),2)) ), 2)
+		WHEN (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) > 0 AND (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) = 0 THEN 
+			(CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END)/100 
+		ELSE (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) END
+	ELSE 0 END 
+--ELSE 0 END -- v1.8 End
+	AS disc_perc,   
 /*
 disc_perc = CASE 	when suM(c.list_price) = 0 then 0
 	WHEN d.discount > 0 and p.disc_perc <> 0 then -- two levels of discount in play
@@ -171,7 +200,9 @@ JOIN arcust B (NOLOCK)ON h.cust_code = b.customer_code
 JOIN Cvo_ord_list c (NOLOCK) ON  d.order_no =c.order_no AND d.order_ext = c.order_ext AND d.line_no = c.line_no  
 JOIN CVO_disc_percent p (NOLOCK) ON d.order_no = p.order_no AND d.order_ext = p.order_ext AND d.line_no = p.line_no  
 JOIN arterms t (NOLOCK) ON h.terms = t.terms_code  
-
+LEFT JOIN c_quote q (NOLOCK) ON h.cust_code = q.customer_key AND d.part_no = q.item -- v1.8
+JOIN inv_master iv (NOLOCK) ON d.part_no = iv.part_no -- v1.8
+LEFT JOIN c_quote q2 (NOLOCK) ON h.cust_code = q2.customer_key AND iv.category = q2.item -- v1.8
 WHERE
 cv.buying_group > '' -- v1.2
 AND  d.shipped > 0  
@@ -183,7 +214,8 @@ AND x.void_flag <> 1     --v2.0
 
 GROUP BY cv.buying_group, bg.customer_name, h.cust_code, b.customer_name, i.doc_ctrl_num, t.days_due, h.type, -- v1.2
 -- START v1.4
-x.date_doc, (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END), (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END)  
+x.date_doc, (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END), (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END),
+q.net_only,q2.net_only
 --x.date_doc, d.discount, disc_perc  
 -- END v1.4
   
@@ -839,6 +871,7 @@ AND h.terms_code NOT LIKE 'INS%'
 AND h.void_flag <> 1  
 AND dbo.f_cvo_get_buying_group(h.customer_code, CONVERT(VARCHAR(10),DATEADD(DAY, h.date_doc - 693596, '01/01/1900'),121)) > '' 
 -- v1.5 End
+
 
 
 

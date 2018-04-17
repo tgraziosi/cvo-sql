@@ -13,18 +13,21 @@ GO
 CREATE PROCEDURE [dbo].[cvo_rxbo_comment_insert_sp]
     @order_no INT,
     @ext INT,
-    @Comment VARCHAR(255)
+	@Comment VARCHAR(80) = NULL
 AS
 BEGIN
 
     SET NOCOUNT ON;
+
+	-- DROP TABLE dbo.cvo_rxbo_comment_tbl
 
 	IF (OBJECT_ID('dbo.cvo_rxbo_comment_tbl') IS NULL)
     BEGIN
 	CREATE TABLE dbo.cvo_rxbo_comment_tbl
 	(order_no INT,
 	 ext INT,
-	 Comment VARCHAR(255)
+	 call_date DATETIME,
+	 call_user VARCHAR(80)
 	)
     ;
 	CREATE CLUSTERED INDEX pk_cvo_rxbo_comment ON dbo.cvo_rxbo_comment_tbl (order_no, ext)
@@ -44,9 +47,10 @@ BEGIN
 
     INSERT INTO cvo_rxbo_comment_tbl
     VALUES
-    (@order_no, @ext, @Comment);
+    (@order_no, @ext, GETDATE(), @Comment);
 
 END;
+
 
 
 

@@ -269,9 +269,9 @@ BEGIN
 			IF (@isCredit = 'Y')
 			BEGIN
 				SELECT	@gross_price = b.list_price,
-						@discount_price = ROUND(b.amt_disc,2),
-						@net_price = (b.list_price - ROUND(b.amt_disc,2)),
-						@ext_net_price = ((b.list_price - ROUND(b.amt_disc,2)) * @qty)
+						@discount_price = CASE WHEN b.amt_disc = 0 THEN (b.list_price - a.curr_price) ELSE ROUND(b.amt_disc,2) END, -- v2.4
+						@net_price = CASE WHEN b.amt_disc = 0 THEN a.curr_price ELSE (b.list_price - ROUND(b.amt_disc,2)) END, -- v2.4
+						@ext_net_price = (CASE WHEN b.amt_disc = 0 THEN a.curr_price ELSE (b.list_price - ROUND(b.amt_disc,2)) END) * @qty -- v2.4
 						FROM	ord_list a (NOLOCK)
 						JOIN	cvo_ord_list b (NOLOCK)
 						ON		a.order_no = b.order_no

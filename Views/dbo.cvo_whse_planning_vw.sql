@@ -9,7 +9,7 @@ GO
 
 CREATE VIEW [dbo].[cvo_whse_planning_vw]
 AS
-    SELECT  
+    SELECT  -- bins with inventory assigned or not
 			i.part_no ,
             b.bin_no ,
 			i.category Brand,
@@ -74,20 +74,21 @@ AS
 
     FROM    inv_master i ( NOLOCK ) 
 			INNER JOIN inv_master_add ia (nolock) ON ia.part_no = i.part_no
-		    INNER JOIN inv_list il ( NOLOCK ) ON il.part_no = i.part_no AND location = '001'
+		    INNER JOIN inv_list il ( NOLOCK ) ON il.part_no = i.part_no -- AND location = '001'
 			LEFT OUTER JOIN lot_bin_stock b ( NOLOCK ) ON b.part_no = i.part_no AND b.location = il.location
 			LEFT OUTER JOIN tdc_bin_master (NOLOCK) bm ON bm.bin_no = b.bin_no
                                                           AND bm.location = b.location
-			LEFT OUTER JOIN tdc_bin_part_qty pb ON pb.location = il.location
+			LEFT OUTER JOIN tdc_bin_part_qty pb (nolock) ON pb.location = il.location
                                                    AND pb.part_no = i.part_no
 												   AND pb.bin_no = b.bin_no
-			LEFT OUTER JOIN dbo.tdc_bin_replenishment AS tbr ON tbr.location = il.location
+			LEFT OUTER JOIN dbo.tdc_bin_replenishment AS tbr (NOLOCK) ON tbr.location = il.location
 													AND tbr.part_no = i.part_no
 													AND tbr.bin_no = b.bin_no
             
 
     WHERE   1 = 1
 		-- AND i.void = 'n'
+			AND (b.bin_no IS NOT NULL OR pb.bin_no IS NOT NULL) -- 4/17/18
     UNION -- assigned bins with no inventory
     SELECT	DISTINCT
 			i.part_no ,
@@ -162,7 +163,7 @@ AS
             LEFT JOIN lot_bin_stock l ( NOLOCK ) ON s.location = l.location
                                                     AND s.part_no = l.part_no
                                                     AND s.bin_no = l.bin_no
-			LEFT OUTER JOIN dbo.tdc_bin_replenishment AS tbr ON tbr.location = s.location
+			LEFT OUTER JOIN dbo.tdc_bin_replenishment AS tbr (NOLOCK) ON tbr.location = s.location
 													AND tbr.part_no = s.part_no
 													AND tbr.bin_no = s.bin_no
     WHERE   l.location IS NULL
@@ -223,6 +224,7 @@ AS
 			
 			;
     
+
 
 
 

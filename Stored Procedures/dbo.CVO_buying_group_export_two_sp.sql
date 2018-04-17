@@ -21,6 +21,7 @@ EXEC CVO_buying_group_export_two_sp "invoice_date between '01/26/2018' and '02/2
 
 -- Rev 1 BNM 9/11/2012 updated to resolve issue 728, installment invoice details on export
 -- v1.1	CT 20/10/2014 - Issue #1367 - For Sales Orders and Credit Returns, if net price > list price, set list = net and discount = 0
+-- v1.2 CB 11/04/2018 - Issue #1663 - Invoice Option for Contract Pricing
 **************************************************************************************/
 
 CREATE PROCEDURE [dbo].[CVO_buying_group_export_two_sp] (@WHERECLAUSE VARCHAR(1024))
@@ -346,42 +347,67 @@ end	as qty_shipped,
 --	else left(convert(varchar(20),isnull(convert(money,d.price),'')),20) 
 --end as disc_unit,
 -- START v1.1
-CASE WHEN d.curr_price > c.list_price THEN '0'
-ELSE
--- END v1.1
-	case when o.type = 'C' then 
-		left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100))))*-1,'')),20)
-		else left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100)))),'')),20) 
--- START v1.1
-	END
--- END v1.1
-end as disc_unit,
-case 
-	-- START v1.1
-	WHEN d.curr_price > c.list_price THEN 
-		CASE
-			when o.type = 'C' then	left(convert(varchar(20),isnull(convert(money,d.curr_price)*-1,'')),20) 
-			else left(convert(varchar(20),isnull(convert(money,d.curr_price),'')),20) 
-		END
+-- v1.2 Start
+CASE WHEN ISNULL(q2.net_only,'N') = 'N' THEN
+	CASE WHEN ISNULL(q.net_only,'N') = 'N' THEN 
+		CASE WHEN d.curr_price > c.list_price THEN '0'
+		ELSE
+		-- END v1.1
+			case when o.type = 'C' then 
+				left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100))))*-1,'')),20)
+				else left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100)))),'')),20) 
+		-- START v1.1
+			END
+	-- END v1.1
+	end 
 	ELSE
-		CASE
-	-- END v1.1
-			when o.type = 'c' and d.discount < 0.0 then 
-			 left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100))))*-1,'')),20)
-			when o.type = 'i' and d.discount < 0.0 then
-			 left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100)))),'')),20)
-			when o.type = 'C' and d.discount >= 0.0 then left(convert(varchar(20),isnull(convert(money,c.list_price)*-1,'')),20) 
-			else left(convert(varchar(20),isnull(convert(money,c.list_price),'')),20) 
-	-- START v1.1
-		END
-	-- END v1.1
-end as list_unit
+		left(convert(varchar(20),isnull(convert(money,(d.curr_price)),'')),20)
+	END
+ELSE
+	left(convert(varchar(20),isnull(convert(money,(d.curr_price)),'')),20)
+END
+-- v1.2 End
+as disc_unit,
+-- v1.2 Start
+CASE WHEN ISNULL(q2.net_only,'N') = 'N' THEN
+	CASE WHEN ISNULL(q.net_only,'N') = 'N' THEN 
+		case 
+			-- START v1.1
+			WHEN d.curr_price > c.list_price THEN 
+				CASE
+					when o.type = 'C' then	left(convert(varchar(20),isnull(convert(money,d.curr_price)*-1,'')),20) 
+					else left(convert(varchar(20),isnull(convert(money,d.curr_price),'')),20) 
+				END
+			ELSE
+				CASE
+			-- END v1.1
+					when o.type = 'c' and d.discount < 0.0 then 
+					 left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100))))*-1,'')),20)
+					when o.type = 'i' and d.discount < 0.0 then
+					 left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100)))),'')),20)
+					when o.type = 'C' and d.discount >= 0.0 then left(convert(varchar(20),isnull(convert(money,c.list_price)*-1,'')),20) 
+					else left(convert(varchar(20),isnull(convert(money,c.list_price),'')),20) 
+			-- START v1.1
+				END
+			-- END v1.1
+		end 
+	ELSE
+		left(convert(varchar(20),isnull(convert(money,(d.curr_price)),'')),20)
+	END
+ELSE
+	left(convert(varchar(20),isnull(convert(money,(d.curr_price)),'')),20)
+END
+-- v1.2 End
+as list_unit
 from #buy_h h (nolock)
 join orders_invoice i (nolock) on h.invoice = i.doc_ctrl_num -- ltrim(rtrim(h.invoice)) = ltrim(rtrim(i.doc_ctrl_num))
 join orders_all o (nolock) on i.order_no = o.order_no and i.order_ext = o.ext
 join ord_list d (nolock) on i.order_no = d.order_no and i.order_ext = d.order_ext
 join Cvo_ord_list c (nolock) on  d.order_no =c.order_no and d.order_ext = c.order_ext and d.line_no = c.line_no
-where d.shipped > 0 or d.cr_shipped > 0
+JOIN inv_master iv (NOLOCK) ON d.part_no = iv.part_no -- v1.2
+LEFT JOIN c_quote q (NOLOCK) ON o.cust_code = q.customer_key AND d.part_no = q.item AND iv.type_code = q.res_type -- v1.2
+LEFT JOIN c_quote q2 (NOLOCK) ON o.cust_code = q2.customer_key AND iv.category = q2.item AND iv.type_code = q2.res_type-- v1.2
+where (d.shipped > 0 or d.cr_shipped > 0)
 and charindex('-',invoice) <= 0
 and o.terms not like 'INS%'
 
@@ -405,16 +431,29 @@ case
 	else left(convert(varchar(20),isnull(convert(int,d.shipped),'')),20)
 end	as qty_shipped,
 -- START v1.1
-CASE WHEN d.curr_price > c.list_price THEN '0'
-ELSE
--- END v1.1
-	case when o.type = 'C' then 
-		left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100))))*-1,'')),20)
-		else left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100)))),'')),20) 
--- START v1.1
+-- v1.2 Start
+CASE WHEN ISNULL(q2.net_only,'N') = 'N' THEN
+	CASE WHEN ISNULL(q.net_only,'N') = 'N' THEN 
+		CASE WHEN d.curr_price > c.list_price THEN '0'
+		ELSE
+		-- END v1.1
+			case when o.type = 'C' then 
+				left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100))))*-1,'')),20)
+				else left(convert(varchar(20),isnull(convert(money,(curr_price - (curr_price * (d.discount / 100)))),'')),20) 
+		-- START v1.1
+			END
+		-- END v1.1
+	end 
+	ELSE
+		left(convert(varchar(20),isnull(convert(money,(d.curr_price)),'')),20)
 	END
--- END v1.1
-end as disc_unit,
+ELSE
+	left(convert(varchar(20),isnull(convert(money,(d.curr_price)),'')),20)
+END
+-- v1.2 End
+as disc_unit,
+CASE WHEN ISNULL(q2.net_only,'N') = 'N' THEN
+	CASE WHEN ISNULL(q.net_only,'N') = 'N' THEN 
 case 
 	-- START v1.1
 	WHEN d.curr_price > c.list_price THEN 
@@ -434,7 +473,14 @@ case
 	-- START v1.1
 		END
 	-- END v1.1
-end as list_unit
+end 
+	ELSE
+		left(convert(varchar(20),isnull(convert(money,(d.curr_price)),'')),20)
+	END
+ELSE
+	left(convert(varchar(20),isnull(convert(money,(d.curr_price)),'')),20)
+END
+as list_unit
 from #buy_h h (nolock)
 join orders_invoice i (nolock)
 	on i.doc_ctrl_num = ltrim(rtrim(h.invoice))
@@ -442,6 +488,9 @@ join orders_invoice i (nolock)
 join orders_all o (nolock) on i.order_no = o.order_no and i.order_ext = o.ext
 join ord_list d (nolock) on i.order_no = d.order_no and i.order_ext = d.order_ext
 join Cvo_ord_list c (nolock) on  d.order_no =c.order_no and d.order_ext = c.order_ext and d.line_no = c.line_no
+JOIN inv_master iv (NOLOCK) ON d.part_no = iv.part_no -- v1.2
+LEFT JOIN c_quote q (NOLOCK) ON o.cust_code = q.customer_key AND d.part_no = q.item AND iv.type_code = q.res_type -- v1.2
+LEFT JOIN c_quote q2 (NOLOCK) ON o.cust_code = q2.customer_key AND iv.category = q2.item AND iv.type_code = q2.res_type-- v1.2
 where h.invoice not in (select invoice from #buy_d (nolock))
 and (d.shipped > 0 or d.cr_shipped > 0)
 -- and charindex('-',invoice) > 0
@@ -478,6 +527,7 @@ join artrx_all i (nolock) on  h.invoice = i.doc_ctrl_num -- ltrim(rtrim(h.invoic
 join artrxcdt d (nolock) on i.trx_ctrl_num = d.trx_ctrl_num
 where h.invoice not in (select invoice from #buy_d (nolock))
 and i.trx_type in (2031,2032)
+AND charindex('-',i.order_ctrl_num) = 0 
 and i.terms_code not like 'INS%'	-- 09/11/2012 BNM - resolve issue 728, non-installment invoice detail
 
 --=========================================================================================
@@ -681,8 +731,8 @@ order by line_num
 SET NOCOUNT ON
 set @FILENAME_sub = ltrim(rtrim(@customer)) + '_' + @file_from + '_' + @file_to + '_detail.txt'
 
---SET @FILENAME = 'C:\Epicor_BGData\Detail\' + @FILENAME_sub
 SET @FILENAME = '\\cvo-fs-01\Public_Data\Accounts Receivable\Buying Groups\Epicor_BGData\' + @FILENAME_sub
+--SET @FILENAME = 'C:\Epicor_BGData\Detail\' + @FILENAME_sub
 SET @BCPCOMMAND = 'BCP "SELECT LINE FROM CVO..##EXP2_TEMP" QUERYOUT "'
 -- SET @BCPCOMMAND = @BCPCOMMAND + @FILENAME + '" -U sa -P sa12345  -c'
 SET @BCPCOMMAND = @BCPCOMMAND + @FILENAME + '" -T   -c'

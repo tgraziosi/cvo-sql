@@ -325,13 +325,14 @@ AS -- RX backorders to allocate
             description ,
             bo_days ,
             DaysOverDue,
-			ISNULL(c.comment,'<Click here to enter a comment>') comment -- 4/9/2018
+			ISNULL(c.call_user+' '+CONVERT(VARCHAR(10),c.call_date,101),'<Click here to mark call>') comment -- 4/9/2018
     FROM    #t
 	LEFT OUTER JOIN cvo_rxbo_comment_tbl c ON c.order_no = #t.order_no AND c.ext = #t.ext
     WHERE   1 = 1
 -- and qty_to_alloc > 0 
 ORDER BY    part_no ,
             qty_avl_to_alloc DESC;
+
 
 
 
