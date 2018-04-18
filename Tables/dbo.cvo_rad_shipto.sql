@@ -27,9 +27,5 @@ CREATE TABLE [dbo].[cvo_rad_shipto]
 [IsActiveDoor] [int] NULL
 ) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [idx_cvo_rad_shipto] ON [dbo].[cvo_rad_shipto] ([territory], [customer], [ship_to], [X_MONTH], [year], [yyyymmdd]) ON [PRIMARY]
-GO
-CREATE NONCLUSTERED INDEX [idx_yyyymmdd_rad] ON [dbo].[cvo_rad_shipto] ([yyyymmdd]) ON [PRIMARY]
-GO
 GRANT SELECT ON  [dbo].[cvo_rad_shipto] TO [public]
 GO

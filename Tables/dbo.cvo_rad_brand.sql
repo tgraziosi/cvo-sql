@@ -39,9 +39,5 @@ CREATE TABLE [dbo].[cvo_rad_brand]
 [anet_cl] [float] NULL
 ) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [idx_cvo_rad_brand] ON [dbo].[cvo_rad_brand] ([brand], [territory], [customer], [ship_to], [X_MONTH], [year], [yyyymmdd]) ON [PRIMARY]
-GO
-CREATE NONCLUSTERED INDEX [idx_yyyymmdd_rad] ON [dbo].[cvo_rad_brand] ([yyyymmdd]) ON [PRIMARY]
-GO
 GRANT SELECT ON  [dbo].[cvo_rad_brand] TO [public]
 GO

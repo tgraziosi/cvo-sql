@@ -87,13 +87,15 @@ CREATE NONCLUSTERED INDEX [cvo_ord_list_ind0] ON [dbo].[CVO_ord_list] ([order_no
 GO
 CREATE UNIQUE CLUSTERED INDEX [idx_CVO_ord_list] ON [dbo].[CVO_ord_list] ([order_no], [order_ext], [line_no]) ON [PRIMARY]
 GO
-GRANT REFERENCES ON  [dbo].[CVO_ord_list] TO [public]
+CREATE NONCLUSTERED INDEX [cvo_ord_list_upsell_idx] ON [dbo].[CVO_ord_list] ([upsell_flag]) INCLUDE ([amt_disc], [line_no], [list_price], [order_ext], [order_no]) ON [PRIMARY]
 GO
-GRANT SELECT ON  [dbo].[CVO_ord_list] TO [public]
+GRANT DELETE ON  [dbo].[CVO_ord_list] TO [public]
 GO
 GRANT INSERT ON  [dbo].[CVO_ord_list] TO [public]
 GO
-GRANT DELETE ON  [dbo].[CVO_ord_list] TO [public]
+GRANT REFERENCES ON  [dbo].[CVO_ord_list] TO [public]
+GO
+GRANT SELECT ON  [dbo].[CVO_ord_list] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[CVO_ord_list] TO [public]
 GO

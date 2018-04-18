@@ -13,7 +13,7 @@ GO
 CREATE PROCEDURE [dbo].[cvo_rxbo_comment_insert_sp]
     @order_no INT,
     @ext INT,
-	@Comment VARCHAR(80) = NULL
+	@Comment VARCHAR(80) = NULL -- pass the username here
 AS
 BEGIN
 
@@ -50,6 +50,7 @@ BEGIN
     (@order_no, @ext, GETDATE(), @Comment);
 
 END;
+
 
 
 

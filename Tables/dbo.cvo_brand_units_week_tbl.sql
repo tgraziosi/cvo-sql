@@ -17,5 +17,3 @@ CREATE TABLE [dbo].[cvo_brand_units_week_tbl]
 [asofdate] [datetime] NULL
 ) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [idx_brand_units_week] ON [dbo].[cvo_brand_units_week_tbl] ([brand], [MODEL], [wkno]) ON [PRIMARY]
-GO

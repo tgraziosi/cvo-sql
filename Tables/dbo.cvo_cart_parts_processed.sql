@@ -18,3 +18,5 @@ CREATE TABLE [dbo].[cvo_cart_parts_processed]
 GO
 CREATE NONCLUSTERED INDEX [PR_PARTS] ON [dbo].[cvo_cart_parts_processed] ([order_no], [user_login], [part_no], [cart_no], [type_code], [isPicked]) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [cvo_cart_parts_tranid_idx] ON [dbo].[cvo_cart_parts_processed] ([tran_id]) INCLUDE ([isPicked]) ON [PRIMARY]
+GO
