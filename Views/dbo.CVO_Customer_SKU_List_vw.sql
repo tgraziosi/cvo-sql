@@ -25,17 +25,15 @@ AS
             INNER JOIN inv_list inv ( NOLOCK ) ON inv.part_no = t1.part_no
     WHERE   t2.field_26 < GETDATE() + 30
             AND inv.location = '001'
-            AND ( ( t1.type_code IN ( 'sun', 'frame' ) )
-                  AND ( t2.field_28 > GETDATE() )
-                  OR ( t1.type_code IN ( 'sun', 'frame' ) )
-                  AND ( t2.field_28 IS NULL )
-                )
-
+            AND  ( t1.type_code IN ( 'sun', 'frame' ) )
+            AND ( ISNULL(t2.field_28,GETDATE()) > GETDATE() )
+             
 -- tag - 082312 - exclude voided items
             AND t1.void <> 'V'
     ORDER BY Collection ,
             Model ,
             ItemCode;
+
 
 
 GO

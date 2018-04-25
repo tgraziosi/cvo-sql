@@ -17,8 +17,6 @@ CREATE TABLE [dbo].[tdc_log]
 GO
 CREATE NONCLUSTERED INDEX [tdc_log_idx4] ON [dbo].[tdc_log] ([tran_date]) ON [PRIMARY]
 GO
-CREATE NONCLUSTERED INDEX [tdc_log_idx1] ON [dbo].[tdc_log] ([tran_date], [location], [part_no]) ON [PRIMARY]
-GO
 CREATE NONCLUSTERED INDEX [tdc_log_idx5_tag] ON [dbo].[tdc_log] ([tran_date], [trans]) INCLUDE ([bin_no], [data], [location], [lot_ser], [module], [part_no], [quantity], [tran_ext], [tran_no], [trans_source], [UserID]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [tdc_log_idx2] ON [dbo].[tdc_log] ([tran_no], [tran_ext]) ON [PRIMARY]

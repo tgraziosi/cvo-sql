@@ -21,6 +21,7 @@ GO
 -- v2.6 CB 04/10/2016 - #1606 - Direct Putaway & Fast Track Cart
 -- v2.7 CB 13/10/2017 - #1644 - Backorder Processing Reserve
 -- v2.8 CB 07/11/2017 - Add process info for tdc_log
+-- v2.9 CB 10/04/2018 - Exclude items in cvo no stock approvals
 
 CREATE PROC [dbo].[tdc_plw_so_allocate_line_sp]            
  @user_id   varchar(50),             
@@ -770,7 +771,13 @@ BEGIN
 	BEGIN
 		SELECT @lb_cursor_clause = @lb_cursor_clause + '   AND lb.bin_no = ''' + @c_bin_no + ''' '     -- v1.0   
 	END
-	-- END v2.1         
+	-- END v2.1 
+	-- v2.9 Start
+	SELECT @lb_cursor_clause = @lb_cursor_clause + ' AND lb.bin_no NOT IN (SELECT ns.bin_no FROM dbo.CVO_no_stock_approval ns (NOLOCK)
+			WHERE ns.location = ''' + @location + ''' AND lb.part_no = ns.part_no AND ns.approve = 0) '
+	-- v2.9 End
+	
+        
 	SELECT @lb_cursor_clause = @lb_cursor_clause +            
     ' GROUP BY lb.location, lb.part_no, lb.lot_ser, lb.bin_no,   ' +            
     '          lb.date_expires, bm.usage_type_code, lb.qty   ' +            

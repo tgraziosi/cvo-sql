@@ -850,7 +850,8 @@ ELSE '' END GENDER,
                                                                                      -- 9/7/2016 WHEN mastersku IN ('iz2026','iz2027') THEN 1 -- new iz t&C kit
                    -- WHEN ReleaseDate > GETDATE() AND sunps IN ('sunps','presell') THEN 1 -- 11/8/2017 for new presell season
                    WHEN [CATEGORY:2] = 'BLUTECH READERS' THEN 1                      -- 2/5/2018
-                   ELSE 0
+				   WHEN [category:1] = 'BCBGR SELLDWN' THEN 1
+				   ELSE 0
                END;
 
     -- plug for VEW 090816
@@ -1223,6 +1224,7 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
     WHERE [category:1] = 'ME SELL-DOWN';
 
 END;
+
 
 
 

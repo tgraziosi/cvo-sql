@@ -106,7 +106,8 @@ BEGIN
 		EXEC dbo.cvo_auto_alloc_process_sp 0 -- v1.1
 
 		-- Check if there is enough stock			
-		SELECT @qty_allocated = SUM(qty) FROM #no_stock_bins
+		SELECT	@qty_allocated = SUM(qty) FROM #no_stock_bins
+		WHERE	bin_no <> @current_bin_no -- v1.2
 
 		IF ISNULL(@qty_allocated,0) < @qty_required
 		BEGIN

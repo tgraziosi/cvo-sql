@@ -22,6 +22,7 @@ EXEC CVO_buying_group_export_two_sp "invoice_date between '01/26/2018' and '02/2
 -- Rev 1 BNM 9/11/2012 updated to resolve issue 728, installment invoice details on export
 -- v1.1	CT 20/10/2014 - Issue #1367 - For Sales Orders and Credit Returns, if net price > list price, set list = net and discount = 0
 -- v1.2 CB 11/04/2018 - Issue #1663 - Invoice Option for Contract Pricing
+-- v1.3 CB 20/04/2018 - Issue #1663 - Use view for Invoice Option for Contract Pricing
 **************************************************************************************/
 
 CREATE PROCEDURE [dbo].[CVO_buying_group_export_two_sp] (@WHERECLAUSE VARCHAR(1024))
@@ -342,14 +343,8 @@ case
 	when o.type = 'C' then left(convert(varchar(20),isnull(convert(int,d.cr_shipped)*-1,'')),20) 
 	else left(convert(varchar(20),isnull(convert(int,d.shipped),'')),20)
 end	as qty_shipped,
---case 
---	when o.type = 'C' then left(convert(varchar(20),isnull(convert(money,d.price)*-1,'')),20)
---	else left(convert(varchar(20),isnull(convert(money,d.price),'')),20) 
---end as disc_unit,
--- START v1.1
--- v1.2 Start
-CASE WHEN ISNULL(q2.net_only,'N') = 'N' THEN
-	CASE WHEN ISNULL(q.net_only,'N') = 'N' THEN 
+-- v1.3 Start
+CASE WHEN ISNULL(qv.net_only,'N') = 'N' THEN
 		CASE WHEN d.curr_price > c.list_price THEN '0'
 		ELSE
 		-- END v1.1
@@ -363,14 +358,10 @@ CASE WHEN ISNULL(q2.net_only,'N') = 'N' THEN
 	ELSE
 		left(convert(varchar(20),isnull(convert(money,(d.curr_price)),'')),20)
 	END
-ELSE
-	left(convert(varchar(20),isnull(convert(money,(d.curr_price)),'')),20)
-END
--- v1.2 End
+-- v1.3 End
 as disc_unit,
 -- v1.2 Start
-CASE WHEN ISNULL(q2.net_only,'N') = 'N' THEN
-	CASE WHEN ISNULL(q.net_only,'N') = 'N' THEN 
+CASE WHEN ISNULL(qv.net_only,'N') = 'N' THEN
 		case 
 			-- START v1.1
 			WHEN d.curr_price > c.list_price THEN 
@@ -394,19 +385,14 @@ CASE WHEN ISNULL(q2.net_only,'N') = 'N' THEN
 	ELSE
 		left(convert(varchar(20),isnull(convert(money,(d.curr_price)),'')),20)
 	END
-ELSE
-	left(convert(varchar(20),isnull(convert(money,(d.curr_price)),'')),20)
-END
--- v1.2 End
+-- v1.3 End
 as list_unit
 from #buy_h h (nolock)
 join orders_invoice i (nolock) on h.invoice = i.doc_ctrl_num -- ltrim(rtrim(h.invoice)) = ltrim(rtrim(i.doc_ctrl_num))
 join orders_all o (nolock) on i.order_no = o.order_no and i.order_ext = o.ext
 join ord_list d (nolock) on i.order_no = d.order_no and i.order_ext = d.order_ext
 join Cvo_ord_list c (nolock) on  d.order_no =c.order_no and d.order_ext = c.order_ext and d.line_no = c.line_no
-JOIN inv_master iv (NOLOCK) ON d.part_no = iv.part_no -- v1.2
-LEFT JOIN c_quote q (NOLOCK) ON o.cust_code = q.customer_key AND d.part_no = q.item AND iv.type_code = q.res_type -- v1.2
-LEFT JOIN c_quote q2 (NOLOCK) ON o.cust_code = q2.customer_key AND iv.category = q2.item AND iv.type_code = q2.res_type-- v1.2
+LEFT JOIN dbo.cvo_bg_contact_pricing_check_vw qv ON o.cust_code = qv.customer_key AND d.part_no = qv.part_no -- v1.3
 where (d.shipped > 0 or d.cr_shipped > 0)
 and charindex('-',invoice) <= 0
 and o.terms not like 'INS%'
@@ -431,9 +417,8 @@ case
 	else left(convert(varchar(20),isnull(convert(int,d.shipped),'')),20)
 end	as qty_shipped,
 -- START v1.1
--- v1.2 Start
-CASE WHEN ISNULL(q2.net_only,'N') = 'N' THEN
-	CASE WHEN ISNULL(q.net_only,'N') = 'N' THEN 
+-- v1.3 Start
+CASE WHEN ISNULL(qv.net_only,'N') = 'N' THEN
 		CASE WHEN d.curr_price > c.list_price THEN '0'
 		ELSE
 		-- END v1.1
@@ -447,13 +432,8 @@ CASE WHEN ISNULL(q2.net_only,'N') = 'N' THEN
 	ELSE
 		left(convert(varchar(20),isnull(convert(money,(d.curr_price)),'')),20)
 	END
-ELSE
-	left(convert(varchar(20),isnull(convert(money,(d.curr_price)),'')),20)
-END
--- v1.2 End
 as disc_unit,
-CASE WHEN ISNULL(q2.net_only,'N') = 'N' THEN
-	CASE WHEN ISNULL(q.net_only,'N') = 'N' THEN 
+CASE WHEN ISNULL(qv.net_only,'N') = 'N' THEN
 case 
 	-- START v1.1
 	WHEN d.curr_price > c.list_price THEN 
@@ -477,10 +457,8 @@ end
 	ELSE
 		left(convert(varchar(20),isnull(convert(money,(d.curr_price)),'')),20)
 	END
-ELSE
-	left(convert(varchar(20),isnull(convert(money,(d.curr_price)),'')),20)
-END
 as list_unit
+-- v1.3 End
 from #buy_h h (nolock)
 join orders_invoice i (nolock)
 	on i.doc_ctrl_num = ltrim(rtrim(h.invoice))
@@ -488,9 +466,7 @@ join orders_invoice i (nolock)
 join orders_all o (nolock) on i.order_no = o.order_no and i.order_ext = o.ext
 join ord_list d (nolock) on i.order_no = d.order_no and i.order_ext = d.order_ext
 join Cvo_ord_list c (nolock) on  d.order_no =c.order_no and d.order_ext = c.order_ext and d.line_no = c.line_no
-JOIN inv_master iv (NOLOCK) ON d.part_no = iv.part_no -- v1.2
-LEFT JOIN c_quote q (NOLOCK) ON o.cust_code = q.customer_key AND d.part_no = q.item AND iv.type_code = q.res_type -- v1.2
-LEFT JOIN c_quote q2 (NOLOCK) ON o.cust_code = q2.customer_key AND iv.category = q2.item AND iv.type_code = q2.res_type-- v1.2
+LEFT JOIN dbo.cvo_bg_contact_pricing_check_vw qv ON o.cust_code = qv.customer_key AND d.part_no = qv.part_no -- v1.3
 where h.invoice not in (select invoice from #buy_d (nolock))
 and (d.shipped > 0 or d.cr_shipped > 0)
 -- and charindex('-',invoice) > 0

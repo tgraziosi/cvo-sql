@@ -26,7 +26,7 @@ begin
 	IF @sellable = 'N'
 	BEGIN
 		SELECT x.priority, x.sub_part, i.[description], ( i.in_stock - i.commit_ed ), x.part_no
-		  FROM dbo.inv_substitutes x ( NOLOCK ), dbo.inventory i ( NOLOCK )
+		  FROM dbo.inv_substitutes x ( NOLOCK ), dbo.cvo_inventory2 i ( NOLOCK )
 		 WHERE x.sub_part = i.part_no 
 		   AND x.customer_key = @cust
 		   AND x.part_no = @part		-- mls 9/27/05 SCR 32011
@@ -41,7 +41,7 @@ begin
 
   SELECT x.priority, x.sub_part, i.description, 
          ( i.in_stock - i.commit_ed ), x.part_no
-  FROM   dbo.inv_substitutes x ( NOLOCK ), dbo.inventory i ( NOLOCK )
+  FROM   dbo.inv_substitutes x ( NOLOCK ), dbo.cvo_inventory2 i ( NOLOCK )
   WHERE  x.sub_part = i.part_no AND x.customer_key = @cust 
     AND x.part_no = @part		-- mls 9/27/05 SCR 32011
     AND i.location = @loc AND i.description >= @search
@@ -53,7 +53,7 @@ begin
 	IF @sellable = 'N'
 	BEGIN
 		SELECT x.priority, x.sub_part, i.[description], ( i.in_stock - i.commit_ed ), x.part_no
-		  FROM dbo.inv_substitutes x ( NOLOCK ), dbo.inventory i ( NOLOCK )
+		  FROM dbo.inv_substitutes x ( NOLOCK ), dbo.cvo_inventory2 i ( NOLOCK )
 		 WHERE x.sub_part = i.part_no 
 		   AND x.customer_key = @cust
 		   AND x.part_no = @part		-- mls 9/27/05 SCR 32011
@@ -68,7 +68,7 @@ begin
 
   SELECT x.priority, x.sub_part, i.description, 
          ( i.in_stock - i.commit_ed ), x.part_no
-  FROM   dbo.inv_substitutes x ( NOLOCK ), dbo.inventory i ( NOLOCK )
+  FROM   dbo.inv_substitutes x ( NOLOCK ), dbo.cvo_inventory2 i ( NOLOCK )
   WHERE  x.sub_part = i.part_no AND x.customer_key = @cust
     AND x.part_no = @part		-- mls 9/27/05 SCR 32011
     and i.location = @loc AND x.sub_part >= @search
@@ -80,7 +80,7 @@ begin
 	IF @sellable = 'N'
 	BEGIN
 		SELECT x.priority, x.sub_part, i.[description], ( i.in_stock - i.commit_ed ), x.part_no
-		  FROM dbo.inv_substitutes x ( NOLOCK ), dbo.inventory i ( NOLOCK )
+		  FROM dbo.inv_substitutes x ( NOLOCK ), dbo.cvo_inventory2 i ( NOLOCK )
 		 WHERE x.sub_part = i.part_no
 		   AND x.customer_key = @cust
 		   AND x.part_no = @part		-- mls 9/27/05 SCR 32011
@@ -94,7 +94,7 @@ begin
 
   SELECT x.priority, x.sub_part, i.description, 
          ( i.in_stock - i.commit_ed ), x.part_no
-  FROM   dbo.inv_substitutes x ( NOLOCK ), dbo.inventory i ( NOLOCK )
+  FROM   dbo.inv_substitutes x ( NOLOCK ), dbo.cvo_inventory2 i ( NOLOCK )
   WHERE  x.sub_part = i.part_no AND x.customer_key = @cust 
     AND x.part_no = @part		-- mls 9/27/05 SCR 32011
     and i.location = @loc
@@ -127,6 +127,8 @@ begin
   ORDER BY x.priority, x.sub_part
 end
 set rowcount 0
+
+
 GO
 GRANT EXECUTE ON  [dbo].[get_q_sub] TO [public]
 GO

@@ -5,6 +5,7 @@ GO
 
 -- v1.0 CT 24/07/2013 - Issue #1040 - No stock process 2013
 -- v1.1 CB 07/11/2017 - Add process info for tdc_log
+-- v1.2 CB 07/03/2018 - Issue #1660 - No Stock Hold
 /*
 Returns:
 0	= 1 bin found - transaction updated
@@ -68,7 +69,8 @@ BEGIN
 	EXEC dbo.cvo_auto_alloc_process_sp 0 -- v1.1
 
 	-- Check if there is enough stock			
-	SELECT @qty_allocated = SUM(qty) FROM #no_stock_bins
+	SELECT @qty_allocated = SUM(qty) FROM #no_stock_bins 
+	WHERE bin_no <> @current_bin_no -- v1.2
 
 	IF ISNULL(@qty_allocated,0) < @qty_required
 	BEGIN

@@ -7,6 +7,7 @@ AS -- RX backorders to allocate
 -- exec cvo_bo_to_alloc_rx
 -- 030915 - change safety stock figure based on pom date
 -- 04/09/2018 - add comments
+-- 042518 - only report on "Customer"s
 
     SET NOCOUNT ON;
     -- SET ANSI_WARNINGS OFF;
@@ -312,7 +313,7 @@ AS -- RX backorders to allocate
             quarantine ,
             ISNULL(nextpoduedate, '') nextpoduedate ,
             DDTONEXTPO ,
-            note ,
+            #t.note ,
             CASE WHEN LEN(phone) = 10
                  THEN SUBSTRING(phone, 1, 3) + '-' + SUBSTRING(phone, 4, 3)
                       + '-' + SUBSTRING(phone, 7, 4)
@@ -328,10 +329,14 @@ AS -- RX backorders to allocate
 			ISNULL(c.call_user+' '+CONVERT(VARCHAR(10),c.call_date,101),'<Click here to mark call>') comment -- 4/9/2018
     FROM    #t
 	LEFT OUTER JOIN cvo_rxbo_comment_tbl c ON c.order_no = #t.order_no AND c.ext = #t.ext
+	INNER JOIN armaster ar ON ar.customer_code = #t.cust_code AND ar.ship_to_code = #t.ship_to
     WHERE   1 = 1
+	AND ar.addr_sort1 = 'Customer' -- per KM request 042518
 -- and qty_to_alloc > 0 
 ORDER BY    part_no ,
             qty_avl_to_alloc DESC;
+
+
 
 
 

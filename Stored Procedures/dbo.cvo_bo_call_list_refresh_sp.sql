@@ -60,24 +60,40 @@ BEGIN
             phone VARCHAR(20),
             attention VARCHAR(40),
 			contact_status SMALLINT ,
-			contact_time DATETIME NULL
+			contact_time DATETIME NULL,
+			ship_to_zip VARCHAR(15),
+			id INT IDENTITY(1,1)
         );
     END;
     TRUNCATE TABLE dbo.cvo_bo_call_list_tbl;
 
-    INSERT INTO dbo.cvo_bo_call_list_tbl
-    SELECT DISTINCT
-           r.cust_code,
+	INSERT INTO dbo.cvo_bo_call_list_tbl
+	(
+	    cust_code,
+	    ship_to,
+	    ship_to_name,
+	    phone,
+	    attention,
+	    contact_status,
+	    contact_time,
+		ship_to_zip
+	)
+
+    SELECT DISTINCT 
+		   r.cust_code,
            r.ship_to,
            r.ship_to_name,
            r.phone,
            r.attention,
 		   0 AS contact_status,
-		   GETDATE() AS contact_time
+		   GETDATE() AS contact_time,
+		   o.ship_to_zip
     FROM #rxbo AS r
+	JOIN orders o (nolock) ON o.order_no = r.order_no AND o.ext = r.ext
     WHERE (r.DDTONEXTPO >= 30)
           AND r.location = '001'
-          AND r.qty_to_alloc < 0;
+          AND r.qty_to_alloc < 0
+	ORDER BY o.ship_to_zip; -- to sort  by zip so we don't call CA first :)
 
 
     DROP TABLE #rxbo;
@@ -86,6 +102,8 @@ END;
 
 
 GRANT EXECUTE ON dbo.cvo_bo_call_list_refresh_sp TO PUBLIC;
+
+
 
 
 GO

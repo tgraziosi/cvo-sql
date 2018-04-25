@@ -4,6 +4,7 @@ SET ANSI_NULLS ON
 GO
 
 -- v1.0 CT 24/07/2013 - Issue #1040 - Check for missing stock in other bins
+-- v1.1 CB 23/03/2018 - Issue #1660 - No Stock Hold - Need to exclude the bin being set on hold
 
 CREATE PROC [dbo].[cvo_no_stock_get_bins_sp]
 	 @user_id   varchar(50),               
@@ -168,6 +169,7 @@ BEGIN
 		qty_avail
 	FROM
 		#lb_cur
+	WHERE bin_no NOT IN (SELECT bin_no FROM #no_stock_required)	-- v1.1
 	ORDER BY
 		qty_avail DESC
 	

@@ -170,6 +170,18 @@ BEGIN
 	-- Adjust off what was missing from bin 
 	IF (@bin_qty - @picked_qty) > 0
 	BEGIN
+		-- v2.7 Start
+		IF NOT EXISTS (SELECT 1 FROM dbo.CVO_no_stock_approval WHERE location = @location AND part_no = @part_no AND lot_ser = @lot_ser
+						AND bin_no = @bin_no)
+		BEGIN
+			-- v2.6 Start
+			INSERT	dbo.CVO_no_stock_approval (approve, created_by, created_on,	location, part_no, lot_ser, bin_no, reason_code,
+				adj_code, qty, date_expires, direction)
+			SELECT	0, @userid, GETDATE(), @location, @part_no, @lot_ser, @bin_no, '', 'CYC', (@bin_qty - @picked_qty),
+				@date_expires, -1
+		END
+		-- v2.7 End
+		/*
 		DELETE #adm_inv_adj
 
 		INSERT INTO #adm_inv_adj (loc, part_no, bin_no, lot_ser, date_exp, qty, direction, who_entered, 
@@ -214,6 +226,8 @@ BEGIN
 									lot_ser,bin_no,location,quantity,data) 										
 		VALUES (getdate(), @userid, 'CO', 'ADH', 'ADHOC', CAST(@issue_no as varchar(10)), '', @part_no, @lot_ser, @bin_no, 
 					@location, LTRIM(STR((@bin_qty - @picked_qty) * -1)), @data) 
+		*/
+		-- v2.6 End
 	END
 
 	-- Search for stock
