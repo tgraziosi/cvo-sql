@@ -74,7 +74,14 @@ BEGIN
 		IF NOT EXISTS (SELECT 1 FROM dbo.c_quote (NOLOCK) WHERE customer_key = @customer_code AND ilevel = 0 
 						AND item = @part_no AND start_date <= @order_date AND date_expires >= @order_date)
 		BEGIN
-			SET @IsQuoted = 0
+			-- v2.5 Start
+			IF NOT EXISTS (SELECT 1 FROM dbo.c_quote a (NOLOCK) JOIN inv_master b (NOLOCK) ON a.item = b.category 
+						WHERE a.customer_key = @customer_code AND a.ilevel = 1 
+						AND b.part_no = @part_no AND a.start_date <= @order_date AND a.date_expires >= @order_date)
+			BEGIN
+			-- v2.5 End
+				SET @IsQuoted = 0
+			END
 		END
 	END
 	-- v1.2 End
@@ -87,6 +94,14 @@ BEGIN
 		SET @quote_net_only = 'Y'
 	END
 	-- v1.7 End
+	-- v2.5 Start
+	IF EXISTS (SELECT 1 FROM dbo.c_quote a (NOLOCK) JOIN inv_master b (NOLOCK) ON a.item = b.category 
+						WHERE a.customer_key = @customer_code AND a.ilevel = 1 
+						AND b.part_no = @part_no AND a.start_date <= @order_date AND a.date_expires >= @order_date AND net_only = 'Y')
+	BEGIN
+		SET @quote_net_only = 'Y'
+	END
+	-- v2.5 End
 
 	IF (@promo_id <> '')
 	BEGIN

@@ -20,9 +20,14 @@ UNION ALL
 	FROM armaster ar (NOLOCK)
 	WHERE ar.addr_sort1 IN ('BCBG RETAILER','Corporate','Key Account', 'Intl Retailer')
 
+UNION ALL
 
-
-
+SELECT DISTINCT
+     ar.customer_code, ar.ship_to_code, ar.address_name, 'revo', 'revo' AS List_name
+--, p.promo_id, p.promo_level, p.promo_start_date, o.date_entered, p.promo_end_date
+FROM
+    dbo.cvo_revo_cust_tbl p (NOLOCK)
+	JOIN armaster ar ON ar.customer_code = p.customer_code AND ar.ship_to_code = p.ship_to_code
 
 
 GO

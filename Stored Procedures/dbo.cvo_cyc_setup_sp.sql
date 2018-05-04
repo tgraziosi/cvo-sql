@@ -6,6 +6,8 @@ CREATE PROCEDURE [dbo].[cvo_cyc_setup_sp] AS
 BEGIN
 
 SET NOCOUNT ON
+SET ANSI_WARNINGS OFF
+
 
  IF (SELECT OBJECT_ID('tempdb..#temp_who')) IS NOT NULL 
  BEGIN   
@@ -13,9 +15,9 @@ SET NOCOUNT ON
  END
 Create table #temp_who(who varchar(50), login_id varchar(50))
 Insert #temp_who select 'tdcsql','tdcsql'
-DECLARE @err_msg VARCHAR(255), @station_id VARCHAR(20)
+DECLARE @err_msg VARCHAR(255), @station_id VARCHAR(20), @team VARCHAR(10)
 
-SELECT @err_msg = '', @station_id = 'noprint'; -- set station to 'noprint' to skip the report part
+SELECT @err_msg = '', @station_id = 'noprint', @team = 'CC'; -- set station to 'noprint' to skip the report part
 
 
 DELETE 
@@ -23,7 +25,7 @@ DELETE
 FROM dbo.tdc_phy_cyc_count WHERE team_id = 'CC' AND cyc_code IN ('DAILY','ANNUAL','QTRLY','BI-ANNUAL') AND count_date IS null;
 
 EXEC dbo.tdc_ins_count_sp @err_msg = @err_msg OUTPUT, -- varchar(255)
-                          @team_id = 'CC',            -- varchar(30)
+                          @team_id = @team,            -- varchar(30)
                           @cyc_code = 'DAILY',        -- varchar(10)
                           @location = '001'           -- varchar(10)
 
@@ -31,7 +33,7 @@ EXEC dbo.tdc_ins_count_sp @err_msg = @err_msg OUTPUT, -- varchar(255)
 
 					  
 EXEC dbo.tdc_ins_count_sp @err_msg = @err_msg OUTPUT, -- varchar(255)
-                          @team_id = 'CC',              -- varchar(30)
+                          @team_id = @team,              -- varchar(30)
                           @cyc_code = 'QTRLY',          -- varchar(10)
                           @location = '001'             -- varchar(10)
 
@@ -39,7 +41,7 @@ EXEC dbo.tdc_ins_count_sp @err_msg = @err_msg OUTPUT, -- varchar(255)
 						  SELECT @err_msg
 
 EXEC dbo.tdc_ins_count_sp @err_msg = @err_msg OUTPUT, -- varchar(255)
-                          @team_id = 'CC',              -- varchar(30)
+                          @team_id = @team,              -- varchar(30)
                           @cyc_code = 'BI-ANNUAL',      -- varchar(10)
                           @location = '001'             -- varchar(10)
 
@@ -47,7 +49,7 @@ EXEC dbo.tdc_ins_count_sp @err_msg = @err_msg OUTPUT, -- varchar(255)
 						  SELECT @err_msg
 
 EXEC dbo.tdc_ins_count_sp @err_msg = @err_msg OUTPUT, -- varchar(255)
-                          @team_id = 'CC',              -- varchar(30)
+                          @team_id = @team,              -- varchar(30)
                           @cyc_code = 'ANNUAL',        -- varchar(10)
                           @location = '001'             -- varchar(10)
 
@@ -107,7 +109,9 @@ SELECT
 	   'USD' curr_key,
 	   0 differenc
 	   INTO #tdc_cyc_master
-	   FROM dbo.tdc_phy_cyc_count AS tpcc  (NOLOCK) ORDER BY bin_no 
+	   FROM dbo.tdc_phy_cyc_count AS tpcc  (NOLOCK) 
+	   WHERE tpcc.team_id = @team
+	   ORDER BY bin_no 
 
 
 EXEC dbo.tdc_print_cyc_count_ticket_sp @user_id = 'manager',   -- varchar(50)
@@ -116,7 +120,7 @@ EXEC dbo.tdc_print_cyc_count_ticket_sp @user_id = 'manager',   -- varchar(50)
 -- send the file/data to Loftware
 
 INSERT INTO tdc_bcp_print_values (row_id, print_value, time_spid)
-SELECT row_id, print_value, @@spid
+SELECT row_id, print_value, CAST(@@spid AS VARCHAR(6)) 
   FROM #tdc_print_ticket
 ORDER BY row_id
 
@@ -153,6 +157,9 @@ END
 --   select * From tdc_bcp_print_values
 
 END
+
+
+
 
 
 GO

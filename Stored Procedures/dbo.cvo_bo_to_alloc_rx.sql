@@ -99,7 +99,8 @@ AS -- RX backorders to allocate
             -- AND o.sch_ship_date < @today
 			AND DATEDIFF(d, o.sch_ship_date, @today) > 21 -- per KM 032618
             AND ol.ordered > ( ol.shipped + ISNULL(alloc.qty, 0) )
-            AND i.type_code <> 'case'
+            -- AND i.type_code <> 'case'
+			AND i.type_code IN ('frame','sun') -- 5/4/18 - as per KM
             AND ( o.user_category LIKE 'rx%'
                   OR o.user_category = 'st-tr'
 				  -- OR (o.user_category NOT LIKE 'rx%' AND DATEDIFF(d, o.sch_ship_date, @today) > 42) -- 5/5/2017 per CP request
@@ -335,6 +336,7 @@ AS -- RX backorders to allocate
 -- and qty_to_alloc > 0 
 ORDER BY    part_no ,
             qty_avl_to_alloc DESC;
+
 
 
 

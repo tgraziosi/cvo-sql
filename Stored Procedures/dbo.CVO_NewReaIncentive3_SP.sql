@@ -13,6 +13,7 @@ GO
 --EXEC  CVO_NewReaIncentive4_SP
 --12/2/2014 - ADDED PARAMETER FOR DESIGNATION CODE WILCARD SEARCH
 -- 3/9/2018 - add parent code
+-- 05/02/2018 - fix when customer has no designations (final select only)
 -- =============================================
 CREATE PROCEDURE [dbo].[CVO_NewReaIncentive3_SP]
     @DateFrom DATETIME = NULL ,
@@ -25,8 +26,8 @@ AS
   --      Declare @DateFrom datetime
   --      Declare @DateTo DATETIME
   --      DECLARE @desig VARCHAR(10)
-  --      Set @DateFrom = '01/1/2017' 
-  --      Set @DateTo = '09/29/2017'
+  --      Set @DateFrom = '05/1/2017' 
+  --      Set @DateTo = '04/30/2018'
 		--SET @desig = NULL
 
         IF @DateFrom IS NULL
@@ -37,7 +38,7 @@ AS
                                        YEAR ,-1, DATEDIFF(dd, 0, GETDATE()))); -- year - 1
         IF @DateTo IS NULL
             SELECT @DateTo = DATEADD(dd, -1, DATEDIFF(dd, 0, GETDATE())); -- today
-
+			 
         SET @DateTo = DATEADD(SECOND, -1, DATEADD(D, 1, @DateTo));
         --  select @DateFrom, @DateTo, (dateadd(day,-1,dateadd(year,1,@DateFrom))), dateadd(year,-1,@DateFrom) , dateadd(day,-1,@DateFrom)
 
@@ -350,9 +351,9 @@ AS
 						 LEFT OUTER JOIN dbo.ARNAREL NA (NOLOCK) ON NA.CHILD = DE.customer_code
                 WHERE    1 = 1
                          AND ISNULL(Terr, '') <> ''
-						 AND DE.designations LIKE 
+						 AND ISNULL(DE.designations,'') LIKE 
 							CASE WHEN ISNULL(@desig,'*ALL*') = '*ALL*' 
-								THEN DE.designations 
+								THEN ISNULL(DE.designations,'') 
 								ELSE '%' + ISNULL(@desig, '') + '%'
 								END
 
@@ -364,6 +365,8 @@ AS
 
 
     END;
+
+
 
 
 

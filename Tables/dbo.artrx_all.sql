@@ -82,6 +82,51 @@ GO
 SET ANSI_NULLS ON
 GO
 
+CREATE TRIGGER [dbo].[artrx_cvo_tr] ON [dbo].[artrx_all]
+FOR INSERT
+AS
+BEGIN
+	-- DIRECTIVES
+	SET NOCOUNT ON
+
+	-- WORKING TABLE
+	CREATE TABLE #cvo_ar_bg_list (
+		doc_ctrl_num	varchar(16),
+		customer_code	varchar(10),
+		parent			varchar(10),
+		parent_name		varchar(40))
+
+	-- PROCESSING
+	INSERT	#cvo_ar_bg_list
+	SELECT	a.doc_ctrl_num, a.customer_code,
+			dbo.f_cvo_get_buying_group(a.customer_code, CONVERT(VARCHAR(10),DATEADD(DAY, a.date_doc - 693596, '01/01/1900'),121)),
+			dbo.f_cvo_get_buying_group_name	(dbo.f_cvo_get_buying_group(a.customer_code, CONVERT(VARCHAR(10),DATEADD(DAY, a.date_doc - 693596, '01/01/1900'),121)))
+	FROM	inserted a 
+	WHERE	(a.order_ctrl_num = '' OR LEFT(a.doc_desc,3) NOT IN ('SO:', 'CM:'))  
+	AND		a.void_flag <> 1
+	AND		dbo.f_cvo_get_buying_group(a.customer_code, CONVERT(VARCHAR(10),DATEADD(DAY, a.date_doc - 693596, '01/01/1900'),121)) > '' 
+
+	UPDATE	a
+	SET		parent = a.customer_code,
+			parent_name = b.customer_name
+	FROM	#cvo_ar_bg_list a
+	JOIN	arcust b ON a.customer_code = b.customer_code
+	WHERE	a.customer_code IN (SELECT parent FROM dbo.cvo_buying_groups_hist (NOLOCK))
+	AND		a.parent = ''
+
+	INSERT	dbo.cvo_ar_bg_list (doc_ctrl_num, customer_code, parent, parent_name)
+	SELECT	doc_ctrl_num, customer_code, parent, parent_name
+	FROM	#cvo_ar_bg_list
+
+	DROP TABLE #cvo_ar_bg_list
+
+END
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_NULLS ON
+GO
+
 --v1.0 TM	02/22/2012	Set the Due Date of the Credits properly based on CVO criteria
   
 CREATE TRIGGER [dbo].[CVO_artrxins_tr] ON [dbo].[artrx_all] AFTER INSERT

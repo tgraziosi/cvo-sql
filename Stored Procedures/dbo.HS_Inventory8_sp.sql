@@ -9,7 +9,7 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT * FROM dbo.cvo_hs_inventory_8 WHERE SKU LIKE 'DD%' where [category:1] = 'sun' where  ReleaseDate > '1/1/2018' AND SpecialtyFit = '[multiple]'
+-- SELECT * FROM dbo.cvo_hs_inventory_8 WHERE coll = 'revo' AND [CATEGORY:1] = 'REVO SELLDWN' SKU LIKE 'DD%' where [category:1] = 'sun' where  ReleaseDate > '1/1/2018' AND SpecialtyFit = '[multiple]'
 -- SELECT DISTINCT [category:1],[category:2] FROM dbo.cvo_hs_inventory_8 AS hi WHERE [hi].[category:1] = 'sun'
 -- DROP TABLE dbo.cvo_hs_inventory_8
 -- 		
@@ -37,6 +37,7 @@ GO
 -- 12/18/2017 - change to look at cvo_part_attributes table instead of field_32
 -- 2/5/2018 - misc performance udpates
 -- 3/9/2018 - setup temp table for usage instead of joining to the function - performance.
+-- 4/27/18 - REVO SELLDOWN
 -- =============================================
 
 CREATE PROCEDURE [dbo].[HS_Inventory8_sp]
@@ -54,7 +55,8 @@ BEGIN
             @CH DATETIME,
             @ME DATETIME,
             @UN DATETIME,
-            @kodi DATETIME;
+            @kodi DATETIME,
+			@revo datetime;
 
 		DECLARE @EOS TABLE
     (
@@ -78,7 +80,7 @@ BEGIN
     -- SET @ME = '10/06/2016'; -- START OF me SELL-DOWN PERIOD
     SET @UN = '12/31/2016';
     SET @kodi = '7/3/2017'; -- KO and DI selldown start
-
+	SET @revo = '4/30/2018';
 
 
     INSERT INTO @EOS (	Columnn, Prog, Brand, Style, part_no, pom_date, Gender, Avail, ReserveQty, TrueAvail_2, TrueAvail)
@@ -282,6 +284,7 @@ BEGIN
                                WHERE pa.part_no = I.part_no
                                      AND pa.attribute = 'RETAIL'
                                ) THEN 'BCBGR SELLDWN'
+
                WHEN I.type_code IN ( 'OTHER', 'POP' ) THEN 'POP'
                                                        -- 1/11/2016
                -- WHEN i.category = 'CH' AND ia.FIELD_32 = 'LastChance' THEN 'CHLastChance'
@@ -851,6 +854,7 @@ ELSE '' END GENDER,
                    -- WHEN ReleaseDate > GETDATE() AND sunps IN ('sunps','presell') THEN 1 -- 11/8/2017 for new presell season
                    WHEN [CATEGORY:2] = 'BLUTECH READERS' THEN 1                      -- 2/5/2018
 				   WHEN [category:1] = 'BCBGR SELLDWN' THEN 1
+				   WHEN [category:1] = 'REVO SELLDWN' AND @REVO > @TODAY THEN 1 -- 042718
 				   ELSE 0
                END;
 
@@ -884,6 +888,9 @@ ELSE '' END GENDER,
           AND [CATEGORY:2] IN ( 'revo', 'aspire', 'blutech' )
           )
           OR sku = 'ascolocustom';
+
+
+		   
 
     IF (OBJECT_ID('dbo.cvo_hs_inventory_8') IS NOT NULL)
     BEGIN
@@ -1223,10 +1230,23 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
     FROM dbo.cvo_hs_inventory_8 AS hsi
     WHERE [category:1] = 'ME SELL-DOWN';
 
+	UPDATE f SET [category:1] = 'REVO SELLDWN',
+	mastersku = mastersku+'SD',
+	hide = 0, f.MasterHIDE = 0
+	-- SELECT *
+	FROM dbo.cvo_hs_inventory_8  AS f
+	WHERE f.coll = 'revo'
+	AND f.SpecialtyFit = 'RevoSldwn'
+	AND [category:1] <> 'REVO SELLDWN';
+
+	UPDATE f SET NAME = REPLACE(NAME,'(RevoSldwn)',''), f.longdesc = REPLACE(longdesc,'(RevoSldwn)','')
+	-- SELECT *
+	FROM dbo.cvo_hs_inventory_8  AS f
+	WHERE f.coll = 'revo'
+	AND f.SpecialtyFit <> 'RevoSldwn'
+	AND [category:1] <> 'REVO SELLDWN';
+
 END;
-
-
-
 
 
 

@@ -55,7 +55,7 @@ CREATE TABLE [dbo].[inv_master_add]
 [field_18_c] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__inv_maste__field__48540EB7] DEFAULT ('N'),
 [field_18_d] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__inv_maste__field__494832F0] DEFAULT ('N'),
 [field_18_e] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__inv_maste__field__4A3C5729] DEFAULT ('N')
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+) ON [PRIMARY]
 GO
 SET QUOTED_IDENTIFIER ON
 GO
@@ -142,15 +142,15 @@ CREATE NONCLUSTERED INDEX [invm_idx2_style] ON [dbo].[inv_master_add] ([field_2]
 GO
 CREATE NONCLUSTERED INDEX [invm_idx3_pattern] ON [dbo].[inv_master_add] ([field_4]) ON [PRIMARY]
 GO
-CREATE UNIQUE NONCLUSTERED INDEX [inv_master_add_idx] ON [dbo].[inv_master_add] ([part_no]) ON [PRIMARY]
+CREATE UNIQUE NONCLUSTERED INDEX [inv_master_add_idx] ON [dbo].[inv_master_add] ([part_no]) INCLUDE ([field_2]) ON [PRIMARY]
+GO
+GRANT DELETE ON  [dbo].[inv_master_add] TO [public]
+GO
+GRANT INSERT ON  [dbo].[inv_master_add] TO [public]
 GO
 GRANT REFERENCES ON  [dbo].[inv_master_add] TO [public]
 GO
 GRANT SELECT ON  [dbo].[inv_master_add] TO [public]
-GO
-GRANT INSERT ON  [dbo].[inv_master_add] TO [public]
-GO
-GRANT DELETE ON  [dbo].[inv_master_add] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[inv_master_add] TO [public]
 GO

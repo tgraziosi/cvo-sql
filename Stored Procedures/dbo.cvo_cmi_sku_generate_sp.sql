@@ -32,7 +32,7 @@ BEGIN
 -- 12/30/2016 - Fix up for Black colorname
 -- 4/17/17 - dd Case hack AND CVO XL FIT
 -- 12/2017 - add support for 180 hinges.  Don't add temples and fronts, and add all available temple lengths for the style.
--- 1/18 - update for cycle counting 
+-- 1/18 - update for cycle counting  - QTRLY is default for new items
 
 SET XACT_ABORT, NOCOUNT ON;
 
@@ -1210,7 +1210,7 @@ CREATE TABLE #i
                                      DEFAULT 1.0 ,
       [note] [VARCHAR](255) NULL ,
       [cycle_type] [VARCHAR](10) NULL
-                                 DEFAULT 'MONTHLY' ,
+                                 DEFAULT 'QTRLY' ,
       [inv_cost_method] [CHAR](1) NULL
                                   DEFAULT 'S' ,
       [buyer] [VARCHAR](10) NULL ,
@@ -2159,7 +2159,7 @@ BEGIN
 			part_no, @upc_code as upc_code, description, vendor, category, type_code, 
 			status, cubic_feet, weight_ea, labor, uom, account, comm_type, void, entered_who, 
 			entered_date, std_cost, utility_cost, qc_flag, lb_tracking, rpt_uom, freight_unit, 
-			taxable, conv_factor, CASE WHEN type_code IN ('FRAME','SUN','POP') THEN 'MONTHLY' ELSE 'NEVER' END cycle_type, 
+			taxable, conv_factor, CASE WHEN type_code IN ('FRAME','SUN','POP') THEN 'QTRLY' ELSE 'NEVER' END cycle_type, 
 			inv_cost_method, buyer, allow_fractions, cfg_flag, 
 			tax_code, obsolete, serial_flag, web_saleable_flag, tolerance_cd, reg_prod, 
 			'Y' as pur_prod_flag, country_code, cmdty_code, min_profit_perc, height, width, length, 
@@ -2418,6 +2418,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

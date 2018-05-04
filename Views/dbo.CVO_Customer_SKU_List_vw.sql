@@ -26,13 +26,14 @@ AS
     WHERE   t2.field_26 < GETDATE() + 30
             AND inv.location = '001'
             AND  ( t1.type_code IN ( 'sun', 'frame' ) )
-            AND ( ISNULL(t2.field_28,GETDATE()) > GETDATE() )
+            AND ( ISNULL(t2.field_28,GETDATE()) >= GETDATE() )
              
 -- tag - 082312 - exclude voided items
             AND t1.void <> 'V'
     ORDER BY Collection ,
             Model ,
             ItemCode;
+
 
 
 
