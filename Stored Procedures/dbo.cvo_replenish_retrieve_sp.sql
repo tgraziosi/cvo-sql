@@ -807,6 +807,20 @@ BEGIN
 
 	END
 
+	-- v2.3 Start
+	UPDATE	a
+	SET		result = 'Removed From Replenishment: Qty in bin > min level'
+	FROM	cvo_replenishment_audit a
+	JOIN	#temp_repl_display b (NOLOCK)
+	ON		a.location = b.location
+	AND		a.part_no = b.part_no
+	AND		a.to_bin = b.bin_no
+	WHERE	b.qty >= b.replenish_min_lvl
+	AND		b.replenish_min_lvl <> 0
+	AND		b.isforced = 0
+	AND		a.entry_date = @entry_date
+	-- v2.3 End
+
 	-- v2.0 Start
 	DELETE	#temp_repl_display
 	WHERE	qty >= replenish_min_lvl

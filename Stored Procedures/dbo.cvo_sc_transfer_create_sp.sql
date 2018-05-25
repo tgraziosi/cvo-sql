@@ -42,6 +42,8 @@ AS
         --SELECT * FROM   dbo.cvo_sc_transfers_allocation AS sta;
         --SELECT * FROM   cvo_sc_transfers_templates AS stt;
 
+		-- SELECT * FROM xfers WHERE date_entered > '05/25/2018'
+
 		--SELECT * 
 		--FROM cvo_sc_transfers t
 		--JOIN dbo.cvo_sc_transfers_templates AS stt ON stt.template_group = t.template_group
@@ -332,6 +334,7 @@ AS
     GRANT EXECUTE
         ON dbo.cvo_sc_transfer_create_sp
         TO PUBLIC;
+
 
 
 

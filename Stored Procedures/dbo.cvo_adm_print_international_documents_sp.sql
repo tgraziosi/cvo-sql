@@ -17,6 +17,7 @@ GO
 -- TG 08/06/2014 - update material field in print detail from 15 to 20 characters
 -- v11.2 CB 19/06/2015	Fix issue with LP_TOTAL_QTY on multiple pages for CUSTOMS INVOICE
 -- v11.3 CB 21/02/2017	Deal with an item split over multiple cartons
+-- v11.4 CB 09/05/2018 - Fix issue with 100% discount items not being set to $1 on export declaration
 -- EXEC cvo_adm_print_international_documents_sp 1419582, 0
 CREATE PROC [dbo].[cvo_adm_print_international_documents_sp]	@order_no	int,
 															@order_ext	int
@@ -874,6 +875,14 @@ IF (@country_code <> 'US' AND @country_code <> '')
 		ORDER BY SUM(a.total_value)
 		*/
 		-- END v11.1
+
+		-- v11.4 Start
+		UPDATE	#PrintData_detail
+		SET		unit_value = 1.00,
+				total_value = 1.00 * qty
+		WHERE	unit_value <= 0
+		AND		type_code IN ('FRAME','SUM')	
+		-- v11.4 End
 
 		IF @commodity_sum >= @customs_value
 		BEGIN

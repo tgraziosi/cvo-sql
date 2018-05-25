@@ -19,9 +19,9 @@ BEGIN
 
     /*
 EXEC dbo.cvo_whse_planning_qtys_sp @Location = '001', -- varchar(1024)
-                                   @Brand = 'revo',    -- varchar(1024)
+                                   @Brand = 'SM',    -- varchar(1024)
                                    @Model = null,    -- varchar(5000)
-                                   @TypeCode = 'sun'  -- varchar(1024)
+                                   @TypeCode = 'FRAME'  -- varchar(1024)
 */
 
     DECLARE @loc VARCHAR(1024),
@@ -204,7 +204,9 @@ EXEC dbo.cvo_whse_planning_qtys_sp @Location = '001', -- varchar(1024)
               (
               SELECT location FROM @loc_tbl
               )
-    ),
+		  AND (W.group_code <> 'BULK' OR (w.group_code='BULK' AND w.bin_no LIKE 'W%'))
+		)
+    ,
           iav
     AS
     (
@@ -261,5 +263,6 @@ EXEC dbo.cvo_whse_planning_qtys_sp @Location = '001', -- varchar(1024)
                AND iav.part_no = w.part_no;
 
 END;
+
 
 GO

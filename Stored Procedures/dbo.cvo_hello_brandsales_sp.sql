@@ -16,7 +16,7 @@ BEGIN
     ;
 
     DECLARE
-        @sdatety DATETIME, @edatety DATETIME
+        @sdatety DATETIME, @edatety DATETIME, @sdatetyytd DATETIME
     ;
 
     SELECT
@@ -25,6 +25,11 @@ BEGIN
     FROM dbo.cvo_date_range_vw AS drv
     WHERE Period = 'rolling 12 ty'
     ;
+	SELECT @sdatetyytd = begindate
+	FROM dbo.cvo_date_range_vw AS drv
+	where period = 'Year To Date'
+	;
+
 
     SELECT
 		sd.customer,
@@ -43,7 +48,14 @@ BEGIN
                    ELSE
                        0
                END
-           ) LY
+           ) LY,
+		SUM(   CASE
+                   WHEN yyyymmdd > @sdatetyytd THEN
+                       anet
+                   ELSE
+                       0
+               END
+           ) TYYTD
     FROM
         dbo.cvo_sbm_details AS sd (nolock)
         JOIN inv_master i (nolock)
@@ -67,6 +79,7 @@ GRANT EXECUTE
 ON dbo.cvo_hello_brandsales_sp
 TO  PUBLIC
 ;
+
 
 
 

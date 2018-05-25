@@ -6,7 +6,7 @@ GO
 -- Create Data for Frames Data SmartSubmit Template ver. 8/11/2009
 -- Author: Tine Graziosi for ClearVision 
 -- 2/4/2013
--- exec cvo_frames_data_extract_sp '12/12/2017', NULL
+-- exec cvo_frames_data_extract_sp '1/1/1900', 'bcbg'
 -- 4/2015 - update for CMI
 -- 10/15 - update to pull from epicor if not in cmi - (revo support)
 -- =============================================
@@ -139,7 +139,10 @@ AS
                                                      WHEN 'bcbg' THEN
                                                          'BCBG Max Azria Collection'
                                                      WHEN 'CVO' THEN
-                                                         'ClearVision Collection'
+                                                         'ClearVision' + 
+														 ISNULL((SELECT TOP 1 ' '+attribute attrib
+															 FROM dbo.cvo_part_attributes AS pa WHERE pa.part_no = i.part_no 
+															 and pa.attribute IN ('tech','next','classic')),'') + ' Collection'
                                                      WHEN 'CH' THEN
                                                          'ColeHaan Collection'
                                                      WHEN 'DD' THEN 'dilli dalli'
@@ -563,6 +566,7 @@ AS
     -- tempdb..sp_help #framesdatalist
 
     END;
+
 
 
 

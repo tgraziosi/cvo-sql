@@ -6,7 +6,7 @@ CREATE PROCEDURE [dbo].[cvo_slp_line_list_sp] (@terr VARCHAR(10))
 AS
 BEGIN
 
-	EXEC dbo.cvo_slp_line_list_sp @terr = '20206' -- varchar(10)
+	-- EXEC dbo.cvo_slp_line_list_sp @terr = '20206' -- varchar(10)
 	
 
     SELECT i.category AS Collection,
@@ -80,4 +80,7 @@ END;
 
 GRANT EXECUTE ON cvo_slp_line_list_sp TO PUBLIC
 
+
+GO
+GRANT EXECUTE ON  [dbo].[cvo_slp_line_list_sp] TO [public]
 GO

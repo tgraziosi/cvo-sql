@@ -9,7 +9,7 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT * FROM dbo.cvo_hs_inventory_8 WHERE coll = 'revo' AND [CATEGORY:1] = 'REVO SELLDWN' SKU LIKE 'DD%' where [category:1] = 'sun' where  ReleaseDate > '1/1/2018' AND SpecialtyFit = '[multiple]'
+-- SELECT * FROM dbo.cvo_hs_inventory_8 WHERE coll = 'DD' AND [CATEGORY:1] = 'REVO SELLDWN' SKU LIKE 'DD%' where [category:1] = 'sun' where  ReleaseDate > '1/1/2018' AND SpecialtyFit = '[multiple]'
 -- SELECT DISTINCT [category:1],[category:2] FROM dbo.cvo_hs_inventory_8 AS hi WHERE [hi].[category:1] = 'sun'
 -- DROP TABLE dbo.cvo_hs_inventory_8
 -- 		
@@ -38,6 +38,7 @@ GO
 -- 2/5/2018 - misc performance udpates
 -- 3/9/2018 - setup temp table for usage instead of joining to the function - performance.
 -- 4/27/18 - REVO SELLDOWN
+-- 5/23/2018 - ADD DD NYLON BANDS
 -- =============================================
 
 CREATE PROCEDURE [dbo].[HS_Inventory8_sp]
@@ -208,20 +209,15 @@ BEGIN
                                    ) THEN RTRIM(LEFT(I.part_no, 6)) -- 9/6/2016 put all colorful together
 						  when ia.field_2 = 'G-LILAH' AND I.CATEGORY = 'BCBG' THEN 'BCGLIA'
                           WHEN I.type_code IN ( 'sun', 'frame' ) THEN LEFT(I.part_no, LEN(I.part_no) - 7)
-						  WHEN IA.FIELD_2 = 'EAR LOCKS' THEN LEFT(I.part_no, 5)
+						  WHEN IA.FIELD_2 = 'EAR LOCKS' OR I.part_no LIKE 'DDZNB%' THEN LEFT(I.part_no, 5) -- 5/23/2018
 						  ELSE ''
 						 
                       END
                   ) AS mastersku,
            CASE WHEN I.category IN ( 'revo', 'op' )
-                     AND I.type_code IN ( 'other', 'pop' ) THEN CONVERT(VARCHAR(150), I.description) ELSE
-                                                                                                         CONVERT(
-                                                                                                                    VARCHAR(150),
-                                                                                                                    (CAT.description
-                                                                                                                     + ' '
-                                                                                                                     + field_2
-                                                                                                                    )
-                                                                                                                )
+                     AND I.type_code IN ( 'other', 'pop' ) THEN CONVERT(VARCHAR(150), I.description)
+				WHEN I.category = 'DD' AND I.PART_NO LIKE 'DDZNB%' THEN 'DILLI DALLI ' + REPLACE(REPLACE(IA.FIELD_2,'LARGE',''),'SMALL','')
+				ELSE CONVERT(VARCHAR(150),(CAT.description + ' ' + field_2  )  )
            END AS name,
            CONVERT(DECIMAL(10, 2), PP.price_a) AS unitPrice,
            1 AS minQty,
@@ -342,7 +338,10 @@ BEGIN
            ISNULL(IA.field_3, '') AS Color,
            -- sun lens color for REVO
            CASE WHEN I.type_code = 'sun'
-                     AND I.category = 'revo' THEN REPLACE(ISNULL(IA.field_23, 'NoLens'), ' ', '') ELSE -- use lens color as dimension for revo
+                     AND I.category = 'revo' THEN REPLACE(ISNULL(IA.field_23, 'NoLens'), ' ', '') 
+				WHEN I.type_code = 'PARTS' AND I.CATEGORY = 'DD' AND I.PART_NO LIKE 'DDZNB%'
+						THEN REPLACE(IA.FIELD_2,'NYLON BAND','')
+			ELSE -- use lens color as dimension for revo
            (ISNULL(CAST(STR(IA.field_17, 2, 0) AS VARCHAR(2)), '') + '/' + ISNULL(CAST(IA.field_6 AS VARCHAR(2)), '')
             + '/' + ISNULL(CAST(IA.field_8 AS VARCHAR(3)), '')
            )
@@ -444,6 +443,7 @@ ELSE '' END GENDER,
                  )
 			  OR (i.part_no = 'DDZEARKIT' OR I.part_no IN (SELECT PART_NO FROM WHAT_PART WHERE asm_no = 'DDZEARKIT')
 				 )
+			  OR (i.part_no LIKE 'DDZNB%') -- 5/24/2018 -- DILLI DALLI NYLON BANDS
               OR (
                  EXISTS (
                         SELECT 1
@@ -807,41 +807,42 @@ ELSE '' END GENDER,
 
     UPDATE #Final
     SET hide = CASE -- 9/2/2016
-                   WHEN (
-                        COLL = 'bt'
-                        AND @today < '10/25/2016'
-                        ) THEN 1                                                     -- don't let BT show up early
-                   WHEN (
-                        COLL = 'LS'
-                        AND @today < ReleaseDate
-                        ) THEN 1                                                     -- 9/27/2016 per JB request
-                   WHEN (
-                        SpecialtyFit = 'slp'
-                        AND @today < '10/7/2016'
-                        ) THEN 1
-                   WHEN (
-                        ReleaseDate = '9/27/2016'
-                        AND APR = 'Y'
-                        AND @today
-                        BETWEEN '9/14/2016' AND '9/18/2016'
-                        ) THEN 0
-                   WHEN (
-                        ReleaseDate = '9/27/2016'
-                        AND (
-                            APR = 'Y'
-                            OR SpecialtyFit = '1.3'
-                            )
-                        ) THEN 1
+                   --WHEN (
+                   --     COLL = 'bt'
+                   --     AND @today < '10/25/2016'
+                   --     ) THEN 1                                                     -- don't let BT show up early
+                   --WHEN (
+                   --     COLL = 'LS'
+                   --     AND @today < ReleaseDate
+                   --     ) THEN 1                                                     -- 9/27/2016 per JB request
+                   --WHEN (
+                   --     SpecialtyFit = 'slp'
+                   --     AND @today < '10/7/2016'
+                   --     ) THEN 1
+					--WHEN (
+					--    ReleaseDate = '9/27/2016'
+					--    AND APR = 'Y'
+					--    AND @today
+					--    BETWEEN '9/14/2016' AND '9/18/2016'
+					--    ) THEN 0
+                   --WHEN (
+                   --     ReleaseDate = '9/27/2016'
+                   --     AND (
+                   --         APR = 'Y'
+                   --         OR SpecialtyFit = '1.3'
+                   --         )
+                   --     ) THEN 1
                    WHEN (
                         Model = 'COLORFUL'
                         AND COLL = 'AS'
                         AND @today > '9/23/2016'
                         ) THEN 1
-                   WHEN (
-                        ReleaseDate = '9/6/2016'
-                        AND @today < '9/9/2016'
-                        AND APR <> 'Y'
-                        ) THEN 1
+                   --WHEN (
+                   --     ReleaseDate = '9/6/2016'
+                   --     AND @today < '9/9/2016'
+                   --     AND APR <> 'Y'
+                   --     ) THEN 1
+				   when (longdesc LIKE '%R.I%') and ShelfQty = 0 AND ISNULL(SpecialtyFit,'') NOT IN ('R.I','[MULTIPLE]') THEN 1
                                                                                      -- 9/2/2016
                    WHEN COLL = 'revo'
                         AND ISNULL(POMDate, @today) = '01/01/2010' THEN 1
@@ -865,10 +866,10 @@ ELSE '' END GENDER,
           OR sku = 'bcbgslp';
 
     -- plug for semi-rimless
-    UPDATE #Final
-    SET hide = 1
-    WHERE SpecialtyFit = '1.3'
-          AND @today < '10/8/2016';
+    --UPDATE #Final
+    --SET hide = 1
+    --WHERE SpecialtyFit = '1.3'
+    --      AND @today < '10/8/2016';
 
     -- per KB - let them show up end of day Friday.
 
@@ -1247,6 +1248,10 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 	AND [category:1] <> 'REVO SELLDWN';
 
 END;
+
+
+
+
 
 
 

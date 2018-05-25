@@ -18,13 +18,16 @@ BEGIN
             @location VARCHAR(10),
             @collection VARCHAR(1000),
             @Style_list VARCHAR(8000),
-			@qty_threshold int
+			@qty_threshold INT,
+			@inv_month_bucket int
             ;
 
     DECLARE @today DATETIME;
     SELECT @today = DATEADD(dd, DATEDIFF(dd, 0, GETDATE()), 0);
 
     SELECT @asofdate = DATEADD(mm, DATEDIFF(mm, 0, GETDATE()), 0);
+
+	SELECT @inv_month_bucket = CASE WHEN DAY(@today) <=15 THEN 4 ELSE 5 END;
 
 	SELECT @qty_threshold = 50;
 
@@ -318,15 +321,19 @@ BEGIN
                brand,
                style,
                location,
-               sku AS part_no,
+               #IFP.sku AS part_no,
                atp,
                quantity AS SOF
         FROM #ifp
+		LEFT OUTER JOIN
+        (SELECT sku, SUM(quantity) safety_stock FROM #ifp 
+			WHERE line_type = 'drp' AND sort_seq IN (1,2) GROUP BY sku 
+		) dmd ON dmd.sku = #IFP.sku
         WHERE LINE_TYPE = 'v'
-              AND sort_seq = 4
+              AND sort_seq = @inv_month_bucket
               AND atp > 0
-              AND quantity > @qty_threshold
-        ) AS ifp
+              AND quantity > dmd.safety_stock
+			  ) AS ifp
             ON O.brand = ifp.brand
                AND O.style = ifp.style
                AND O.location = ifp.location
@@ -334,10 +341,11 @@ BEGIN
             ON ia.part_no = ifp.part_no
 		JOIN
         (
-		SELECT sku  FROM #ifp WHERE line_type = 'v' AND ( sort_seq BETWEEN 1 AND 4 ) AND quantity > 0
+		SELECT sku  FROM #ifp WHERE line_type = 'v' AND ( sort_seq BETWEEN 1 AND @inv_month_bucket) AND quantity > 0
 		GROUP BY sku
-		HAVING COUNT(DISTINCT sort_seq) = 4
+		HAVING COUNT(DISTINCT sort_seq) = @inv_month_bucket
 		) good_inv_pos ON good_inv_pos.sku = ifp.part_no
+
 
     WHERE 1 = 1
           AND o.part_no <> ifp.part_no;
@@ -641,6 +649,8 @@ BEGIN
              order_no;
 
 END;
+
+
 
 
 

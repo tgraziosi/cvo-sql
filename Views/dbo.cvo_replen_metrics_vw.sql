@@ -15,7 +15,7 @@ SELECT rl.location ,
        rl.qty ,
        tdc.tran_date Moved_date,
 	   tdc.quantity,
-	   tdc.UserID ,
+	   REPLACE(tdc.UserID,'cvoptical\','') UserID ,
 	   DATEDIFF(MINUTE, log_date, tdc.tran_date) time_to_complete,
 	   convert(varchar(10), tran_date, 101) tran_date,
 	   convert(varchar(10), TRAN_date , 108) tran_time,
@@ -27,6 +27,8 @@ FROM   dbo.cvo_replenishment_log AS rl
                                       AND tdc.tran_ext = ''
 WHERE  rl.log_date > ' 10/24/2017' -- start date of modification -- cant go back further than this
 ;
+
+
 
 GO
 GRANT SELECT ON  [dbo].[cvo_replen_metrics_vw] TO [public]

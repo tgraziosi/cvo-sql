@@ -14,6 +14,8 @@ CREATE PROC [dbo].[cvo_item_label_print_sp]	@part_no_1 varchar(30),
 										@label_qty_3 int										
 AS
 BEGIN
+	-- tag - 051518 - add F1 to BT frames when needed
+
 	-- DIRECTIVES
 	SET NOCOUNT ON
 
@@ -55,7 +57,7 @@ BEGIN
 					@upc_code_1, 
 					a.category,
 					CASE WHEN a.type_code = 'SUN' AND LEFT(a.category,4) = 'REVO' THEN @part_no_1 ELSE 'CLEARVISION' END,
-					ISNULL(b.field_2,''),
+					ISNULL(b.field_2,'') + CASE WHEN a.category = 'BT' AND RIGHT(a.part_no,2) = 'F1' THEN ' F1' ELSE '' END frame_model,
 					ISNULL(b.field_3,''),
 					CASE WHEN b.field_17 IS NULL THEN '' WHEN b.field_17 = 0 THEN '' ELSE CAST(CAST(b.field_17 as int) as varchar(40)) END,
 					ISNULL(b.field_6,''),
@@ -86,7 +88,7 @@ BEGIN
 					@upc_code_2, 
 					a.category,
 					CASE WHEN a.type_code = 'SUN' AND LEFT(a.category,4) = 'REVO' THEN @part_no_2 ELSE 'CLEARVISION' END,
-					ISNULL(b.field_2,''),
+					ISNULL(b.field_2,'') + CASE WHEN a.category = 'BT' AND RIGHT(a.part_no,2) = 'F1' THEN ' F1' ELSE '' END frame_model,
 					ISNULL(b.field_3,''),
 					CASE WHEN b.field_17 IS NULL THEN '' WHEN b.field_17 = 0 THEN '' ELSE CAST(CAST(b.field_17 as int) as varchar(40)) END,
 					ISNULL(b.field_6,''),
@@ -117,7 +119,7 @@ BEGIN
 					@upc_code_3, 
 					a.category,
 					CASE WHEN a.type_code = 'SUN' AND LEFT(a.category,4) = 'REVO' THEN @part_no_3 ELSE 'CLEARVISION' END,
-					ISNULL(b.field_2,''),
+					ISNULL(b.field_2,'') + CASE WHEN a.category = 'BT' AND RIGHT(a.part_no,2) = 'F1' THEN ' F1' ELSE '' END frame_model,
 					ISNULL(b.field_3,''),
 					CASE WHEN b.field_17 IS NULL THEN '' WHEN b.field_17 = 0 THEN '' ELSE CAST(CAST(b.field_17 as int) as varchar(40)) END,
 					ISNULL(b.field_6,''),
@@ -194,6 +196,7 @@ BEGIN
 	ORDER BY row_id
 	
 END
+
 
 
 GO

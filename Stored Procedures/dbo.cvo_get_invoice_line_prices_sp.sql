@@ -33,7 +33,11 @@ BEGIN
 			@part_no		varchar(30), -- v1.2
 			@order_date		datetime, -- v1.2
 			@quote_net_only char(1), -- v1.7
-			@IsCredit		char(1) -- v1.9
+			@IsCredit		char(1), -- v1.9
+			@res_type		varchar(20), -- v2.8
+			@style			varchar(30), -- v2.8
+			@quote_found	char(1), -- v2.8
+			@category		varchar(20) -- v2.8
 
 	-- PROCESSING
 	SELECT	@buying_group = ISNULL(buying_group,''),
@@ -68,40 +72,108 @@ BEGIN
 	AND		order_ext = @order_ext
 	AND		line_no = @line_no
 
-	-- v1.2 Start
-	IF (@IsQuoted = 1) -- v1.5 AND @IsBg = 1)
-	BEGIN
-		IF NOT EXISTS (SELECT 1 FROM dbo.c_quote (NOLOCK) WHERE customer_key = @customer_code AND ilevel = 0 
-						AND item = @part_no AND start_date <= @order_date AND date_expires >= @order_date)
-		BEGIN
-			-- v2.5 Start
-			IF NOT EXISTS (SELECT 1 FROM dbo.c_quote a (NOLOCK) JOIN inv_master b (NOLOCK) ON a.item = b.category 
-						WHERE a.customer_key = @customer_code AND a.ilevel = 1 
-						AND b.part_no = @part_no AND a.start_date <= @order_date AND a.date_expires >= @order_date)
-			BEGIN
-			-- v2.5 End
-				SET @IsQuoted = 0
-			END
-		END
-	END
-	-- v1.2 End
+	-- v2.8 Start
+	SELECT	@res_type = a.type_code,
+			@category = a.category,
+			@style = b.field_2
+	FROM	inv_master a (NOLOCK)
+	JOIN	inv_master_add b (NOLOCK)
+	ON		a.part_no = b.part_no
+	WHERE	a.part_no = @part_no
+	-- v2.8 End
 
-	-- v1.7 Start
-	SET @quote_net_only = 'N'
-	IF EXISTS (SELECT 1 FROM dbo.c_quote (NOLOCK) WHERE customer_key = @customer_code AND ilevel = 0 
-					AND item = @part_no AND start_date <= @order_date AND date_expires >= @order_date AND net_only = 'Y')
+	-- v2.8 Start
+	IF (@IsQuoted = 1)
 	BEGIN
-		SET @quote_net_only = 'Y'
+		SET @quote_found = NULL
+
+		SELECT	@quote_found = net_only 
+		FROM	dbo.c_quote (NOLOCK) 
+		WHERE	customer_key = @customer_code 
+		AND		ilevel = 0 
+		AND		item = @part_no 
+		AND		start_date <= @order_date 
+		AND		date_expires >= @order_date 
+		AND		res_type = @res_type 
+		AND		style = @style
+
+		IF (@quote_found IS NULL)
+		BEGIN
+			SELECT	@quote_found = net_only 
+			FROM	dbo.c_quote (NOLOCK) 
+			WHERE	customer_key = @customer_code 
+			AND		ilevel = 0 
+			AND		item = @part_no 
+			AND		start_date <= @order_date 
+			AND		date_expires >= @order_date 
+			AND		res_type = @res_type 
+			AND		ISNULL(style,'') = ''
+		END
+
+		IF (@quote_found IS NULL)
+		BEGIN
+			SELECT	@quote_found = net_only 
+			FROM	dbo.c_quote (NOLOCK) 
+			WHERE	customer_key = @customer_code 
+			AND		ilevel = 0 
+			AND		item = @part_no 
+			AND		start_date <= @order_date 
+			AND		date_expires >= @order_date 
+			AND		ISNULL(res_type,'') = ''
+			AND		ISNULL(style,'') = ''
+		END
+
+		IF (@quote_found IS NULL)
+		BEGIN
+			SELECT	@quote_found = net_only 
+			FROM	dbo.c_quote (NOLOCK) 
+			WHERE	customer_key = @customer_code 
+			AND		ilevel = 1 
+			AND		item = @category 
+			AND		start_date <= @order_date 
+			AND		date_expires >= @order_date 
+			AND		res_type = @res_type 
+			AND		style = @style
+		END
+
+		IF (@quote_found IS NULL)
+		BEGIN
+			SELECT	@quote_found = net_only 
+			FROM	dbo.c_quote (NOLOCK) 
+			WHERE	customer_key = @customer_code 
+			AND		ilevel = 1 
+			AND		item = @category 
+			AND		start_date <= @order_date 
+			AND		date_expires >= @order_date 
+			AND		res_type = @res_type 
+			AND		ISNULL(style,'') = ''
+		END
+
+		IF (@quote_found IS NULL)
+		BEGIN
+			SELECT	@quote_found = net_only 
+			FROM	dbo.c_quote (NOLOCK) 
+			WHERE	customer_key = @customer_code 
+			AND		ilevel = 1 
+			AND		item = @category 
+			AND		start_date <= @order_date 
+			AND		date_expires >= @order_date 
+			AND		ISNULL(res_type,'') = ''
+			AND		ISNULL(style,'') = ''
+		END
+
+		IF (@quote_found IS NULL)
+		BEGIN
+			SET @IsQuoted = 0
+			SET @quote_net_only = 'N'
+		END
+		ELSE
+		BEGIN
+			SET @quote_net_only = @quote_found
+		END
+
 	END
-	-- v1.7 End
-	-- v2.5 Start
-	IF EXISTS (SELECT 1 FROM dbo.c_quote a (NOLOCK) JOIN inv_master b (NOLOCK) ON a.item = b.category 
-						WHERE a.customer_key = @customer_code AND a.ilevel = 1 
-						AND b.part_no = @part_no AND a.start_date <= @order_date AND a.date_expires >= @order_date AND net_only = 'Y')
-	BEGIN
-		SET @quote_net_only = 'Y'
-	END
-	-- v2.5 End
+	-- v2.8 End
 
 	IF (@promo_id <> '')
 	BEGIN
@@ -228,6 +300,15 @@ BEGIN
 						WHERE	a.order_no = @order_no
 						AND		a.order_ext = @order_ext
 						AND		a.line_no = @line_no
+			
+				-- v2.7 Start
+				IF (@discount_price < 0)
+				BEGIN
+					SET @gross_price = @net_price
+					SET @discount_price = 0
+				END
+				-- v2.7 End		
+	
 			END
 			ELSE
 			BEGIN
@@ -243,6 +324,15 @@ BEGIN
 						WHERE	a.order_no = @order_no
 						AND		a.order_ext = @order_ext
 						AND		a.line_no = @line_no
+
+				-- v2.7 Start
+				IF (@discount_price < 0)
+				BEGIN
+					SET @gross_price = @net_price
+					SET @discount_price = 0
+				END
+				-- v2.7 End		
+
 			END
 			-- v2.1 End
 			RETURN
@@ -295,6 +385,14 @@ BEGIN
 						WHERE	a.order_no = @order_no
 						AND		a.order_ext = @order_ext
 						AND		a.line_no = @line_no
+
+				-- v2.7 Start
+				IF (@discount_price < 0)
+				BEGIN
+					SET @gross_price = @net_price
+					SET @discount_price = 0
+				END
+				-- v2.7 End		
 		
 				RETURN
 			END
@@ -312,11 +410,39 @@ BEGIN
 					WHERE	a.order_no = @order_no
 					AND		a.order_ext = @order_ext
 					AND		a.line_no = @line_no
+
+			-- v2.7 Start
+			IF (@discount_price < 0)
+			BEGIN
+				SET @gross_price = @net_price
+				SET @discount_price = 0
+			END
+			-- v2.7 End		
 		
 			RETURN
 		END
 		ELSE
 		BEGIN
+			-- v2.6 Start
+			IF (@isCredit = 'Y')
+			BEGIN
+				SELECT	@gross_price = a.curr_price,
+						@discount_price = 0,
+						@net_price = a.curr_price,
+						@ext_net_price = a.curr_price * @qty
+						FROM	ord_list a (NOLOCK)
+						JOIN	cvo_ord_list b (NOLOCK)
+						ON		a.order_no = b.order_no
+						AND		a.order_ext = b.order_ext
+						AND		a.line_no = b.line_no
+						WHERE	a.order_no = @order_no
+						AND		a.order_ext = @order_ext
+						AND		a.line_no = @line_no
+		
+				RETURN
+			END
+			-- v2.6 End
+
 			SELECT	@gross_price = CASE WHEN @discount_perc = 100 THEN b.list_price ELSE (a.curr_price - ROUND(b.amt_disc,2)) END,
 					@discount_price = CASE WHEN @discount_perc = 100 THEN b.list_price ELSE 0 END,
 					@net_price = CASE WHEN @discount_perc = 100 THEN 0 ELSE (a.curr_price - ROUND(b.amt_disc,2)) END,
@@ -329,6 +455,14 @@ BEGIN
 					WHERE	a.order_no = @order_no
 					AND		a.order_ext = @order_ext
 					AND		a.line_no = @line_no
+
+			-- v2.7 Start
+			IF (@discount_price < 0)
+			BEGIN
+				SET @gross_price = @net_price
+				SET @discount_price = 0
+			END
+			-- v2.7 End		
 		
 			RETURN
 		END

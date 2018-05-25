@@ -14,6 +14,7 @@ GO
 -- v1.9 CB 15/05/2017 - Return is not using the inv return flag from the return code
 -- v2.0 CB 22/01/2018 - Fix issue with costs not being recorded plus other fields being set incorrectly
 -- v2.1 CB 26/01/2018 - Remove orig_part_no as this stops trigger from firing
+-- v2.2 CB 15/05/2018 - Add Log insert
 
 CREATE PROC [dbo].[CVO_create_upload_credit_return_sp] (@SPID INT, @hold SMALLINT)  
 AS
@@ -351,6 +352,11 @@ BEGIN
 
 	-- Begin transaction
 	BEGIN TRAN	
+
+	-- v2.2 Start
+	INSERT INTO  tdc_log WITH (ROWLOCK) (tran_date, userid, trans_source, module, trans, tran_no, tran_ext, part_no, lot_ser, bin_no, location, quantity, data)
+	VALUES (GETDATE(),@who_entered,'BO','CREDIT RETURN','CREDIT CREATION',@new_order_no,'0','','','',@location,'','CREDIT RETURN CREATED VIA UPLOAD');		
+	-- v2.2 End
 
 	-- Create the order header
 	INSERT INTO orders (order_no, ext, cust_code, ship_to, req_ship_date, sch_ship_date, date_entered, who_entered, [status], attention, 

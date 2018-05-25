@@ -2,9 +2,9 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-create view [dbo].[cvo_cust_info_vw] as 
+CREATE view [dbo].[cvo_cust_info_vw] as 
 
-select ar.customer_code
+select DISTINCT ar.customer_code
 , ar.ship_to_code
 , ar.address_name
 -- , ar.addr1
@@ -36,9 +36,22 @@ select ar.customer_code
 ,ar.modified_by_date
 ,car.coop_eligible
 ,car.door
-from armaster ar (nolock) 
+,adm.contact_no cust_contact_no
+,adm.contact_code cust_contact_code
+,adm.contact_name cust_contact_name
+,adm.contact_phone cust_contact_phone
+,adm.contact_fax cust_contact_fax
+,adm.contact_email cust_contact_email
+, ISNULL(ar.contact_name,'') + ',' + ISNULL(ar.attention_name,'') + ',' + ISNULL(adm.contact_name,'') All_Name_search
+
+FROM armaster ar (nolock) 
 inner join cvo_armaster_all car (nolock) 
 on ar.customer_code = car.customer_code and ar.ship_to_code = car.ship_to
+LEFT OUTER JOIN adm_arcontacts adm
+ON adm.customer_code = ar.customer_code AND adm.ship_to_code = ar.ship_to_code
+
+
+
 
 GO
 GRANT REFERENCES ON  [dbo].[cvo_cust_info_vw] TO [public]

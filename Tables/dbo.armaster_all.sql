@@ -312,6 +312,47 @@ AND i.ship_to_code = d.ship_to_code -- 9/21/2016
 AND i.address_type = d.address_type
 where isnull(d.ship_complete_flag,0)<>isnull(i.ship_complete_flag,0)
 
+-- Generic Audit entry for website update of address
+
+INSERT CVOARMasterAudit
+(
+    field_name,
+    field_from,
+    field_to,
+    customer_code,
+    ship_to_code,
+    movement_flag,
+    audit_date,
+    user_id
+)
+SELECT 'Addr Updated',
+       d.addr1,
+       i.addr1,
+       i.customer_code,
+       i.ship_to_code,
+       2,
+       GETDATE(),
+       SUSER_SNAME()
+FROM inserted i
+    INNER JOIN deleted d
+        ON i.customer_code = d.customer_code
+           AND i.address_type = d.address_type
+WHERE (
+      d.addr1 <> i.addr1
+      OR d.addr2 <> i.addr2
+      OR d.addr3 <> i.addr3
+      OR d.addr4 <> i.addr4
+      OR d.addr5 <> i.addr5
+      OR d.addr6 <> i.addr6
+      OR d.city <> i.city
+      OR d.state <> i.state
+	  OR d.postal_code <> i.postal_code
+	  OR d.country_code <> i.country_code
+      )
+      AND d.customer_code = i.customer_code
+      AND d.ship_to_code = i.ship_to_code; -- 4/24/2014 EL 
+
+
 
 -- above cannot be used to audit contact_email, attention_email, ftp, special_instr, note & extended_name they require varchar (255)
 

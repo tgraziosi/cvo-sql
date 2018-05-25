@@ -819,7 +819,7 @@ AS
 
                 IF ( @door = '' )
                     BEGIN
-                        SET @door = '0';
+                        SET @door = '1'; -- 051718 - change default to yes/1
                     END;
                 ELSE
                     BEGIN
@@ -1820,6 +1820,7 @@ AS
                 WHERE  process = -1;
             END;
     END;
+
 
 
 GO

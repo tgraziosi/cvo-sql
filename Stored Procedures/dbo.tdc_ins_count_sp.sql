@@ -73,7 +73,7 @@ BEGIN
 	  FROM tdc_lookup_error (nolock) 
 	 WHERE module = 'SPR' AND trans = 'tdc_ins_count_sp' AND err_no = -120 AND language = @language
 
-	RETURN(-120)
+	-- RETURN(-120) -- tag 050818
 END
 
 
@@ -113,6 +113,9 @@ BEGIN
 		   AND b.location = @location
 		   AND b.part_no = @temp_part
 		   AND c.usage_type_code in ('OPEN', 'REPLENISH')
+		   AND NOT EXISTS (SELECT 1 FROM dbo.tdc_phy_cyc_count AS tpcc 
+							WHERE tpcc.part_no = @temp_part AND tpcc.location = @location AND tpcc.cyc_code = @cyc_code AND tpcc.team_id
+							 = @team_id AND tpcc.bin_no = b.bin_no)
 		   -- AND C.group_code NOT IN ( 'RESERVE' )
 	END
 	ELSE
@@ -131,6 +134,7 @@ DEALLOCATE Item_cursor
 COMMIT TRAN
 
 RETURN(0)
+
 
 
 

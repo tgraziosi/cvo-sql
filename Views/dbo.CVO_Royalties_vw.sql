@@ -340,20 +340,20 @@ END as discount_amount,
 
 
        ol.return_code,          -- 12/27/2012 - tag
-       o.cust_po,               -- 12/30/2015 - tag for LM
+       orders.cust_po,          -- 12/30/2015 - tag for LM
 
        x_date_shipped = dbo.adm_get_pltdate_f(orders.date_shipped)
 
 FROM ord_list ol (NOLOCK)
-    INNER JOIN orders
+    INNER JOIN orders (nolock)
         ON orders.order_no = ol.order_no
            AND orders.ext = ol.order_ext
     LEFT OUTER JOIN dbo.CVO_orders_all co (NOLOCK)
         ON orders.order_no = co.order_no
            AND orders.ext = co.ext
-    LEFT OUTER JOIN dbo.orders AS o (NOLOCK)
-        ON o.order_no = ol.order_no
-           AND o.ext = ol.order_ext
+    --LEFT OUTER JOIN dbo.orders AS o (NOLOCK)
+    --    ON o.order_no = ol.order_no
+    --       AND o.ext = ol.order_ext
     LEFT OUTER JOIN CVO_ord_list col (NOLOCK)
         ON ol.order_no = col.order_no
            AND ol.order_ext = col.order_ext
@@ -478,6 +478,7 @@ WHERE (
 --INNER JOIN cvo_debit_promo_customer_hdr dh ON dh.hdr_rec_id = dp.hdr_rec_id
 --WHERE arx.gl_rev_acct LIKE '4530%' 
 --AND (ol.shipped <> 0 OR ol.cr_shipped <> 0) AND O.status ='t'
+
 GO
 
 GRANT REFERENCES ON  [dbo].[CVO_Royalties_vw] TO [public]

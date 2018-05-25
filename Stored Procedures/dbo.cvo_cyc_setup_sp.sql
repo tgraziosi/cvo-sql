@@ -8,6 +8,10 @@ BEGIN
 SET NOCOUNT ON
 SET ANSI_WARNINGS OFF
 
+DECLARE @err_msg VARCHAR(255), @station_id VARCHAR(20), @team VARCHAR(10), @asofdate DATETIME;
+SELECT @err_msg = '', @station_id = 'noprint', @team = 'CC'; -- set station to 'noprint' to skip the report part
+
+SELECT @asofdate = DATEADD(DAY, CASE WHEN DATENAME(WEEKDAY,GETDATE()) = 'Monday' THEN -3 ELSE -1 END ,DATEDIFF(DAY,0,GETDATE()));
 
  IF (SELECT OBJECT_ID('tempdb..#temp_who')) IS NOT NULL 
  BEGIN   
@@ -15,14 +19,24 @@ SET ANSI_WARNINGS OFF
  END
 Create table #temp_who(who varchar(50), login_id varchar(50))
 Insert #temp_who select 'tdcsql','tdcsql'
-DECLARE @err_msg VARCHAR(255), @station_id VARCHAR(20), @team VARCHAR(10)
-
-SELECT @err_msg = '', @station_id = 'noprint', @team = 'CC'; -- set station to 'noprint' to skip the report part
 
 
-DELETE 
--- SELECT *
-FROM dbo.tdc_phy_cyc_count WHERE team_id = 'CC' AND cyc_code IN ('DAILY','ANNUAL','QTRLY','BI-ANNUAL') AND count_date IS null;
+-- 051818 - leave any non-counted items for the next day.  If you don't want to count them, delete them from the processing screen.
+--DELETE 
+---- SELECT *
+--FROM dbo.tdc_phy_cyc_count WHERE team_id = 'CC' AND cyc_code IN ('DAILY','ANNUAL','QTRLY','BI-ANNUAL') AND count_date IS null;
+
+-- find the no stock transactions to count.  FORCE A COUNT ON ANY NO STOCKS
+
+UPDATE i SET cycle_type = 'DAILY'
+-- SELECT DISTINCT i.part_no , i.cycle_type, ia.field_28
+FROM CVO_no_stock_approval t (NOLOCK)
+JOIN inv_master i (ROWLOCK) ON i.part_no = t.part_no
+JOIN INV_master_add ia (NOLOCK) ON ia.part_no = i.part_no
+WHERE ISNULL(ia.field_28,'12/31/2999') > GETDATE()
+AND i.type_code = 'frame'
+;
+
 
 EXEC dbo.tdc_ins_count_sp @err_msg = @err_msg OUTPUT, -- varchar(255)
                           @team_id = @team,            -- varchar(30)
@@ -157,6 +171,10 @@ END
 --   select * From tdc_bcp_print_values
 
 END
+
+
+
+
 
 
 
