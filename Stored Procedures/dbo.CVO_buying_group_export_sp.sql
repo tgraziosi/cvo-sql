@@ -808,8 +808,8 @@ order by invoice, inv_seq
   
 SET NOCOUNT ON  
 set @FILENAME_sub = ltrim(rtrim(@customer)) + '_' + @file_from + '_' + @file_to + '.txt'  
---SET @FILENAME = 'C:\Epicor_BGData\Detail\' + @FILENAME_sub  
 SET @FILENAME = '\\cvo-fs-01\Public_Data\Accounts Receivable\Buying Groups\Epicor_BGData\' + @FILENAME_sub  
+--SET @FILENAME = 'C:\Epicor_BGData\Detail\' + @FILENAME_sub  
 --SET @FILENAME = '\\172.20.10.5\Public_Data\Accounts Receivable\Buying Groups\Epicor_BGData\' + @FILENAME_sub  
 SET @BCPCOMMAND = 'BCP "SELECT LINE FROM CVO..##EXP1_TEMP" QUERYOUT "'  
 -- SET @BCPCOMMAND = @BCPCOMMAND + @FILENAME + '" -U sa -P sa12345  -c'  

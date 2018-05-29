@@ -326,13 +326,13 @@ BEGIN
                                          AND pa.attribute = 'retail'
                                    ) THEN 'FASHION'
                WHEN I.type_code = 'sun'
-                    AND (
-                        I.category IN ( 'et', 'jmc', 'pt' )
-                        OR ISNULL(IA.field_36, '') <> 'SUNPS'
-                        OR EXISTS (
+                    --AND (
+                    --    (I.category IN ( 'et', 'jmc', 'pt' )
+                    --    OR ISNULL(IA.field_36, '') <> 'SUNPS')
+                       and EXISTS (
                                   SELECT 1 FROM @EOS EOS WHERE EOS.part_no = I.part_no
                                   )
-                        ) THEN 'SELLDOWN'
+                         THEN 'SELLDOWN'
                WHEN I.category IN ( 'izod', 'izx' ) THEN 'IZOD' ELSE CAT.description
            END [CATEGORY:2],
            ISNULL(IA.field_3, '') AS Color,
@@ -1248,6 +1248,7 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 	AND [category:1] <> 'REVO SELLDWN';
 
 END;
+
 
 
 
