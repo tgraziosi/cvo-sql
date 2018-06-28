@@ -23,6 +23,7 @@ EXEC CVO_buying_group_export_two_sp "invoice_date between '01/01/2018' and '06/2
 -- Rev 1 BNM 9/11/2012 updated to resolve issue 728, installment invoice details on export
 -- v1.1	CT 20/10/2014 - Issue #1367 - For Sales Orders and Credit Returns, if net price > list price, set list = net and discount = 0
 -- v1.2 CB 08/05/2018 - Changed to use new data extraction sp
+-- v1.3 CB 31/05/2018 - Combine installment lines
 **************************************************************************************/
 CREATE PROCEDURE [dbo].[CVO_buying_group_export_two_sp] (@WHERECLAUSE VARCHAR(1024))
 AS
@@ -98,6 +99,7 @@ AS
 		tax				varchar(12),
 		total			varchar(12))
 
+/*
 	CREATE TABLE #raw_bg_data (
 		record_type			varchar(1),
 		customer			varchar(8),
@@ -125,7 +127,7 @@ AS
 		item_desc2			varchar(36),
 		item_desc3			varchar(36),
 		qty_shipped			varchar(20))		
-		
+*/	
 
 	create index idx_customer on  #buy_out (account_num) with fillfactor = 80
 	create index idx_invoice on  #buy_out (invoice) with fillfactor = 80
@@ -172,8 +174,8 @@ AS
 			@ship_to_state			varchar(2),
 			@ship_to_zip			varchar(10)
 
-	INSERT	#raw_bg_data
-	EXEC dbo.cvo_bg_data_extract_sp @WHERECLAUSE
+--	INSERT	#raw_bg_data
+--	EXEC dbo.cvo_bg_data_extract_sp @WHERECLAUSE
 
 
 	-- 1 --	HEADER RECORD
@@ -204,6 +206,29 @@ AS
 	where	invoice = h.doc_ctrl_num
 	and		ship_to_address = ''
 
+	-- v1.3 Start
+	SELECT	record_type, customer, account_num,	CASE WHEN CHARINDEX('-',invoice) > 0 THEN LEFT(invoice,CHARINDEX('-',invoice)-1) ELSE invoice END invoice, 
+			order_num, po_num, invoice_date, ship_to_name, ship_to_address,
+			ship_to_address2, ship_to_city, ship_to_state, ship_to_zip, ship_to_phone, ship_via_desc, terms_desc,
+			sub_total, freight, tax, total
+	INTO	#buy_h_temp
+	FROM	#buy_h
+
+	TRUNCATE TABLE #buy_h
+
+	INSERT	#buy_h
+	SELECT	record_type, customer, account_num,	invoice, order_num, po_num, invoice_date, ship_to_name, ship_to_address,
+			ship_to_address2, ship_to_city, ship_to_state, ship_to_zip, ship_to_phone, ship_via_desc, terms_desc,
+			SUM(CAST(sub_total as float)), SUM(CAST(freight as float)), SUM(CAST(tax as float)), SUM(CAST(total as float))
+	FROM	#buy_h_temp
+	GROUP BY record_type, customer, account_num,	invoice, order_num, po_num, invoice_date, ship_to_name, ship_to_address,
+			ship_to_address2, ship_to_city, ship_to_state, ship_to_zip, ship_to_phone, ship_via_desc, terms_desc
+
+	IF (OBJECT_ID('tempdb..#buy_h_temp') IS NOT NULL)
+		DROP TABLE #buy_h_temp
+	-- v1.3 End
+
+
 	-- 2a -- DETAIL RECORD FROM ORDERS	-- 09/11/2012 BNM - resolve issue 728, load non-installment invoice detail first
 	INSERT	#buy_d
 	SELECT	record_type, account_num, invoice, line_num, item_no, item_desc1, item_desc2, item_desc3, 
@@ -211,6 +236,25 @@ AS
 	FROM	#raw_bg_data
 	WHERE	record_type = 'D'
 
+	-- v1.3 Start
+	SELECT	record_type, account_num, CASE WHEN CHARINDEX('-',invoice) > 0 THEN LEFT(invoice,CHARINDEX('-',invoice)-1) ELSE invoice END invoice,  
+			line_num, item_no, item_desc1, item_desc2, item_desc3, 
+			qty_shipped, disc_unit, list_unit
+	INTO	#buy_d_temp
+	FROM	#buy_d	
+
+	TRUNCATE TABLE #buy_d
+
+	INSERT	#buy_d
+	SELECT	record_type, account_num, invoice, line_num, item_no, item_desc1, item_desc2, item_desc3, 
+			qty_shipped, SUM(CAST(disc_unit as float)), SUM(CAST(list_unit as float))
+	FROM	#buy_d_temp
+	GROUP BY record_type, account_num, invoice, line_num, item_no, item_desc1, item_desc2, item_desc3, 
+			qty_shipped
+
+	IF (OBJECT_ID('tempdb..#buy_d_temp') IS NOT NULL)
+		DROP TABLE #buy_d_temp
+	-- v1.3 End
 
 	create index idx_customer on  #buy_d (account_num) with fillfactor = 80
 	create index idx_invoice on  #buy_d (invoice) with fillfactor = 80

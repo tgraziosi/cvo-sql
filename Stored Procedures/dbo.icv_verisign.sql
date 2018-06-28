@@ -3,7 +3,7 @@ GO
 SET ANSI_NULLS OFF
 GO
 
-
+-- original version
 
 
 
@@ -857,8 +857,9 @@ BEGIN
 
 	
 
-select @res_net = master.dbo.SubmitTrans(@requeststr,@HostAdd,@Port,@Timeout, 0,0,'','','OFF','','','','')
-select @Response = @res_net 
+ select @res_net = master.dbo.SubmitTrans(@requeststr,@HostAdd,@Port,@Timeout, 0,0,'','','OFF','','','','')
+-- SELECT  @res_net = '[cvo-webdb-05].master.dbo.SubmitTransaction(@requeststr,@HostAdd,@Port,@Timeout)' -- 6/18/18
+SELECT @Response = @res_net 
 
 
 SELECT @fullstring = @Response
@@ -1066,7 +1067,8 @@ BEGIN
 
 
 
-		select @res_net = master.dbo.SubmitTrans(@requeststr,@HostAdd,@Port,@Timeout, 0,0,'','','OFF','','','','')
+		 select @res_net = master.dbo.SubmitTrans(@requeststr,@HostAdd,@Port,@Timeout, 0,0,'','','OFF','','','','')
+		--SELECT  @res_net = '[cvo-webdb-05].master.dbo.SubmitTransaction(@requeststr,@HostAdd,@Port,@Timeout)' -- 6/18/18
 		select @Response = @res_net 
 
 
@@ -1225,6 +1227,9 @@ ICVRETURN:
 
 	RETURN @ret
 END
+
+
+
 GO
 GRANT EXECUTE ON  [dbo].[icv_verisign] TO [public]
 GO

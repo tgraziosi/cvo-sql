@@ -322,16 +322,16 @@ BEGIN
                style,
                location,
                #IFP.sku AS part_no,
-               atp,
+               atp - dmd.m1_drp_demand atp,
                quantity AS SOF
         FROM #ifp
 		LEFT OUTER JOIN
-        (SELECT sku, SUM(quantity) safety_stock FROM #ifp 
+        (SELECT sku, SUM(quantity) safety_stock, sum(CASE WHEN sort_seq = 1 THEN quantity ELSE 0 END) AS m1_drp_demand FROM #ifp 
 			WHERE line_type = 'drp' AND sort_seq IN (1,2) GROUP BY sku 
 		) dmd ON dmd.sku = #IFP.sku
         WHERE LINE_TYPE = 'v'
               AND sort_seq = @inv_month_bucket
-              AND atp > 0
+              AND atp - dmd.m1_drp_demand > 0 -- dont steal inventory from M1 demand - 06/22/2018
               AND quantity > dmd.safety_stock
 			  ) AS ifp
             ON O.brand = ifp.brand
@@ -649,6 +649,7 @@ BEGIN
              order_no;
 
 END;
+
 
 
 

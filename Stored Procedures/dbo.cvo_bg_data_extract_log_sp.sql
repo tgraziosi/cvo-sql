@@ -6,7 +6,7 @@ GO
 -- exec cvo_bg_data_extract_log_sp ' Where parent BETWEEN ''000567'' AND ''000655'''
 -- exec cvo_bg_data_extract_log_sp ' Where parent BETWEEN ''000567'' AND ''000655'' AND xinv_date BETWEEN 736695 AND 736842'
 -- exec cvo_bg_data_extract_log_sp ' Where parent BETWEEN ''000567'' AND ''000655'' AND xinv_date=736695'
--- exec cvo_bg_data_extract_log_sp ' Where xinv_date between 736910 and 736839'
+-- exec cvo_bg_data_extract_log_sp ' Where xinv_date=736695'
 -- exec cvo_bg_data_extract_log_sp ' Where parent like ''%000655%'' AND parent_name like ''%the professional edge%'' AND xinv_date BETWEEN 736695 AND 736846'
 
 CREATE PROC [dbo].[cvo_bg_data_extract_log_sp] @whereclause varchar(1024)
@@ -14,9 +14,6 @@ AS
 BEGIN
 	-- DIRECTIVES
 	SET NOCOUNT ON
-
-	--DECLARE @whereclause VARCHAR(1024)
-	--SELECT @whereclause = ' Where xinv_date between 736810 and 736839'
 
 	-- DECLARATIONS
 	DECLARE @date_from		varchar(10),
@@ -208,7 +205,6 @@ BEGIN
 	--	inv_tot, mer_tot, net_amt, freight, tax, mer_disc, inv_due, disc_perc, date_due_month, xinv_date, promo_id, promo_level, part_no, 
 	--	category, style, res_type, line_no, description, shipped, order_date)
 	UNION ALL
-    
 	SELECT	cv.buying_group,
 			bgc.customer_name,
 			o.cust_code,
@@ -283,8 +279,6 @@ BEGIN
 	AND		LEFT(h.doc_ctrl_num,2) <> 'CB' 
 	AND		h.void_flag <> 1			
 	AND		cv.buying_group > '' 
-
-
 	CREATE NONCLUSTERED INDEX cvo_bg_data_extract_idx ON #order_data_extract_raw (cust_code, part_no,  res_type, style) INCLUDE (order_date)
 
 	CREATE NONCLUSTERED INDEX cvo_bg_data_extract_idx2 ON #order_data_extract_raw (is_quoted) include (cust_code, part_no, res_type,  net_only, order_date)
@@ -617,6 +611,8 @@ BEGIN
 	WHERE	CHARINDEX('-',a.doc_ctrl_num) > 0
 	ORDER BY a.doc_ctrl_num
 */
+
+
 	INSERT	#data_extract_raw (parent, parent_name, cust_code, customer_name, doc_ctrl_num, trm, type, inv_date,
 		inv_tot, mer_tot, net_amt, freight, tax, mer_disc, inv_due, disc_perc, date_due_month, xinv_date, rec_type)
 	-- Order Header
@@ -1010,12 +1006,35 @@ BEGIN
 	AND		h.void_flag <> 1  
 	AND		dbo.f_cvo_get_buying_group(h.customer_code, CONVERT(VARCHAR(10),DATEADD(DAY, h.date_doc - 693596, '01/01/1900'),121)) > ''     
 
-	-- v1.1 Start
-	DELETE	#data_extract_raw
-	WHERE	disc_perc = 1
-	OR (inv_tot+mer_tot+freight+tax+mer_disc+inv_due) = 0.00
-	-- v1.1 End
+	---- v1.1 Start
+	--DELETE	#data_extract_raw
+	--WHERE	disc_perc = 1
+	---- v1.1 End
 
+
+	-- v1.3 Start
+	CREATE TABLE #results (
+		parent			varchar(10),
+		parent_name		varchar(40),
+		cust_code		varchar(10),
+		customer_name	varchar(40),
+		doc_ctrl_num	varchar(16),
+		type			varchar(20),
+		inv_date		varchar(12),
+		inv_tot			float,
+		mer_tot			float,
+		net_amt			float,
+		freight			float,
+		tax				float,
+		trm				int,
+		mer_disc		float,
+		inv_due			float,
+		disc_perc		float,
+		date_due_month	varchar(10),
+		xinv_date		int,
+		rec_type		int)
+		
+	INSERT	#results
 	SELECT	parent,
 			parent_name,
 			cust_code,
@@ -1036,7 +1055,117 @@ BEGIN
 			xinv_date,
 			rec_type			
 	FROM	#data_extract_raw
-	--WHERE disc_perc <> 1
+	WHERE disc_perc <> 1
+	GROUP BY parent, parent_name, cust_code, customer_name, doc_ctrl_num, type, inv_date, trm,                  
+			disc_perc, date_due_month, xinv_date, rec_type
+	ORDER BY parent, cust_code, doc_ctrl_num
+
+	
+	CREATE TABLE #install_rounding (
+		doc_ctrl_num	varchar(16),
+		inv_gross		decimal(20,8),
+		inv_freight		decimal(20,8),
+		inv_tax			decimal(20,8),
+		inv_net			decimal(20,8),
+		inv_total		decimal(20,8), -- v1.5
+		inv_diff		decimal(20,8), -- v1.5
+		amt_gross		float,
+		amt_freight		float,
+		amt_tax			float,
+		amt_net			float,
+		disc_perc		float) -- v1.5
+
+	INSERT	#install_rounding
+	SELECT	doc_ctrl_num, SUM(inv_tot), SUM(freight), SUM(tax), SUM(inv_due), 0,0,0,0,0,0, disc_perc -- v1.5
+	FROM	#results
+	WHERE	CHARINDEX('-',doc_ctrl_num) > 0
+	GROUP BY doc_ctrl_num, disc_perc -- v1.5
+
+	CREATE INDEX #install_rounding_ind0 ON #install_rounding(doc_ctrl_num)
+
+	 -- v1.5 Start
+	SELECT	doc_ctrl_num, SUM(inv_net) total
+	INTO	#temp_totals
+	FROM	#install_rounding
+	GROUP BY doc_ctrl_num
+
+	UPDATE	a
+	SET		inv_total = b.total
+	FROM	#install_rounding a
+	JOIN	#temp_totals b
+	ON		a.doc_ctrl_num = b.doc_ctrl_num
+	
+	DROP TABLE  #temp_totals
+
+	UPDATE	a
+	SET		amt_gross = b.amt_gross,
+			amt_freight = b.amt_freight,
+			amt_tax = b.amt_tax,
+			amt_net = b.amt_net,
+			inv_diff = b.amt_net - inv_total
+	FROM	#install_rounding a
+	JOIN	artrx_all b (NOLOCK)
+	ON		a.doc_ctrl_num = b.doc_ctrl_num
+
+	DELETE	#install_rounding
+	WHERE	inv_net = amt_net
+
+	SELECT	doc_ctrl_num, COUNT(1) lines, MAX(inv_diff) diff, 0.00 split
+	INTO	#temp_lines
+	FROM	#install_rounding
+	WHERE	inv_freight = 0 
+	AND		inv_tax = 0
+	GROUP BY doc_ctrl_num
+
+	UPDATE	#temp_lines
+	SET		split = diff / CAST(lines as decimal(20,8))
+
+	UPDATE	a
+	SET		inv_diff = b.split
+	FROM	#install_rounding a
+	JOIN	#temp_lines b
+	ON		a.doc_ctrl_num = b.doc_ctrl_num
+
+	DROP TABLE #temp_lines
+
+	UPDATE	a
+	SET		inv_tot = a.inv_tot + b.inv_diff,
+			mer_tot = a.mer_tot + b.inv_diff,
+			mer_disc = a.mer_disc + b.inv_diff,
+			inv_due = a.inv_due + b.inv_diff
+	FROM	#results a
+	JOIN	#install_rounding b
+	ON		a.doc_ctrl_num = b.doc_ctrl_num
+	WHERE	a.freight = 0 
+	AND		a.tax = 0
+	-- v1.5 End
+	
+	-- v1.4 Start
+	DELETE	#results
+	WHERE	ABS(inv_due) < 0.01
+	-- v1.4 End
+
+	SELECT	parent,
+			parent_name,
+			cust_code,
+			customer_name,
+			doc_ctrl_num,
+			type,
+			inv_date,
+			SUM(inv_tot) inv_tot,
+			SUM(mer_tot) mer_tot,                
+			SUM(net_amt) net_amt,
+			SUM(freight) freight,                
+			SUM(tax) tax,          
+			trm,
+			sum(mer_disc) mer_disc,     
+			SUM(inv_due) inv_due,
+			disc_perc,
+			date_due_month due_year_month,
+			xinv_date,
+			rec_type			
+	FROM	#results
+	WHERE	disc_perc <> 1
 	GROUP BY parent, parent_name, cust_code, customer_name, doc_ctrl_num, type, inv_date, trm,                  
 			disc_perc, date_due_month, xinv_date, rec_type
 	ORDER BY parent, cust_code, doc_ctrl_num
@@ -1045,9 +1174,8 @@ BEGIN
 	-- CLEAN UP
 	DROP TABLE #data_extract_raw
 	DROP TABLE #order_data_extract_raw
+	DROP TABLE #install_rounding
 END
-
-
 GO
 GRANT EXECUTE ON  [dbo].[cvo_bg_data_extract_log_sp] TO [public]
 GO

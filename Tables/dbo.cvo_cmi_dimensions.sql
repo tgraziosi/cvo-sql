@@ -1,6 +1,6 @@
 CREATE TABLE [dbo].[cvo_cmi_dimensions]
 (
-[id] [smallint] NOT NULL IDENTITY(1, 1),
+[id] [bigint] NOT NULL IDENTITY(1, 1),
 [model_id] [smallint] NULL,
 [variant_id] [smallint] NULL,
 [brand] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
@@ -43,5 +43,5 @@ CREATE TABLE [dbo].[cvo_cmi_dimensions]
 [ws_ship4_qty] [int] NULL CONSTRAINT [DF__cvo_cmi_d__ws_sh__24BA5AD0] DEFAULT ((0))
 ) ON [PRIMARY]
 GO
-ALTER TABLE [dbo].[cvo_cmi_dimensions] ADD CONSTRAINT [PK__cvo_cmi_dimensio__1BC65536] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
+ALTER TABLE [dbo].[cvo_cmi_dimensions] ADD CONSTRAINT [PK__cvo_cmi_dimensio__8D0B888D] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
 GO

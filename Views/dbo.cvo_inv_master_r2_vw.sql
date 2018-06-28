@@ -6,7 +6,7 @@ GO
 
 -- select top 100 * From cvo_inv_master_r2_vw where collection = 'op' and model = '808'
 -- select * From cvo_cmi_catalog_view where model = 'simona'
--- select top 1000 * from cvo_inv_master_r2_vw where collection = 'bcbg' and model = 'festive'
+-- select top 1000 part_no, attributes, specialty_Fit, * from cvo_inv_master_r2_vw where collection = 'cvo' 
 
 CREATE VIEW [dbo].[cvo_inv_master_r2_vw] AS 
 
@@ -114,7 +114,9 @@ LEFT OUTER JOIN cvo_temple_hindge (NOLOCK) th ON th.kys = ia.field_13
 LEFT OUTER JOIN cvo_sun_lens_color (NOLOCK) slc ON slc.kys = ia.field_23
 LEFT OUTER JOIN cvo_sun_lens_material (NOLOCK) slm ON slm.kys = ia.field_24
 LEFT OUTER JOIN cvo_sun_lens_type (NOLOCK) slt ON slt.kys = ia.field_25
-LEFT OUTER JOIN cvo_specialty_fit (NOLOCK) sf ON sf.kys = ia.field_32
+LEFT OUTER JOIN cvo_specialty_fit (NOLOCK) sf ON sf.kys = -- 5/30/18 - per AK request for website
+	ISNULL((SELECT TOP 1 attribute FROM cvo_part_attributes xx WHERE xx.part_no = ia.part_no AND xx.attribute IN ('Global Fit','Petite','Style N','XL','Pediatric') 
+		ORDER BY xx.attribute),'') -- ia.field_32
 LEFT OUTER JOIN gl_country (NOLOCK) c ON c.country_code = i.country_code
 LEFT OUTER JOIN inv_master_add cp (NOLOCK) ON cp.part_no = ia.field_1
 -- add cases for website
@@ -153,6 +155,7 @@ WHERE i.void='n' AND i.type_code IN ('frame','sun')
 
 
 -- select * From cvo_part_price_cost_vw where part_no = 'cvellblu5114'
+
 
 
 

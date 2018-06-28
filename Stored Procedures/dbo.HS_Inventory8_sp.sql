@@ -417,7 +417,8 @@ ELSE '' END GENDER,
         --                                             AND drp.location = @location
         LEFT OUTER JOIN #DRP drp
             ON drp.part_no = I.part_no
-    WHERE I.void <> 'V'
+    WHERE i.category <> 'sp' -- 6/27/2018
+		   AND I.void <> 'V'
           AND I.category NOT IN ( 'CORP', 'FP' )
           AND (
               NOT EXISTS (
@@ -1247,7 +1248,15 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 	AND f.SpecialtyFit <> 'RevoSldwn'
 	AND [category:1] <> 'REVO SELLDWN';
 
+	UPDATE hsi
+        SET [category:1] = 'KIDS SELLDWN'
+        -- SELECT * 
+        FROM dbo.cvo_hs_inventory_8 AS hsi
+            WHERE EXISTS (SELECT 1 FROM dbo.cvo_part_attributes AS pa WHERE pa.part_no = hsi.sku AND pa.attribute = 'KidsSldwn');
+
 END;
+
+
 
 
 

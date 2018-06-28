@@ -5,7 +5,7 @@ GO
 CREATE PROCEDURE [dbo].[cvo_commission_statement_sp] @FiscalPeriod VARCHAR(10)
 AS
 
--- exec cvo_commission_statement_sp '04/2018'
+-- exec cvo_commission_statement_sp '05/2018'
 
 SET NOCOUNT ON;
 
@@ -43,7 +43,7 @@ BEGIN
     (
         salesperson VARCHAR(20),
         salesperson_name VARCHAR(50),
-        territory VARCHAR(5),
+        territory VARCHAR(8),
         region VARCHAR(5),
         hiredate DATETIME,
         termdate DATETIME,
@@ -53,10 +53,10 @@ BEGIN
         mm VARCHAR(2)
     );
 
-	-- rebuild the summary too - 8/28/2017
+    -- rebuild the summary too - 8/28/2017
 
     -- exec cvo_commiss_bldr_create_summary_sp @fp
-	
+
     ;
     WITH months
     AS
@@ -94,8 +94,61 @@ BEGIN
         )
         ) comm
             ON comm.salesperson = sp.salesperson_code
-    WHERE sp.status_type = 1 OR (sp.status_type <> 1 AND ISNULL(dbo.adm_format_pltdate_f(sp.date_terminated), '12/31/2099') 
-														 >= dateadd(month,1,LEFT(@FiscalPeriod,2)+'/1/'+RIGHT(@FiscalPeriod,4)));
+    WHERE sp.status_type = 1 OR (ISNULL(sp.status_type,0) <> 1 AND YEAR(ISNULL(dbo.adm_format_pltdate_f(sp.date_terminated), '12/31/2099'))
+    										 >= YEAR(DATEADD(month,1,LEFT(@FiscalPeriod,2)+'/1/'+RIGHT(@FiscalPeriod,4))));
+
+    --;
+    --WITH months
+    --AS
+    --(
+    --SELECT 1 AS mm
+    --UNION ALL
+    --SELECT mm + 1
+    --FROM months
+    --WHERE mm + 1 <= 12
+    --)
+    --INSERT INTO #mm
+    --SELECT sp.salesperson_code salesperson,
+    --       sp.salesperson_name,
+    --       t.territory_code territory,
+    --       dbo.calculate_region_fn(t.territory_code) region,
+    --       ISNULL(dbo.adm_format_pltdate_f(sp.date_hired), '1/1/1900') hiredate,
+    --       ISNULL(dbo.adm_format_pltdate_f(sp.date_terminated), '12/31/2099') termdate,
+    --       sp.status_type,
+    --       sp.salesperson_type,
+    --       comm.commission,
+    --       RIGHT('00' + CAST(months.mm AS VARCHAR(2)), 2) mm
+    --FROM dbo.arterr AS t
+    --    LEFT OUTER JOIN dbo.arsalesp sp
+    --        ON sp.territory_code = t.territory_code
+    --    LEFT OUTER JOIN
+    --    (
+    --    SELECT salesperson,
+    --           commission,
+    --           ccswt.report_month
+    --    FROM dbo.cvo_commission_summary_work_tbl AS ccswt
+    --    WHERE ccswt.id =
+    --    (
+    --    SELECT MAX(id)
+    --    FROM dbo.cvo_commission_summary_work_tbl AS cswt
+    --    WHERE cswt.salesperson = ccswt.salesperson
+    --    )
+    --    ) comm
+    --        ON comm.salesperson = sp.salesperson_code
+    --    CROSS JOIN months
+    --WHERE sp.status_type = 1
+    --      OR
+    --      (
+    --      ISNULL(sp.status_type, 0) <> 1
+    --      AND EXISTS
+    --(
+    --SELECT 1
+    --FROM dbo.cvo_commission_bldr_work_tbl AS cbwt
+    --WHERE cbwt.Territory = t.territory_code
+    --      AND RIGHT(cbwt.fiscal_period, 4) >= @prior_year
+    --)
+    --      );
+
 
 
     SELECT ty.id,
@@ -495,6 +548,7 @@ BEGIN
                AND ff.report_month = f.report_month;
 
 END;
+
 
 
 

@@ -131,10 +131,11 @@ LEFT OUTER JOIN dbo.SSRS_ARAging_Temp AS saat on saat.CUST_CODE = ar.customer_co
 LEFT OUTER JOIN ( SELECT    c.customer_code ,
                             RIGHT(c.customer_code, 5) MergeCust ,
                             STUFF(( SELECT  '; ' + code
-                                    FROM    cvo_cust_designation_codes (NOLOCK)
+                                    FROM    cvo_cust_designation_codes x (NOLOCK)
                                     WHERE   customer_code = c.customer_code
                                             AND ISNULL(start_date, @today) <= @today
                                             AND ISNULL(end_date, @today) >= @today
+											ORDER BY x.primary_flag desc, x.code asc
                                     FOR
                                     XML PATH('')
                                     ), 1, 1, '') desig
@@ -297,6 +298,7 @@ SELECT h.id ,
 
 
 END
+
 
 
 

@@ -194,7 +194,10 @@ BEGIN
 		SET @IsCust = 0
 	END
 
---select '@IsBg',@IsBg,'@IsQuoted',@IsQuoted,'@IsPromo',@IsPromo,'@IsFixed',@IsFixed,'@IsList',@IsList,'@IsCust',@IsCust
+	-- v2.9 Start
+	IF (@quote_net_only IS NULL)
+		SET @quote_net_only = 'N'
+	-- v2.9 End
 	
 	IF (@IsBg = 1) -- BG
 	BEGIN

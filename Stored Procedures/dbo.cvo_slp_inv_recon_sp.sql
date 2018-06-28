@@ -16,7 +16,7 @@ BEGIN
     SELECT @location = '',
            @today = DATEADD(DAY, DATEDIFF(DAY, 0, GETDATE()), 0);
 
-    SELECT @location = location
+    SELECT TOP (1) @location = location
     FROM cvo_sc_addr_vw
     WHERE territory_code = @slp
           OR salesperson_code = @slp
@@ -115,6 +115,15 @@ BEGIN
     (
     SELECT 1 FROM slp WHERE slp.part_no = inv.part_no
     )
+	)
+	,  AVL 
+	AS 
+	 (    SELECT DISTINCT cia.PART_NO, cia.QTY_AVL
+		 FROM partslist p
+		 join cvo_item_avail_vw cia
+        (NOLOCK)
+            ON cia.part_no = p.part_no
+              AND cia.location = '001'
     )
     SELECT DISTINCT -- Final list to output
 
@@ -124,7 +133,7 @@ BEGIN
            SELECT DISTINCT
                   ',' + INV_TYPE
            FROM partslist ci
-           WHERE ci.part_no = s.part_no
+           WHERE ci.part_no = s.part_no AND inv_type <> 'avl'
            FOR XML PATH('')
            ),
            1,
@@ -134,7 +143,7 @@ BEGIN
            i.release_date,
            i.pom_date,
            s.part_no,
-           cia.qty_avl,
+           avl.qty_avl,
            i.Collection,
            i.CollectionName,
            i.model,
@@ -186,14 +195,13 @@ BEGIN
         JOIN cvo_inv_master_r2_vw i
         (NOLOCK)
             ON i.part_no = s.part_no
-        JOIN cvo_item_avail_vw cia
-        (NOLOCK)
-            ON cia.part_no = s.part_no
-               AND cia.location = '001';
+		JOIN avl ON AVL.part_no = i.part_no
+		;
 
 END;
 
 GRANT EXECUTE ON dbo.cvo_slp_inv_recon_sp TO PUBLIC;
+
 
 
 GO

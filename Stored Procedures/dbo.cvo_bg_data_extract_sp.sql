@@ -117,8 +117,9 @@ BEGIN
 				WHEN (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) > 0 AND (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) = 0 THEN 
 				(CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END)/100 
 				ELSE (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) END,
+			CASE WHEN x.date_due < 639907 THEN 'UNKNOWN' ELSE
 			RIGHT(CONVERT(VARCHAR(12),DATEADD(dd,(x.date_due)-639906,'1/1/1753'),101),4) + '/'+  
-			LEFT(CONVERT(VARCHAR(12),DATEADD(dd,(x.date_due)-639906,'1/1/1753'),101),2),  
+			LEFT(CONVERT(VARCHAR(12),DATEADD(dd,(x.date_due)-639906,'1/1/1753'),101),2) END,  
 			x.date_doc,
 			cv.promo_id,
 			cv.promo_level,
@@ -153,7 +154,6 @@ BEGIN
 	--	inv_tot, mer_tot, net_amt, freight, tax, mer_disc, inv_due, disc_perc, date_due_month, xinv_date, promo_id, promo_level, part_no, 
 	--	category, style, res_type, line_no, description, shipped, order_date)
 	UNION ALL
-    
 	SELECT	cv.buying_group,
 			bgc.customer_name,
 			o.cust_code,
@@ -236,7 +236,6 @@ BEGIN
 	CREATE NONCLUSTERED INDEX cvo_bg_data_extract_promo_idx ON #order_data_extract_raw (promo_id, promo_level) 
 
 	CREATE NONCLUSTERED INDEX cvo_bg_list ON #order_data_extract_raw (is_list_price, net_only)
-
 	-- Update for contract pricing
 	UPDATE	a
 	SET		is_quoted = 'Y',
@@ -489,8 +488,12 @@ BEGIN
 	-- v1.1 Start
 	DELETE	#data_extract_raw
 	WHERE	disc_perc = 1
-	OR (inv_tot+mer_tot+freight+tax+mer_disc+inv_due) = 0.00
 	-- v1.1 End
+
+	-- v1.3 Start
+	DELETE	#data_extract_raw
+	WHERE	mer_tot = 0
+	-- v1.3 End
 
 	SELECT	'D',
 			'',
@@ -989,16 +992,81 @@ BEGIN
 	LEFT JOIN arterms at (NOLOCK) 
 	ON		o.terms = at.terms_code
 	WHERE	b.addr_sort1 = 'Buying Group'
+	AND 0 = CHARINDEX('-',a.doc_ctrl_num) -- no installments
+		GROUP BY a.parent, a.cust_code, a.doc_ctrl_num, o.order_no, o.cust_po, o.ship_to_name, b.customer_name,
+		o.ship_to_add_1, o.ship_to_add_2, o.ship_to_city, o.ship_to_state, o.ship_to_zip, o.phone, s.ship_via_name,
+		at.terms_desc, a.inv_date, a.type
+
+	UNION ALL
+    -- get info for installment documents
+	SELECT	'H',
+			a.parent,
+			a.cust_code,
+			CASE WHEN DATALENGTH(a.doc_ctrl_num) > 12 THEN REPLACE(a.doc_ctrl_num,'INV','') ELSE a.doc_ctrl_num END,
+			CONVERT(varchar(8),ISNULL(o.order_no,'')),
+			CONVERT(varchar(8),ISNULL(o.cust_po,'')),
+			LEFT(a.inv_date,2) + '/' + CONVERT(varchar(2),SUBSTRING(a.inv_date,4,2)) + '/' + RIGHT(a.inv_date,2),
+			LEFT(ISNULL(o.ship_to_name,b.customer_name),36),
+			LEFT(ISNULL(o.ship_to_add_1,''), 36),
+			LEFT(ISNULL(o.ship_to_add_2,''), 36),
+			LEFT(ISNULL(o.ship_to_city,''), 20),
+			LEFT(ISNULL(o.ship_to_state,''), 2),
+			LEFT(ISNULL(REPLACE(o.ship_to_zip,'-',''),''), 10),
+			LEFT(ISNULL(o.phone,''), 15),
+			LEFT(ISNULL(s.ship_via_name ,''),20),
+			LEFT(ISNULL(at.terms_desc,''),20),
+			CONVERT(varchar(12),CONVERT(money,ROUND(SUM((a.mer_disc)),2))),
+			CONVERT(varchar(12),CONVERT(money,ROUND(SUM((a.freight)),2))),
+			CONVERT(varchar(12),CONVERT(money,ROUND(SUM((a.tax)),2))),
+			CONVERT(varchar(12),CONVERT(money,ROUND(SUM((a.inv_due)),2))),
+			'',
+			'',
+			'',
+			'',
+			'',			
+			''
+	FROM	#data_extract_raw a
+	JOIN	arcust b (NOLOCK)
+	ON		a.parent = b.customer_code
+	JOIN	arcust c (NOLOCK)
+	ON		a.cust_code = c.customer_code
+	LEFT JOIN orders_invoice i (NOLOCK) 
+	ON		i.doc_ctrl_num = LEFT(a.doc_ctrl_num, CHARINDEX('-',a.doc_ctrl_num)-1)
+	LEFT JOIN orders_all o (NOLOCK) 
+	ON		i.order_no = o.order_no  
+	AND		i.order_ext = o.ext
+	LEFT JOIN arshipv s (NOLOCK) 
+	ON		o.routing = s.ship_via_code
+	LEFT JOIN arterms at (NOLOCK) 
+	ON		o.terms = at.terms_code
+	WHERE	b.addr_sort1 = 'Buying Group'
+	AND 0 <> CHARINDEX('-',a.doc_ctrl_num) --  installments
 	GROUP BY a.parent, a.cust_code, a.doc_ctrl_num, o.order_no, o.cust_po, o.ship_to_name, b.customer_name,
 		o.ship_to_add_1, o.ship_to_add_2, o.ship_to_city, o.ship_to_state, o.ship_to_zip, o.phone, s.ship_via_name,
 		at.terms_desc, a.inv_date, a.type
-	ORDER BY a.doc_ctrl_num
+--	ORDER BY a.doc_ctrl_num
+
+	-- v1.3 Start
+	DELETE	#data_extract_raw 
+	WHERE	ABS(inv_due) < 0.01
+	-- v1.3 End
+
+	INSERT	#raw_bg_data_header (parent, parent_name, cust_code, customer_name, doc_ctrl_num, trm, type, 
+		inv_date, inv_tot, mer_tot, net_amt, freight, tax, mer_disc, inv_due, disc_perc, due_year_month, xinv_date)
+	SELECT	a.parent, b.customer_name, a.cust_code, c.customer_name, a.doc_ctrl_num, a.trm, a.type, a.inv_date,
+			a.inv_tot, a.mer_tot, a.net_amt, a.freight, a.tax, a.mer_disc, a.inv_due, a.disc_perc, a.date_due_month,
+			a.xinv_date
+	FROM	#data_extract_raw a
+	JOIN	arcust b (NOLOCK)
+	ON		a.parent = b.customer_code
+	JOIN	arcust c (NOLOCK)
+	ON		a.cust_code = c.customer_code
+
 			
 	-- CLEAN UP
 	DROP TABLE #data_extract_raw
 	DROP TABLE #order_data_extract_raw
 END
-
 GO
 GRANT EXECUTE ON  [dbo].[cvo_bg_data_extract_sp] TO [public]
 GO

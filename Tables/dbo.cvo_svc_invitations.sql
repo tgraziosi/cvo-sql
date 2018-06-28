@@ -89,6 +89,10 @@ CREATE TABLE [dbo].[cvo_svc_invitations]
 [rvsd] [tinyint] NULL CONSTRAINT [DF__cvo_svc_in__rvsd__72F8E20A] DEFAULT ((0)),
 [rvsd_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__rvsd___73ED0643] DEFAULT ((0)),
 [rvsd_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__rvsd___74E12A7C] DEFAULT ((0)),
-[cst_revosd] [int] NULL CONSTRAINT [DF__cvo_svc_i__cst_r__75D54EB5] DEFAULT ((0))
+[cst_revosd] [int] NULL CONSTRAINT [DF__cvo_svc_i__cst_r__75D54EB5] DEFAULT ((0)),
+[kds] [tinyint] NULL CONSTRAINT [DF__cvo_svc_inv__kds__0E36E82B] DEFAULT ((0)),
+[kds_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__kds_s__0F2B0C64] DEFAULT ((1)),
+[kds_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__kds_o__101F309D] DEFAULT ((20)),
+[cst_kds] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__cst_k__111354D6] DEFAULT ((0))
 ) ON [PRIMARY]
 GO
