@@ -1,31 +1,9 @@
-SET QUOTED_IDENTIFIER OFF
+SET QUOTED_IDENTIFIER ON
 GO
-SET ANSI_NULLS OFF
+SET ANSI_NULLS ON
 GO
 
--- original version
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                                                
-
-
+-- New version for tls1.2 062118 - uses cvo-webdb-05 to do transaction
  
 CREATE PROCEDURE [dbo].[icv_verisign] @transtype CHAR(3),
 				 @ccnumber varCHAR(20),
@@ -232,7 +210,7 @@ BEGIN
 
 	SET NOCOUNT ON
 
-	SELECT @vsif = 0, @filename = "C:\tmif.log"
+	SELECT @vsif = 0, @filename = 'C:\tmif.log'
 
 
 	SELECT @buf = UPPER(configuration_text_value)
@@ -280,10 +258,12 @@ BEGIN
 	END
 
 	
-	SELECT @HostAdd = "" 
+	SELECT @HostAdd = ''
 	SELECT @HostAdd  = (configuration_text_value)
 	 FROM icv_config
 	 WHERE UPPER(configuration_item_name) = 'HOST ADDRESS'
+
+	IF CHARINDEX('https', @HostAdd,0) = 0 SELECT @hostadd = 'https://'+@HostAdd
 
 	IF @@rowcount <> 1
 	BEGIN
@@ -293,7 +273,7 @@ BEGIN
 	END
 
 	
-        SELECT @MerchantID = ""
+        SELECT @MerchantID = ''
 	SELECT @MerchantID =  (configuration_text_value)
 	 FROM icv_config
 	 WHERE UPPER(configuration_item_name) = 'MERCHANTID'
@@ -304,7 +284,7 @@ BEGIN
 		SELECT @ret = -1010
  		GOTO ICVRETURN
 	END
-        SELECT @UserName = ""
+        SELECT @UserName = ''
 	SELECT @UserName =   (configuration_text_value)
 	 FROM icv_config
 	 WHERE UPPER(configuration_item_name) = 'USERNAME'
@@ -315,7 +295,7 @@ BEGIN
 		SELECT @ret = -1010
  		GOTO ICVRETURN
 	END
-        SELECT @UserPassword = ""
+        SELECT @UserPassword = ''
 	SELECT @UserPassword = LTRIM(RTRIM((configuration_text_value)))
 	 FROM icv_config
 	 WHERE UPPER(configuration_item_name) = 'USERPASSWORD'
@@ -326,7 +306,7 @@ BEGIN
 		SELECT @ret = -1010
  		GOTO ICVRETURN
 	END
-        SELECT @Port = ""
+        SELECT @Port = ''
         SELECT @Port = (configuration_text_value)
 	 FROM icv_config
 	 WHERE UPPER(configuration_item_name) = 'GATEWAY PORT'
@@ -337,7 +317,7 @@ BEGIN
 		SELECT @ret = -1010
  		GOTO ICVRETURN
 	END
-	SELECT @Timeout = ""
+	SELECT @Timeout = ''
 	SELECT @Timeout =  (configuration_text_value)
 	 FROM icv_config
 	 WHERE UPPER(configuration_item_name) = 'TIMEOUT'
@@ -349,7 +329,7 @@ BEGIN
  		GOTO ICVRETURN
 	END
 
-	SELECT @AddressVerification = ""
+	SELECT @AddressVerification = ''
 	SELECT @AddressVerification =  (configuration_text_value)
 	 FROM icv_config
 	 WHERE UPPER(configuration_item_name) = 'ADDRESS VERIFICATION'
@@ -857,8 +837,18 @@ BEGIN
 
 	
 
- select @res_net = master.dbo.SubmitTrans(@requeststr,@HostAdd,@Port,@Timeout, 0,0,'','','OFF','','','','')
--- SELECT  @res_net = '[cvo-webdb-05].master.dbo.SubmitTransaction(@requeststr,@HostAdd,@Port,@Timeout)' -- 6/18/18
+-- select @res_net = master.dbo.SubmitTrans(@requeststr,@HostAdd,@Port,@Timeout, 0,0,'','','OFF','','','','')
+DECLARE @tsql NVARCHAR(4000)
+declare @resultx TABLE (result VARCHAR(4000))
+
+SELECT @tsql = N'select master.dbo.SubmitTransaction('''''+@requeststr+''''','''''+@HostAdd+''''','+@Port+','+@Timeout+') '
+SELECT @tsql = N'select * FROM OPENQUERY([CVO-WEBDB-05], ''' + @tsql + ''')'
+
+
+INSERT @resultx
+EXEC (@tsql)
+SELECT @res_net = result FROM @resultx 
+		 
 SELECT @Response = @res_net 
 
 
@@ -872,9 +862,9 @@ select @ResultCode = -1, @ResultString = ''
 IF @pointer > 0  
 BEGIN
   SELECT @begpos = @pointer + len(@searchname)+1
-    IF charindex("&",@fullstring,@begpos ) <> 0    
+    IF charindex('&',@fullstring,@begpos ) <> 0    
      BEGIN   
-  	SELECT @vlength = charindex("&",@fullstring,@begpos )-@begpos
+  	SELECT @vlength = charindex('&',@fullstring,@begpos )-@begpos
         SELECT @ResultString = substring(@fullstring,@begpos,@vlength )
      END
     ELSE 
@@ -896,9 +886,9 @@ SELECT @pointer = charindex(@searchname,@fullstring), @ResultString = ''
 IF @pointer > 0  
 BEGIN
   SELECT @begpos = @pointer + len(@searchname)+1
-    IF charindex("&",@fullstring,@begpos ) <> 0 
+    IF charindex('&',@fullstring,@begpos ) <> 0 
      BEGIN   
-  	SELECT @vlength = charindex("&",@fullstring,@begpos )-@begpos
+  	SELECT @vlength = charindex('&',@fullstring,@begpos )-@begpos
         SELECT @ResultString = substring(@fullstring,@begpos,@vlength )
      END
     ELSE 
@@ -917,9 +907,9 @@ SELECT @pointer = charindex(@searchname,@fullstring), @ResultString = ''
 IF @pointer > 0  
 BEGIN
   SELECT @begpos = @pointer + len(@searchname)+1
-    IF charindex("&",@fullstring,@begpos ) <> 0    
+    IF charindex('&',@fullstring,@begpos ) <> 0    
      BEGIN   
-  	SELECT @vlength = charindex("&",@fullstring,@begpos )-@begpos
+  	SELECT @vlength = charindex('&',@fullstring,@begpos )-@begpos
         SELECT @ResultString = substring(@fullstring,@begpos,@vlength )
      END
     ELSE 
@@ -939,9 +929,9 @@ SELECT @AuthCode = '' , @ResultString = ''
 IF @pointer > 0  
 BEGIN
   SELECT @begpos = @pointer + len(@searchname)+1
-  IF charindex("&",@fullstring,@begpos ) <> 0    
+  IF charindex('&',@fullstring,@begpos ) <> 0    
      BEGIN   
-  	SELECT @vlength = charindex("&",@fullstring,@begpos )-@begpos
+  	SELECT @vlength = charindex('&',@fullstring,@begpos )-@begpos
         SELECT @ResultString = substring(@fullstring,@begpos,@vlength )
      END
   ELSE 
@@ -961,9 +951,9 @@ IF @pointer > 0
 BEGIN
   SELECT @begpos = @pointer + len(@searchname)+1
    
-  IF charindex("&",@fullstring,@begpos ) <> 0    
+  IF charindex('&',@fullstring,@begpos ) <> 0    
      BEGIN   
-  	SELECT @vlength = charindex("&",@fullstring,@begpos )-@begpos
+  	SELECT @vlength = charindex('&',@fullstring,@begpos )-@begpos
         SELECT @ResultString = substring(@fullstring,@begpos,@vlength )
      END
   ELSE 
@@ -982,9 +972,9 @@ SELECT @pointer = charindex(@searchname,@fullstring), @ResultString = ''
 IF @pointer > 0  
 BEGIN
   SELECT @begpos = @pointer + len(@searchname)+1
-  IF charindex("&",@fullstring,@begpos ) <> 0    
+  IF charindex('&',@fullstring,@begpos ) <> 0    
      BEGIN   
-  	SELECT @vlength = charindex("&",@fullstring,@begpos )-@begpos
+  	SELECT @vlength = charindex('&',@fullstring,@begpos )-@begpos
         SELECT @ResultString = substring(@fullstring,@begpos,@vlength )
      END
   ELSE 
@@ -1007,9 +997,9 @@ BEGIN
 	IF @pointer > 0  
 	BEGIN
 	  SELECT @begpos = @pointer + len(@searchname)+1
-	    IF charindex("&",@fullstring,@begpos ) <> 0 
+	    IF charindex('&',@fullstring,@begpos ) <> 0 
 	     BEGIN   
-	  	SELECT @vlength = charindex("&",@fullstring,@begpos )-@begpos
+	  	SELECT @vlength = charindex('&',@fullstring,@begpos )-@begpos
 	        SELECT @ResultString = substring(@fullstring,@begpos,@vlength )
 	     END
 	    ELSE 
@@ -1063,12 +1053,20 @@ BEGIN
 
 		EXEC icv_Log_sp @submitcommandmask, @LogActivity
 
+		-- select @res_net = master.dbo.SubmitTrans(@requeststr,@HostAdd,@Port,@Timeout, 0,0,'','','OFF','','','','')
+		
+		
+		
+SELECT @tsql = N'select  master.dbo.SubmitTransaction('''''+@requeststr+''''','''''+@HostAdd+''''','+@Port+','+@Timeout+') '
+SELECT @tsql = N'select * FROM OPENQUERY([CVO-WEBDB-05], ''' + @tsql + ''')' 
 
+DELETE FROM @resultx
 
+INSERT @resultx
+EXEC (@tsql)
+SELECT @res_net = result FROM @resultx 
 
-
-		 select @res_net = master.dbo.SubmitTrans(@requeststr,@HostAdd,@Port,@Timeout, 0,0,'','','OFF','','','','')
-		--SELECT  @res_net = '[cvo-webdb-05].master.dbo.SubmitTransaction(@requeststr,@HostAdd,@Port,@Timeout)' -- 6/18/18
+		-- SELECT  @res_net = master.dbo.SubmitTransaction(@requeststr,@HostAdd,@Port,@Timeout) -- 6/18/18
 		select @Response = @res_net 
 
 
@@ -1227,6 +1225,8 @@ ICVRETURN:
 
 	RETURN @ret
 END
+
+
 
 
 

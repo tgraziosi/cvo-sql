@@ -64,18 +64,21 @@ BEGIN
 		WHERE	usage_type_code = 'OPEN'
 		AND		group_code <> ('HIGHBAY')
 		AND		rec_type = -1
+		AND     @bin_repl_max + @bin_repl_min + @bin_repl_qty + @fill_qty_max > 0 -- ok to do if we're deleting ...
 
 		UPDATE	#MaintUtil_File
 		SET		rec_type = 0,
 				[error_message] = 'ERROR: Invalid usage type'
 		WHERE	(ISNULL(usage_type_code,'') = '' OR usage_type_code NOT IN ('REPLENISH','OPEN'))
 		AND		rec_type = -1
+		AND     @bin_repl_max + @bin_repl_min + @bin_repl_qty + @fill_qty_max > 0 -- ok to do if we're deleting ...
 		
 		UPDATE	#MaintUtil_File
 		SET		rec_type = 0,
 				[error_message] = 'ERROR: Invalid bin group'
 		WHERE	(ISNULL(group_code,'') = '' OR group_code NOT IN ('PICKAREA','RESERVE','HIGHBAY'))
 		AND		rec_type = -1
+		AND     @bin_repl_max + @bin_repl_min + @bin_repl_qty + @fill_qty_max > 0 -- ok to do if we're deleting ...
 
 		UPDATE	a
 		SET		rec_type = 0,
@@ -395,6 +398,7 @@ BEGIN
 	END
 	
 END
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_maint_utility_process_sp] TO [public]

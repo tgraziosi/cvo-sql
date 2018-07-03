@@ -152,7 +152,8 @@ BEGIN
           AND ISNULL(i.web_saleable_flag, 'N') = 'N'
           AND ia.field_26 <= GETDATE()
           AND ISNULL(ia.field_28, '1/1/1900') = '1/1/1900'
-          AND ISNULL(ia.field_32, '') NOT IN ( 'retail', 'hvc', 'costco' )
+		  AND NOT EXISTS (SELECT 1 FROM dbo.cvo_part_attributes AS pa WHERE pa.part_no = i.part_no and pa.attribute IN ('retail','hvc','costco','customtmpl'))
+          -- AND ISNULL(ia.field_32, '') NOT IN ( 'retail', 'hvc', 'costco' )
           AND i.category <> 'bt'
           AND i.type_code IN ( 'frame', 'sun' )
           AND i.void = 'N'
@@ -239,6 +240,7 @@ WHERE location = '001'
                           WHEN rank_class = 'B' THEN 'BI-ANNUAL'
                           WHEN rank_class = 'C' THEN 'ANNUAL' ELSE 'NEVER'
                           END;
+
 
 
 

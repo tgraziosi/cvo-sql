@@ -90,7 +90,7 @@ BEGIN
 		   o.ship_to_zip
     FROM #rxbo AS r
 	JOIN orders o (nolock) ON o.order_no = r.order_no AND o.ext = r.ext
-    WHERE (r.DDTONEXTPO >= 30)
+    WHERE (r.DDTONEXTPO >= 10)
           AND r.location = '001'
           AND r.qty_to_alloc < 0
 	ORDER BY o.ship_to_zip; -- to sort  by zip so we don't call CA first :)

@@ -119,9 +119,9 @@ BEGIN
 	,  AVL 
 	AS 
 	 (    SELECT DISTINCT cia.PART_NO, cia.QTY_AVL
-		 FROM partslist p
-		 join cvo_item_avail_vw cia
-        (NOLOCK)
+		 FROM 
+		 (SELECT DISTINCT part_no FROM partslist) p
+		 join dbo.cvo_item_avail_vw cia  (NOLOCK)
             ON cia.part_no = p.part_no
               AND cia.location = '001'
     )
