@@ -16,7 +16,8 @@ BEGIN
     SELECT @location = '',
            @today = DATEADD(DAY, DATEDIFF(DAY, 0, GETDATE()), 0);
 
-    SELECT TOP (1) @location = location
+    SELECT TOP (1)
+           @location = location
     FROM cvo_sc_addr_vw
     WHERE territory_code = @slp
           OR salesperson_code = @slp
@@ -115,15 +116,38 @@ BEGIN
     (
     SELECT 1 FROM slp WHERE slp.part_no = inv.part_no
     )
-	)
-	,  AVL 
-	AS 
-	 (    SELECT DISTINCT cia.PART_NO, cia.QTY_AVL
-		 FROM 
-		 (SELECT DISTINCT part_no FROM partslist) p
-		 join dbo.cvo_item_avail_vw cia  (NOLOCK)
+    ),
+         AVL
+    AS
+    (
+    SELECT DISTINCT
+           cia.part_no,
+           cia.qty_avl,
+           xfer.xfer_qty
+    FROM
+    (
+    SELECT DISTINCT
+           part_no
+    FROM partslist
+    WHERE partslist.INV_TYPE = 'need'
+    ) p
+        JOIN dbo.cvo_item_avail_vw cia
+        (NOLOCK)
             ON cia.part_no = p.part_no
-              AND cia.location = '001'
+               AND cia.location = '001'
+        LEFT OUTER JOIN
+        (
+        SELECT part_no,
+               SUM(ordered - shipped) xfer_qty,
+               to_loc
+        FROM xfer_list
+        WHERE status < 's'
+              AND from_loc = '001'
+			  AND to_loc = @location
+        GROUP BY part_no,
+                 to_loc
+        ) xfer
+            ON xfer.part_no = p.part_no
     )
     SELECT DISTINCT -- Final list to output
 
@@ -133,7 +157,8 @@ BEGIN
            SELECT DISTINCT
                   ',' + INV_TYPE
            FROM partslist ci
-           WHERE ci.part_no = s.part_no AND inv_type <> 'avl'
+           WHERE ci.part_no = s.part_no
+                 AND INV_TYPE <> 'avl'
            FOR XML PATH('')
            ),
            1,
@@ -141,9 +166,10 @@ BEGIN
            ''
                 ) AS inv_types,
            i.release_date,
-           i.pom_date,
+           CASE WHEN i.pom_date > @today THEN NULL ELSE i.pom_date END AS pom_date,
            s.part_no,
-           avl.qty_avl,
+           ISNULL(AVL.qty_avl, 0) qty_avl,
+		   ISNULL(avl.xfer_qty, 0) xfer_qty,
            i.Collection,
            i.CollectionName,
            i.model,
@@ -151,10 +177,10 @@ BEGIN
            i.prim_img,
            i.RES_type,
            i.PrimaryDemographic,
-           i.target_age,
-           i.eye_shape,
-           i.ColorGroupCode,
-           i.ColorGroupName,
+           --i.target_age,
+           --i.eye_shape,
+           --i.ColorGroupCode,
+           --i.ColorGroupName,
            i.ColorName,
            i.eye_size,
            i.a_size,
@@ -162,45 +188,46 @@ BEGIN
            i.ed_size,
            i.dbl_size,
            i.temple_size,
-           i.frame_type,
-           i.front_material,
-           i.temple_material,
-           i.nose_pads,
-           i.hinge_type,
-           i.sun_lens_color,
-           i.sun_material,
-           i.sun_lens_type,
-           i.specialty_fit,
-           i.Country_of_Origin,
-           i.case_part,
-           i.rimless_style,
-           i.front_price,
-           i.temple_price,
-           i.Wholesale_price,
-           i.sugg_retail_price,
-           i.upc_code,
-           i.web_saleable_flag,
-           i.ispolarizedavailable,
-           i.progressive_type,
-           i.frame_weight,
-           i.case_part_no,
-           i.case_weight,
-           i.PrimaryDemo_Web,
-           i.attributes,
-           i.special_components,
-           i.suns_only,
-           i.lens_base
+           --i.frame_type,
+           --i.front_material,
+           --i.temple_material,
+           --i.nose_pads,
+           --i.hinge_type,
+           --i.sun_lens_color,
+           --i.sun_material,
+           --i.sun_lens_type,
+           --i.specialty_fit,
+           --i.Country_of_Origin,
+           --i.case_part,
+           --i.rimless_style,
+           --i.front_price,
+           --i.temple_price,
+           i.Wholesale_price
+    --i.sugg_retail_price,
+    --i.upc_code,
+    --i.web_saleable_flag,
+    --i.ispolarizedavailable,
+    --i.progressive_type,
+    --i.frame_weight,
+    --i.case_part_no,
+    --i.case_weight,
+    --i.PrimaryDemo_Web,
+    --i.attributes,
+    --i.special_components,
+    --i.suns_only,
+    --i.lens_base
     FROM partslist s
         (NOLOCK)
         JOIN cvo_inv_master_r2_vw i
         (NOLOCK)
             ON i.part_no = s.part_no
-		JOIN avl ON AVL.part_no = i.part_no
-		;
+        LEFT OUTER JOIN AVL
+            ON AVL.part_no = i.part_no;
 
 END;
 
 GRANT EXECUTE ON dbo.cvo_slp_inv_recon_sp TO PUBLIC;
+
 
 
 

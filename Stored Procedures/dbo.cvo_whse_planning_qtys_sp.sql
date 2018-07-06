@@ -205,6 +205,8 @@ EXEC dbo.cvo_whse_planning_qtys_sp @Location = '001', -- varchar(1024)
               SELECT location FROM @loc_tbl
               )
 		  AND (W.group_code <> 'BULK' OR (w.group_code='BULK' AND w.bin_no LIKE 'W%'))
+		  AND w.slot LIKE '[0-9]%'
+
 		)
     ,
           iav
@@ -263,6 +265,7 @@ EXEC dbo.cvo_whse_planning_qtys_sp @Location = '001', -- varchar(1024)
                AND iav.part_no = w.part_no;
 
 END;
+
 
 
 GO

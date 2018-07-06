@@ -28,13 +28,16 @@ BEGIN
 
 
     -- Inv Nightly update for setting BO based on POM
+	-- 7/6/2018 - change backorder date from 90 to 30 days and cs date from 89 to 29
+
     UPDATE T1
-    SET datetime_2 = DATEADD(DAY, 90, field_28), -- backorder date
-        field_29 = DATEADD(DAY, 89, field_28)    -- cs_date per KM request 7/28/16
+    SET datetime_2 = DATEADD(DAY, 30, field_28), -- backorder date
+        field_29 = DATEADD(DAY, 29, field_28)    -- cs_date per KM request 7/28/16
     FROM inv_master_add T1
     WHERE (
           datetime_2 IS NULL
           OR field_29 IS NULL
+		  OR '7/7/2018' = DATEADD(dd, DATEDIFF(dd,0,GETDATE()), 0) 
           )
           AND
           (
@@ -240,6 +243,7 @@ WHERE location = '001'
                           WHEN rank_class = 'B' THEN 'BI-ANNUAL'
                           WHEN rank_class = 'C' THEN 'ANNUAL' ELSE 'NEVER'
                           END;
+
 
 
 
