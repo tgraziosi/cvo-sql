@@ -33,6 +33,7 @@ BEGIN
 -- 4/17/17 - dd Case hack AND CVO XL FIT
 -- 12/2017 - add support for 180 hinges.  Don't add temples and fronts, and add all available temple lengths for the style.
 -- 1/18 - update for cycle counting  - QTRLY is default for new items
+-- 7/18 - add category_1 for CA Compliance.  revo and BT frames 
 
 SET XACT_ABORT, NOCOUNT ON;
 
@@ -1079,7 +1080,7 @@ CREATE TABLE #ia
     (
       [part_no] [VARCHAR](30) NOT NULL ,
       [category_1] [VARCHAR](15) NULL
-                                 DEFAULT NULL , -- watch
+                                 DEFAULT 'N' , -- watch
       [category_2] [VARCHAR](15) NULL , -- gender
       [category_3] [VARCHAR](15) NULL
                                  DEFAULT '' , -- part_type
@@ -1297,6 +1298,7 @@ CREATE TABLE #pp -- need pricing for frames, front, temples
 -- create INV_MASTER_ADD entries
 INSERT  #ia
         ( part_no ,
+		  category_1 ,
           category_2 ,
           category_3 ,
           category_4 ,
@@ -1327,6 +1329,7 @@ INSERT  #ia
         )
         SELECT DISTINCT
                 c.part_no ,
+				category_1 = CASE WHEN c.collection IN ('revo','bt')  AND c.part_type in ('FRAME','sun') THEN 'Y' ELSE 'N' END, 
                 category_2 = ISNULL(( SELECT TOP 1
                                         kys
                                FROM     dbo.CVO_Gender
@@ -2418,6 +2421,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

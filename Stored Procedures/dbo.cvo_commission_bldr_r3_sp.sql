@@ -16,7 +16,7 @@ GO
 		WHERE DateShipped between dbo.adm_get_pltdate_f('02/1/2017') AND dbo.adm_get_pltdate_f('02/28/2017') 
 		and territory = 50532
 		
-	exec cvo_commission_bldr_r3_sp '30308', '12/01/2017','12/31/2017'
+	exec cvo_commission_bldr_r3_sp '20201', '06/01/2018','06/30/2018'
 */
 
 -- order_no = 2645156
@@ -860,6 +860,7 @@ GROUP BY o.salesperson ,
                  ol.order_ext
 			) o ON r.order_no = o.order_no and r.ext = o.order_ext
 			;
+
 
 
 

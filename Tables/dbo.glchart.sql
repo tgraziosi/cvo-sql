@@ -1144,19 +1144,21 @@ CREATE UNIQUE CLUSTERED INDEX [glchart_ind_0] ON [dbo].[glchart] ([account_code]
 GO
 CREATE NONCLUSTERED INDEX [glchart_ind_1] ON [dbo].[glchart] ([account_type], [account_code]) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [glchart_ind_seg_1] ON [dbo].[glchart] ([seg1_code], [account_code]) ON [PRIMARY]
+GO
 CREATE NONCLUSTERED INDEX [glchart_ind_2] ON [dbo].[glchart] ([seg2_code]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [glchart_ind_3] ON [dbo].[glchart] ([seg3_code]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [glchart_ind_4] ON [dbo].[glchart] ([seg4_code]) ON [PRIMARY]
 GO
-GRANT REFERENCES ON  [dbo].[glchart] TO [public]
-GO
-GRANT SELECT ON  [dbo].[glchart] TO [public]
+GRANT DELETE ON  [dbo].[glchart] TO [public]
 GO
 GRANT INSERT ON  [dbo].[glchart] TO [public]
 GO
-GRANT DELETE ON  [dbo].[glchart] TO [public]
+GRANT REFERENCES ON  [dbo].[glchart] TO [public]
+GO
+GRANT SELECT ON  [dbo].[glchart] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[glchart] TO [public]
 GO

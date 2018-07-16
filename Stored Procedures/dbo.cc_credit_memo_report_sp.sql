@@ -17,7 +17,7 @@ GO
 -- v3.0 CT 23/10/2014 - Issue #1504 - Fix calculation for credit returns with a discount percentage
 -- v3.1 CB 13/12/2017 - Discount not displaying correctly
 -- v3.2 CB 12/01/2018 - Add routine to correct pricing
-
+-- v3.3 CB 13/07/2018 - Truncation issue
 CREATE PROCEDURE [dbo].[cc_credit_memo_report_sp]  	@my_id varchar(255),
 													@user_name	varchar(30) = '',
 													@company_db	varchar(30) = ''
@@ -324,7 +324,7 @@ SET	amt_gross = ROUND(isnull(amt_gross,0),curr_precision),
 		*/
 		-- END v2.9                  
 		terms_code = orders.terms,
-		comment_line = l.note -- v2.5
+		comment_line = LEFT(l.note,40) -- v2.5 -- v3.3
 	from #cc_archarge_work a 
 	INNER JOIN orders (nolock) ON orders.order_no = left(a.order_ctrl_num, charindex('-',a.order_ctrl_num)-1)
 						and orders.ext = right(a.order_ctrl_num,len (a.order_ctrl_num) - charindex('-',a.order_ctrl_num))	

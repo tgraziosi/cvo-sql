@@ -18,6 +18,8 @@ GO
 -- v11.2 CB 19/06/2015	Fix issue with LP_TOTAL_QTY on multiple pages for CUSTOMS INVOICE
 -- v11.3 CB 21/02/2017	Deal with an item split over multiple cartons
 -- v11.4 CB 09/05/2018 - Fix issue with 100% discount items not being set to $1 on export declaration
+-- tag 07/11/2018 - in export declaration, don't include POP in totals
+
 -- EXEC cvo_adm_print_international_documents_sp 1419582, 0
 CREATE PROC [dbo].[cvo_adm_print_international_documents_sp]	@order_no	int,
 															@order_ext	int
@@ -727,7 +729,7 @@ IF (@country_code <> 'US' AND @country_code <> '')
 		WHERE	ol.order_no = @order_no
 		AND		ol.order_ext = @order_ext	  
 		AND	NOT	(t.order_no IS NULL AND cd.order_no IS NULL AND d.order_no IS NULL) -- v3.0 -- v10.5 - include soft allocations
-		AND inv.type_code NOT IN ('CASE')						--v2.0
+		AND inv.type_code NOT IN ('CASE','POP')						--v2.0 -- 7/12/2018 - don't include pop in export decl totals
 		AND		ISNULL(com.rpt_flag_esl,0) = 1 -- v10.2
 
 		-- START v10.5
@@ -828,7 +830,7 @@ IF (@country_code <> 'US' AND @country_code <> '')
 		WHERE	ol.order_no = @order_no
 		AND		ol.order_ext = @order_ext	  
 		AND	NOT	(t.order_no IS NULL AND cd.order_no IS NULL AND d.order_no IS NULL) -- v3.0 -- v10.5 - include soft allocations
-		AND inv.type_code NOT IN ('CASE')						--v2.0
+		AND inv.type_code NOT IN ('CASE','POP')						--v2.0
 
 
 		UPDATE	a
@@ -1155,6 +1157,7 @@ END
 SELECT 0
 
 END
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_adm_print_international_documents_sp] TO [public]
 GO

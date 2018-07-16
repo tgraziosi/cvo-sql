@@ -95,7 +95,7 @@ BEGIN
                                                     --	and f.feature_group = 'Progressive Friendly' ),'') as progressive_type
            ISNULL(pf.feature_desc, '') AS progressive_type,
                                                     -- add case info and frame weight for website
-           i.weight_ea frame_weight,
+           ISNULL(i.weight_ea, 0) frame_weight,
            ISNULL(cpi.part_no, '') AS case_part_no,
            ISNULL(cpi.weight_ea, 0) AS case_weight,
            LOWER(   CASE WHEN ia.category_2 = 'unknown' THEN ''
@@ -454,6 +454,7 @@ BEGIN
 END;
 
 GRANT EXECUTE ON cvo_refresh_inv_master_r2_sp TO PUBLIC
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_refresh_inv_master_r2_sp] TO [public]
 GO

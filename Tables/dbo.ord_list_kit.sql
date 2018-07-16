@@ -110,8 +110,6 @@ BEGIN
 	END  --End EAI enable
 END
 GO
-DISABLE TRIGGER [dbo].[EAI_ord_list_kit_insupddel] ON [dbo].[ord_list_kit]
-GO
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON

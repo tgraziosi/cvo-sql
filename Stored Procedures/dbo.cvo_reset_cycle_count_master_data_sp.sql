@@ -13,8 +13,8 @@ SET NOCOUNT ON
 UPDATE /*top (2500)*/ il
 SET il.rank_class = 'N'
 -- SELECT cycle_type, rank_class, type_code, field_28, i.part_no
-FROM inv_master i
-    JOIN inv_master_add ia
+FROM inv_master i (nolock)
+    JOIN inv_master_add ia (nolock)
         ON ia.part_no = i.part_no
     JOIN inv_list il
         ON il.part_no = i.part_no
@@ -28,9 +28,9 @@ SET i.cycle_type = 'NEVER'
 -- UPDATE top (2500) il SET il.rank_class = 'N'
 -- SELECT cycle_type, rank_class, type_code, field_28, i.part_no
 FROM inv_master i
-    JOIN inv_master_add ia
+    JOIN inv_master_add ia (NOLOCK)
         ON ia.part_no = i.part_no
-    JOIN inv_list il
+    JOIN inv_list il (nolock)
         ON il.part_no = i.part_no
            AND il.location = '001'
 -- WHERE il.rank_class <> 'N'
@@ -64,12 +64,13 @@ EXEC dbo.tdc_determine_abc_part_classification_sp @upper_percentage = 80,     --
                                                   @processing_option = 2,     -- int
                                                   @part_type = '<ALL>',       -- char(5)
                                                   --@part_group = '<ALL>'          -- varchar(10) <ALL>
-												  @part_group = 'DD';         -- varchar(10) <ALL>
+												  @part_group = 'ET';         -- varchar(10) <ALL>
 -- SELECT * FROM #INV_CLASS_temp_PARTS
 UPDATE #INV_CLASS_temp_PARTS SET sel_flg = 1
 
 EXEC tdc_process_abc_part_classification_sp '001';
 
+-- ONLY COUNT FRAMES
 UPDATE il SET rank_class = 'N'
 -- SELECT il.part_no, il.rank_class, ia.field_28
 FROM inv_list il (NOLOCK)
@@ -103,8 +104,7 @@ WHERE location = '001'
 -- UPDATE THE CYCLE FREQUENCIES
 
 
-UPDATE dbo.cycle_types SET num_items =  6, cycle_days  = 9 WHERE kys IN ('ANNUAL','BI-ANNUAL')
-UPDATE dbo.cycle_types SET num_items = 24, cycle_days  = 9 WHERE kys IN ('QTRLY')
+UPDATE dbo.cycle_types SET num_items = 12, cycle_days  = 9 WHERE kys IN ('ANNUAL','BI-ANNUAL','QTRLY')
 
 --UPDATE dbo.cycle_types SET num_items = 6, cycle_days  = 365 WHERE kys IN ('ANNUAL')
 --UPDATE dbo.cycle_types SET num_items = 6, cycle_days  = 180 WHERE kys IN ('BI-ANNUAL')
@@ -119,6 +119,8 @@ UPDATE dbo.cycle_types SET num_items = 24, cycle_days  = 9 WHERE kys IN ('QTRLY'
 END
 
 GRANT EXECUTE ON dbo.cvo_reset_cycle_count_master_data_sp TO PUBLIC
+
+
 
 
 

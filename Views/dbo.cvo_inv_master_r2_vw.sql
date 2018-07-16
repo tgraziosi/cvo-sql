@@ -10,6 +10,72 @@ GO
 
 CREATE VIEW [dbo].[cvo_inv_master_r2_vw] AS 
 
+SELECT part_no,
+       item_code,
+       Collection,
+       CollectionName,
+       model,
+       IMG_SKU,
+       IMG_WEB,
+       img_SpecialtyFit,
+       Future_ReleaseDate,
+       prim_img,
+       RES_type,
+       PrimaryDemographic,
+       target_age,
+       eye_shape,
+       ColorGroupCode,
+       ColorGroupName,
+       ColorName,
+       eye_size,
+       a_size,
+       b_size,
+       ed_size,
+       dbl_size,
+       temple_size,
+       dim_unit,
+       frame_type,
+       front_material,
+       temple_material,
+       nose_pads,
+       hinge_type,
+       sun_lens_color,
+       sun_material,
+       sun_lens_type,
+       specialty_fit,
+       Country_of_Origin,
+       case_part,
+       rimless_style,
+       front_price,
+       temple_price,
+       Wholesale_price,
+       last_price_upd_date,
+       Sugg_Retail_Price,
+       release_date,
+       upc_code,
+       web_saleable_flag,
+       pom_date,
+       frame_cost,
+       temple_cost,
+       cable_cost,
+       front_cost,
+       vendor,
+       nat_cur_code,
+       country_code,
+       country_name,
+       ispolarizedavailable,
+       progressive_type,
+       frame_weight,
+       case_part_no,
+       case_weight,
+       PrimaryDemo_Web,
+       attributes,
+       special_components,
+       suns_only,
+       lens_base
+FROM dbo.cvo_inv_master_r2_tbl
+
+/*
 SELECT DISTINCT i.part_no, 
 cia.item_code, 
 i.category Collection,
@@ -156,6 +222,7 @@ WHERE i.void='n' AND i.type_code IN ('frame','sun')
 
 -- select * From cvo_part_price_cost_vw where part_no = 'cvellblu5114'
 
+*/
 
 
 

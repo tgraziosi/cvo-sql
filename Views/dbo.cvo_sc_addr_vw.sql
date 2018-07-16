@@ -4,6 +4,7 @@ SET ANSI_NULLS ON
 GO
 
 -- SELECT * FROM dbo.cvo_sc_addr_vw AS sav
+-- SELECT * fROM LOCATIONS WHERE LOCATION LIKE '0%'
 
 CREATE view [dbo].[cvo_sc_addr_vw] 
 as 
@@ -128,7 +129,40 @@ lA.location, -- 10/5/2017
 
 FROM dbo.locations_all AS la WHERE location = '014'
 
+UNION ALL
+
+SELECT
+'99'+LEFT(location,3) salesperson_code,
+L.NAME salesperson_name,
+'SALES BAG' addr1,
+L.ADDR1 addr2,
+L.ADDR2 addr3,
+L.ADDR3 addr4,
+L.ADDR4 addr5,
+'' addr6,
+L.zip postal_code,
+L.addr_sort2 slp_email,
+L.PHONE phone,
+'SAL'  ship_via,
+'99'+LEFT(location,3) territory_code, 
+'' user_name,
+'0000' security_code,
+'' email_address , 
+0 salesperson_type,
+'' sales_mgr_code,
+'' sales_mgr_name,
+'' sales_mgr_email,
+''  rsm_territory_code,
+'800'  region,
+l.location, -- 10/5/2017
+'' customer_code,
+'SAL' ship_via_code
+FROM DBO.locations AS l WHERE LOCATION IN ('015-NSBAG','016-NSBAG','017-NSBAG')
+
 ) sc
+
+
+
 
 
 

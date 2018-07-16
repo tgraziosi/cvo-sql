@@ -54,15 +54,16 @@ CASE status_type WHEN '1' THEN 'Active'
     ISNULL(contact_email,'') Contact_email, 
     STATUS_TYPE,
 	ar.added_by_date,
-	CASE WHEN ar.added_by_user_name BETWEEN '1' AND '900' THEN uu.USER_NAME ELSE  ISNULL(ar.added_by_user_name,'') END AS added_by_user_name,
+	CASE WHEN ar.added_by_user_name BETWEEN '001' AND '900' THEN uu.USER_NAME ELSE  ISNULL(ar.added_by_user_name,'') END AS added_by_user_name,
 	ar.modified_by_date,
-	CASE WHEN ar.modified_by_user_name BETWEEN '1' AND '900' THEN u.USER_NAME ELSE  ISNULL(ar.modified_by_user_name,'') END AS modified_by_user_name
+	CASE WHEN ar.modified_by_user_name BETWEEN '001' AND '900' THEN u.USER_NAME ELSE  ISNULL(ar.modified_by_user_name,'') END AS modified_by_user_name
 FROM dbo.armaster AS ar WITH (NOLOCK) 
 	LEFT OUTER JOIN dbo.CVO_armaster_all AS car WITH (NOLOCK) ON ar.customer_code = car.customer_code AND ar.ship_to_code = car.ship_to 
      LEFT OUTER JOIN dbo.arnarel AS na WITH (NOLOCK) ON car.customer_code = na.child
 	 LEFT OUTER JOIN CVO_CONTROL..SMUSERS u ON RTRIM(ar.modified_by_user_name)=CAST(u.USER_ID AS VARCHAR(30))
 	 LEFT OUTER JOIN CVO_CONTROL..SMUSERS uu ON RTRIM(ar.added_by_user_name)=CAST(uu.USER_ID AS VARCHAR(30))
 --WHERE     (t1.address_type = '0')   --7/2/14 EL updated to add ship_to's
+
 
 
 

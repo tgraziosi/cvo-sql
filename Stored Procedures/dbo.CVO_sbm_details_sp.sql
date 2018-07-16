@@ -62,8 +62,8 @@ BEGIN
     FROM dbo.cvo_date_range_vw AS drv
     WHERE Period = 'Last 90 days';
 
-    --SELECT  @first = '1/1/2018';	-- add 09 and 10 once validated and fixed
-    --SELECT  @last = '12/31/2018';
+    --SELECT @first = '1/1/2015'; -- add 09 and 10 once validated and fixed
+    --SELECT @last = '12/31/2015';
 
     SELECT @jfirst = dbo.adm_get_pltdate_f(@first);
 
@@ -100,7 +100,8 @@ BEGIN
             DateOrdered DATETIME,
             isCL INT,             -- 4/25/2014 - closeout flag  0=no, 1= yes.  80% - 99% discounts should be classed as CLs
             isBO INT,             -- is this a backorder 0 = no, 1 = yes
-            slp VARCHAR(10)
+            slp VARCHAR(10),
+			doctype CHAR(1) -- 7/9/18 - for closeout calculation
         );
     END;
 
@@ -215,7 +216,8 @@ BEGIN
         DateOrdered,
         isCL,
         isBO,
-        slp
+        slp,
+		doctype
     )
     SELECT ISNULL(xx.customer_code, '') customer,
            ISNULL(xx.ship_to_code, '') ship_to,
@@ -271,6 +273,7 @@ BEGIN
            0,                                                      -- isCL
            CASE WHEN o.who_entered = 'BACKORDR' THEN 1 ELSE 0 END, -- isBO
            o.salesperson slp                                       -- salesperson on this order -- 100314
+		   , o.type
     FROM #xxad AS xxad
         (NOLOCK)
         JOIN dbo.artrx xx
@@ -367,7 +370,8 @@ BEGIN
            xxad.date_applied_dt AS dateOrdered,
            0,
            CASE WHEN o.who_entered = 'BACKORDR' THEN 1 ELSE 0 END,
-           o.salesperson slp
+           o.salesperson slp,
+		   o.type
     FROM #xxad xxad
         (NOLOCK)
         JOIN dbo.arinpchg xx
@@ -489,7 +493,8 @@ then 'CVZPOSTAGE' ELSE D.ITEM_CODE END AS  part_no,
            xxad.date_applied_dt AS dateOrdered,
            0,
            0,
-           h.salesperson_code AS slp
+           h.salesperson_code AS slp,
+		   CASE WHEN h.trx_type = 2031 THEN 'I' ELSE 'C' END doctype
     FROM #xxad xxad
         (NOLOCK)
         JOIN dbo.artrx_all h
@@ -606,7 +611,8 @@ then 'CVZPOSTAGE' ELSE D.ITEM_CODE END AS  part_no,
            xxad.date_applied_dt AS dateOrdered,
            0,
            0,
-           h.salesperson_code slp
+           h.salesperson_code slp,
+		   CASE WHEN h.trx_type = 2031 THEN 'I' ELSE 'C' END doctype
     FROM #xxad xxad
         (NOLOCK)
         JOIN dbo.arinpchg h
@@ -677,10 +683,10 @@ then 'CVZPOSTAGE' ELSE D.ITEM_CODE END AS  part_no,
                                                                                                          YEAR,
                                                                                                          oa.date_shipped
                                                                                                      ) END AS year,
-               CASE WHEN type = 'i' THEN ISNULL(o.shipped * o.price, 0) ELSE 0 END AS asales,
-               CASE WHEN type = 'c' THEN ISNULL(o.cr_shipped * o.price, 0) ELSE 0 END AS areturns,
-               CASE WHEN type = 'I' THEN ISNULL(o.shipped, 0) ELSE 0 END AS qsales,
-               CASE WHEN type = 'C' THEN ISNULL(o.cr_shipped, 0) ELSE 0 END AS qreturns,
+               CASE WHEN oa.type = 'i' THEN ISNULL(o.shipped * o.price, 0) ELSE 0 END AS asales,
+               CASE WHEN oa.type = 'c' THEN ISNULL(o.cr_shipped * o.price, 0) ELSE 0 END AS areturns,
+               CASE WHEN oa.type = 'I' THEN ISNULL(o.shipped, 0) ELSE 0 END AS qsales,
+               CASE WHEN oa.type = 'C' THEN ISNULL(o.cr_shipped, 0) ELSE 0 END AS qreturns,
                                                                        -- 11/12/13
                ROUND(ISNULL((o.shipped - o.cr_shipped) * o.cost, 0), 2) AS csales,
                ROUND(ISNULL((o.shipped - o.cr_shipped) * pp.price_a, 0), 2) AS lsales,
@@ -688,7 +694,8 @@ then 'CVZPOSTAGE' ELSE D.ITEM_CODE END AS  part_no,
                oo.date_entered AS dateOrdered,
                0,
                0,
-               oa.salesperson slp
+               oa.salesperson slp,
+			   oa.type
 
         --
         FROM dbo.CVO_orders_all_Hist oa
@@ -724,7 +731,7 @@ then 'CVZPOSTAGE' ELSE D.ITEM_CODE END AS  part_no,
     -- 4/25/2014 - classify closeouts
 
     CREATE NONCLUSTERED INDEX idx_sbm_det_lsales
-    ON #cvo_sbm_det (lsales)
+    ON #cvo_sbm_det (lsales, doctype)
     INCLUDE (
             asales,
             areturns
@@ -732,8 +739,9 @@ then 'CVZPOSTAGE' ELSE D.ITEM_CODE END AS  part_no,
 
     UPDATE #cvo_sbm_det
     SET isCL = 1
-    WHERE lsales <> 0
-          AND (1 - (asales - areturns) / lsales)
+    WHERE lsales <> 0 AND doctype = 'I'
+          -- AND (1 - (asales - areturns) / lsales)
+		  AND (1 - (asales) / lsales)
           BETWEEN .8 AND .99;
 
     IF (OBJECT_ID('cvo.dbo.cvo_sbm_details') IS NOT NULL)
@@ -834,15 +842,15 @@ then 'CVZPOSTAGE' ELSE D.ITEM_CODE END AS  part_no,
 
 
         CREATE INDEX idx_cvo_sbm_prod
-        ON cvo_sbm_details (
+        ON dbo.cvo_sbm_details (
                            part_no ASC,
                            yyyymmdd ASC
                            );
 
         CREATE INDEX idx_cvo_sbm_prod ON #cvo_sbm_det (part_no ASC);
 
-        CREATE INDEX idx_cvo_sbm_cust_part
-        ON cvo_sbm_details (
+        CREATE NONCLUSTERED INDEX idx_cvo_sbm_cust_part
+        ON dbo.cvo_sbm_details (
                            customer ASC,
                            part_no ASC
                            );
@@ -995,5 +1003,8 @@ then 'CVZPOSTAGE' ELSE D.ITEM_CODE END AS  part_no,
 
 
 END;
+
+
+
 
 GO

@@ -13,7 +13,7 @@ exec cvo_hello_customer_sp '010879', '5599984076', null, null
 
 exec cvo_hello_customer_sp '039226', '8024425530', null, null
 
-exec cvo_hello_customer_sp '054421' , '41673985399', null, null
+exec cvo_hello_customer_sp '011111' , null, null, null
 
 */
 
@@ -302,8 +302,9 @@ exec cvo_hello_customer_sp '054421' , '41673985399', null, null
             END tracking ,
             i.total_invoice ,
             oi.doc_ctrl_num,
-			i.hs_order_no
-    FROM    #info AS i
+			i.hs_order_no,
+			weborder.date_entered LastWebOrderDate -- 7/9/18    
+			FROM    #info AS i
             JOIN armaster ar (nolock) ON ar.customer_code = i.cust_code
                                 AND ar.ship_to_code = i.ship_to
 			JOIN dbo.CVO_armaster_all AS car (nolock) ON car.customer_code = ar.customer_code AND car.ship_to = ar.ship_to_code
@@ -351,7 +352,8 @@ exec cvo_hello_customer_sp '054421' , '41673985399', null, null
 			(SELECT customer, CL_Status = MAX(iscl), SUM(CASE WHEN promo_id <> '' THEN qsales ELSE 0 END) prog_frames_sold
 			FROM cvo_sbm_details (nolock)
 			JOIN inv_master i (NOLOCK) ON i.part_no = dbo.cvo_sbm_details.part_no
-			WHERE yyyymmdd >= DATEADD(YEAR,-1,@today) 
+			WHERE yyyymmdd >= DATEADD(YEAR,-1,@today)
+			AND	 customer = @cust  
 			AND i.type_code IN ('frame','sun')
 			GROUP BY customer
 			) cl ON cl.customer = ar.customer_code
@@ -375,11 +377,21 @@ exec cvo_hello_customer_sp '054421' , '41673985399', null, null
 				cvo_sbm_details sbm (NOLOCK)
 				WHERE 1=1 
 				AND sbm.yyyymmdd BETWEEN @r12start AND @r12end
+						AND		sbm.customer = @cust 
 				GROUP BY sbm.customer
 				) AS facts 
 			) rr ON rr.customer = ar.customer_code
+			LEFT OUTER JOIN
+            ( SELECT TOP (1) cust_code, DATEADD(d, DATEDIFF(d, 0, date_entered), 0) date_entered
+			 FROM orders o
+			 WHERE o.cust_po LIKE 'M1000%'
+			 AND o.status <>'v'
+			 AND o.cust_code = @cust 
+			 ORDER BY o.date_entered desc
+			 ) weborder ON weborder.cust_code = ar.customer_code
 
 			;
+
 
 
 

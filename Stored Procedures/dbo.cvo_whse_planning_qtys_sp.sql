@@ -221,7 +221,8 @@ EXEC dbo.cvo_whse_planning_qtys_sp @Location = '001', -- varchar(1024)
            backorder,
            po_on_order,
            NextPOOnOrder,
-           NextPODueDate
+           NextPODueDate,
+		   i.vendor
     FROM cvo_item_avail_vw i
         (NOLOCK)
     WHERE i.location IN
@@ -258,7 +259,8 @@ EXEC dbo.cvo_whse_planning_qtys_sp @Location = '001', -- varchar(1024)
            iav.backorder,
            iav.po_on_order,
            iav.NextPOOnOrder,
-           iav.NextPODueDate
+           iav.NextPODueDate,
+		   iav.vendor
     FROM w
         JOIN iav
             ON iav.location = w.location
