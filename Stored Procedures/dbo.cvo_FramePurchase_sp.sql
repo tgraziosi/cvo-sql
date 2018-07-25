@@ -6,7 +6,7 @@ CREATE PROCEDURE [dbo].[cvo_FramePurchase_sp]
     @asofdate DATETIME = NULL, @MthsToReport INT = NULL, @Cust VARCHAR(8000) 
 AS
 
-    -- exec cvo_FramePurchase_sp '10/31/2017',1,'045183'
+    -- exec cvo_FramePurchase_sp '7/31/2018',1,'045183'
 	
 begin
 SET NOCOUNT ON;
@@ -64,10 +64,19 @@ SET NOCOUNT ON;
         sbm.c_year,
         sbm.c_month,
 		CASE WHEN LEFT(sbm.user_category,2) = 'RX' THEN 'RX' ELSE 'ST' END order_type,
-        SUM(qnet) net_qty
+        SUM(ISNULL(sbm.qnet,0)) net_qty,
+-- 07/23/2018
+		SUM(ISNULL(sbm.anet,0)) net_amt,
+		i.description,
+		co.door,
+		fs.FirstSale
 
     FROM
-		armaster ar (nolock)
+		(SELECT DISTINCT customer_code FROM #cust) cust
+		join
+		armaster ar (nolock) ON ar.customer_code = cust.customer_code
+		JOIN 
+		dbo.cvo_armaster_all co (nolock) ON co.customer_code = ar.customer_code AND co.ship_to = ar.ship_to_code
 		LEFT OUTER join
 		 cvo_sbm_details sbm (NOLOCK)
 		 ON sbm.customer = ar.customer_code AND sbm.ship_to = ar.ship_to_code
@@ -98,10 +107,16 @@ SET NOCOUNT ON;
             FROM dbo.cvo_cust_designation_codes (NOLOCK) c
         ) AS designations
             ON designations.customer_code = ar.customer_code
+			LEFT OUTER join
+		( SELECT customer, ship_to, part_no, MIN(yyyymmdd) FirstSale
+			FROM cvo_sbm_details WHERE user_category LIKE 'st%'
+			GROUP BY customer,
+                     ship_to,
+                     part_no
+		) fs ON fs.customer = ar.customer_code AND fs.ship_to = ar.ship_to_code AND fs.part_no = i.part_no
     WHERE
         sbm.yyyymmdd >= DATEADD(MONTH, -@MthsToReport, @asofdate)
         AND i.type_code IN ( 'frame', 'sun' )
-		AND ar.customer_code IN (SELECT DISTINCT customer_code FROM #cust)
     GROUP BY LTRIM(RTRIM(ISNULL(designations.desig, '<None>'))) ,
              CASE WHEN LEFT(sbm.user_category, 2) = 'RX' THEN 'RX'
              ELSE 'ST'
@@ -114,10 +129,14 @@ SET NOCOUNT ON;
              ia.field_2 ,
              i.part_no ,
              sbm.c_year ,
-             sbm.c_month
+             sbm.c_month,
+			 i.description,
+			 co.door,
+			 fs.FirstSale
     ;
 
 END;
+
 
 
 GO

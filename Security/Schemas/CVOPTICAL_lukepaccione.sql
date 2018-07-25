@@ -1,0 +1,3 @@
+CREATE SCHEMA [CVOPTICAL\lukepaccione]
+AUTHORIZATION [CVOPTICAL\lukepaccione]
+GO

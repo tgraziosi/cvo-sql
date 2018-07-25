@@ -143,10 +143,11 @@ LEFT OUTER JOIN ( SELECT    c.customer_code ,
                 ) AS designations ON designations.MergeCust = RIGHT(ar.customer_code,5)
 LEFT OUTER JOIN
 ( SELECT cust_code, MAX(date_entered) laststdate
-FROM orders o 
+FROM orders o (nolock)
 WHERE status = 't' AND type = 'i' 
 	AND LEFT(o.USER_category,2) = 'st' 
 	AND RIGHT(o.user_category,2) <> 'rb'
+	AND o.who_entered <> 'backordr'
 GROUP BY o.cust_code
 ) lastst ON lastst.cust_code = ar.customer_code
 
@@ -298,6 +299,7 @@ SELECT h.id ,
 
 
 END
+
 
 
 

@@ -37,7 +37,8 @@ BEGIN
 			@res_type		varchar(20), -- v2.8
 			@style			varchar(30), -- v2.8
 			@quote_found	char(1), -- v2.8
-			@category		varchar(20) -- v2.8
+			@category		varchar(20), -- v2.8
+			@price_code		varchar(10) -- v3.0
 
 	-- PROCESSING
 	SELECT	@buying_group = ISNULL(buying_group,''),
@@ -62,6 +63,12 @@ BEGIN
 	SELECT	@IsBg = ISNULL(alt_location_code,0)
 	FROM	arcust (NOLOCK)
 	WHERE	customer_code = @cust_code
+
+	-- v3.0 Start
+	SELECT	@price_code = price_code
+	FROM	arcust (NOLOCK)
+	WHERE	customer_code = @customer_code
+	-- v3.0 End
 
 	SELECT	@line_disc = discount,
 			@IsQuoted = CASE price_type WHEN 'Q' THEN 1 ELSE 0 END,
@@ -162,6 +169,47 @@ BEGIN
 			AND		ISNULL(style,'') = ''
 		END
 
+		-- v3.0 Start
+		IF (@quote_found IS NULL)
+		BEGIN
+			SELECT	@quote_found = net_only 
+			FROM	dbo.c_quote (NOLOCK) 
+			WHERE	customer_key = @price_code 
+			AND		ilevel = 1 
+			AND		item = @category 
+			AND		start_date <= @order_date 
+			AND		date_expires >= @order_date 
+			AND		res_type = @res_type 
+			AND		style = @style
+		END
+
+		IF (@quote_found IS NULL)
+		BEGIN
+			SELECT	@quote_found = net_only 
+			FROM	dbo.c_quote (NOLOCK) 
+			WHERE	customer_key = @price_code 
+			AND		ilevel = 1 
+			AND		item = @category 
+			AND		start_date <= @order_date 
+			AND		date_expires >= @order_date 
+			AND		res_type = @res_type 
+			AND		ISNULL(style,'') = ''
+		END
+
+		IF (@quote_found IS NULL)
+		BEGIN
+			SELECT	@quote_found = net_only 
+			FROM	dbo.c_quote (NOLOCK) 
+			WHERE	customer_key = @price_code 
+			AND		ilevel = 1 
+			AND		item = @category 
+			AND		start_date <= @order_date 
+			AND		date_expires >= @order_date 
+			AND		ISNULL(res_type,'') = ''
+			AND		ISNULL(style,'') = ''
+		END
+		-- v3.0 End
+
 		IF (@quote_found IS NULL)
 		BEGIN
 			SET @IsQuoted = 0
@@ -178,9 +226,9 @@ BEGIN
 	IF (@promo_id <> '')
 	BEGIN
 		SELECT	@IsPromo = 1,
-				@IsFixed = CASE ISNULL(price_override,'N') WHEN 'Y' THEN 1 ELSE 0 END--,
---				@IsList = CASE ISNULL(list,'N') WHEN 'Y' THEN 1 ELSE 0 END,
---				@IsCust = CASE ISNULL(cust,'N') WHEN 'Y' THEN 1 ELSE 0 END,
+				@IsFixed = CASE ISNULL(price_override,'N') WHEN 'Y' THEN 1 ELSE 0 END,
+				@IsList = CASE ISNULL(list,'N') WHEN 'Y' THEN 1 ELSE 0 END,
+				@IsCust = CASE ISNULL(cust,'N') WHEN 'Y' THEN 1 ELSE 0 END
 --				@IsQuoted = 0
 		FROM	cvo_line_discounts (NOLOCK)
 		WHERE	promo_id = @promo_id
@@ -315,6 +363,26 @@ BEGIN
 			END
 			ELSE
 			BEGIN
+				-- v3.0 Start
+				IF (@IsCust = 1)
+				BEGIN
+					SELECT	@gross_price = CASE WHEN a.discount = 100 THEN b.list_price ELSE a.curr_price END,
+							@discount_price = CASE WHEN a.discount = 100 THEN b.list_price ELSE 0 END,
+							@net_price = a.curr_price,
+							@ext_net_price = a.curr_price * @qty
+							FROM	ord_list a (NOLOCK)
+							JOIN	cvo_ord_list b (NOLOCK)
+							ON		a.order_no = b.order_no
+							AND		a.order_ext = b.order_ext
+							AND		a.line_no = b.line_no
+							WHERE	a.order_no = @order_no
+							AND		a.order_ext = @order_ext
+							AND		a.line_no = @line_no
+
+					RETURN
+				END
+				-- v3.0 End
+
 				SELECT	@gross_price = CASE WHEN a.discount = 100 THEN b.list_price ELSE (a.curr_price - ROUND(b.amt_disc,2)) END,
 						@discount_price = CASE WHEN a.discount = 100 THEN b.list_price ELSE 0 END,
 						@net_price = (a.curr_price - ROUND(b.amt_disc,2)),

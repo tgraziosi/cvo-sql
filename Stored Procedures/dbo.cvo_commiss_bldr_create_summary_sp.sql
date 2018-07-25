@@ -114,12 +114,12 @@ select a.Salesperson ,
 						   end
 	   , commission = case WHEN ISNULL(r.commission,0) IN (0,12) AND r.salesperson_code <> r.territory_code THEN 12 ELSE r.commission end, 
 	   -- 11/8/2016 - empty territories don't get incentives :)
-	incentivePC = case when (ISNULL(r.commission,0) IN (0, 12) OR r.salesperson_code IN ('WitteBu','OhlhauTh')) AND r.salesperson_code <> r.territory_code
+	incentivePC = case when (ISNULL(r.commission,0) IN (0, 12) OR r.salesperson_code IN ('WitteBu','OhlhauTh')) AND r.salesperson_code <> r.territory_code AND r.salesperson_type = 0
 					then case when amount >= 60000 then 2
 						 when amount >= 50000 then 1
 						 else 0 end
 					else 0 end,
-	incentive = case when (ISNULL(r.commission,0) in (0, 12) OR r.salesperson_code IN ('WitteBu','OhlhauTh')) AND r.salesperson_code <> r.territory_code
+	incentive = case when (ISNULL(r.commission,0) in (0, 12) OR r.salesperson_code IN ('WitteBu','OhlhauTh')) AND r.salesperson_code <> r.territory_code AND r.salesperson_type = 0
 					then case when amount >= 60000 then amount * .02
 						 when amount >= 50000 then amount * .01
 						 else 0 end
@@ -267,6 +267,7 @@ UPDATE d SET
 		AND d.salesperson = ISNULL(@slp, d.salesperson)
 
 -- SELECT * FROM dbo.cvo_commission_summary_work_tbl AS ccswt where report_month = '09/2016'
+
 
 
 

@@ -41,11 +41,36 @@ BEGIN
 
 	UPDATE	a
 	SET		parent = b.parent
-	FROM	dbo.cvo_artrxage a
+	FROM	cvo_artrxage a
 	JOIN	#parent_child_change b 
 	ON		a.customer_code = b.child
 	JOIN	#cvo_araging_check c
 	ON		a.customer_code = c.customer_code
+
+	-- v1.1 Start
+	CREATE TABLE #atf_changes (
+		child			varchar(10),
+		doc_ctrl_num	varchar(16))
+
+	INSERT	#atf_changes
+	SELECT	a.customer_code, a.doc_ctrl_num
+	FROM	dbo.cvo_artrxage a (NOLOCK)
+	JOIN	cvo_buying_groups_hist b
+	ON		a.customer_code = b.child
+	WHERE	a.customer_code <> a.parent
+	AND		a.parent =  b.parent
+	AND		b.end_date IS NOT NULL
+	AND		b.end_date < a.doc_date
+
+	UPDATE	a
+	SET		parent = b.child
+	FROM	dbo.cvo_artrxage a
+	JOIN	#atf_changes b
+	ON		a.doc_ctrl_num = b.doc_ctrl_num
+	AND		a.customer_code = b.child
+
+	DROP TABLE #atf_changes
+	-- v1.1 End
 
 	-- CLEAN UP
 	DROP TABLE #parent_child_change
