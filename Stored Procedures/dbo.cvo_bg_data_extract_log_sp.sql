@@ -1013,7 +1013,9 @@ BEGIN
 
 
 	-- v1.3 Start
+	-- v1.5 Start
 	CREATE TABLE #results (
+		row_id			int IDENTITY(1,1),
 		parent			varchar(10),
 		parent_name		varchar(40),
 		cust_code		varchar(10),
@@ -1034,7 +1036,8 @@ BEGIN
 		xinv_date		int,
 		rec_type		int)
 		
-	INSERT	#results
+	INSERT	#results (parent, parent_name, cust_code, customer_name, doc_ctrl_num, type, inv_date, inv_tot, mer_tot, 
+		net_amt, freight, tax, trm, mer_disc, inv_due, disc_perc, date_due_month, xinv_date, rec_type)
 	SELECT	parent,
 			parent_name,
 			cust_code,
@@ -1060,30 +1063,45 @@ BEGIN
 			disc_perc, date_due_month, xinv_date, rec_type
 	ORDER BY parent, cust_code, doc_ctrl_num
 
-	
 	CREATE TABLE #install_rounding (
 		doc_ctrl_num	varchar(16),
 		inv_gross		decimal(20,8),
 		inv_freight		decimal(20,8),
 		inv_tax			decimal(20,8),
 		inv_net			decimal(20,8),
-		inv_total		decimal(20,8), -- v1.5
-		inv_diff		decimal(20,8), -- v1.5
+		inv_total		decimal(20,8),
+		inv_diff		decimal(20,8),
 		amt_gross		float,
 		amt_freight		float,
 		amt_tax			float,
 		amt_net			float,
-		disc_perc		float) -- v1.5
+		disc_perc		float,
+		rowid			int)
 
 	INSERT	#install_rounding
-	SELECT	doc_ctrl_num, SUM(inv_tot), SUM(freight), SUM(tax), SUM(inv_due), 0,0,0,0,0,0, disc_perc -- v1.5
+	SELECT	doc_ctrl_num, SUM(inv_tot), SUM(freight), SUM(tax), SUM(inv_due), 0,0,0,0,0,0, disc_perc, 0
 	FROM	#results
 	WHERE	CHARINDEX('-',doc_ctrl_num) > 0
-	GROUP BY doc_ctrl_num, disc_perc -- v1.5
+	GROUP BY doc_ctrl_num, disc_perc
 
 	CREATE INDEX #install_rounding_ind0 ON #install_rounding(doc_ctrl_num)
 
-	 -- v1.5 Start
+	SELECT	doc_ctrl_num, MIN(row_id) id
+	INTO	#row_ids
+	FROM	#results
+	WHERE	CHARINDEX('-',doc_ctrl_num) > 0
+	AND		tax = 0
+	AND		freight = 0
+	GROUP BY doc_ctrl_num
+
+	UPDATE	a
+	SET		rowid = b.id
+	FROM	#install_rounding a
+	JOIN	#row_ids b
+	ON		a.doc_ctrl_num = b.doc_ctrl_num
+
+	DROP TABLE #row_ids
+
 	SELECT	doc_ctrl_num, SUM(inv_net) total
 	INTO	#temp_totals
 	FROM	#install_rounding
@@ -1121,7 +1139,7 @@ BEGIN
 	SET		split = diff / CAST(lines as decimal(20,8))
 
 	UPDATE	a
-	SET		inv_diff = b.split
+	SET		inv_diff = diff --b.split
 	FROM	#install_rounding a
 	JOIN	#temp_lines b
 	ON		a.doc_ctrl_num = b.doc_ctrl_num
@@ -1138,6 +1156,7 @@ BEGIN
 	ON		a.doc_ctrl_num = b.doc_ctrl_num
 	WHERE	a.freight = 0 
 	AND		a.tax = 0
+	AND		a.row_id = b.rowid	
 	-- v1.5 End
 	
 	-- v1.4 Start

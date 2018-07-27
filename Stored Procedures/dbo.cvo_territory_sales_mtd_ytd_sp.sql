@@ -2,127 +2,241 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE procedure [dbo].[cvo_territory_sales_mtd_ytd_sp]
-@CompareYear varchar(1000)
-as
-begin
+CREATE PROCEDURE [dbo].[cvo_territory_sales_mtd_ytd_sp] @CompareYear VARCHAR(1000)
+AS
+BEGIN
 
--- exec cvo_territory_sales_mtd_ytd_sp '2013'
+    -- exec cvo_territory_sales_mtd_ytd_sp '2018'
+	--
+    --declare @compareyear varchar(1000)
+    --set @compareyear = '2018'
 
---declare @compareyear varchar(1000)
---set @compareyear = '2018'
+	set NOCOUNT ON 
 
-IF(OBJECT_ID('tempdb.dbo.#tsr') is not null)  drop table #tsr
+	    -- get workdays info
+    DECLARE @workday INT, @today DATETIME,
+            @totalworkdays INT,
+            @pct_month FLOAT;
 
-CREATE TABLE #tsr
-(territory_code	varchar(8),
-salesperson_name varchar(40),
-date_of_hire datetime,
-X_MONTH	int,
-yyear	int,
-mmonth	varchar(15),
-yyyymmdd	datetime,
-anet	decimal(20,8),
-qnet	decimal(20,8),
-Region	varchar(3),
-anet_mtd	decimal(20,8),
-CurrentMonthSales	decimal(20,8),
-agoal decimal(20,8) default 0,
-anet_ty decimal(20,8) default 0,
-anet_ly decimal(20,8) default 0,
-rRank	bigint)
+	SELECT @today = GETDATE();
 
-insert into #tsr 
-(territory_code,
-salesperson_name,
-x_month,
-yyear,
-mmonth,
-yyyymmdd, anet, qnet, region, anet_mtd, 
-currentmonthsales, rrank) 
-exec cvo_territory_sales_sp @CompareYear
+    SELECT @workday
+        = dbo.cvo_f_get_work_days(
+                                     CONVERT(VARCHAR(25), DATEADD(dd, - (DAY(@today) - 1), @today), 101),
+                                     DATEADD(d, -1, @today)
+                                 );
 
-update #tsr set agoal = anet, anet = 0, qnet = 0, currentmonthsales = 0 where salesperson_name like '%Goal%'
+    SELECT @totalworkdays
+        = dbo.cvo_f_get_work_days(
+                                     CONVERT(VARCHAR(25), DATEADD(dd, - (DAY(@today) - 1), @today), 101),
+                                     CONVERT(
+                                                VARCHAR(25),
+                                                DATEADD(dd, - (DAY(DATEADD(mm, 1, @today))), DATEADD(mm, 1, @today)),
+                                                101
+                                            )
+                                 );
 
-update #tsr set #tsr.salesperson_name = #terr.salesperson_name
-from #tsr inner join
-(select distinct #tsr.territory_code, #tsr.salesperson_name
-from #tsr where #tsr.salesperson_name not like '%Goal%')
-#terr on #terr.territory_code = #tsr.territory_code
+    SELECT @pct_month = CAST(@workday AS FLOAT) / CAST(@totalworkdays AS FLOAT);
 
-update #tsr set #tsr.salesperson_name = slp.salesperson_name,
-#tsr.date_of_hire = slp.date_of_hire
-from dbo.arsalesp slp where slp.salesperson_code = #tsr.salesperson_name
+    IF (OBJECT_ID('tempdb.dbo.#tsr') IS NOT NULL)
+        DROP TABLE #tsr;
 
-update #tsr set anet_ty = anet where yyear = @compareyear
-update #tsr set anet_ly = anet where yyear < @compareyear
+    CREATE TABLE #tsr
+(
+    territory_code VARCHAR(8),
+    salesperson_code VARCHAR(40),
+	salesperson_name VARCHAR(40),
+	date_of_hire datetime,
+    x_month INT,
+    yYear INT,
+    mmonth VARCHAR(15),
+	agoal DECIMAL(20,8),
+    anet decimal(20,8),
+    qnet INTEGER,
+    currentmonthsales decimal(20,8),
+    Sales_type VARCHAR(11),
+    region VARCHAR(3),
+    Q INT,
+    r_id INT,
+    t_id INT,
+    col VARCHAR(1),
+    ly_ytd decimal(20,8),
+	anet_ty DECIMAL(20,8),
+	anet_ly DECIMAL(20,8)
+);
 
 
-INSERT #tsr
+INSERT INTO #tsr
 (
     territory_code,
     salesperson_name,
-    date_of_hire,
-    X_MONTH,
-    yyear,
+    x_month,
+    yYear,
     mmonth,
-    yyyymmdd,
-
-    Region,
-
-    agoal
-
+    anet,
+    qnet,
+    currentmonthsales,
+    Sales_type,
+    region,
+    Q,
+    r_id,
+    t_id,
+    col,
+    ly_ytd
 )
-SELECT ar.territory_code, frame.slp_name, frame.date_of_hire, frame.X_MONTH, frame.yyear, frame.mmonth, frame.yyyymmdd, frame.region, SUM(anet) lynetsales 
-FROM cvo_sbm_details s
-JOIN armaster ar (NOLOCK) ON ar.customer_code = s.customer AND ar.ship_to_code = s.ship_to
-JOIN 
-(
-SELECT DISTINCT territory_code,'     Goal' slp_name, date_of_hire, X_MONTH, yyear, mmonth, yyyymmdd, region
-FROM #tsr y
-WHERE yyyymmdd = (SELECT MAX(yyyymmdd) FROM #tsr x WHERE x.territory_code = y.territory_code)
-) frame ON frame.territory_code = ar.territory_code
-WHERE s.c_year = @compareyear - 1
-GROUP BY ar.territory_code,
-         frame.slp_name,
-         frame.date_of_hire,
-         frame.X_MONTH,
-         frame.yyear,
-         frame.mmonth,
-         frame.yyyymmdd,
-         frame.Region
+
+    EXEC dbo.cvo_territory_sales_r2016_sp @compareyear = @CompareYear, @territory = null;
+
+    UPDATE #tsr
+    SET agoal = anet,
+        anet = 0,
+        qnet = 0,
+        CurrentMonthSales = 0
+    WHERE salesperson_name LIKE '%Goal%' AND yyear = @compareyear;
+
+    UPDATE #tsr
+    SET #tsr.salesperson_name = #terr.salesperson_name
+    FROM #tsr
+        INNER JOIN
+        (
+        SELECT DISTINCT
+               #tsr.territory_code,
+               #tsr.salesperson_name
+        FROM #tsr
+        WHERE #tsr.salesperson_name NOT LIKE '%Goal%'
+        ) #terr
+            ON #terr.territory_code = #tsr.territory_code;
+
+	UPDATE #tsr
+    SET #tsr.salesperson_code = slp.salesperson_code,
+        #tsr.date_of_hire = slp.date_of_hire
+    FROM dbo.arsalesp slp
+    WHERE slp.territory_code = #tsr.territory_code AND slp.salesperson_name = #tsr.salesperson_name;
+
+	-- empty territories
+    UPDATE #tsr
+    SET #tsr.salesperson_name = slp.salesperson_name,
+        #tsr.date_of_hire = slp.date_of_hire
+    FROM dbo.arsalesp slp
+    WHERE slp.salesperson_code = #tsr.salesperson_name;
+
+    UPDATE #tsr
+    SET anet_ty = anet
+    WHERE yyear = @CompareYear;
+    UPDATE #tsr
+    SET anet_ly = CASE WHEN x_month = MONTH(@today) THEN currentmonthsales ELSE anet end
+    WHERE yyear < @CompareYear AND x_month <= MONTH(@today);
+
+
+    INSERT #tsr
+    (
+        territory_code,
+        salesperson_name,
+        date_of_hire,
+        X_MONTH,
+        yyear,
+        mmonth,
+        Region,
+        agoal
+    )
+    SELECT ar.territory_code,
+           frame.slp_name,
+           frame.date_of_hire,
+           frame.X_MONTH,
+           frame.yyear,
+           frame.mmonth,
+           frame.Region,
+           SUM(anet) lynetsales
+    FROM cvo_sbm_details s
+        JOIN armaster ar (NOLOCK)
+            ON ar.customer_code = s.customer
+               AND ar.ship_to_code = s.ship_to
+        JOIN
+        (
+        SELECT DISTINCT
+               territory_code,
+               '     Goal' slp_name,
+               date_of_hire,
+               X_MONTH,
+               yyear,
+               mmonth,
+               Region
+        FROM #tsr y
+        WHERE mmonth =
+        (
+        SELECT MAX(mmonth)
+        FROM #tsr x
+        WHERE x.territory_code = y.territory_code
+		AND x.yyear = @compareyear
+		AND x.anet <> 0
+        )
+        ) frame
+            ON frame.territory_code = ar.territory_code
+    WHERE s.c_year = @CompareYear - 1
+    GROUP BY ar.territory_code,
+             frame.slp_name,
+             frame.date_of_hire,
+             frame.X_MONTH,
+             frame.yyear,
+             frame.mmonth,
+             frame.Region;
 
 
 
-select #tsr.territory_code,
-       #tsr.salesperson_name,
-       #tsr.date_of_hire,
-       #tsr.X_MONTH,
-       #tsr.yyear,
-       #tsr.mmonth,
-       #tsr.yyyymmdd,
-       #tsr.anet,
-       #tsr.qnet,
-       #tsr.Region,
-       #tsr.anet_mtd,
-       #tsr.CurrentMonthSales,
-       #tsr.agoal,
-       #tsr.anet_ty,
-       #tsr.anet_ly,
-       #tsr.rRank, mgr.mgr_name, mgr.mgr_date_of_hire from #tsr 
-left outer join
-(select dbo.calculate_region_fn(territory_code) region, salesperson_name mgr_name,
-date_of_hire mgr_date_of_hire
-from dbo.arsalesp where salesperson_type = 1 and territory_code is not NULL AND status_type = 1 -- add status check for active
-union 
-select '800','Corporate Accounts','1/1/1949')
-mgr on #tsr.region = mgr.region
+    SELECT #tsr.territory_code,
+		   #tsr.salesperson_code,
+           #tsr.salesperson_name,
+           #tsr.date_of_hire,
+           #tsr.X_MONTH,
+           #tsr.yyear,
+           #tsr.mmonth,
+           --         #tsr.yyyymmdd,
+           SUM(ISNULL(#tsr.anet,0)) anet,
+           SUM(ISNULL(#tsr.qnet,0)) qnet,
+           #tsr.Region,
+           SUM(ISNULL(CASE WHEN #tsr.yyear = @CompareYear AND #tsr.X_MONTH = maxmth.maxmth THEN ISNULL(#tsr.anet,0) ELSE 0 END,0)) anet_mtd,
+           SUM(currentmonthsales) CurrentMonthSales,
+           SUM(ISNULL(CASE WHEN #tsr.yyear = @compareyear THEN  #tsr.agoal ELSE 0 end,0)) agoal,
+           SUM(ISNULL(#tsr.anet_ty,0)) anet_ty,
+           SUM(ISNULL(#tsr.anet_ly,0)) anet_ly,
+           mgr.mgr_name,
+           mgr.mgr_date_of_hire
+    FROM #tsr
+        LEFT OUTER JOIN
+        (
+        SELECT dbo.calculate_region_fn(territory_code) region,
+               salesperson_name mgr_name,
+               date_of_hire mgr_date_of_hire
+        FROM dbo.arsalesp
+        WHERE salesperson_type = 1
+              AND territory_code IS NOT NULL
+              AND status_type = 1 -- add status check for active
+        UNION
+        SELECT '800',
+               'Corporate Accounts',
+               '1/1/1949'
+        ) mgr
+            ON #tsr.Region = mgr.region
+        CROSS JOIN
+        (SELECT MAX(x_month) maxmth FROM #tsr WHERE yyear = @compareyear AND anet <> 0) maxmth
+    GROUP BY territory_code,
+			 salesperson_code,
+             salesperson_name,
+             date_of_hire,
+             X_MONTH,
+             yyear,
+             mmonth,
+             #tsr.Region,
+             mgr.mgr_name,
+             mgr.mgr_date_of_hire;
 
 -- set the goal to be LY total sales
 
 
 
-end
+END;
+
+
 
 
 GO

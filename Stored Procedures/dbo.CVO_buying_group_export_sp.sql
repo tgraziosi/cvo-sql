@@ -30,6 +30,7 @@ CREATE PROCEDURE [dbo].[CVO_buying_group_export_sp] (@WHERECLAUSE VARCHAR(1024))
 -- v1.5 CB 31/05/2018 - Changed to use new data extraction sp
 -- v1.6 CB 12/06/2018 - Deal with rounding issue on installment invoices
 -- v1.7 CB 27/06/2018 - Fix rounding issues
+-- v1.8 CB 27/07/2018 - Addition to v1.7
 AS  
 BEGIN
 
@@ -291,15 +292,33 @@ BEGIN
 		amt_freight		float,
 		amt_tax			float,
 		amt_net			float,
-		disc_perc		float)
+		disc_perc		float,
+		rowid			int)
 
+	-- v1.8 Start
 	INSERT	#install_rounding
-	SELECT	doc_ctrl_num, SUM(inv_tot), SUM(freight), SUM(tax), SUM(inv_due), 0,0,0,0,0,0, disc_perc
+	SELECT	doc_ctrl_num, SUM(inv_tot), SUM(freight), SUM(tax), SUM(inv_due), 0,0,0,0,0,0, disc_perc, 0
 	FROM	#raw_bg_data_header
 	WHERE	CHARINDEX('-',doc_ctrl_num) > 0
 	GROUP BY doc_ctrl_num, disc_perc
 
 	CREATE INDEX #install_rounding_ind0 ON #install_rounding(doc_ctrl_num)
+
+	SELECT	invoice doc_ctrl_num, MIN(id) id
+	INTO	#row_ids
+	FROM	#buy
+	WHERE	CHARINDEX('-',invoice) > 0
+	AND		tax = '0.00'
+	AND		freight = '0.00'
+	GROUP BY invoice
+
+	UPDATE	a
+	SET		rowid = b.id
+	FROM	#install_rounding a
+	JOIN	#row_ids b
+	ON		a.doc_ctrl_num = b.doc_ctrl_num
+
+	DROP TABLE #row_ids
 
 	SELECT	doc_ctrl_num, SUM(inv_net) total
 	INTO	#temp_totals
@@ -338,23 +357,28 @@ BEGIN
 	SET		split = diff / CAST(lines as decimal(20,8))
 
 	UPDATE	a
-	SET		inv_diff = b.split
+	SET		inv_diff = diff --b.split
 	FROM	#install_rounding a
 	JOIN	#temp_lines b
 	ON		a.doc_ctrl_num = b.doc_ctrl_num
+	WHERE	inv_freight = 0 
+	AND		inv_tax = 0
 
 	DROP TABLE #temp_lines
 
-
 	UPDATE	a
 	SET		merch = convert(varchar(13),convert(money,round(((a.merch + b.inv_diff)),2))), 
-			non_merch = convert(varchar(13),convert(money,round(((a.non_merch + b.inv_diff)),2))), --a.non_merch + b.inv_diff,
+			non_merch = CASE WHEN a.non_merch = '0.00' THEN '0.00' ELSE convert(varchar(13),convert(money,round(((a.non_merch + b.inv_diff)),2))) END, --a.non_merch + b.inv_diff,
 			total = convert(varchar(13),convert(money,round(((a.total + b.inv_diff)),2))), --a.total + b.inv_diff,
-			mer_disc = convert(varchar(13),convert(money,round(((a.mer_disc + b.inv_diff)),2))), --a.mer_disc + b.inv_diff,
+			mer_disc = CASE WHEN a.mer_disc = '0.00' THEN '0.00' ELSE convert(varchar(13),convert(money,round(((a.mer_disc + b.inv_diff)),2))) END, --a.mer_disc + b.inv_diff,
 			tot_due = convert(varchar(13),convert(money,round(((a.tot_due + b.inv_diff)),2))) --a.tot_due + b.inv_diff
 	FROM	#buy a
 	JOIN	#install_rounding b
 	ON		a.invoice = b.doc_ctrl_num
+	WHERE	a.freight = '0.00' 
+	AND		a.tax = '0.00'
+	AND		a.id = b.rowid
+	-- v1.8 End	
 
 	DROP TABLE #install_rounding
 	-- v1.7 End
