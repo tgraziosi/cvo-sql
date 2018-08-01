@@ -6,7 +6,7 @@ CREATE PROCEDURE [dbo].[cvo_FramePurchase_sp]
     @asofdate DATETIME = NULL, @MthsToReport INT = NULL, @Cust VARCHAR(8000) 
 AS
 
-    -- exec cvo_FramePurchase_sp '7/31/2018',1,'045183'
+    -- exec cvo_FramePurchase_sp '7/31/2018',18,'014888'
 	
 begin
 SET NOCOUNT ON;
@@ -113,7 +113,7 @@ SET NOCOUNT ON;
 			GROUP BY customer,
                      ship_to,
                      part_no
-		) fs ON fs.customer = ar.customer_code AND fs.ship_to = ar.ship_to_code AND fs.part_no = i.part_no
+		) fs ON fs.customer = co.customer_code AND fs.ship_to = CASE WHEN co.door = 1 THEN co.ship_to ELSE '' END AND fs.part_no = i.part_no
     WHERE
         sbm.yyyymmdd >= DATEADD(MONTH, -@MthsToReport, @asofdate)
         AND i.type_code IN ( 'frame', 'sun' )
@@ -136,6 +136,7 @@ SET NOCOUNT ON;
     ;
 
 END;
+
 
 
 

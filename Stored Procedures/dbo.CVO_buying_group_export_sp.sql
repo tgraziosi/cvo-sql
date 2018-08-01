@@ -31,6 +31,7 @@ CREATE PROCEDURE [dbo].[CVO_buying_group_export_sp] (@WHERECLAUSE VARCHAR(1024))
 -- v1.6 CB 12/06/2018 - Deal with rounding issue on installment invoices
 -- v1.7 CB 27/06/2018 - Fix rounding issues
 -- v1.8 CB 27/07/2018 - Addition to v1.7
+-- v1.9 CB 27/07/2018 - Addition to v1.8
 AS  
 BEGIN
 
@@ -279,106 +280,114 @@ BEGIN
 			v.type  
 	order by v.parent,v.cust_code, v.doc_ctrl_num, v.disc_perc  
 
-	-- v1.7 Start
+	-- v1.9 Start
 	CREATE TABLE #install_rounding (
-		doc_ctrl_num	varchar(16),
-		inv_gross		decimal(20,8),
-		inv_freight		decimal(20,8),
-		inv_tax			decimal(20,8),
-		inv_net			decimal(20,8),
-		inv_total		decimal(20,8),
-		inv_diff		decimal(20,8),
-		amt_gross		float,
-		amt_freight		float,
-		amt_tax			float,
-		amt_net			float,
-		disc_perc		float,
+		doc_ctrl_num	varchar(16), 
+		inv_gross		decimal(20,8), 
+		inv_freight		decimal(20,8), 
+		inv_tax			decimal(20,8), 
+		inv_net			decimal(20,8), 
+		disc_perc		float, 
 		rowid			int)
 
-	-- v1.8 Start
-	INSERT	#install_rounding
-	SELECT	doc_ctrl_num, SUM(inv_tot), SUM(freight), SUM(tax), SUM(inv_due), 0,0,0,0,0,0, disc_perc, 0
+	INSERT	#install_rounding (doc_ctrl_num, inv_gross, inv_freight, inv_tax, inv_net, disc_perc, rowid)
+	SELECT	doc_ctrl_num, SUM(inv_tot), SUM(freight), SUM(tax), SUM(inv_due), disc_perc, 0
 	FROM	#raw_bg_data_header
 	WHERE	CHARINDEX('-',doc_ctrl_num) > 0
+	AND		freight = 0
+	AND		tax = 0
 	GROUP BY doc_ctrl_num, disc_perc
 
-	CREATE INDEX #install_rounding_ind0 ON #install_rounding(doc_ctrl_num)
-
-	SELECT	invoice doc_ctrl_num, MIN(id) id
-	INTO	#row_ids
+	SELECT	invoice, discount, MAX(id) id
+	INTO	#temprecs
 	FROM	#buy
 	WHERE	CHARINDEX('-',invoice) > 0
-	AND		tax = '0.00'
 	AND		freight = '0.00'
-	GROUP BY invoice
+	AND		tax = '0.00'
+	GROUP BY invoice, discount
 
 	UPDATE	a
 	SET		rowid = b.id
 	FROM	#install_rounding a
-	JOIN	#row_ids b
-	ON		a.doc_ctrl_num = b.doc_ctrl_num
+	JOIN	#temprecs b
+	ON		a.doc_ctrl_num = b.invoice
+	AND		CAST(CAST(a.disc_perc * 10000 as int) as varchar(10)) = b.discount
 
-	DROP TABLE #row_ids
+	DROP TABLE #temprecs
 
-	SELECT	doc_ctrl_num, SUM(inv_net) total
-	INTO	#temp_totals
-	FROM	#install_rounding
-	GROUP BY doc_ctrl_num
+	CREATE INDEX #install_rounding_ind0 ON #install_rounding(doc_ctrl_num)
+
+	DECLARE @curr_doc varchar(16),
+			@inv_gross decimal(20,8),
+			@doc_ext int
+
+	SET @doc_ctrl_num = ''
+
+	WHILE (1 = 1)
+	BEGIN
+		SELECT	TOP 1 @doc_ctrl_num = doc_ctrl_num,
+				@doc_ext = CAST(RIGHT(doc_ctrl_num,1) as int),
+				@inv_gross = inv_gross
+		FROM	#install_rounding
+		WHERE	doc_ctrl_num > @doc_ctrl_num
+		ORDER BY doc_ctrl_num ASC
+
+		IF (@@ROWCOUNT = 0)
+			BREAK
+
+		IF ((@doc_ext % 2) = 1)
+		BEGIN
+			IF ((@inv_gross % 0.01) > 0)
+			BEGIN
+				IF ((@inv_gross % 0.01) = 0.005)
+				BEGIN
+					UPDATE	#install_rounding
+					SET		inv_gross = ROUND((inv_gross + 0.001),2),
+							inv_net = ROUND((inv_net + 0.001),2)
+					WHERE	doc_ctrl_num = @doc_ctrl_num
+				END
+				ELSE
+				BEGIN
+					UPDATE	#install_rounding
+					SET		inv_gross = ROUND((inv_gross),2),
+							inv_net = ROUND((inv_net),2)
+					WHERE	doc_ctrl_num = @doc_ctrl_num
+				END
+			END
+		END
+
+		IF ((@doc_ext % 2) = 0)
+		BEGIN
+			IF ((@inv_gross % 0.01) > 0)
+			BEGIN
+				IF ((@inv_gross % 0.01) = 0.005)
+				BEGIN
+					UPDATE	#install_rounding
+					SET		inv_gross = ROUND((inv_gross - 0.001),2),
+							inv_net = ROUND((inv_net - 0.001),2)
+					WHERE	doc_ctrl_num = @doc_ctrl_num
+				END
+				ELSE
+				BEGIN
+					UPDATE	#install_rounding
+					SET		inv_gross = ROUND((inv_gross),2),
+							inv_net = ROUND((inv_net),2)
+					WHERE	doc_ctrl_num = @doc_ctrl_num
+				END
+			END
+		END
+	END
 
 	UPDATE	a
-	SET		inv_total = b.total
-	FROM	#install_rounding a
-	JOIN	#temp_totals b
-	ON		a.doc_ctrl_num = b.doc_ctrl_num
-	
-	DROP TABLE  #temp_totals
-
-	UPDATE	a
-	SET		amt_gross = b.amt_gross,
-			amt_freight = b.amt_freight,
-			amt_tax = b.amt_tax,
-			amt_net = b.amt_net,
-			inv_diff = b.amt_net - inv_total
-	FROM	#install_rounding a
-	JOIN	artrx_all b (NOLOCK)
-	ON		a.doc_ctrl_num = b.doc_ctrl_num
-
-	DELETE	#install_rounding
-	WHERE	inv_net = amt_net
-
-	SELECT	doc_ctrl_num, COUNT(1) lines, MAX(inv_diff) diff, 0.00 split
-	INTO	#temp_lines
-	FROM	#install_rounding
-	WHERE	inv_freight = 0 
-	AND		inv_tax = 0
-	GROUP BY doc_ctrl_num
-
-	UPDATE	#temp_lines
-	SET		split = diff / CAST(lines as decimal(20,8))
-
-	UPDATE	a
-	SET		inv_diff = diff --b.split
-	FROM	#install_rounding a
-	JOIN	#temp_lines b
-	ON		a.doc_ctrl_num = b.doc_ctrl_num
-	WHERE	inv_freight = 0 
-	AND		inv_tax = 0
-
-	DROP TABLE #temp_lines
-
-	UPDATE	a
-	SET		merch = convert(varchar(13),convert(money,round(((a.merch + b.inv_diff)),2))), 
-			non_merch = CASE WHEN a.non_merch = '0.00' THEN '0.00' ELSE convert(varchar(13),convert(money,round(((a.non_merch + b.inv_diff)),2))) END, --a.non_merch + b.inv_diff,
-			total = convert(varchar(13),convert(money,round(((a.total + b.inv_diff)),2))), --a.total + b.inv_diff,
-			mer_disc = CASE WHEN a.mer_disc = '0.00' THEN '0.00' ELSE convert(varchar(13),convert(money,round(((a.mer_disc + b.inv_diff)),2))) END, --a.mer_disc + b.inv_diff,
-			tot_due = convert(varchar(13),convert(money,round(((a.tot_due + b.inv_diff)),2))) --a.tot_due + b.inv_diff
+	SET		merch = convert(varchar(13),convert(money,b.inv_gross)), 
+			total =  convert(varchar(13),convert(money,b.inv_gross)), 
+			mer_disc =  convert(varchar(13),convert(money,b.inv_net)), 
+			tot_due = convert(varchar(13),convert(money,b.inv_net))
 	FROM	#buy a
 	JOIN	#install_rounding b
 	ON		a.invoice = b.doc_ctrl_num
-	WHERE	a.freight = '0.00' 
-	AND		a.tax = '0.00'
 	AND		a.id = b.rowid
-	-- v1.8 End	
+	-- v1.9 End
 
 	DROP TABLE #install_rounding
 	-- v1.7 End

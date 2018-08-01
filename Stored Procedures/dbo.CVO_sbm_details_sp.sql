@@ -35,6 +35,7 @@ select sum(asales), sum(areturns), sum(qsales), sum(qreturns) from cvo_csbm_ship
 -- 5/2014 - add isCL and isBO indicators
 -- 10/2014 - add salesperson on order/invoice for Sales Details in Cube
 -- 1/2017 - don't recreate everything everytime.  set the first and last dates to refresh/add
+-- 7/2018 - update closeout logic
 
 CREATE PROCEDURE [dbo].[CVO_sbm_details_sp]
 AS
@@ -730,6 +731,10 @@ then 'CVZPOSTAGE' ELSE D.ITEM_CODE END AS  part_no,
 
     -- 4/25/2014 - classify closeouts
 
+	CREATE NONCLUSTERED INDEX idx_sbm_det_promo
+    ON #cvo_sbm_det (PROMO_ID, promo_level)
+	;
+
     CREATE NONCLUSTERED INDEX idx_sbm_det_lsales
     ON #cvo_sbm_det (lsales, doctype)
     INCLUDE (
@@ -737,12 +742,20 @@ then 'CVZPOSTAGE' ELSE D.ITEM_CODE END AS  part_no,
             areturns
             );
 
-    UPDATE #cvo_sbm_det
-    SET isCL = 1
-    WHERE lsales <> 0 AND doctype = 'I'
+    UPDATE c SET isCL = 1
+	-- SELECT *
+	FROM #cvo_sbm_det  c
+	JOIN cvo_promotions p ON p.promo_id = c.PROMO_ID AND p.promo_level = c.promo_level
+	JOIN dbo.CVO_line_discounts AS ld ON ld.promo_ID = c.PROMO_ID AND ld.promo_level = c.promo_level
+	WHERE ((ld.price_override = 'Y' AND c.PROMO_ID NOT IN ('sunps'))
+		  OR (ld.discount_per BETWEEN 50 AND 99 AND c.PROMO_ID NOT IN ('aap','eag','ff','pc'))
+		  )
+		  OR c.user_category = 'ST-CL'
+		  OR 
+		  ( lsales <> 0 AND doctype = 'I'
           -- AND (1 - (asales - areturns) / lsales)
-		  AND (1 - (asales) / lsales)
-          BETWEEN .8 AND .99;
+		  AND (1 - (asales) / CASE WHEN lsales = 0 THEN 1 ELSE lsales end)
+          BETWEEN .8 AND .99);
 
     IF (OBJECT_ID('cvo.dbo.cvo_sbm_details') IS NOT NULL)
     -- drop table cvo.dbo.cvo_sbm_details
@@ -1003,6 +1016,7 @@ then 'CVZPOSTAGE' ELSE D.ITEM_CODE END AS  part_no,
 
 
 END;
+
 
 
 

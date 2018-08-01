@@ -2,7 +2,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[cvo_auto_replenish_sp] @replen_group VARCHAR(20) = NULL
+CREATE PROCEDURE [dbo].[cvo_auto_replenish_sp] @replen_group VARCHAR(20) = NULL, @fill_to_max_ind CHAR(1) = null
 
 AS
 
@@ -26,11 +26,12 @@ DECLARE
         @pom_from   datetime,  
         @pom_to    datetime,  
         @results_returned int,  
-        @filltype   char(1),  
+        -- @fill_to_max_ind   char(1),  
         @review    int  ,
 		@replen_id INT
            
 IF @replen_group IS NULL SELECT @replen_group = 'HB --> FP (Frames)'
+IF @fill_to_max_ind IS NULL SELECT @fill_to_max_ind = 'N'
 
 IF ( OBJECT_ID('tempdb..#temp_bin_list') IS NOT NULL )
     DROP TABLE #temp_bin_list;  
@@ -108,7 +109,7 @@ SELECT @location = location,
 	@pom_from = '1/1/1900',
 	@pom_to = '12/31/2999',
 	@results_returned = -1,
-	@filltype = 'Y',
+	-- @filltype = 'Y',
 	@review = 1,
 	@replen_id = replen_id
 
@@ -125,7 +126,7 @@ EXEC dbo.cvo_replenish_retrieve_sp @replen_group, @location, @perc_to_min
 	, @instock_option, @instock_qty
 	, @available_option, @available_qty
 	, @part_type, @pom_from, @pom_to
-	, @results_returned, @filltype, @review
+	, @results_returned, @fill_to_max_ind, @review
 
 
 IF ( OBJECT_ID('tempdb..#cvo_replen_label') IS NOT NULL )
@@ -183,7 +184,7 @@ SELECT trd.replen_id ,
 FROM #temp_repl_display AS trd 
 
 
-EXEC tdc_adhoc_bin_replenish_sp @location, @replen_group, 'ALL', 'N', 0 -- commit = yes
+EXEC tdc_adhoc_bin_replenish_sp @location, @replen_group, 'ALL', @fill_to_max_ind, 0 -- commit = yes
  
 ---- SELECT * FROM #rep_bin_move_detail
 
@@ -202,6 +203,7 @@ FROM #rep_bin_move_detail
 
 -- SELECT * FROM dbo.cvo_replenish_schedule AS rs
 END
+
 
 
 
