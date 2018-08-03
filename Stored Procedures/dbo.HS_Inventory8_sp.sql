@@ -762,10 +762,8 @@ ELSE '' END GENDER,
            Status,
            -- 6/26/2017 2017 bts program tweeks
            CASE WHEN GENDER IN ( 'kids', 'tween' )
-                     AND (
-                         t1.manufacturer <> 'clearvision'
-                         OR t1.[category:1] <> 'frame'
-                         ) THEN '' ELSE GENDER
+                     AND t1.[category:1] <> 'frame'
+                          THEN '' ELSE GENDER
            END AS GENDER,
            SpecialtyFit,
            APR,
@@ -1254,7 +1252,11 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
         FROM dbo.cvo_hs_inventory_8 AS hsi
             WHERE EXISTS (SELECT 1 FROM dbo.cvo_part_attributes AS pa WHERE pa.part_no = hsi.sku AND pa.attribute = 'KidsSldwn');
 
+
 END;
+
+
+
 
 
 

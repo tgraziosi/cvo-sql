@@ -27,6 +27,9 @@ BEGIN
 			@bg_start		varchar(10),
 			@bg_end			varchar(10)
 
+    --DECLARE @whereclause VARCHAR(1024)
+    --SET @whereclause = 'where xinv_date between 736876 and 736906'
+
 	-- PROCESS WHERECLAUSE
 	IF (CHARINDEX ('parent',@whereclause) <> 0)  
 	BEGIN  
@@ -1128,7 +1131,7 @@ BEGIN
 	DELETE	#install_rounding
 	WHERE	inv_net = amt_net
 
-	SELECT	doc_ctrl_num, COUNT(1) lines, MAX(inv_diff) diff, 0.00 split
+	SELECT	doc_ctrl_num, COUNT(1) lines, MAX(inv_diff) diff, CAST(0.00 AS decimal(20,8)) split
 	INTO	#temp_lines
 	FROM	#install_rounding
 	WHERE	inv_freight = 0 
@@ -1144,7 +1147,7 @@ BEGIN
 	JOIN	#temp_lines b
 	ON		a.doc_ctrl_num = b.doc_ctrl_num
 
-	DROP TABLE #temp_lines
+	-- DROP TABLE #temp_lines
 
 	UPDATE	a
 	SET		inv_tot = a.inv_tot + b.inv_diff,
@@ -1195,6 +1198,7 @@ BEGIN
 	DROP TABLE #order_data_extract_raw
 	DROP TABLE #install_rounding
 END
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_bg_data_extract_log_sp] TO [public]
 GO
