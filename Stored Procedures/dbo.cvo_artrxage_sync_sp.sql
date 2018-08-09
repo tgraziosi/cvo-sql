@@ -5,6 +5,8 @@ GO
 CREATE PROCEDURE [dbo].[cvo_artrxage_sync_sp]
 -- 072518 - keep cvo_artrxage up to date.  
 -- A Trigger does most of it.  This will clean up the rest.
+-- TRUNCATE TABLE cvo_artrxage
+
 AS
 BEGIN
 
@@ -40,30 +42,34 @@ BEGIN
 
     EXEC dbo.cvo_bg_get_document_data_sp;
 
-    CREATE CLUSTERED INDEX idx_bg_data ON #bg_data (doc_ctrl_num);
+    CREATE CLUSTERED INDEX idx_bg_data ON #bg_data (customer_code, doc_ctrl_num, order_ctrl_num);
+
+    --SELECT * FROM #bg_data AS bd WHERE bd.customer_code = '054915'
+    --SELECT * FROM cvo_artrxage WHERE customer_code = '054915'
+
 
     UPDATE ar
-    SET ar.order_ctrl_num = b.order_ctrl_num,
-        ar.customer_code = b.customer_code,
-        ar.doc_date_int = b.doc_date_int,
+    SET ar.doc_date_int = b.doc_date_int,
         ar.doc_date = b.doc_date,
         ar.parent = b.parent
     -- SELECT * 
-    FROM dbo.cvo_artrxage ar
-        JOIN #bg_data b
-            ON b.doc_ctrl_num = ar.doc_ctrl_num
-    WHERE b.order_ctrl_num <> ar.order_ctrl_num
-          OR b.customer_code <> ar.customer_code
-          OR b.doc_date <> ar.doc_date
-          OR b.doc_date_int <> ar.doc_date_int
-          OR b.parent <> ar.parent;
+    FROM #bg_data b
+        JOIN cvo_artrxage ar
+            ON ar.doc_ctrl_num = b.doc_ctrl_num
+            AND ar.customer_code = b.customer_code
+            AND ar.order_ctrl_num = b.order_ctrl_num
+
+    WHERe ISNULL(b.doc_date,'') <> ISNULL(ar.doc_date,'')
+          OR ISNULL(b.doc_date_int,0) <> ISNULL(ar.doc_date_int,0)
+          OR ISNULL(b.parent,'') <> ISNULL(ar.parent,'');
+
 
     DELETE ar
     -- SELECT * 
     FROM cvo_artrxage ar
     WHERE NOT EXISTS
     (
-    SELECT 1 FROM #bg_data AS bd WHERE bd.doc_ctrl_num = ar.doc_ctrl_num
+    SELECT 1 FROM #bg_data AS bd WHERE bd.doc_ctrl_num = ar.doc_ctrl_num AND ar.order_ctrl_num = bd.order_ctrl_num AND ar.customer_code = bd.customer_code
     );
 
     INSERT dbo.cvo_artrxage
@@ -73,16 +79,17 @@ BEGIN
            doc_date_int,
            doc_date,
            parent
-    FROM #bg_data b
+    FROM #bg_data bd
     WHERE NOT EXISTS
     (
-    SELECT 1 FROM dbo.cvo_artrxage a WHERE a.doc_ctrl_num = b.doc_ctrl_num
+    SELECT 1 FROM dbo.cvo_artrxage ar WHERE bd.doc_ctrl_num = ar.doc_ctrl_num AND ar.order_ctrl_num = bd.order_ctrl_num AND ar.customer_code = bd.customer_code
     );
 
 
     DROP TABLE #bg_data;
 
 END;
+
 
 
 

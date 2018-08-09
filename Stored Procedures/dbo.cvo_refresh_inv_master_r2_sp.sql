@@ -391,10 +391,10 @@ BEGIN
         dst.Collection <> src.Collection OR 
         dst.CollectionName <> src.CollectionName OR 
         dst.model <> src.model OR 
-        dst.IMG_SKU <> src.IMG_SKU OR 
-        dst.IMG_WEB <> src.IMG_WEB OR 
-        dst.img_SpecialtyFit <> src.img_SpecialtyFit OR 
-        dst.Future_ReleaseDate <> src.Future_ReleaseDate OR 
+        ISNULL(dst.IMG_SKU,'') <> ISNULL(src.IMG_SKU,'') OR 
+        ISNULL(dst.IMG_WEB,'') <> ISNULL(src.IMG_WEB,'') OR 
+        ISNULL(dst.img_SpecialtyFit,'') <> ISNULL(src.img_SpecialtyFit,'') OR 
+        ISNULL(dst.Future_ReleaseDate,'') <> ISNULL(src.Future_ReleaseDate,'') OR 
         dst.prim_img <> src.prim_img OR 
         dst.RES_type <> src.RES_type OR 
         dst.PrimaryDemographic <> src.PrimaryDemographic OR 
@@ -426,11 +426,11 @@ BEGIN
            dst.temple_price <> src.temple_price OR 
            dst.Wholesale_price <> src.Wholesale_price OR 
            dst.last_price_upd_date <> src.last_price_upd_date OR 
-           dst.Sugg_Retail_Price <> src.Sugg_Retail_Price OR 
+           ISNULL(dst.Sugg_Retail_Price,0.00) <> ISNULL(src.Sugg_Retail_Price,0.00) OR 
            dst.release_date <> src.release_date OR 
            dst.upc_code <> src.upc_code OR 
            dst.web_saleable_flag <> src.web_saleable_flag OR 
-           dst.pom_date <> src.pom_date OR 
+           ISNULL(dst.pom_date,'1/1/1900') <> ISNULL(src.pom_date,'') OR 
            dst.frame_cost <> src.frame_cost OR 
            dst.temple_cost <> src.temple_cost OR 
            dst.cable_cost <> src.cable_cost OR 
@@ -454,6 +454,7 @@ BEGIN
 END;
 
 GRANT EXECUTE ON cvo_refresh_inv_master_r2_sp TO PUBLIC
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_refresh_inv_master_r2_sp] TO [public]
