@@ -20,11 +20,15 @@ SET NOCOUNT ON;
 --       @Cust = '045183';
 
 
+    DECLARE @asofyear INT, @asofmonth int;
+
 
     IF @asofdate IS NULL SELECT @asofdate = DATEADD(DAY, 0, DATEDIFF(DAY, 0, GETDATE()))
         ;
     IF @MthsToReport IS NULL SELECT @MthsToReport = 12
         ;
+
+    SELECT @asofyear = YEAR(@asofdate), @asofmonth = MONTH(@asofdate)
 
     -- SELECT @asofyear
 
@@ -51,11 +55,12 @@ SET NOCOUNT ON;
         ORDER BY ListItem
         ;
 
-
+    ;WITH salesdata AS 
+    (
     SELECT
         ar.territory_code,
         ar.customer_code,
-        ar.ship_to_code,
+        ar.ship_to_code ,
         ar.address_name,
         LTRIM(RTRIM(ISNULL(designations.desig, '<None>'))) desig,
         i.category,
@@ -108,12 +113,15 @@ SET NOCOUNT ON;
         ) AS designations
             ON designations.customer_code = ar.customer_code
 			LEFT OUTER join
-		( SELECT customer, ship_to, part_no, MIN(yyyymmdd) FirstSale
-			FROM cvo_sbm_details WHERE user_category LIKE 'st%'
+		( SELECT customer, CASE WHEN co.door = 1 THEN co.ship_to ELSE '' END ship_to, part_no, MIN(yyyymmdd) FirstSale
+			FROM cvo_sbm_details (NOLOCK)
+            JOIN cvo_armaster_all co ON co.ship_to = cvo_sbm_details.ship_to AND co.customer_code = dbo.cvo_sbm_details.customer
+            where user_category LIKE 'st%' 
 			GROUP BY customer,
-                     ship_to,
+                     CASE WHEN co.door = 1 THEN co.ship_to ELSE '' END,
                      part_no
 		) fs ON fs.customer = co.customer_code AND fs.ship_to = CASE WHEN co.door = 1 THEN co.ship_to ELSE '' END AND fs.part_no = i.part_no
+ 
     WHERE
         sbm.yyyymmdd >= DATEADD(MONTH, -@MthsToReport, @asofdate)
         AND i.type_code IN ( 'frame', 'sun' )
@@ -133,9 +141,47 @@ SET NOCOUNT ON;
 			 i.description,
 			 co.door,
 			 fs.FirstSale
-    ;
+    )
+
+    SELECT sd.territory_code,
+           sd.customer_code,
+           sd.ship_to_code ,
+           sd.address_name,
+           sd.desig,
+           sd.category,
+           sd.style,
+           sd.part_no,
+           sd.c_year,
+           sd.c_month,
+           sd.order_type,
+           sd.net_qty,
+           sd.net_amt,
+           sd.description,
+           sd.door,
+           sd.FirstSale,
+           ISNULL(CASE WHEN sd.c_month = s.c_month THEN s.net_qty_st_ty ELSE 0 END,0) net_qty_st_ty,
+           ISNULL(CASE WHEN sd.c_month = s.c_month THEN s.net_qty_rx_ty ELSE 0 END,0) net_qty_rx_ty
+           fROM salesdata sd
+           LEFT OUTER JOIN 
+           ( SELECT salesdata.territory_code,
+                    salesdata.customer_code,
+                    salesdata.ship_to_code ,
+                    salesdata.part_no,
+                    MAX(c_month) c_month,
+                    SUM(CASE WHEN salesdata.order_type = 'st' THEN salesdata.net_qty ELSE 0 end) net_qty_st_ty,
+                    SUM(CASE WHEN salesdata.order_type = 'rx' THEN salesdata.net_qty ELSE 0 end) net_qty_rx_ty
+                    FROM 
+           salesdata WHERE c_year = @asofyear
+           GROUP BY salesdata.territory_code,
+                    salesdata.customer_code,
+                    salesdata.ship_to_code ,
+                    salesdata.part_no
+           ) s ON s.customer_code = sd.customer_code AND s.ship_to_code = sd.ship_to_code AND s.territory_code = sd.territory_code AND s.part_no = sd.part_no
 
 END;
+
+
+
 
 
 

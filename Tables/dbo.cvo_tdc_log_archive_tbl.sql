@@ -15,7 +15,11 @@ CREATE TABLE [dbo].[cvo_tdc_log_archive_tbl]
 [data] [varchar] (7500) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [idx_tdc_arch_date] ON [dbo].[cvo_tdc_log_archive_tbl] ([tran_date]) ON [PRIMARY]
+GO
 CREATE NONCLUSTERED INDEX [tdc_log_idx_arch_1] ON [dbo].[cvo_tdc_log_archive_tbl] ([tran_date], [location], [part_no]) ON [PRIMARY]
+GO
+CREATE NONCLUSTERED INDEX [idx_tdc_log_arch_idx2] ON [dbo].[cvo_tdc_log_archive_tbl] ([tran_no], [tran_ext]) ON [PRIMARY]
 GO
 GRANT DELETE ON  [dbo].[cvo_tdc_log_archive_tbl] TO [public]
 GO
