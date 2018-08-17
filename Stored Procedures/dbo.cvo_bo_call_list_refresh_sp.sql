@@ -93,6 +93,7 @@ BEGIN
     WHERE (r.DDTONEXTPO >= 10)
           AND r.location = '001'
           AND r.qty_to_alloc < 0
+          AND r.comment = '<Click here to mark call>' -- 8/13/2018
 	ORDER BY o.ship_to_zip; -- to sort  by zip so we don't call CA first :)
 
 
@@ -102,6 +103,7 @@ END;
 
 
 GRANT EXECUTE ON dbo.cvo_bo_call_list_refresh_sp TO PUBLIC;
+
 
 
 

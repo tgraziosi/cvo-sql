@@ -12,9 +12,9 @@ CREATE PROCEDURE [dbo].[cvo_inv_fcst_summ_sp]
     /*
 
 EXEC CVo_inv_fcst_summ_sp 
-				@asofdate = '01/01/2018', 
+				@asofdate = '08/01/2018', 
 				@endrel = '12/01/2019',
-                @collection = 'as',
+                @collection = 'revo',
 				@Style = '*all*',
                 @SpecFit = '*all*',
                 @location = '001'; 
@@ -167,7 +167,7 @@ BEGIN
            ia.field_3 ColorName,
            t.moq,
            --t.watch ,
-           t.sf,
+           REPLACE(t.sf,'SpecialOrd','') sf,
            t.rel_date,
            t.pom_date,
            -- t.p_rel_date ,
@@ -328,6 +328,7 @@ BEGIN
 
     ;
 END;
+
 
 
 GO
