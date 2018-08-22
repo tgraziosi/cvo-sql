@@ -104,8 +104,9 @@ AS
         SET     ShelfQty = ShelfQty + CASE WHEN cia.qty_avl > 0 THEN cia.qty_avl ELSE 0 end
 		FROM cvo_item_avail_vw cia
 		JOIN #data D ON d.sku = cia.Part_no
-        WHERE  cia.location = '002Liberty' AND cia.ResType = 'pop';
-
+        -- 8/21/2018 - switch to ELM location from Liberty
+        -- WHERE  cia.location = '002Liberty' AND cia.ResType = 'pop';
+        WHERE  cia.location = '002ELM' AND cia.ResType = 'pop';
 
         UPDATE  #Data
         SET     ShelfQty = 2000 ,
@@ -205,6 +206,7 @@ AS
 
 
 	
+
 
 
 

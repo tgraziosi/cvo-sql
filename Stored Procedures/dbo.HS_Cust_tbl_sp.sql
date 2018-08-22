@@ -55,16 +55,28 @@ BEGIN
 	  -- 2/3/2017 - updated territory list
 	  -- 3/16/2017 - new list per email
 
-	  UPDATE #userGroup SET AllTerr = allterr + ',I-Sales'
-	  WHERE allterr LIKE '%50534%'
-	  OR allterr LIKE '%20202%'
-		 OR customer_code = '052931'
-		 OR customer_code = '053318'
-		 OR customer_code = '014910'
+	  --UPDATE #userGroup SET AllTerr = allterr + ',I-Sales'
+	  --WHERE allterr LIKE '%50534%'
+	  --OR allterr LIKE '%20202%'
+		 --OR customer_code = '052931'
+		 --OR customer_code = '053318'
+		 --OR customer_code = '014910'
 
--- for Phil for VE - 032717
-	  UPDATE #userGroup SET AllTerr = allterr + ',20206'
-	  WHERE customer_code = '014443'
+	  UPDATE #userGroup SET AllTerr = allterr + ',I-Sales'
+	  WHERE allterr LIKE '%30306%'
+	  OR allterr LIKE '%30315%'
+	  OR allterr LIKE '%30324%'
+      OR allterr LIKE '%30338%'
+      OR allterr LIKE '%40430%'
+      OR allterr LIKE '%70750%'
+      OR allterr LIKE '%30336%'
+      OR allterr LIKE '%20250%'
+      OR allterr LIKE '%20215%'
+        OR allterr LIKE '%50534%'
+
+ --for Phil for VE - 032717
+	--  UPDATE #userGroup SET AllTerr = allterr + ',20206'
+	--  WHERE customer_code = '014443'
 
 	  --UPDATE #userGroup SET allterr = allterr + ',50530' -- removed 6/14/17 - territory no longer empty KM will not be servicing
 	  --WHERE AllTerr LIKE '%50510%'
@@ -299,6 +311,8 @@ SELECT h.id ,
 
 
 END
+
+
 
 
 

@@ -12,70 +12,137 @@ GO
 -- =============================================
 
 CREATE PROCEDURE [dbo].[CVO_EOS_SP]
-
 AS
-BEGIN
+    BEGIN
 
-	SET NOCOUNT ON;
+        SET NOCOUNT ON;
 
-declare @numberOfColumns int
-SET @numberOfColumns = 3
+        DECLARE @numberOfColumns INT;
+        SET @numberOfColumns = 3;
 
-IF(OBJECT_ID('tempdb.dbo.#Data') is not null)  
-drop table #Data
+        IF (OBJECT_ID('tempdb.dbo.#Data') IS NOT NULL)
+            DROP TABLE #Data;
 
-select s.Prog,
-       s.brand,
-       s.style,
-       s.part_no,
-       s.POM_Date,
-       s.Gender,
-       s.Avail,
-       s.ReserveQty,
-       s.TrueAvail 
-INTO #Data 
-from 
-(
-select 'EOS' as Prog, Brand, style, eos.part_no, pom_date, 
-case when gender LIKE '%CHILD%' THEN 'Kids' 
-	when gender = 'FEMALE-ADULT' THEN 'Womens' 
-	else 'Mens' end as Gender, Avail, ReserveQty, 
-	Avail as  TrueAvail
- -- tag 090314 - change to table from list of skus
- from cvo_eos_tbl eos 
- left outer join cvo_items_discontinue_vw id (nolock) on eos.part_no = id.part_no
- where isnull(id.type,'SUN') = 'SUN'
- and eos.eff_date < getdate() and isnull(eos.obs_date, getdate()) >= getdate()
- ) s
- order by Prog, gender, brand, style, part_no
+        SELECT
+            s.Prog,
+            s.brand,
+            s.style,
+            s.part_no,
+            s.POM_Date,
+            s.Gender,
+            s.Avail,
+            s.ReserveQty,
+            s.TrueAvail
+        INTO
+            #Data
+        FROM
+            (
+                SELECT
+                        'EOS'     AS Prog,
+                        brand,
+                        style,
+                        eos.part_no,
+                        POM_Date,
+                        CASE
+                            WHEN Gender LIKE '%CHILD%'
+                                THEN
+                                'Kids'
+                            WHEN Gender = 'FEMALE-ADULT'
+                                THEN
+                                'Womens'
+                            ELSE
+                                'Mens'
+                        END       AS Gender,
+                        Avail,
+                        ReserveQty,
+                        Avail     AS TrueAvail
+                -- tag 090314 - change to table from list of skus
+                FROM
+                        cvo_eos_tbl              eos (NOLOCK)
+                    LEFT OUTER JOIN
+                        CVO_items_discontinue_vw id (NOLOCK)
+                            ON eos.part_no = id.part_no
+                WHERE
+                        ISNULL(id.type, 'SUN') = 'SUN'
+                        AND eos.eff_date < GETDATE()
+                        AND ISNULL(eos.obs_date, GETDATE()) >= GETDATE()
+            ) s
+        ORDER BY
+            Prog,
+            Gender,
+            brand,
+            style,
+            part_no;
 
 
--- select * from #Data where TrueAvail=0
+        -- select * from #Data where TrueAvail=0
 
 
-IF(OBJECT_ID('tempdb.dbo.#Num') is not null)  drop table #Num
-SELECT DISTINCT PROG, GENDER, BRAND, STYLE, 
-row_number() over(order by Prog, Gender, brand, style) AS Num 
-INTO #Num 
-FROM #DATA 
-group by PROG, GENDER, BRAND, STYLE 
-ORDER BY PROG, GENDER, BRAND, STYLE
+        IF (OBJECT_ID('tempdb.dbo.#Num') IS NOT NULL)
+            DROP TABLE #Num;
+        SELECT DISTINCT
+               Prog,
+               Gender,
+               brand,
+               style,
+               ROW_NUMBER() OVER (ORDER BY
+                                      Prog,
+                                      Gender,
+                                      brand,
+                                      style
+                                 ) AS Num
+        INTO
+               #Num
+        FROM
+               #Data
+        GROUP BY
+               Prog,
+               Gender,
+               brand,
+               style
+        ORDER BY
+               Prog,
+               Gender,
+               brand,
+               style;
 
--- select * from #data
--- select * from #Num
+        -- select * from #data
+        -- select * from #Num
 
---select CASE WHEN Num%2=0 THEN 0 ELSE 1 END as Col, * from #Data t1 join #num t2 on t1.prog=t2.prog and t1.brand=t2.brand and t1.style=t2.style
-select ((Num+ @numberOfColumns - 1) % @numberOfColumns + 1) as Col, 
-t1.Prog, t1.Brand, t1.Style, t1.part_no, t1.pom_date, 
- t1.Gender,
- t1.Avail, t1.ReserveQty, 
- t1.TrueAvail as TrueAvail_2,
- CASE WHEN t1.TrueAvail > 100 THEN '100+' ELSE convert(varchar(20),convert(int,t1.TrueAvail)) END 
- AS TrueAvail
- from #Data t1 
- join #num t2 on t1.prog=t2.prog and t1.gender=t2.gender and t1.brand=t2.brand and t1.style=t2.style order by Prog, Gender, Brand, Style
+        --select CASE WHEN Num%2=0 THEN 0 ELSE 1 END as Col, * from #Data t1 join #num t2 on t1.prog=t2.prog and t1.brand=t2.brand and t1.style=t2.style
+        SELECT  ((Num + @numberOfColumns - 1) % @numberOfColumns + 1) AS Col,
+                t1.Prog,
+                t1.brand,
+                t1.style,
+                t1.part_no,
+                t1.POM_Date,
+                t1.Gender,
+                t1.Avail,
+                t1.ReserveQty,
+                t1.TrueAvail                                          AS TrueAvail_2,
+                CASE
+                    WHEN t1.TrueAvail > 100
+                        THEN
+                        '100+'
+                    ELSE
+                        CONVERT(VARCHAR(20), CONVERT(INT, t1.TrueAvail))
+                END                                                   AS TrueAvail
+        FROM
+                #Data t1
+            JOIN
+                #Num  t2
+                    ON t1.Prog = t2.Prog
+                       AND t1.Gender = t2.Gender
+                       AND t1.brand = t2.brand
+                       AND t1.style = t2.style
+        ORDER BY
+                Prog,
+                Gender,
+                brand,
+                style;
 
-END
+    END;
+
 
 
 GO

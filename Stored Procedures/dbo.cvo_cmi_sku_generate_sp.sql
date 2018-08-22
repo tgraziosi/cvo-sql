@@ -19,9 +19,9 @@ BEGIN
 -- generate sku's from cmi into epicor
 --  
 -- 
--- exec [cvo_cmi_sku_generate_sp] 'OP', '853', NULL, null, '12/31/2017','N', 1
+-- exec [cvo_cmi_sku_generate_sp] 'et', 'busan', NULL, null, '03/12/2019','N', 1
 
--- exec [cvo_cmi_sku_generate_sp] 'cvo', 'alice', NULL, null, '12/21/2019','N', 1
+
 
 -- updates:
 -- 6/8/2016 - fixup hang tag and upc parts for retail sku's.  
@@ -34,6 +34,7 @@ BEGIN
 -- 12/2017 - add support for 180 hinges.  Don't add temples and fronts, and add all available temple lengths for the style.
 -- 1/18 - update for cycle counting  - QTRLY is default for new items
 -- 7/18 - add category_1 for CA Compliance.  revo and BT frames 
+-- 8/18 - fixup use of part attributes
 
 SET XACT_ABORT, NOCOUNT ON;
 
@@ -48,9 +49,18 @@ DECLARE
 	@sunlen_cost DECIMAL(9,2), -- 10/5/2016
 	@sunlen_price DECIMAL(9,2),
 	@tpr INT ,
-	@temple_tip_price DECIMAL(9,2)
+	@temple_tip_price DECIMAL(9,2);
 	
--- SELECT  @coll = 'bt' , @model = 'alley cat', @colorname = null, @eye_size = null, @upd = 'n', @release_date = '04/26/2016'
+
+--	 declare @coll VARCHAR(12), 
+--	   @model VARCHAR(40) ,
+--	   @colorname VARCHAR(40) ,
+--	   @eye_size DECIMAL(20,8) ,
+--	   @release_date DATETIME,
+--	   @upd CHAR(1)
+--	   ,@debug INT
+
+--SELECT  @coll = 'et' , @model = 'busan', @colorname = null, @eye_size = null, @upd = 'n', @release_date = '3/12/2019', @debug = 1
 
 -- check with accounting/product for periodic changes
 -- 6/30/2016 - change pattern cost from .28 to .36 
@@ -88,9 +98,11 @@ SELECT part_no ,
        UPPER(ColorName) colorname ,
 	   -- handle dual usage in epicor for field_32 (attribute) from cmi fit and special program
 	   -- 'regular fit' doesn't count - 3/9/2017
-       CASE WHEN ISNULL(specialty_fit,'Regular Fit') <> 'Regular Fit' AND ISNULL(cmi.special_program,'') > '' THEN cmi.specialty_fit
-			WHEN ISNULL(cmi.special_program,'') >  '' THEN special_program
-			ELSE ISNULL(specialty_fit,'') END AS specialty_fit ,
+   --    CASE WHEN ISNULL(specialty_fit,'Regular Fit') <> 'Regular Fit' AND ISNULL(cmi.special_program,'') > '' THEN cmi.specialty_fit
+			--WHEN ISNULL(cmi.special_program,'') >  '' THEN special_program
+			--ELSE ISNULL(specialty_fit,'') END AS specialty_fit ,
+       CONVERT(VARCHAR(40),CASE WHEN ISNULL(specialty_fit,'Regular Fit') <> 'Regular Fit' THEN cmi.specialty_fit
+			ELSE ISNULL(specialty_fit,'') END) AS specialty_fit ,
        web_saleable_flag ,
        eye_size ,
        a_size ,
@@ -159,7 +171,8 @@ SELECT part_no ,
 	  , CAST(cv.supplier_color_description AS VARCHAR(80)) revo_frame_color
 	  , CAST(cv.ws_lens_color_code AS VARCHAR(80)) revo_lens_color
 	  , cmi.tip_sku -- 12/13/2017 - 1 if model has temple tips
-
+      , cmi.SubBrand -- 8/21/18 - add subbrand support
+      , cmi.special_program
  INTO #cmi
 -- FROM [cvo-db-03].cvo.dbo.cvo_cmi_catalog_view cmi
 FROM dbo.cvo_cmi_catalog_view cmi
@@ -972,7 +985,8 @@ SELECT distinct
 -- 100416
 						 WHEN c.RES_type = 'SUN' AND PL.part_type IN ('DEMOLEN') THEN C.COLORNAME
 						 WHEN pl.part_type NOT IN ( 'bruit', 'pattern', 'demolen' ) THEN c.ColorName ELSE NULL end ,
-        specialty_fit = CASE WHEN pl.part_type NOT IN ('bruit','pattern','demolen') THEN c.specialty_fit ELSE NULL end ,
+        -- 8/21/18 specialty_fit = CASE WHEN pl.part_type NOT IN ('bruit','pattern','demolen') THEN c.specialty_fit ELSE NULL end ,
+        specialty_fit = SPACE(40),
         web_saleable_Flag = CASE WHEN pl.part_type IN ( 'frame' , 'frame only') THEN [web_saleable_flag] END ,
         eye_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) THEN c.[eye_size] ELSE NULL END ,
         a_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) THEN c.a_size ELSE NULL END ,
@@ -1078,42 +1092,42 @@ IF ( OBJECT_ID('tempdb.dbo.#ia') IS NOT NULL )
 
 CREATE TABLE #ia
     (
-      [part_no] [VARCHAR](30) NOT NULL ,
-      [category_1] [VARCHAR](15) NULL
+      [part_no] VARCHAR(30) NOT NULL ,
+      [category_1] VARCHAR(15) NULL
                                  DEFAULT 'N' , -- watch
-      [category_2] [VARCHAR](15) NULL , -- gender
-      [category_3] [VARCHAR](15) NULL
+      [category_2] VARCHAR(15) NULL , -- gender
+      [category_3] VARCHAR(15) NULL
                                  DEFAULT '' , -- part_type
-      [category_4] [VARCHAR](15) NULL
+      [category_4] VARCHAR(15) NULL
                                  DEFAULT '' , -- target age
-      [category_5] [VARCHAR](15) NULL , -- color group code
+      [category_5] VARCHAR(15) NULL , -- color group code
       [datetime_1] [DATETIME] NULL , -- disco date (not used)
       [datetime_2] [DATETIME] NULL
                               DEFAULT NULL , -- backorder date
-      [field_1] [VARCHAR](40) NULL
+      [field_1] VARCHAR(40) NULL
                               DEFAULT '' , -- case part no
-      [field_2] [VARCHAR](40) NULL , -- model
-      [field_3] [VARCHAR](40) NULL , -- color description
-      [field_4] [VARCHAR](40) NULL
+      [field_2] VARCHAR(40) NULL , -- model
+      [field_3] VARCHAR(40) NULL , -- color description
+      [field_4] VARCHAR(40) NULL
                               DEFAULT '' , -- pattern part #
-      [field_5] [VARCHAR](40) NULL
+      [field_5] VARCHAR(40) NULL
                               DEFAULT 'N' , -- polarized avail
-      [field_6] [VARCHAR](40) NULL , -- bridge size
-      [field_7] [VARCHAR](40) NULL , -- nose pad
-      [field_8] [VARCHAR](40) NULL , -- temple length
-      [field_9] [VARCHAR](40) NULL , -- overall temple length
-      [field_10] [VARCHAR](40) NULL , -- frame material
-      [field_11] [VARCHAR](40) NULL , -- frame type 
-      [field_12] [VARCHAR](40) NULL , -- temple material
-      [field_13] [VARCHAR](40) NULL , -- hinge type
-      [field_14] [VARCHAR](255) NULL , -- not used
-      [field_15] [VARCHAR](255) NULL , -- not used
-      [field_16] [VARCHAR](255) NULL , -- not used
+      [field_6] VARCHAR(40) NULL , -- bridge size
+      [field_7] VARCHAR(40) NULL , -- nose pad
+      [field_8] VARCHAR(40) NULL , -- temple length
+      [field_9] VARCHAR(40) NULL , -- overall temple length
+      [field_10] VARCHAR(40) NULL , -- frame material
+      [field_11] VARCHAR(40) NULL , -- frame type 
+      [field_12] VARCHAR(40) NULL , -- temple material
+      [field_13] VARCHAR(40) NULL , -- hinge type
+      [field_14] VARCHAR(255) NULL , -- not used
+      [field_15] VARCHAR(255) NULL , -- not used
+      [field_16] VARCHAR(255) NULL , -- not used
       [long_descr] [TEXT] NULL ,
 
       [field_17] [DECIMAL](20, 8) NULL
                                   DEFAULT 0 , -- eye size
-      [field_18] [VARCHAR](1) NULL
+      [field_18] VARCHAR(1) NULL
                               DEFAULT 'N' , -- not used
       [field_19] [DECIMAL](20, 8) NULL
                                   DEFAULT 0 , -- a size
@@ -1121,39 +1135,39 @@ CREATE TABLE #ia
                                   DEFAULT 0 , -- b size
       [field_21] [DECIMAL](20, 8) NULL
                                   DEFAULT 0 , -- ed size
-      [field_22] [VARCHAR](32) NULL
+      [field_22] VARCHAR(32) NULL
                                DEFAULT 'N' , -- clips available
-      [field_23] [VARCHAR](20) NULL , -- lens color (suns)
-      [field_24] [VARCHAR](20) NULL , -- lens material (suns)
-      [field_25] [VARCHAR](20) NULL , -- lens type (suns)
+      [field_23] VARCHAR(20) NULL , -- lens color (suns)
+      [field_24] VARCHAR(20) NULL , -- lens material (suns)
+      [field_25] VARCHAR(20) NULL , -- lens type (suns)
       [field_26] [DATETIME] NULL , -- release date
-      [field_27] [VARCHAR](1) NULL
+      [field_27] VARCHAR(1) NULL
                               DEFAULT 'N' , -- royalty rate applies (not used)
       [field_28] [DATETIME] NULL , -- pom date
       [field_29] [DATETIME] NULL ,  -- not used
-      [field_30] [VARCHAR](40) NULL
+      [field_30] VARCHAR(40) NULL
                                DEFAULT 'N' , -- not used
-      [field_31] [VARCHAR](40) NULL , -- tip length
-      [field_32] [VARCHAR](40) NULL
+      [field_31] VARCHAR(40) NULL , -- tip length
+      [field_32] VARCHAR(40) NULL
                                DEFAULT NULL , -- specialty fit
-      [field_33] [VARCHAR](40) NULL , -- not used
-      [field_34] [VARCHAR](40) NULL , -- not used
-      [field_35] [VARCHAR](40) NULL
+      [field_33] VARCHAR(40) NULL , -- not used
+      [field_34] VARCHAR(40) NULL , -- not used
+      [field_35] VARCHAR(40) NULL
                                DEFAULT 'CMI' , -- IT attribute
-      [field_36] [VARCHAR](40) NULL , -- not used
-      [field_37] [VARCHAR](40) NULL , -- not used
-      [field_38] [VARCHAR](255) NULL , -- not used
-      [field_39] [VARCHAR](255) NULL , -- not used 
-      [field_40] [VARCHAR](255) NULL , -- not used
-      [field_18_a] [VARCHAR](40) NULL
+      [field_36] VARCHAR(40) NULL , -- not used
+      [field_37] VARCHAR(40) NULL , -- not used
+      [field_38] VARCHAR(255) NULL , -- not used
+      [field_39] VARCHAR(255) NULL , -- not used 
+      [field_40] VARCHAR(255) NULL , -- not used
+      [field_18_a] VARCHAR(40) NULL
                                  DEFAULT 'N' , -- not used
-      [field_18_b] [VARCHAR](40) NULL
+      [field_18_b] VARCHAR(40) NULL
                                  DEFAULT 'N' , -- not used
-      [field_18_c] [VARCHAR](40) NULL
+      [field_18_c] VARCHAR(40) NULL
                                  DEFAULT 'N' , -- not used
-      [field_18_d] [VARCHAR](40) NULL
+      [field_18_d] VARCHAR(40) NULL
                                  DEFAULT 'N' , -- not used
-      [field_18_e] [VARCHAR](40) NULL
+      [field_18_e] VARCHAR(40) NULL
                                  DEFAULT 'N' -- not used
     );
 
@@ -1164,13 +1178,13 @@ IF ( OBJECT_ID('tempdb.dbo.#i') IS NOT NULL ) DROP TABLE #i;
 
 CREATE TABLE #i
     (
-      [part_no] [VARCHAR](30) NOT NULL ,
-      [upc_code] [VARCHAR](20) NULL ,
-      [sku_no] [VARCHAR](30) NULL ,
-      [description] [VARCHAR](255) NULL ,
-      [vendor] [VARCHAR](12) NULL ,
-      [category] [VARCHAR](10) NULL ,
-      [type_code] [VARCHAR](10) NULL ,
+      [part_no] VARCHAR(30) NOT NULL ,
+      [upc_code] VARCHAR(20) NULL ,
+      [sku_no] VARCHAR(30) NULL ,
+      [description] VARCHAR(255) NULL ,
+      [vendor] VARCHAR(12) NULL ,
+      [category] VARCHAR(10) NULL ,
+      [type_code] VARCHAR(10) NULL ,
       [status] [CHAR](1) NULL
                          DEFAULT 'P' ,
       [cubic_feet] [DECIMAL](20, 8) NOT NULL
@@ -1181,14 +1195,14 @@ CREATE TABLE #i
                                DEFAULT 0 ,
       [uom] [CHAR](2) NOT NULL
                       DEFAULT 'EA' ,
-      [account] [VARCHAR](32) NULL ,
-      [comm_type] [VARCHAR](10) NULL
+      [account] VARCHAR(32) NULL ,
+      [comm_type] VARCHAR(10) NULL
                                 DEFAULT 'NONE' ,
       [void] [CHAR](1) NULL
                        DEFAULT 'N' ,
-      [void_who] [VARCHAR](20) NULL ,
+      [void_who] VARCHAR(20) NULL ,
       [void_date] [DATETIME] NULL ,
-      [entered_who] [VARCHAR](20) NULL
+      [entered_who] VARCHAR(20) NULL
                                   DEFAULT 'CMI' ,
       [entered_date] [DATETIME] NULL
                                 DEFAULT GETDATE() ,
@@ -1206,20 +1220,20 @@ CREATE TABLE #i
                                       DEFAULT 0 ,
       [taxable] [INT] NULL
                       DEFAULT 1 ,
-      [freight_class] [VARCHAR](10) NULL ,
+      [freight_class] VARCHAR(10) NULL ,
       [conv_factor] [DECIMAL](20, 8) NULL
                                      DEFAULT 1.0 ,
-      [note] [VARCHAR](255) NULL ,
-      [cycle_type] [VARCHAR](10) NULL
+      [note] VARCHAR(255) NULL ,
+      [cycle_type] VARCHAR(10) NULL
                                  DEFAULT 'QTRLY' ,
       [inv_cost_method] [CHAR](1) NULL
                                   DEFAULT 'S' ,
-      [buyer] [VARCHAR](10) NULL ,
+      [buyer] VARCHAR(10) NULL ,
       [cfg_flag] [CHAR](1) NULL
                            DEFAULT 'N' ,
       [allow_fractions] [SMALLINT] NULL
                                    DEFAULT 0 ,
-      [tax_code] [VARCHAR](10) NULL
+      [tax_code] VARCHAR(10) NULL
                                DEFAULT 'EXEMPT' ,
       [obsolete] [SMALLINT] NULL
                             DEFAULT 0 ,
@@ -1233,7 +1247,7 @@ CREATE TABLE #i
       [call_limit] [INT] NULL ,
       [yield_pct] [DECIMAL](5, 2) NULL
                                   DEFAULT 100.00 ,
-      [tolerance_cd] [VARCHAR](10) NULL
+      [tolerance_cd] VARCHAR(10) NULL
                                    DEFAULT 'STD' ,
       [pur_prod_flag] [CHAR](1) NOT NULL
                                 DEFAULT 'Y' ,
@@ -1242,8 +1256,8 @@ CREATE TABLE #i
       [abc_code] [CHAR](1) NULL ,
       [abc_code_frozen_flag] [INT] NOT NULL
                                    DEFAULT 0 ,
-      [country_code] [VARCHAR](3) NULL ,
-      [cmdty_code] [VARCHAR](8) NULL ,
+      [country_code] VARCHAR(3) NULL ,
+      [cmdty_code] VARCHAR(8) NULL ,
       [height] [DECIMAL](20, 8) NOT NULL
                                 DEFAULT 0 ,
       [width] [DECIMAL](20, 8) NOT NULL
@@ -1252,7 +1266,7 @@ CREATE TABLE #i
                                 DEFAULT 0 ,
       [min_profit_perc] [SMALLINT] NULL
                                    DEFAULT 0 ,
-      [sku_code] [VARCHAR](16) NULL ,
+      [sku_code] VARCHAR(16) NULL ,
       [eprocurement_flag] [INT] NULL
                                 DEFAULT 0 ,
       [non_sellable_flag] [CHAR](1) NULL
@@ -1269,7 +1283,7 @@ IF ( OBJECT_ID('tempdb.dbo.#cia') IS NOT NULL )
 
 CREATE TABLE #cia
     (
-      [part_no] [VARCHAR](30) NOT NULL ,
+      [part_no] VARCHAR(30) NOT NULL ,
 	  eye_shape VARCHAR(30) NULL,
 	  dbl_size DECIMAL(20,8) NULL,
 	  sugg_retail_price DECIMAL(20,8) null
@@ -1284,7 +1298,7 @@ IF ( OBJECT_ID('tempdb.dbo.#pp') IS NOT NULL )
 
 CREATE TABLE #pp -- need pricing for frames, front, temples
     (
-      [part_no] [VARCHAR](30) NOT NULL ,
+      [part_no] VARCHAR(30) NOT NULL ,
       p_price DECIMAL(20, 8) NULL
                              DEFAULT 0 ,
       std_cost DECIMAL(20, 8) NULL
@@ -1294,6 +1308,19 @@ CREATE TABLE #pp -- need pricing for frames, front, temples
       std_util_dolrs DECIMAL(20, 8) NULL
                                     DEFAULT 0
     );
+
+-- 8/21/18 - part attributes
+
+IF ( OBJECT_ID('tempdb.dbo.#attrib') IS NOT NULL )
+    DROP TABLE #attrib;
+
+CREATE TABLE #attrib -- need pricing for frames, front, temples
+    (
+      part_no VARCHAR(30) NOT NULL ,
+      attribute VARCHAR(10) NOT NULL
+      
+    );
+
 
 -- create INV_MASTER_ADD entries
 INSERT  #ia
@@ -1505,14 +1532,15 @@ INSERT  #ia
 								ELSE null
 						   END , -- lens base (suns)
                 field_26 = c.release_date , -- release date
-                field_32 = CASE WHEN c.res_type NOT IN ('bruit','pattern')
-							THEN ( SELECT TOP 1
-                                    kys
-                             FROM   dbo.cvo_specialty_fit
-                             WHERE  description = c.specialty_fit AND ISNULL(void,'N') = 'N'
-                           ) 
-						   ELSE null
-						   END  -- attribute
+       --         field_32 = CASE WHEN c.res_type NOT IN ('bruit','pattern')
+							--THEN ( SELECT TOP 1
+       --                             kys
+       --                      FROM   dbo.cvo_specialty_fit
+       --                      WHERE  description = c.specialty_fit AND ISNULL(void,'N') = 'N'
+       --                    ) 
+						 --  ELSE null
+						 --  END  -- attribute
+                FIELD_32 = NULL
         FROM    #parts_to_add c
 			-- WHERE NOT EXISTS ( SELECT 1 FROM #err_list e WHERE e.part_no = c.part_no);
 
@@ -1532,8 +1560,8 @@ INSERT  #i
           weight_ea ,
           account ,
           country_code ,
-          cmdty_code
-		  , lead_time
+          cmdty_code,
+		  lead_time
         )
         SELECT DISTINCT
                 c.part_no ,
@@ -1666,9 +1694,9 @@ INSERT  #i
                 + CASE WHEN c.res_Type IN ('sun') AND collection IN ('PT','izx','SM') THEN 'Suns'
 					   WHEN c.res_type IN ('sun') AND collection <> 'REVO' THEN 'Sun'
 					   --4/17/2017
-					   WHEN c.res_type ='OTHER' AND c.collection = 'BCBG' AND c.specialty_fit = 'retail' THEN 'Sun'
+					   WHEN c.res_type ='OTHER' AND c.collection = 'BCBG' AND ISNULL(c.specialty_fit,'') = 'retail' THEN 'Sun'
 					   WHEN (LEFT(c.PrimaryDemographic, 3) IN ( 'boy', 'gir') 
-					   OR c.specialty_fit = 'pediatric'
+					   OR ISNULL(c.specialty_fit,'') = 'pediatric'
                        or CHARINDEX('child',c.primarydemographic,0)>0
 					   OR CHARINDEX('kid',c.primarydemographic,0)>0 )
 					   THEN CASE WHEN c.collection = 'bt' THEN 'Kids' ELSE 'Kid' END
@@ -1765,6 +1793,33 @@ SELECT DISTINCT c.part_no, c.eye_shape, c.dbl_size
    --                          FROM   #err_list e
    --                          WHERE  e.part_no = c.part_no )
 			AND c.res_type IN ('frame','sun');
+
+-- ADD PART ATTRIBUTES - 082118
+
+    INSERT #attrib
+        (
+            part_no,
+            attribute
+        )
+    SELECT DISTINCT CMI.part_no, SF.KYS attribute FROM #CMI CMI
+    JOIN dbo.cvo_specialty_fit AS sf ON SF.description = CMI.SubBrand
+    JOIN #parts_to_add AS pta ON PTA.collection = CMI.Collection AND PTA.model = CMI.model
+    WHERE pta.res_type NOT IN ('BRUIT','PATTERN')
+    and ISNULL(cmi.subbrand,'')  <> ''
+ 
+     UNION ALL
+    SELECT DISTINCT CMI.part_no, SF.KYS attribute FROM #CMI CMI
+    JOIN dbo.cvo_specialty_fit AS sf ON SF.description = CMI.specialty_fit
+    JOIN #parts_to_add AS pta ON PTA.collection = CMI.Collection AND PTA.model = CMI.model
+    WHERE pta.res_type NOT IN ('BRUIT','PATTERN')
+    AND ISNULL(cmi.specialty_fit,'') <> ''
+    UNION ALL
+    SELECT DISTINCT CMI.part_no, SF.KYS attribute FROM #CMI CMI
+    JOIN dbo.cvo_specialty_fit AS sf ON SF.description = CMI.special_program
+    JOIN #parts_to_add AS pta ON PTA.collection = CMI.Collection AND PTA.model = CMI.model
+    WHERE pta.res_type NOT IN ('BRUIT','PATTERN')
+    AND ISNULL(cmi.special_program,'') <> ''
+
 
 -- do extra validations
 
@@ -2140,17 +2195,10 @@ BEGIN
 			from #ia where part_no = @last_part
 			AND NOT EXISTS ( SELECT 1 FROM dbo.inv_master_add ia WHERE ia.part_no = @last_part)
 		
-			-- 1/8/18 - part attributes support
-			INSERT INTO dbo.cvo_part_attributes
-			(
-			    part_no,
-			    attribute
-			)
-			SELECT DISTINCT part_no, field_32 FROM #ia WHERE part_no = @last_part
-			AND NOT EXISTS  ( SELECT 1 FROM dbo.cvo_part_attributes AS pa WHERE pa.part_no = #ia.part_no 
-										AND pa.attribute = #ia.field_32)
-										AND ISNULL(#ia.field_32,'') <> ''
-		
+
+
+
+            
 			INSERT INTO inv_master ( part_no, upc_code, description, vendor, category, type_code, 
 			status, cubic_feet, weight_ea, labor, uom, account, comm_type, void, entered_who, 
 			entered_date, std_cost, utility_cost, qc_flag, lb_tracking, rpt_uom, freight_unit, 
@@ -2369,6 +2417,33 @@ BEGIN
 	FROM #cvo_cmi_sku_xref c
 	WHERE NOT EXISTS (SELECT 1 FROM cvo_cmi_sku_xref WHERE dim_id = c.dim_id AND c.part_no IS NOT null)
 
+    -- fixup attributes
+    -- /*
+    -- 1/8/18 - part attributes support
+	INSERT INTO dbo.cvo_part_attributes
+	(
+		part_no,
+		attribute
+	)
+	SELECT DISTINCT part_no, a.attribute FROM #attrib AS a
+    WHERE NOT EXISTS (SELECT 1 FROM dbo.cvo_part_attributes AS pa WHERE pa.part_no = a.part_no AND pa.attribute = a.attribute)
+
+    UPDATe ia SET ia.FIELD_32 = pa.attribute
+    -- SELECT ia.part_no, field_32, pa.attribute 
+    FROM inv_master_add ia 
+    JOIN dbo.cvo_part_attributes AS pa ON pa.part_no = ia.part_no 
+    JOIN #attrib a ON a.part_no = ia.part_no
+    WHERE ia.field_32 IS NULL 
+
+    UPDATe ia SET ia.FIELD_32 = '[MULTIPLE]'
+    -- SELECT ia.part_no, field_32, pa.attribute, ia.field_2  
+    FROM DBO.inv_master_add ia 
+    JOIN #attrib a ON a.part_no = ia.part_no
+    JOIN dbo.cvo_part_attributes AS pa ON pa.part_no = ia.part_no 
+    WHERE ia.field_32 <> pa.attribute AND IA.FIELD_32 <> '[MULTIPLE]' AND IA.FIELD_32 IS NOT NULL
+    AND (SELECT COUNT(*) FROM dbo.cvo_part_attributes AS pa2 WHERE pa2.part_no = ia.part_no) > 1
+    -- */
+
 END -- update
 	
 
@@ -2421,6 +2496,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 
