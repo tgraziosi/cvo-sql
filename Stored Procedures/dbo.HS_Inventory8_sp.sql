@@ -39,6 +39,7 @@ GO
 -- 3/9/2018 - setup temp table for usage instead of joining to the function - performance.
 -- 4/27/18 - REVO SELLDOWN
 -- 5/23/2018 - ADD DD NYLON BANDS
+-- 08/23 - remove revo selldown
 -- =============================================
 
 CREATE PROCEDURE [dbo].[HS_Inventory8_sp]
@@ -191,6 +192,86 @@ BEGIN
 
     IF (OBJECT_ID('tempdb.dbo.#Data1') IS NOT NULL)
         DROP TABLE #Data1;
+
+    CREATE TABLE #Data1
+    (
+        sku                VARCHAR(30),
+        mastersku          VARCHAR(150),
+        name               VARCHAR(8000),
+        unitPrice          DECIMAL(10, 2),
+        minQty             INT,
+        multQty            INT,
+        manufacturer       VARCHAR(11),
+        barcode            VARCHAR(20),
+        longDesc           VARCHAR(8000),
+        variantdescription VARCHAR(8000),
+        imageURLs          VARCHAR(1),
+        [category:1]       VARCHAR(20),
+        [CATEGORY:2]       VARCHAR(40),
+        Color              VARCHAR(40),
+        Size               VARCHAR(20),
+        [|]                CHAR(1),
+        COLL               VARCHAR(12),
+        Model              VARCHAR(40),
+        POMDate            DATETIME,
+        ReleaseDate        DATETIME,
+        Status             CHAR(1),
+        GENDER             VARCHAR(5),
+        SpecialtyFit       VARCHAR(40),
+        APR                VARCHAR(1),
+        New                VARCHAR(3),
+        SUNPS              VARCHAR(5),
+        CostCo             VARCHAR(2),
+        POM                VARCHAR(3),
+        Kit                VARCHAR(3),
+        shelfqty           INTEGER,
+        ShelfQty2          INTEGER,
+        NextPODueDate      DATETIME,
+        NextPOOnOrder      INTEGER,
+        drp_usg            INTeger,
+        qty_avl            INTEGER,
+        New_shelfqty       INTEGER
+    );
+
+    INSERT INTO #Data1
+        (
+            sku,
+            mastersku,
+            name,
+            unitPrice,
+            minQty,
+            multQty,
+            manufacturer,
+            barcode,
+            longDesc,
+            variantdescription,
+            imageURLs,
+            [category:1],
+            [CATEGORY:2],
+            Color,
+            Size,
+            [|],
+            COLL,
+            Model,
+            POMDate,
+            ReleaseDate,
+            Status,
+            GENDER,
+            SpecialtyFit,
+            APR,
+            New,
+            SUNPS,
+            CostCo,
+            POM,
+            Kit,
+            shelfqty,
+            ShelfQty2,
+            NextPODueDate,
+            NextPOOnOrder,
+            drp_usg,
+            qty_avl,
+            New_shelfqty
+        )
 
     SELECT I.part_no AS sku,
 
@@ -386,13 +467,13 @@ ELSE '' END GENDER,
            -- 6/9/2016 for kit items to fake inventory # later
            CASE WHEN ISNULL(IA.field_30, '') = 'Y' THEN 'Kit' ELSE '' END AS Kit,
            0 AS shelfqty,
-           ISNULL(invupd.ShelfQty, '999') ShelfQty2,
+           CONVERT(INTEGER, ISNULL(invupd.ShelfQty, '999')) ShelfQty2,
            cia.NextPODueDate,
-           cia.NextPOOnOrder,
+           CONVERT(INTEGER, cia.NextPOOnOrder) nextpoonorder,
            ISNULL(drp.e12_wu, 0) drp_usg,
-           ISNULL(cia.qty_avl, 0) qty_avl,
-           CASE WHEN ISNULL(cia.qty_avl, 0) <= ISNULL(drp.e12_wu, 0) THEN 0 ELSE ISNULL(cia.qty_avl, 0) END AS New_shelfqty
-    INTO #Data1
+           CONVERT(INTEGER, ISNULL(cia.qty_avl, 0)) qty_avl,
+           CONVERT(INTEGER, CASE WHEN ISNULL(cia.qty_avl, 0) <= ISNULL(drp.e12_wu, 0) THEN 0 ELSE ISNULL(cia.qty_avl, 0) END) AS New_shelfqty
+    -- INTO #Data1
     FROM dbo.inv_master (NOLOCK) I
         JOIN dbo.inv_master_add (NOLOCK) IA
             ON IA.part_no = I.part_no
@@ -854,7 +935,8 @@ ELSE '' END GENDER,
                    -- WHEN ReleaseDate > GETDATE() AND sunps IN ('sunps','presell') THEN 1 -- 11/8/2017 for new presell season
                    WHEN [CATEGORY:2] = 'BLUTECH READERS' THEN 1                      -- 2/5/2018
 				   WHEN [category:1] = 'BCBGR SELLDWN' THEN 1
-				   WHEN [category:1] = 'REVO SELLDWN' AND @REVO > @TODAY THEN 1 -- 042718
+				   -- 8/23/18 - remove revo selldown --
+                   -- WHEN [category:1] = 'REVO SELLDWN' AND @REVO > @TODAY THEN 1 -- 042718
 				   ELSE 0
                END;
 
@@ -1230,21 +1312,24 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
     FROM dbo.cvo_hs_inventory_8 AS hsi
     WHERE [category:1] = 'ME SELL-DOWN';
 
-	UPDATE f SET [category:1] = 'REVO SELLDWN',
-	mastersku = mastersku+'SD',
-	hide = 0, f.MasterHIDE = 0
-	-- SELECT *
-	FROM dbo.cvo_hs_inventory_8  AS f
-	WHERE f.coll = 'revo'
-	AND f.SpecialtyFit = 'RevoSldwn'
-	AND [category:1] <> 'REVO SELLDWN';
+    -- 8/23/18 - remove revo selldown --
+	--UPDATE f SET [category:1] = 'REVO SELLDWN',
+	--mastersku = mastersku+'SD',
+	--hide = 0, f.MasterHIDE = 0
+	---- SELECT *
+	--FROM dbo.cvo_hs_inventory_8  AS f
+	--WHERE f.coll = 'revo'
+	--AND f.SpecialtyFit = 'RevoSldwn'
+	--AND [category:1] <> 'REVO SELLDWN';
 
 	UPDATE f SET NAME = REPLACE(NAME,'(RevoSldwn)',''), f.longdesc = REPLACE(longdesc,'(RevoSldwn)','')
 	-- SELECT *
 	FROM dbo.cvo_hs_inventory_8  AS f
 	WHERE f.coll = 'revo'
-	AND f.SpecialtyFit <> 'RevoSldwn'
-	AND [category:1] <> 'REVO SELLDWN';
+    AND (name LIKE '%revosldwn%' OR longdesc LIKE '%revosldwn%');
+
+	--AND f.SpecialtyFit <> 'RevoSldwn'
+	--AND [category:1] <> 'REVO SELLDWN';
 
 	UPDATE hsi
         SET [category:1] = 'KIDS SELLDWN'
@@ -1254,6 +1339,7 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 
 
 END;
+
 
 
 

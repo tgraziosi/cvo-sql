@@ -132,12 +132,14 @@ SELECT ISNULL(i.category, '') AS Brand,
        inv.order_multiple,
        ia.field_26 ReleaseDate,
        ia.field_28 POM_date,
-       ISNULL(ia.category_1, 'N') Watch,
+       -- 082418  - we dont use watch anymore
+       'N' Watch,
        CASE WHEN (
                  ia.field_28 IS NULL
                  OR ia.field_28 > GETDATE()
                  )
-                 AND 'N' = ISNULL(ia.category_1, 'N') THEN 'Current' ELSE 'Disc'
+                 -- AND 'N' = ISNULL(ia.category_1, 'N') 
+                 THEN 'Current' ELSE 'Disc'
        END plc_status,
        ia.category_2 Gender,
        ia.field_10 Material,
@@ -274,6 +276,7 @@ FROM dbo.inv_master i (NOLOCK)
 
 WHERE inv.void <> 'V';
 -- and T3.LOCATION = '001'
+
 GO
 
 

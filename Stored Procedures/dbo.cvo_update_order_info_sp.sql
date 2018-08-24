@@ -16,7 +16,8 @@ CREATE PROC [dbo].[cvo_update_order_info_sp]	@order_no				int,
 											@sold_to				varchar(10),	
 											@sch_ship_date			datetime,
 											@note					varchar(255),
-											@special_instr			varchar(255)
+											@special_instr			varchar(255),
+											@delivery_date			datetime -- v1.4
 
 AS
 BEGIN
@@ -38,6 +39,7 @@ BEGIN
 			@o_terms_code			varchar(10),
 			@o_sold_to				varchar(10),	
 			@o_sch_ship_date		datetime,
+			@o_req_ship_date		datetime, -- v1.4
 			@o_note					varchar(255),
 			@o_special_instr		varchar(255),
 			@status					char(1),
@@ -62,7 +64,8 @@ BEGIN
 			@o_sch_ship_date = sch_ship_date,
 			@o_note	= ISNULL(note,''),
 			@o_special_instr = ISNULL(special_instr,''),
-			@status = status
+			@status = status,
+			@o_req_ship_date = req_ship_date -- v1.4
 	FROM	orders_all (NOLOCK)
 	WHERE	order_no = @order_no
 	AND		ext = @order_ext
@@ -177,6 +180,13 @@ BEGIN
 		SET @SQL = @SQL + "sch_ship_date = '" + CONVERT(varchar(10),@sch_ship_date,120) + "',"
 		SET @has_update = 1
 	END
+	-- v1.4 Start
+	IF (@o_req_ship_date <> @delivery_date)
+	BEGIN
+		SET @SQL = @SQL + "req_ship_date = '" + CONVERT(varchar(10),@delivery_date,120) + "',"
+		SET @has_update = 1
+	END
+	-- v1.4 End
 	IF (@o_note <> @note)
 	BEGIN
 		SET @SQL = @SQL + "note = '" + @note + "',"

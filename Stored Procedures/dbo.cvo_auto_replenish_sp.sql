@@ -31,7 +31,7 @@ DECLARE
 		@replen_id INT
            
 IF @replen_group IS NULL SELECT @replen_group = 'HB --> FP (Frames)'
-IF @fill_to_max_ind IS NULL SELECT @fill_to_max_ind = 'N'
+IF @fill_to_max_ind IS NULL SELECT @fill_to_max_ind = 'Y'
 
 IF ( OBJECT_ID('tempdb..#temp_bin_list') IS NOT NULL )
     DROP TABLE #temp_bin_list;  
@@ -203,6 +203,7 @@ FROM #rep_bin_move_detail
 
 -- SELECT * FROM dbo.cvo_replenish_schedule AS rs
 END
+
 
 
 

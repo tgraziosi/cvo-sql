@@ -9,6 +9,8 @@ GO
 -- exec cvo_frames_data_extract_sp '1/1/1900', 'bcbg'
 -- 4/2015 - update for CMI
 -- 10/15 - update to pull from epicor if not in cmi - (revo support)
+-- 082418 - swap columns AG and A to columns K and L for sun lens info
+
 -- =============================================
 -- select distinct field_26 from inv_master_add order by field_26 desc
 -- grant execute on cvo_frames_data_extract_sp to public
@@ -297,9 +299,25 @@ AS
                                      -- J
                  ' ' AS Frame_color_code ,
                                      -- K
+                 -- 082418 move sunlens info here 
                  ' ' AS Lens_color_code ,
+                 Lens_color_code = CASE WHEN i.type_code = 'sun' THEN
+                                               CASE WHEN ISNULL(ia.field_24, '') LIKE '%polycarb%' THEN
+                                                        'Polycarbonate'
+                                                    WHEN ISNULL(ia.field_24, '') LIKE '%CR39%' THEN
+                                                        'CR-39'
+                                                    WHEN i.category = 'revo' THEN
+                                                        ISNULL(ia.field_24, '') -- 03/28/2016
+                                                    ELSE '????'
+                                               END
+                                           ELSE ''
+                                      END ,
                                      -- L
-                 ' ' AS LENS_COLOR_DESCRIPTION ,
+                 -- ' ' AS LENS_COLOR_DESCRIPTION ,
+                 LENS_COLOR_DESCRIPTION = CASE WHEN i.type_code = 'sun' THEN
+                                                 ISNULL(ia.field_23, '????')
+                                             ELSE ' '
+                                        END ,
                                      -- M
                                      -- cast(ia.field_17 as int) as Eye_Size,
                  CAST(cast(ISNULL(cmi.eye_size, ISNULL(ia.field_17, 0.0)) AS FLOAT) AS VARCHAR(5)) AS Eye_Size ,
@@ -393,24 +411,9 @@ AS
                                      -- AF
                  ' ' AS Bridge_Description ,
                                      -- AG
-                                     --'' as Sunglass_Lens_type,
-                 Sunglass_Lens_type = CASE WHEN i.type_code = 'sun' THEN
-                                               CASE WHEN ISNULL(ia.field_24, '') LIKE '%polycarb%' THEN
-                                                        'Polycarbonate'
-                                                    WHEN ISNULL(ia.field_24, '') LIKE '%CR39%' THEN
-                                                        'CR-39'
-                                                    WHEN i.category = 'revo' THEN
-                                                        ISNULL(ia.field_24, '') -- 03/28/2016
-                                                    ELSE '????'
-                                               END
-                                           ELSE ''
-                                      END ,
+                 ' ' as Sunglass_Lens_type,
                                      --AH
-                                     -- '' as Sun_lens_description,
-                 Sun_lens_description = CASE WHEN i.type_code = 'sun' THEN
-                                                 ISNULL(ia.field_23, '????')
-                                             ELSE ' '
-                                        END ,
+                 ' ' as Sun_lens_description,
                                      --AI
                  ' ' AS Trim_type ,
                                      -- AJ 
@@ -566,6 +569,7 @@ AS
     -- tempdb..sp_help #framesdatalist
 
     END;
+
 
 
 

@@ -274,7 +274,7 @@ INSERT  INTO #parts_list
                 UPPER(c.Collection) collection ,
                 UPPER(c.model) model ,
                 UPPER(smn.short_model) short_model ,
-                '' ,
+                NULL ,
                 0 ,
                 NULL ,
                 'BRUIT' ,
@@ -2496,6 +2496,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

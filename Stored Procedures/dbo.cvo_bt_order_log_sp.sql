@@ -14,18 +14,23 @@ BEGIN
 ;WITH bt
 AS
 (
-SELECT MAX(CASE WHEN col.add_polarized = 'y' THEN ol.part_no ELSE '' END) frame,
-       MAX(CASE WHEN col.is_polarized = 1 THEN ol.part_no ELSE '' END) lens,
+SELECT MAX(CASE WHEN (i.category = 'bt' OR col.add_polarized = 'y') AND i.type_code IN ('frame','sun') THEN ol.part_no ELSE '' END) frame,
+       MAX(CASE WHEN col.is_polarized = 1 AND i.category = 'bt' AND i.type_code = 'lens' THEN ol.part_no ELSE '' END) lens,
        ol.order_no,
-       ol.order_ext
+       ol.order_ext,
+       o.user_category,
+       SUM(ol.ordered) qty_ord
 FROM dbo.ord_list ol (nolock)
+    JOIN orders o (NOLOCK) ON o.order_no = ol.order_no AND o.ext = ol.order_ext
     JOIN dbo.CVO_ord_list col (nolock)
         ON col.order_no = ol.order_no
            AND col.order_ext = ol.order_ext
            AND col.line_no = ol.line_no
     JOIN dbo.inv_master i (nolock)
         ON i.part_no = ol.part_no
-WHERE ol.status ='T'
+WHERE ol.status ='T' AND o.type = 'i'
+      AND O.who_entered <> 'BACKORDR'
+      AND i.type_code IN ('frame','sun','lens')
       AND
       (
       col.add_polarized = 'Y'
@@ -35,19 +40,29 @@ WHERE ol.status ='T'
       AND i.category = 'bt'
       AND i.type_code = 'lens'
       )
+      OR i.category = 'bt'
       )
 GROUP BY ol.order_no,
-         ol.order_ext
-HAVING MAX(CASE WHEN col.is_polarized = 1 THEN ol.part_no ELSE '' END) <> ''
-       AND MAX(CASE WHEN col.add_polarized = 'y' THEN ol.part_no ELSE '' END) <> ''
+         ol.order_ext,
+         o.user_category
+HAVING MAX(CASE WHEN (i.category = 'bt' OR col.add_polarized = 'y') AND i.type_code IN ('frame','sun') THEN ol.part_no ELSE '' END) <> ''
+
 )
-SELECT bt.frame,
+SELECT CASE WHEN iframe.category = 'bt' AND iframe.part_no LIKE '%F1' AND ISNULL(bt.lens,'') <> '' THEN 'BT Readers'
+            WHEN iframe.category = 'bt' THEN 'BT Plano'
+            WHEN iframe.category <> 'BT' AND ISNULL(bt.lens,'') <> '' THEN 'Make it BT'
+            ELSE ' ' END
+            AS SalesType,
+        IFRAME.category BRAND,
+       bt.frame,
         frame.field_2 model,
         iframe.type_code,
        bt.lens,
         lens.description,
        bt.order_no,
        bt.order_ext,
+       bt.user_category,
+       BT.qty_ord,
        o.ship_to_name,
        o.date_entered,
        o.date_shipped,
@@ -65,10 +80,11 @@ FROM bt
            AND co.ext = o.ext
     JOIN inv_master_add frame (NOLOCK) ON frame.part_no = bt.frame
     JOIN inv_master iframe (NOLOCK) ON iframe.part_no = bt.frame
-    JOIN inv_master lens (NOLOCK) ON lens.part_no = bt.lens
+    LEFT OUTER JOIN inv_master lens (NOLOCK) ON lens.part_no = bt.lens
     WHERE o.status = 'T'
     AND RIGHT(o.user_category,2) <> 'RB'
     AND o.date_entered BETWEEN @startdate AND @enddate
+    AND (iframe.category = 'bt' OR (iframe.category <> 'bt' AND ISNULL(lens.part_no,'') > ''))
     ;
 
     END
