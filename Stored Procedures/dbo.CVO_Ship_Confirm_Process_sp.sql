@@ -2,7 +2,10 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
--- v1.1 CT 30/07/2012 - Remove inserts/deletes of tdc_config option mod_ebo_inv
+--SET QUOTED_IDENTIFIER ON
+--SET ANSI_NULLS ON
+--GO
+---- v1.1 CT 30/07/2012 - Remove inserts/deletes of tdc_config option mod_ebo_inv
 
 CREATE proc [dbo].[CVO_Ship_Confirm_Process_sp]
 AS
@@ -80,7 +83,7 @@ BEGIN
 	END
 
 	-- Set the user id
-	SET @user_id = suser_name()	
+	SET @user_id = suser_name()	 
 
 	-- Used by WMS - Run as manager
 	INSERT INTO #temp_who (who, login_id) VALUES ('manager', 'manager')
@@ -207,6 +210,7 @@ BEGIN
 		DROP TABLE #xfersToShip
 
 END
+
 GO
 GRANT EXECUTE ON  [dbo].[CVO_Ship_Confirm_Process_sp] TO [public]
 GO

@@ -8,7 +8,7 @@ GO
 -- Create date: 2/20/2013
 -- Description:	Handshake Main Customer Data
 -- EXEC hs_cust_tbl_sp
--- select * From hs_cust_tbl where modified_by_date > '10/18/2016'
+-- select * From hs_cust_tbl where modified_flag = 1
 -- tag - 071213 - create a regular table instead of temp table
 -- tag - 8/21/2015 - add sales rep customer accounts
 -- tag - 10/18/2016 - use insert/update logic instead of rebuild
@@ -24,23 +24,41 @@ BEGIN
 	SELECT @today  = GETDATE()
 
 	
-	IF(OBJECT_ID('#userGroup') is not null) DROP table t#AllTerr
+	IF(OBJECT_ID('tempdb.dbo.#userGroup') is not null) DROP table #userGroup;
+
+    CREATE TABLE #userGroup
+    (
+        customer_code VARCHAR(10),
+        AllTerr       NVARCHAR(MAX)
+    );
+
       ;WITH C AS 
 			( SELECT DISTINCT ar.territory_code, ar.customer_code 
 			from
-            ( SELECT DISTINCT territory_code FROM arterr (NOLOCK) 
-			   WHERE dbo.calculate_region_fn(territory_code) < '800') Terr
+            ( SELECT DISTINCT territory_code FROM dbo.arterr (NOLOCK) 
+			   WHERE dbo.calculate_region_fn(territory_code) < '800'
+            ) Terr
 			   join
-			( SELECT distinct customer_code, territory_code FROM armaster (nolock) ) ar
+			( SELECT distinct customer_code, territory_code FROM armaster (nolock)
+                WHERE address_type <> 9 
+                   UNION ALL
+            -- get the "covering" territories in play
+            SELECT DISTINCT customer_code, RIGHT(code,5) territory
+            FROM dbo.cvo_cust_designation_codes AS cdc WHERE code LIKE 'T-%'
+            ) ar
 			  ON terr.territory_code = ar.territory_code
-			)	
+            )
+            INSERT INTO #userGroup
+                (
+                    customer_code,
+                    AllTerr
+                )
             select Distinct customer_code,
                               STUFF ( ( SELECT distinct ',' + territory_code
-                              FROM armaster (nolock)
-                              WHERE customer_code = C.customer_code
+                              FROM c AS cc
+                               WHERE cc.customer_code = C.customer_code
                              FOR XML PATH ('') ), 1, 1, ''  ) AS AllTerr
-      INTO #userGroup
-      FROM C
+            FROM C
 
 	  -- add sales rep customers too - 8/19/2015
 	  INSERT INTO #userGroup  (customer_code, AllTerr)
@@ -311,6 +329,7 @@ SELECT h.id ,
 
 
 END
+
 
 
 

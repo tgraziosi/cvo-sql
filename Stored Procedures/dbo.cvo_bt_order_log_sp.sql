@@ -2,12 +2,13 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[cvo_bt_order_log_sp] 
-@startdate DATETIME, @enddate DATETIME
+CREATE PROCEDURE [dbo].[cvo_bt_order_log_sp] @startdate DATETIME, @enddate DATETIME
 
 AS 
 
 SET NOCOUNT ON
+
+-- exec cvo_bt_order_log_sp '1/1/2018','8/31/2018'
 
 BEGIN
 
@@ -45,11 +46,13 @@ WHERE ol.status ='T' AND o.type = 'i'
 GROUP BY ol.order_no,
          ol.order_ext,
          o.user_category
+         
+
 HAVING MAX(CASE WHEN (i.category = 'bt' OR col.add_polarized = 'y') AND i.type_code IN ('frame','sun') THEN ol.part_no ELSE '' END) <> ''
 
 )
 SELECT CASE WHEN iframe.category = 'bt' AND iframe.part_no LIKE '%F1' AND ISNULL(bt.lens,'') <> '' THEN 'BT Readers'
-            WHEN iframe.category = 'bt' THEN 'BT Plano'
+            WHEN iframe.category = 'bt' AND (CHARINDEX('plano',lens.description)>0 OR ISNULL(bt.lens,'') = '') THEN 'BT Plano'
             WHEN iframe.category <> 'BT' AND ISNULL(bt.lens,'') <> '' THEN 'Make it BT'
             ELSE ' ' END
             AS SalesType,
@@ -58,7 +61,19 @@ SELECT CASE WHEN iframe.category = 'bt' AND iframe.part_no LIKE '%F1' AND ISNULL
         frame.field_2 model,
         iframe.type_code,
        bt.lens,
-        lens.description,
+       ISNULL(CASE WHEN CHARINDEX('plano', lens.description) > 0 THEN 'PLANO '
+                    WHEN CHARINDEX('reader', lens.description) > 0 THEN 'READER '
+                    ELSE '' END, '')
+                    +
+       ISNULL(CASE WHEN CHARINDEX('ULTRA', lens.description) > 0 THEN 'ULTRA'
+                    WHEN CHARINDEX('MAXX', lens.description) > 0 THEN 'MAXX'
+                    WHEN CHARINDEX('CLASSIC', lens.description) > 0 THEN 'CLASSIC'
+                    ELSE '' END, '')
+                    +
+       ISNULL(CASE WHEN 
+            CASE WHEN CHARINDEX('+',LENS.description) > 0 THEN SUBSTRING(LENS.DESCRIPTION, CHARINDEX('+',LENS.description) + 1,3) ELSE '' END 
+            = '50' THEN ' 50' ELSE '' END, '') 
+       lens_description,
        bt.order_no,
        bt.order_ext,
        bt.user_category,
@@ -90,6 +105,7 @@ FROM bt
     END
     
     GRANT EXECUTE ON cvo_bt_order_log_sp  TO public
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_bt_order_log_sp] TO [public]
 GO

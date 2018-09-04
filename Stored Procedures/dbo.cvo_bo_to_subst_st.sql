@@ -104,6 +104,7 @@ BEGIN
           AND ISNULL(iav.qty_avl, 0) <= 0
           AND ISNULL(car.allow_substitutes, 0) = 1
 		  and ar.addr_sort1 <> 'Key Account' -- 032718 per Km request
+          AND ar.addr_sort1 <> 'Intl Retailer' -- 083118       
           AND o.type = 'i'
           -- and o.who_entered in ('backordr','outofstock')
           AND o.sch_ship_date < @today
@@ -649,6 +650,7 @@ BEGIN
              order_no;
 
 END;
+
 
 
 

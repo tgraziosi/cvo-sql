@@ -12,6 +12,7 @@ GO
 -- v1.8 CB 12/02/2014 - Issue 1349 - RA# - Copy ra1 field for credit returns into the cust po field
 -- v1.9 CB 15/07/2014 - Fix issue with discount rounding
 -- v2.0 CB 14/11/2017 - Remove CVO_qty_to_alloc_tbl records
+-- v2.1 CB 03/09/2018 - Correct freight values on Rebills after posting
 CREATE PROCEDURE [dbo].[adm_post_ar_work] 
 @user_id int,			@user varchar(30),			@post_batch_id int,
 @process_ctrl_num varchar(16) ,	@trx_type smallint,			@AR_INCL_NON_TAX char(1) = NULL OUT,
@@ -804,6 +805,37 @@ ON		a.order_no = b.order_no
 AND		a.order_ext = b.ext
 WHERE	b.status in ('T','V')
 -- v2.0 End
+
+-- v2.1 Start
+IF OBJECT_ID('tempdb..#cvo_freight_calc') IS NOT NULL
+	DROP TABLE #cvo_freight_calc
+
+CREATE TABLE #cvo_freight_calc (
+	order_no	int,
+	order_ext	int,
+	freight		decimal(20,8),
+	ar_freight	decimal(20,8))
+
+INSERT	#cvo_freight_calc (order_no, order_ext, freight, ar_freight)
+SELECT	a.order_no, a.ext, a.freight, b.amt_freight
+FROM	orders_all a (NOLOCK)
+JOIN	artrx b (NOLOCK)
+ON		CAST(a.order_no as varchar(20)) + '-' + CAST(a.ext as varchar(10)) = b.order_ctrl_num
+WHERE	a.user_category LIKE '%-RB'
+AND		a.status = 'T'
+AND		a.freight = 0
+AND		b.amt_freight <> 0
+AND		a.invoice_date > (GETDATE() - 40)
+
+UPDATE	a
+SET		freight = b.ar_freight
+FROM	orders_all a
+JOIN	#cvo_freight_calc b
+ON		a.order_no = b.order_no
+AND		a.ext = b.order_ext
+
+DROP TABLE #cvo_freight_calc
+-- v2.1 End
 
 return 
 GO

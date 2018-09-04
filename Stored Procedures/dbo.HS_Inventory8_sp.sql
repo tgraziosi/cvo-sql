@@ -9,7 +9,7 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT * FROM dbo.cvo_hs_inventory_8 WHERE coll = 'DD' AND [CATEGORY:1] = 'REVO SELLDWN' SKU LIKE 'DD%' where [category:1] = 'sun' where  ReleaseDate > '1/1/2018' AND SpecialtyFit = '[multiple]'
+-- SELECT * FROM dbo.cvo_hs_inventory_8 WHERE coll = 'bcbgr' AND [CATEGORY:1] = 'REVO SELLDWN' SKU LIKE 'DD%' where [category:1] = 'sun' where  ReleaseDate > '1/1/2018' AND SpecialtyFit = '[multiple]'
 -- SELECT DISTINCT [category:1],[category:2] FROM dbo.cvo_hs_inventory_8 AS hi WHERE [hi].[category:1] = 'sun'
 -- DROP TABLE dbo.cvo_hs_inventory_8
 -- 		
@@ -40,6 +40,8 @@ GO
 -- 4/27/18 - REVO SELLDOWN
 -- 5/23/2018 - ADD DD NYLON BANDS
 -- 08/23 - remove revo selldown
+-- 8/28 - new revo special values
+-- 8/29 - bcbg retail SV for VEW
 -- =============================================
 
 CREATE PROCEDURE [dbo].[HS_Inventory8_sp]
@@ -58,7 +60,7 @@ BEGIN
             @ME DATETIME,
             @UN DATETIME,
             @kodi DATETIME,
-			@revo datetime;
+			@revosv datetime;
 
 		DECLARE @EOS TABLE
     (
@@ -82,7 +84,7 @@ BEGIN
     -- SET @ME = '10/06/2016'; -- START OF me SELL-DOWN PERIOD
     SET @UN = '12/31/2016';
     SET @kodi = '7/3/2017'; -- KO and DI selldown start
-	SET @revo = '4/30/2018';
+	SET @revosv = '08/31/2018 12:00';
 
 
     INSERT INTO @EOS (	Columnn, Prog, Brand, Style, part_no, pom_date, Gender, Avail, ReserveQty, TrueAvail_2, TrueAvail)
@@ -310,6 +312,7 @@ BEGIN
                            WHERE pa.part_no = IA.part_no
                                  AND pa.attribute = 'Pogocam'
                            ) THEN 'POGOTEC'                 -- 9/11/2017
+               
                WHEN I.type_code IN ( 'other', 'POP' ) THEN 'POP' ELSE 'CLEARVISION'
            END AS manufacturer,
            I.upc_code AS barcode,
@@ -651,6 +654,8 @@ ELSE '' END GENDER,
     WHERE [CATEGORY:2] = 'BLUTECH READERS';
 
 
+    
+
     -- PULL ALL SPECS for STYLE together
     IF (OBJECT_ID('tempdb.dbo.#Spec') IS NOT NULL)
         DROP TABLE #Spec;
@@ -934,9 +939,9 @@ ELSE '' END GENDER,
                                                                                      -- 9/7/2016 WHEN mastersku IN ('iz2026','iz2027') THEN 1 -- new iz t&C kit
                    -- WHEN ReleaseDate > GETDATE() AND sunps IN ('sunps','presell') THEN 1 -- 11/8/2017 for new presell season
                    WHEN [CATEGORY:2] = 'BLUTECH READERS' THEN 1                      -- 2/5/2018
-				   WHEN [category:1] = 'BCBGR SELLDWN' THEN 1
+				   WHEN [category:1] = 'BCBGR SELLDWN' AND (@today < '9/25/2018' OR @today >= '10/1/2018') THEN 1 -- VEW 2018
 				   -- 8/23/18 - remove revo selldown --
-                   -- WHEN [category:1] = 'REVO SELLDWN' AND @REVO > @TODAY THEN 1 -- 042718
+                   -- WHEN [category:1] = 'REVO SELLDWN' AND @revosv > @TODAY THEN 1 -- 042718
 				   ELSE 0
                END;
 
@@ -970,6 +975,11 @@ ELSE '' END GENDER,
           AND [CATEGORY:2] IN ( 'revo', 'aspire', 'blutech' )
           )
           OR sku = 'ascolocustom';
+
+    UPDATE D
+    SET D.manufacturer = 'BCBGR SV'
+    FROM #FINAL D
+    WHERE COLL = 'BCBG' AND CHARINDEX('retail',longdesc) > 0 AND CHARINDEX('ssv',longdesc) > 0;
 
 
 		   
@@ -1312,21 +1322,25 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
     FROM dbo.cvo_hs_inventory_8 AS hsi
     WHERE [category:1] = 'ME SELL-DOWN';
 
-    -- 8/23/18 - remove revo selldown --
-	--UPDATE f SET [category:1] = 'REVO SELLDWN',
-	--mastersku = mastersku+'SD',
-	--hide = 0, f.MasterHIDE = 0
-	---- SELECT *
-	--FROM dbo.cvo_hs_inventory_8  AS f
-	--WHERE f.coll = 'revo'
-	--AND f.SpecialtyFit = 'RevoSldwn'
-	--AND [category:1] <> 'REVO SELLDWN';
+    --  8/23/18 - remove revo selldown --
+    -- 8/29 - SET UP REVO SPECIAL VALUES
+    IF @revosv <= GETDATE() 
+    begin
+	    UPDATE f SET [category:1] = 'REVO S.VALU',
+	    mastersku = mastersku+'SV',
+	    hide = 0, f.MasterHIDE = 0
+	    -- SELECT *
+	    FROM dbo.cvo_hs_inventory_8  AS f
+	    WHERE f.coll = 'revo'
+	    AND f.SpecialtyFit = 'SSV'
+	    AND [category:1] <> 'REVO S.VALU';
+    END;
 
-	UPDATE f SET NAME = REPLACE(NAME,'(RevoSldwn)',''), f.longdesc = REPLACE(longdesc,'(RevoSldwn)','')
+	UPDATE f SET NAME = REPLACE(NAME,'(SSV)',''), f.longdesc = REPLACE(longdesc,'(SSV)','')
 	-- SELECT *
 	FROM dbo.cvo_hs_inventory_8  AS f
 	WHERE f.coll = 'revo'
-    AND (name LIKE '%revosldwn%' OR longdesc LIKE '%revosldwn%');
+    AND (name LIKE '%SSV%' OR longdesc LIKE '%SSV%');
 
 	--AND f.SpecialtyFit <> 'RevoSldwn'
 	--AND [category:1] <> 'REVO SELLDWN';
@@ -1339,6 +1353,8 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
 
 
 END;
+
+
 
 
 

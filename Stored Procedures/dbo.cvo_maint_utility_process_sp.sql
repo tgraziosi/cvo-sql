@@ -57,6 +57,7 @@ BEGIN
 		WHERE	usage_type_code = 'REPLENISH'
 		AND		group_code NOT IN ('PICKAREA','RESERVE')
 		AND		rec_type = -1
+        AND     @bin_repl_max + @bin_repl_min + @bin_repl_qty + @fill_qty_max > 0 -- ok to do if we're deleting ...
 
 		UPDATE	#MaintUtil_File
 		SET		rec_type = 0,
@@ -179,7 +180,7 @@ BEGIN
 			END
 			
 			IF (@usage_type = 'REPLENISH' AND @group_code = 'RESERVE')
-			OR ( @usage_type = 'OPEN' AND @group_code = 'HIGHBAY' ) -- tag 2/2017
+			OR (@usage_type = 'OPEN' AND @group_code IN ('HIGHBAY','BULK') )-- tag 2/2017
 			BEGIN
 				IF (@fill_qty_max > 0)
 				BEGIN
@@ -398,6 +399,8 @@ BEGIN
 	END
 	
 END
+
+
 
 
 GO

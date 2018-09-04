@@ -190,7 +190,7 @@ begin
 	 and i.category = @br 
 	 and exists (select 1 from cvo_part_attributes pa where pa.part_no = i.part_no and pa.attribute = isnull(@att,pa.attribute))
 	 and s.dateordered = @fo
-	 and s.user_category like 'ST%' and right(s.user_category,2) <> 'rb'
+	 and s.user_category like 'ST%' -- and right(s.user_category,2) <> 'rb'
 	 and isnull(s.promo_id,'') not in ('ff','pc','style out')
 	 and i.type_code in ('frame','sun')
 	 group by isnull(s.promo_id,'') , isnull(s.promo_level,'')
@@ -292,6 +292,7 @@ select #t.id,
 
 
  END;
+
 
 
 
