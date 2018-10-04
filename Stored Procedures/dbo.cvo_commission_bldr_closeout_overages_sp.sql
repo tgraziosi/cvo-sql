@@ -8,7 +8,9 @@ CREATE PROCEDURE [dbo].[cvo_commission_bldr_closeout_overages_sp]
     @enddate DATETIME = NULL
 )
 AS
-BEGIN
+BEGIN 
+
+-- exec cvo_commission_bldr_closeout_overages_sp '8/1/2018', '8/31/2018'
 
     SET NOCOUNT ON;
     SET ANSI_WARNINGS OFF;
@@ -98,7 +100,7 @@ BEGIN
            SUM(ipa.ExtPrice) extprice,
            SUM(Shipped) shipped,
            SUM(ipa.ordered) ordered,
-           CASE WHEN SUM(Shipped) <> 0 THEN SUM(ExtPrice) / SUM(Shipped) ELSE 0 END net_price_calc
+           CASE WHEN SUM(ordered) <> 0 THEN SUM(ExtPrice) / SUM(ordered) ELSE 0 END net_price_calc
     FROM
     (SELECT DISTINCT Order_no, Ext FROM #cb) ord
         JOIN dbo.cvo_item_pricing_analysis AS ipa
@@ -163,6 +165,7 @@ BEGIN
 END;
 
 GRANT EXECUTE ON cvo_commission_bldr_closeout_overages_sp TO PUBLIC;
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_commission_bldr_closeout_overages_sp] TO [public]
 GO

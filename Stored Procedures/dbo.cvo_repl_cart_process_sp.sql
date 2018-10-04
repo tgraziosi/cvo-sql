@@ -2,7 +2,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-create PROCEDURE [dbo].[cvo_repl_cart_process_sp]
+CREATE PROCEDURE [dbo].[cvo_repl_cart_process_sp]
 (
     @tran_id INT
 )
@@ -177,7 +177,7 @@ BEGIN
             data
         )
         SELECT crq.put_time,
-               crq.put_user,
+               cu.user_login,
                'CO',
                'QTX',
                'QBN2BN',
@@ -192,10 +192,11 @@ BEGIN
         FROM dbo.cvo_cart_replenish_queue AS crq
             JOIN tdc_pick_queue tpq
                 ON tpq.tran_id = crq.tran_id
+                LEFT OUTER JOIN cvo_cmi_users cu ON crq.put_user = cu.fname + ' ' + cu.lname 
         WHERE crq.tran_id = @tran_id
         UNION ALL
         SELECT crq.pick_time,
-               crq.pick_user,
+               cu.user_login,
                'CO',
                'QTX',
                'QBN2BN',
@@ -210,6 +211,7 @@ BEGIN
         FROM dbo.cvo_cart_replenish_queue AS crq
             JOIN tdc_pick_queue tpq
                 ON tpq.tran_id = crq.tran_id
+                LEFT OUTER JOIN cvo_cmi_users cu ON crq.pick_user = cu.fname + ' ' + cu.lname 
         WHERE crq.tran_id = @tran_id;
 
         -- remove the pick from the queue
@@ -221,6 +223,7 @@ BEGIN
 
 
 END; -- procedure
+
 
 
 

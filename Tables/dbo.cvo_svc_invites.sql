@@ -19,7 +19,11 @@ CREATE TABLE [dbo].[cvo_svc_invites]
 [is_read] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__is_re__6C56061C] DEFAULT ('0'),
 [date_read] [datetime] NULL,
 [isOpened] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__isOpe__6D4A2A55] DEFAULT ('0'),
-[date_opened] [datetime] NULL
+[date_opened] [datetime] NULL,
+[bch] [tinyint] NULL CONSTRAINT [DF__cvo_svc_inv__bch__3A005BD0] DEFAULT ((0)),
+[bch_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__bch_s__3AF48009] DEFAULT ((1)),
+[bch_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__bch_o__3BE8A442] DEFAULT ((36)),
+[cst_bch] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__cst_b__3CDCC87B] DEFAULT ((0))
 ) ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_svc_invites] ADD CONSTRAINT [PK__cvo_svc_invites__69799971] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

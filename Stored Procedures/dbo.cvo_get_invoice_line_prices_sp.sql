@@ -245,6 +245,8 @@ BEGIN
 	-- v2.9 Start
 	IF (@quote_net_only IS NULL)
 		SET @quote_net_only = 'N'
+	IF (@IsPromo IS NULL)
+		SET @IsPromo = 0
 	-- v2.9 End
 	
 	IF (@IsBg = 1) -- BG

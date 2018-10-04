@@ -93,6 +93,26 @@ CREATE TABLE [dbo].[cvo_svc_invitations]
 [kds] [tinyint] NULL CONSTRAINT [DF__cvo_svc_inv__kds__0E36E82B] DEFAULT ((0)),
 [kds_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__kds_s__0F2B0C64] DEFAULT ((1)),
 [kds_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__kds_o__101F309D] DEFAULT ((20)),
-[cst_kds] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__cst_k__111354D6] DEFAULT ((0))
+[cst_kds] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__cst_k__111354D6] DEFAULT ((0)),
+[bch] [tinyint] NULL CONSTRAINT [DF__cvo_svc_inv__bch__3DD0ECB4] DEFAULT ((0)),
+[bch_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__bch_s__3EC510ED] DEFAULT ((1)),
+[bch_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__bch_o__3FB93526] DEFAULT ((36)),
+[cst_bch] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__cst_b__40AD595F] DEFAULT ((0)),
+[bsp] [tinyint] NULL CONSTRAINT [DF__cvo_svc_inv__bsp__54B4520C] DEFAULT ((0)),
+[bsp_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__bsp_s__55A87645] DEFAULT ((0)),
+[bsp_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__bsp_o__569C9A7E] DEFAULT ((0)),
+[bnc] [tinyint] NULL CONSTRAINT [DF__cvo_svc_inv__bnc__5790BEB7] DEFAULT ((0)),
+[bnc_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__bnc_s__5884E2F0] DEFAULT ((0)),
+[bnc_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__bnc_o__59790729] DEFAULT ((0)),
+[bpc] [tinyint] NULL CONSTRAINT [DF__cvo_svc_inv__bpc__5A6D2B62] DEFAULT ((0)),
+[bpc_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__bpc_s__5B614F9B] DEFAULT ((0)),
+[bpc_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__bpc_o__5C5573D4] DEFAULT ((0)),
+[cst_bsp] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__cst_b__5D49980D] DEFAULT ((0)),
+[cst_bnc] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__cst_b__5E3DBC46] DEFAULT ((0)),
+[cst_bpc] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__cst_b__5F31E07F] DEFAULT ((0)),
+[bsn] [tinyint] NULL CONSTRAINT [DF__cvo_svc_inv__bsn__602604B8] DEFAULT ((0)),
+[bsn_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__bsn_s__611A28F1] DEFAULT ((0)),
+[bsn_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__bsn_o__620E4D2A] DEFAULT ((0)),
+[cst_bsn] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__cst_b__63027163] DEFAULT ((0))
 ) ON [PRIMARY]
 GO

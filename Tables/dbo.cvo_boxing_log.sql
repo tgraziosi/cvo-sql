@@ -5,7 +5,7 @@ CREATE TABLE [dbo].[cvo_boxing_log]
 [bcode_user] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [sku] [varchar] (16) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [upc] [varchar] (18) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[name] [varchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[name] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [isPrinted] [tinyint] NULL CONSTRAINT [DF__cvo_boxin__isPri__05A1A22A] DEFAULT ('0'),
 [isVoided] [tinyint] NULL CONSTRAINT [DF__cvo_boxin__isVoi__0695C663] DEFAULT ('0'),
 [void_date] [datetime] NULL,

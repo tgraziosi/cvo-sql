@@ -19,7 +19,7 @@ BEGIN
 -- generate sku's from cmi into epicor
 --  
 -- 
--- exec [cvo_cmi_sku_generate_sp] 'et', 'busan', NULL, null, '03/12/2019','N', 1
+-- exec [cvo_cmi_sku_generate_sp] 'sp', 'S Warren', NULL, null, '1/8/2019','N', 1
 
 
 
@@ -52,15 +52,18 @@ DECLARE
 	@temple_tip_price DECIMAL(9,2);
 	
 
---	 declare @coll VARCHAR(12), 
---	   @model VARCHAR(40) ,
---	   @colorname VARCHAR(40) ,
---	   @eye_size DECIMAL(20,8) ,
---	   @release_date DATETIME,
---	   @upd CHAR(1)
---	   ,@debug INT
+	-- declare @coll VARCHAR(12), 
+	--   @model VARCHAR(40) ,
+	--   @colorname VARCHAR(40) ,
+	--   @eye_size DECIMAL(20,8) ,
+	--   @release_date DATETIME,
+	--   @upd CHAR(1)
+	--   ,@debug INT
 
---SELECT  @coll = 'et' , @model = 'busan', @colorname = null, @eye_size = null, @upd = 'n', @release_date = '3/12/2019', @debug = 1
+ --SELECT  @coll = 'fn' , @model = 'e.j.', @colorname = null, @eye_size = null, @upd = 'n', @release_date = '12/11/2018', @debug = 1
+
+
+-- SELECT  @coll = 'et' , @model = 'busan', @colorname = null, @eye_size = null, @upd = 'n', @release_date = '03/12/2019', @debug = 1
 
 -- check with accounting/product for periodic changes
 -- 6/30/2016 - change pattern cost from .28 to .36 
@@ -100,21 +103,21 @@ CREATE TABLE #cmi
         colorname            VARCHAR(40),
         specialty_fit        VARCHAR(40),
         web_saleable_flag    VARCHAR(1),
-        eye_size             FLOAT(8),
+        eye_size             DECIMAL(20,8),
         a_size               DECIMAL(18, 1),
         b_size               DECIMAL(18, 1),
         ed_size              DECIMAL(18, 1),
-        dbl_size             FLOAT(8),
+        dbl_size             DECIMAL(20,8),
         temple_size          DECIMAL(18, 1),
         dim_unit             CHAR(4),
         temple_tip_material  VARCHAR(255),
         suns_only            VARCHAR(255),
         lens_base            VARCHAR(40),
-        front_price          FLOAT(8),
-        temple_price         FLOAT(8),
-        wholesale_price      FLOAT(8),
-        retail_price         FLOAT(8),
-        frame_price          FLOAT(8),
+        front_price          DECIMAL(10,2),
+        temple_price         DECIMAL(10,2),
+        wholesale_price      DECIMAL(10,2),
+        retail_price         DECIMAL(10,2),
+        frame_price          DECIMAL(10,2),
         progressive_type     VARCHAR(40),
         component_1          VARCHAR(255),
         component_2          VARCHAR(255),
@@ -134,11 +137,11 @@ CREATE TABLE #cmi
         ispolarizedavailable SMALLINT,
         supplier             VARCHAR(80),
         country_origin       CHAR(16),
-        frame_cost           FLOAT(8),
-        front_cost           FLOAT(8),
-        temple_cost          FLOAT(8),
+        frame_cost           DECIMAL(10,2),
+        front_cost           DECIMAL(10,2),
+        temple_cost          DECIMAL(10,2),
         cost_currency        CHAR(8),
-        single_cable_cost    FLOAT(8),
+        single_cable_cost    DECIMAL(10,2),
         ws_ship1_qty         INT,
         ws_ship2_qty         INT,
         ws_ship3_qty         INT,
@@ -151,9 +154,9 @@ CREATE TABLE #cmi
         lens_color           VARCHAR(40),
         short_color_name     VARCHAR(40),
         frame_only           TINYINT,
-        dim_lens_cost        FLOAT(8),
+        dim_lens_cost        DECIMAL(10,2),
         pattern_text         VARCHAR(80),
-        dim_frame_only_cost  FLOAT(8),
+        dim_frame_only_cost  float(8),
         revo_frame_color     VARCHAR(80),
         revo_lens_color      VARCHAR(80),
         tip_sku              TINYINT,
@@ -287,9 +290,9 @@ IF ( OBJECT_ID('tempdb.dbo.#short_model_name') IS NOT NULL )
 
 SELECT DISTINCT
         Collection ,
-        model ,
+        model,
         UPPER(LEFT(model, 4)) short_model_calc ,
-        UPPER(short_model) short_model ,
+        REPLACE(UPPER(short_model),'.','') short_model ,
         0 AS ok
 
 INTO    #short_model_name
@@ -305,7 +308,7 @@ SET     short_model = CASE WHEN ISNULL(smn.short_model, '') = ''
                       END
 FROM    #short_model_name smn;
 
---IF @debug = 1 SELECT * FROM #short_model_name AS smn
+IF @debug = 1 SELECT * FROM #short_model_name AS smn
 
 -- is this 3pc rimless?
 
@@ -375,7 +378,7 @@ INSERT  INTO #parts_list
                 AND smn.Collection = @coll
                 AND smn.model = @model
 				AND c.specialty_fit <> 'Retail'
-				AND @coll <> 'REVO'
+                AND @coll NOT IN ('REVO','FN')
 				;
 
 INSERT  INTO #parts_list
@@ -406,36 +409,38 @@ INSERT  INTO #parts_list
 				AND c.frame_category <> '3-piece rimless'
 				AND @coll <> 'REVO';
 
-		IF @debug = 1         SELECT DISTINCT
-                UPPER(c.Collection) collection ,
-                UPPER(c.model) model ,
-                UPPER(smn.short_model) short_model ,
-                upper(c.colorname) colorname ,
-                c.eye_size ,
-                ttt.temple_size ,
-                'FRAME' ,
-                UPPER(
-				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
-				+ CASE WHEN @tpr = 0 THEN '' ELSE UPPER(LEFT(c.colorname,1)) end
-                + CASE WHEN @coll <> 'REVO' THEN ISNULL(UPPER(short_color_name), 'ccc')
-				            + CAST(c.eye_size AS VARCHAR(2))
-							+ CAST(c.dbl_size AS VARCHAR(2))
-							+ CASE WHEN CHARINDEX('180',c.hinge_type) > 0 and c.eye_size <> ttt.base_eye_size THEN CAST(CAST(ttt.temple_size AS INT) AS VARCHAR(3)) ELSE '' END
-							ELSE '' end
-				+ CASE WHEN @coll = 'REVO' THEN ISNULL(UPPER(C.revo_frame_color),'XX')
-												+ ISNULL(UPPER(C.revo_lens_color),'XX') ELSE '' END
+		--IF @debug = 1         SELECT DISTINCT
+  --              UPPER(c.Collection) collection ,
+  --              UPPER(c.model) model ,
+  --              UPPER(smn.short_model) short_model ,
+  --              upper(c.colorname) colorname ,
+  --              c.eye_size ,
+  --              ttt.temple_size ,
+  --              'FRAME' ,
+  --              UPPER(
+		--		CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
+		--		+ CASE WHEN @tpr = 0 THEN '' ELSE UPPER(LEFT(c.colorname,1)) end
+  --              + CASE WHEN @coll <> 'REVO' THEN ISNULL(UPPER(short_color_name), 'ccc')
+		--		            + CAST(c.eye_size AS VARCHAR(2))
+		--					+ CAST(c.dbl_size AS VARCHAR(2))
+		--					+ CASE WHEN CHARINDEX('180',c.hinge_type) > 0 and c.eye_size <> ttt.base_eye_size THEN CAST(CAST(ttt.temple_size AS INT) AS VARCHAR(3)) ELSE '' END
+		--					ELSE '' end
+		--		+ CASE WHEN @coll = 'REVO' THEN ISNULL(UPPER(C.revo_frame_color),'XX')
+		--										+ ISNULL(UPPER(C.revo_lens_color),'XX') ELSE '' END
     
-				)
-        FROM    #cmi c
-                INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
-                                                    AND smn.model = c.model
-				CROSS JOIN (SELECT distinct tt.temple_size, tt.eye_size base_eye_size FROM #cmi tt JOIN #short_model_name smn ON smn.collection = tt.collection AND smn.model = tt.model
-							WHERE tt.eye_size = CASE WHEN charindex('180',tt.hinge_type)>0 THEN tt.eye_size ELSE ISNULL(@eye_size,tt.eye_size) end) ttt
-		WHERE   1 = 1
-				AND c.colorname = ISNULL(@colorname,c.colorname)
-				and (c.eye_size = ISNULL(@eye_size, c.eye_size) )
-				-- AND (c.eye_size =  case WHEN CHARINDEX('180',c.hinge_type) > 0 then c.eye_size ELSE ISNULL(@eye_size, c.eye_size) end)
-					 ;
+		--		)
+  --      FROM    #cmi c
+  --              INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
+  --                                                  AND smn.model = c.model
+		--		CROSS JOIN (SELECT distinct tt.temple_size, tt.eye_size base_eye_size FROM #cmi tt JOIN #short_model_name smn ON smn.collection = tt.collection AND smn.model = tt.model
+		--					WHERE tt.eye_size = CASE WHEN charindex('180',tt.hinge_type)>0 THEN tt.eye_size ELSE ISNULL(@eye_size,tt.eye_size) end) ttt
+		--WHERE   1 = 1
+		--		AND c.colorname = ISNULL(@colorname,c.colorname)
+		--		and (c.eye_size = ISNULL(@eye_size, c.eye_size) )
+		--		-- AND (c.eye_size =  case WHEN CHARINDEX('180',c.hinge_type) > 0 then c.eye_size ELSE ISNULL(@eye_size, c.eye_size) end)
+		--			 ;
+
+IF @debug = 1 SELECT c.eye_size, LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2), * FROM #cmi AS c
 
 INSERT  INTO #parts_list
         ( collection ,
@@ -459,8 +464,8 @@ INSERT  INTO #parts_list
 				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
 				+ CASE WHEN @tpr = 0 THEN '' ELSE UPPER(LEFT(c.colorname,1)) end
                 + CASE WHEN @coll <> 'REVO' THEN ISNULL(UPPER(short_color_name), 'ccc')
-				            + CAST(c.eye_size AS VARCHAR(2))
-							+ CAST(c.dbl_size AS VARCHAR(2))
+				            + LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2)
+							+ LEFT(CAST(ROUND(c.dbl_size,0) AS VARCHAR(40)),2)
 							+ CASE WHEN CHARINDEX('180',c.hinge_type) > 0 and c.eye_size <> ttt.base_eye_size THEN CAST(CAST(ttt.temple_size AS INT) AS VARCHAR(3)) ELSE '' END
 							ELSE '' end
 				+ CASE WHEN @coll = 'REVO' THEN ISNULL(UPPER(C.revo_frame_color),'XX')
@@ -475,7 +480,11 @@ INSERT  INTO #parts_list
 		WHERE   1 = 1
 				AND c.colorname = ISNULL(@colorname,c.colorname)
 				and (c.eye_size = ISNULL(@eye_size, c.eye_size) )
-				-- AND (c.eye_size =  case WHEN CHARINDEX('180',c.hinge_type) > 0 then c.eye_size ELSE ISNULL(@eye_size, c.eye_size) end)
+                
+                -- 9/2018 = Funoogles
+                AND 1 = (CASE WHEN (@COLL = 'FN' AND c.ColorGroupCode = 'WHI') OR @COLL <> 'FN' THEN 1 ELSE 0 end)
+				
+                -- AND (c.eye_size =  case WHEN CHARINDEX('180',c.hinge_type) > 0 then c.eye_size ELSE ISNULL(@eye_size, c.eye_size) end)
 					 ;
 
 -- Frame only - 2/10/2016
@@ -537,7 +546,7 @@ INSERT  INTO #parts_list
                 UPPER(
 				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
                 + ISNULL(UPPER(short_color_name), 'ccc') + 'F'
-                + CAST(c.eye_size AS VARCHAR(2))
+                + CAST(CAST(c.eye_size AS INT) AS VARCHAR(2))
 				)
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
@@ -547,7 +556,7 @@ INSERT  INTO #parts_list
 				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
 				AND c.specialty_fit <> 'retail'
 				AND c.frame_category <> '3-piece rimless'
-				AND @coll <> 'revo'
+				AND @coll NOT IN ('revo','FN','SP')
 				AND CHARINDEX('180',c.hinge_type) = 0
 				;
 
@@ -572,7 +581,7 @@ INSERT  INTO #parts_list
                 'DEMOLEN' ,
                 CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END 
 				+ RTRIM(smn.short_model) + 'DEM'
-                + CAST(c.eye_size AS VARCHAR(2))
+                + LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2)
 				
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
@@ -582,7 +591,7 @@ INSERT  INTO #parts_list
 					 (c.res_type IN ('frame only') AND c.collection = 'BT'))
 				AND c.specialty_fit <> 'retail'
 				AND c.frame_category <> '3-piece rimless'
-				AND @coll <> 'REVO';
+                AND ( @coll NOT IN ('REVO') OR (@coll = 'FN' AND c.ColorGroupCode = 'WHI') ) ;
 
 -- DEMOLENS for Suns
 INSERT  INTO #parts_list
@@ -617,42 +626,9 @@ INSERT  INTO #parts_list
 				AND C.RES_type = 'SUN'
 				AND c.specialty_fit <> 'retail'
 				AND c.frame_category <> '3-piece rimless'
-				AND @COLL <> 'REVO';
+                AND @COLL NOT IN  ('REVO','FN');
 
 
-INSERT  INTO #parts_list
-        ( collection ,
-          model ,
-          short_model ,
-          colorname ,
-          eye_size ,
-          temple_size ,
-          part_type ,
-          part_no
-        )
-        SELECT DISTINCT
-                UPPER(c.Collection) collection ,
-                UPPER(c.model) model ,
-                UPPER(smn.short_model) short_model ,
-                upper(c.colorname) colorname ,
-                0 ,
-                CAST(c.temple_size AS DECIMAL(18,1)),
-                'TEMPLE-L' ,
-				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
-                + ISNULL(UPPER(short_color_name), 'ccc') + 'LS'
-                + CASE WHEN @tpr = 0 THEN CAST(CAST(c.temple_size AS INT) AS VARCHAR(3)) ELSE '145' END 
-								
-        FROM    #cmi c
-                INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
-                                                    AND smn.model = c.model
-        WHERE   1 = 1
-				AND c.colorname = ISNULL(@colorname,c.colorname)
-				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
-                AND CHARINDEX('cable', c.hinge_type) = 0
-				AND c.specialty_fit <> 'retail'
-				AND @COLL <> 'REVO'
-				AND CHARINDEX('180',c.hinge_type) = 0
-				;
 
 INSERT  INTO #parts_list
         ( collection ,
@@ -671,22 +647,68 @@ INSERT  INTO #parts_list
                 upper(c.colorname) colorname ,
                 0 ,
                 CAST(c.temple_size AS DECIMAL(18,1)) ,
-                'TEMPLE-R' ,
+                TMPL.TMPL,
                 CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
-                + ISNULL(UPPER(short_color_name), 'ccc') + 'RS'
+                + ISNULL(UPPER(short_color_name), 'ccc') 
+                + CASE WHEN tmpl.TMPL = 'temple-r' THEN 'RS' ELSE 'LS' END
                 + CASE WHEN @tpr = 0 THEN CAST(CAST(c.temple_size AS INT) AS VARCHAR(3)) ELSE '145' END 
 				
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
+                cROSS JOIN (   SELECT 'TEMPLE-L' TMPL UNION ALL SELECT 'TEMPLE-R')  TMPL
         WHERE   1 = 1
 				AND c.colorname = ISNULL(@colorname,c.colorname)
 				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
                 AND CHARINDEX('cable', c.hinge_type) = 0
 				AND c.specialty_fit <> 'retail'
-				AND @COLL <> 'REVO'
+                AND @COLL NOT IN ('REVO','FN','SP')
 				AND CHARINDEX('180',c.hinge_type) = 0
 				;
+
+IF @COLL = 'FN'
+    BEGIN
+        INSERT INTO #parts_list
+            (
+                collection,
+                model,
+                short_model,
+                colorname,
+                eye_size,
+                temple_size,
+                part_type,
+                part_no
+            )
+                    SELECT  DISTINCT
+                            UPPER(c.Collection)    collection,
+                            --UPPER(c.model)         model,
+                            UPPER(c.model) model ,
+                            UPPER(smn.short_model) short_model ,
+                            UPPER(c.colorname) colorname ,
+                            0,
+                            TMPL_LEN.TMPL_LEN,
+                            TMPL.TMPL,
+                            UPPER(LEFT(c.Collection, 2))
+                            + 'TEMP' + ISNULL(UPPER(short_color_name), 'ccc') 
+                            + CASE WHEN tmpl.TMPL = 'temple-r' THEN 'RS' ELSE 'LS' END
+                            + TMPL_LEN.TMPL_LEN
+                    FROM
+                            #cmi              c
+                        INNER JOIN
+                            #short_model_name smn
+                                ON smn.Collection = c.Collection
+                                   AND smn.model = c.model
+                        CROSS JOIN
+                            (   SELECT 'TEMPLE-L' TMPL UNION  ALL SELECT 'TEMPLE-R')  TMPL
+                        CROSS JOIN
+                            (   SELECT '125' TMPL_LEN UNION ALL  SELECT '130' )  TMPL_LEN
+                    WHERE
+                            1 = 1
+                            AND c.colorname = ISNULL(@colorname, c.colorname)
+                            AND c.eye_size = ISNULL(@eye_size, c.eye_size)
+                            AND c.temple_cost <> 0;
+
+    END;
 
 -- 12/13/2017 - can do! ... Cant do this yet - 1/26/2016
 
@@ -740,13 +762,14 @@ INSERT  INTO #parts_list
                 upper(c.colorname) colorname ,
                 0 ,
                 c.temple_size ,
-                'CABLE-L' ,
+                TMPL.TMPL,
 				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
                 + ISNULL(UPPER(short_color_name), 'ccc') + 'LC'
                 + CAST(CAST(c.temple_size AS INT) AS VARCHAR(3))
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
+                CROSS JOIN (   SELECT 'CABLE-L' TMPL UNION  ALL SELECT 'CABLE-R')  TMPL
         WHERE   1 = 1
 				AND c.colorname = ISNULL(@colorname,c.colorname)
 				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
@@ -755,41 +778,6 @@ INSERT  INTO #parts_list
 				 AND @COLL <> 'REVO'
 				 ; 
 
-
-INSERT  INTO #parts_list
-        ( collection ,
-          model ,
-          short_model ,
-          colorname ,
-          eye_size ,
-          temple_size ,
-          part_type ,
-          part_no
-        )
-		SELECT DISTINCT
-                UPPER(c.Collection) collection ,
-                UPPER(c.model) model ,
-                UPPER(smn.short_model) short_model ,
-                upper(c.colorname) colorname ,
-                0 ,
-                c.temple_size ,
-                'CABLE-R' ,
-				UPPER(
-                CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
-                + ISNULL(UPPER(short_color_name), 'ccc') + 'RC'
-                + CAST(CAST(c.temple_size AS INT) AS VARCHAR(3))
-				)
-				
-        FROM    #cmi c
-                INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
-                                                    AND smn.model = c.model
-        WHERE   1 = 1
-				AND c.colorname = ISNULL(@colorname,c.colorname)
-				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
-                 AND CHARINDEX('cable', c.hinge_type) <> 0
-				 AND c.specialty_fit <> 'retail'
-				 AND @COLL <> 'REVO'
-				 ; 
 
 -- hang tags and upc stickers for retail styles only
 
@@ -852,6 +840,103 @@ INSERT  INTO #parts_list
 				AND c.specialty_fit = 'retail'
 				AND @COLL <> 'REVO';
 
+-- Add Clips for Funoogles brand
+IF @COLL = 'FN'
+BEGIN
+
+	INSERT  INTO #parts_list
+        ( collection ,
+          model ,
+          short_model ,
+          colorname ,
+          eye_size ,
+          temple_size ,
+          part_type ,
+          part_no
+        )
+        SELECT DISTINCT
+                UPPER(c.Collection) collection ,
+                UPPER(c.model) model ,
+                UPPER(smn.short_model) short_model ,
+                upper(c.colorname) colorname ,
+                c.eye_size ,
+                NULL ,
+                'CLIP FULL' ,
+                UPPER(
+				UPPER(LEFT(c.Collection, 2)) 
+                + RTRIM(smn.short_model)
+                + ISNULL(UPPER(short_color_name), 'ccc') + 'CF'
+                + LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2)
+				)
+        FROM    #cmi c
+                INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
+                                                    AND smn.model = c.model
+        WHERE   1 = 1
+                AND C.frame_cost <> 0 AND C.ColorGroupCode <> 'WHI';
+
+	INSERT  INTO #parts_list
+        ( collection ,
+          model ,
+          short_model ,
+          colorname ,
+          eye_size ,
+          temple_size ,
+          part_type ,
+          part_no
+        )
+        SELECT DISTINCT
+                UPPER(c.Collection) collection ,
+                UPPER(c.model) model ,
+                UPPER(smn.short_model) short_model ,
+                upper(c.colorname) colorname ,
+                c.eye_size ,
+                NULL ,
+                'CLIP HALF' ,
+                UPPER(
+				UPPER(LEFT(c.Collection, 2)) 
+                + RTRIM(smn.short_model)
+                + ISNULL(UPPER(short_color_name), 'ccc') + 'CH'
+                + LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2)
+				)
+        FROM    #cmi c
+                INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
+                                                    AND smn.model = c.model
+        WHERE   1 = 1
+                AND C.dim_frame_only_cost <> 0 AND C.ColorGroupCode <> 'WHI';
+
+        	INSERT  INTO #parts_list
+        ( collection ,
+          model ,
+          short_model ,
+          colorname ,
+          eye_size ,
+          temple_size ,
+          part_type ,
+          part_no
+        )
+        SELECT DISTINCT
+                UPPER(c.Collection) collection ,
+                UPPER(c.model) model ,
+                UPPER(smn.short_model) short_model ,
+                upper(c.colorname) colorname ,
+                c.eye_size ,
+                NULL ,
+                'CLIP SUN' ,
+                UPPER(
+				UPPER(LEFT(c.Collection, 2)) 
+                + RTRIM(smn.short_model)
+                + ISNULL(UPPER(short_color_name), 'ccc') + 'CS'
+                + LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2)
+				)
+        FROM    #cmi c
+                INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
+                                                    AND smn.model = c.model
+        WHERE   1 = 1
+                AND C.dim_lens_cost <> 0 AND C.ColorGroupCode <> 'WHI';
+                
+END -- FN PARTS SECTION
+
+
 -- Add special parts for 3-piece rimless styles
 -- BR - Bridge, TS - Temple Sleeve, TT - Temple Tip, Dem - Demolens BY shape, pattern - by shape, DG - drilling guide by shape
 
@@ -883,7 +968,7 @@ BEGIN
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
-				CROSS JOIN (SELECT 'P' PT UNION SELECT 'DG') PT -- PATTERNS AND DRILLING GUIDES 
+				CROSS JOIN (SELECT 'P' PT UNION ALL SELECT 'DG') PT -- PATTERNS AND DRILLING GUIDES 
 
         WHERE   1 = 1
 				AND c.specialty_fit <> 'retail'
@@ -947,8 +1032,8 @@ BEGIN
                                                     AND smn.model = c.model
 				CROSS JOIN
                 (SELECT 'UBR' BR 
-				 UNION SELECT 'MBR' 
-				 UNION SELECT 'PBR') BR
+				 UNION  ALL SELECT 'MBR' 
+				 UNION ALL SELECT 'PBR') BR
 
         WHERE   1 = 1
 				AND c.colorname = ISNULL(@colorname,c.colorname)
@@ -981,10 +1066,10 @@ BEGIN
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
 				CROSS JOIN
-				(SELECT 'TSR' TT UNION SELECT 'TSL' 
-				UNION SELECT 'TTL' UNION SELECT 'TTR'
-				UNION SELECT 'CTL' UNION SELECT 'CTR' 
-				UNION SELECT 'EPL' UNION SELECT 'EPR') TT -- SKULL, TIPS, CABLE, AND END PIECES
+				(SELECT 'TSR' TT UNION all SELECT 'TSL' 
+				UNION SELECT 'TTL' UNION all SELECT 'TTR'
+				UNION SELECT 'CTL' UNION ALL SELECT 'CTR' 
+				UNION SELECT 'EPL' UNION ALL SELECT 'EPR') TT -- SKULL, TIPS, CABLE, AND END PIECES
 
         WHERE   1 = 1
 				AND c.colorname = ISNULL(@colorname,c.colorname)
@@ -1063,8 +1148,8 @@ SELECT distinct
                         ELSE c.[RES_type]
                    END ,
         case_part  = CAST(CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'bruit' ) THEN [case_part] ELSE null END AS VARCHAR(255) ),
-        frame_category = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'bruit', 'front' , 'bridge') THEN [frame_category] ELSE null END ,
-        frame_material = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'bruit', 'front', 'bridge' ) THEN [front_material] ELSE null END ,
+        frame_category = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'bruit', 'front' , 'bridge') OR PL.PART_TYPE LIKE 'CLIP%' THEN [frame_category] ELSE null END ,
+        frame_material = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'bruit', 'front', 'bridge' ) OR PL.PART_TYPE LIKE 'CLIP%' THEN [front_material] ELSE null END ,
         temple_material = CASE WHEN pl.part_type IN ( 'frame', 'frame only','bruit', 'temple-l', 'temple-r', 'cable-l', 'cable-r' , 'temple-tip') THEN [temple_material] ELSE null end ,
         nose_pads = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'bridge', 'bruit', 'front' ) THEN [nose_pads] ELSE null END,
 		hinge_type = CASE WHEN pl.part_type NOT IN ( 'pattern', 'front', 'bridge','demolen' ) THEN [hinge_type] ELSE NULL END ,
@@ -1077,18 +1162,18 @@ SELECT distinct
         -- 8/21/18 specialty_fit = CASE WHEN pl.part_type NOT IN ('bruit','pattern','demolen') THEN c.specialty_fit ELSE NULL end ,
         specialty_fit = SPACE(40),
         web_saleable_Flag = CASE WHEN pl.part_type IN ( 'frame' , 'frame only') THEN [web_saleable_flag] END ,
-        eye_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) THEN c.[eye_size] ELSE NULL END ,
-        a_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) THEN c.a_size ELSE NULL END ,
-        b_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) THEN c.b_size ELSE NULL END , 
-        ed_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) THEN c.ed_size ELSE NULL END ,
-        dbl_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'bridge','demolen' ) THEN c.dbl_size ELSE NULL END ,
+        eye_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) OR PL.PART_TYPE LIKE 'CLIP%' THEN c.[eye_size] ELSE NULL END ,
+        a_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) OR PL.PART_TYPE LIKE 'CLIP%' THEN c.a_size ELSE NULL END ,
+        b_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) OR PL.PART_TYPE LIKE 'CLIP%' THEN c.b_size ELSE NULL END , 
+        ed_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) OR PL.PART_TYPE LIKE 'CLIP%' THEN c.ed_size ELSE NULL END ,
+        dbl_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'bridge','demolen' ) OR PL.PART_TYPE LIKE 'CLIP%' THEN c.dbl_size ELSE NULL END ,
         temple_size =   
 			CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'temple-l', 'temple-r', 'temple-tip', 'cable-r', 'cable-l' ) 
 			THEN c.temple_size
 			ELSE NULL END ,
   --     
 		temple_tip_material = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'temple-l', 'temple-r', 'temple-tip','cable-r', 'cable-l' ) THEN c.temple_tip_material ELSE NULL END ,
-        suns_only = CASE WHEN pl.part_type IN ( 'frame', 'bruit', 'front' ) THEN suns_only ELSE NULL END ,
+        suns_only = CASE WHEN pl.part_type IN ( 'frame', 'bruit', 'front' ,'CLIP SUN') THEN suns_only ELSE NULL END ,
         isnull([front_price],0) front_price ,
         isnull([temple_price],0) temple_price ,
         isnull([wholesale_price],0) wholesale_price ,
@@ -1111,8 +1196,8 @@ SELECT distinct
         isnull(temple_cost,0) temple_cost,
 		ISNULL(c.dim_lens_cost,0) lens_cost,
 		ISNULL(c.dim_frame_only_cost,0) frame_only_cost
-		, lens_color = CASE WHEN pl.part_type IN ('frame','front','demolen') THEN c.lens_color ELSE NULL END
-		, lens_base = CASE WHEN pl.part_type IN ('frame','front','demolen') THEN c.lens_base ELSE NULL END
+		, lens_color = CASE WHEN pl.part_type IN ('frame','front','demolen') OR pl.part_type = 'clip sun' THEN c.lens_color ELSE NULL END
+		, lens_base = CASE WHEN pl.part_type IN ('frame','front','demolen')  OR pl.part_type = 'clip sun' THEN c.lens_base  ELSE NULL END
 		, model_lead_time lead_time
 INTO    #parts_to_add
 FROM    #parts_list pl
@@ -1124,7 +1209,7 @@ FROM    #parts_list pl
 				THEN c.eye_size
 				ELSE ISNULL(pl.eye_size, c.eye_size)
 				END
-            AND c.temple_size = ISNULL(pl.temple_size,c.temple_size)
+            AND 1 = CASE WHEN (c.temple_size = ISNULL(pl.temple_size,c.temple_size) AND @coll <> 'fn') OR @coll = 'fn' THEN 1 ELSE 0 end
         INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                             AND smn.model = c.model
 WHERE   1 = 1
@@ -1513,7 +1598,8 @@ INSERT  #ia
                                ELSE null
                           END , -- polarized
                 field_6 = CASE WHEN c.part_type NOT IN ( 'bruit', 'demolen', 'temple-l','temple-r','temple-tip','cable-r','cable-l','hngtag','upc' )
-                               THEN c.dbl_size
+                            OR (c.part_type LIKE 'CLIP%')
+                               THEN LEFT(CAST(ROUND(c.dbl_size,0) AS VARCHAR(40)),2)
 							   ELSE ''
                           END , -- bridge size (dbl size)
                 field_7 = CASE WHEN c.part_type IN ( 'frame', 'frame only', 'front', 'bruit' )
@@ -1530,7 +1616,7 @@ INSERT  #ia
                                THEN  CAST(ISNULL(c.temple_size,0) AS integer)
 							   ELSE 0
                           END , -- temple length
-                field_10 = CASE WHEN c.part_type IN ( 'frame', 'frame only', 'front','bridge','bruit')
+                field_10 = CASE WHEN c.part_type IN ( 'frame', 'frame only', 'front','bridge','bruit') OR c.part_type LIKE 'CLIP%'
 				                       THEN ISNULL(( SELECT TOP 1
                                                 kys
 									   FROM     dbo.CVO_frame_matl
@@ -1539,7 +1625,7 @@ INSERT  #ia
 									 ELSE ''
 				           END , -- frame material
 
-				field_11 = CASE WHEN c.part_type IN ( 'frame', 'frame only', 'front','bridge','bruit')
+				field_11 = CASE WHEN c.part_type IN ( 'frame', 'frame only', 'front','bridge','bruit') OR (c.part_type LIKE 'CLIP%')
                                 THEN ( SELECT TOP 1
                                                 kys
                                        FROM     dbo.CVO_frame_type
@@ -1547,13 +1633,14 @@ INSERT  #ia
                                      )
 									 ELSE 'UNKNOWN'
                            END , -- frame type
-                field_12 = CASE WHEN c.part_type NOT IN ( 'pattern', 'demolen', 'front' ,'bridge','hngtag','upc')
+                field_12 = CASE WHEN c.part_type NOT IN ( 'pattern', 'demolen', 'front' ,'bridge','hngtag','upc') 
+                                    AND c.part_type NOT LIKE 'CLIP%'
                                 THEN ISNULL(( SELECT TOP 1
                                                 kys
                                        FROM     dbo.CVO_temple_matl
                                        WHERE    description = c.temple_material AND ISNULL(void,'N') = 'N'
                                      ),'UNKNOWN')
-									 ELSE ''
+                                     ELSE ''
                            END , -- temple material, if different than frame
                 field_13 = CASE WHEN c.part_type NOT IN ( 'pattern', 'demolen' ,'front','bridge','hngtag','upc')
                                 THEN ISNULL(( SELECT TOP 1
@@ -1566,6 +1653,7 @@ INSERT  #ia
 			    field_17 = CASE WHEN c.part_type IN ( 'frame', 'frame only', 'front',
                                                       'bruit', 'pattern',
                                                       'demolen' )
+                                                      OR (c.part_type LIKE 'CLIP%')
                                 THEN CAST(ISNULL(c.eye_size,0) AS DECIMAL(18,1))
 								ELSE null
                            END , -- eye size
@@ -1573,6 +1661,7 @@ INSERT  #ia
 					CASE WHEN c.part_type IN ( 'frame', 'frame only', 'front',
                                                       'bruit', 'pattern',
                                                       'demolen' )
+                                                      OR (c.part_type LIKE 'CLIP%')
                                 THEN c.a_size
 								ELSE 0
                            END , -- A size
@@ -1580,6 +1669,7 @@ INSERT  #ia
 						CASE WHEN c.part_type IN ( 'frame', 'frame only', 'front',
                                                       'bruit', 'pattern',
                                                       'demolen' )
+                                                      OR c.part_type LIKE 'CLIP%'
                                 THEN c.b_size
 								ELSE 0
                            END , -- B size
@@ -1587,6 +1677,7 @@ INSERT  #ia
 						CASE WHEN c.part_type IN ( 'frame', 'frame only', 'front',
                                                       'bruit', 'pattern',
                                                       'demolen' )
+                                                      OR c.part_type LIKE 'CLIP%'
                                 THEN c.ed_size
 								ELSE 0
                            END , -- ED size
@@ -1596,7 +1687,7 @@ INSERT  #ia
                                                           'demolen' ) THEN 'Y'
                                 ELSE 'N'
                            END , -- Clip
-                field_23 = CASE WHEN c.res_type = 'sun'
+                field_23 = CASE WHEN c.res_type = 'sun' OR c.part_type = 'CLIP SUN'
                                 THEN ( SELECT TOP 1
                                                 kys
                                        FROM     dbo.CVO_sun_lens_color
@@ -1604,7 +1695,7 @@ INSERT  #ia
                                      ) 
 								ELSE null
                            END , -- lens color (suns)
-                FIELD_24 = CASE WHEN c.res_type = 'sun'
+                FIELD_24 = CASE WHEN c.res_type = 'sun' OR c.part_type = 'CLIP SUN'
 								THEN ( SELECT TOP 1
 											kys
 											FROM dbo.CVO_sun_lens_material
@@ -1612,7 +1703,7 @@ INSERT  #ia
 									)
 								ELSE null
 						   END , -- lens material (suns)
-                FIELD_25 = CASE WHEN c.res_type = 'sun'
+                FIELD_25 = CASE WHEN c.res_type = 'sun' OR c.part_type = 'CLIP SUN'
 								THEN ( SELECT TOP 1
 											kys
 											FROM dbo.CVO_sun_lens_type
@@ -1633,6 +1724,7 @@ INSERT  #ia
         FROM    #parts_to_add c
 			-- WHERE NOT EXISTS ( SELECT 1 FROM #err_list e WHERE e.part_no = c.part_no);
 
+-- SELECT * FROM #parts_list AS pl
 --
 -- set up INV_MASTER entries
 --
@@ -1659,19 +1751,24 @@ INSERT  #i
                                    THEN ISNULL(c.Collection,'') + ' ' + ISNULL(c.model,'') + ' '
                                         + UPPER(ISNULL(ia.field_3,'')) + ' '
 										+ CASE WHEN C.RES_TYPE = 'SUN' THEN UPPER(ISNULL(IA.FIELD_23,'')) else '' END + ' '
-                                        + CAST(ROUND(ISNULL(c.eye_size,0), 0) AS VARCHAR(2))
+                                        + LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2)
                                         + '/'
-                                        + CAST(ROUND(ISNULL(c.dbl_size,0), 0) AS VARCHAR(2))
-                                        + '/'
-                                        + CAST(RTRIM(Ia.field_8) AS VARCHAR(3))
+                                        + LEFT(CAST(ROUND(c.dbl_size,0) AS VARCHAR(40)),2)
+                                        + CASE WHEN @COLL <> 'FN' THEN '/' + CAST(RTRIM(Ia.field_8) AS VARCHAR(3)) ELSE '' END
 										+ CASE WHEN c.res_type = 'SUN' THEN ' ' + c.res_type ELSE '' END -- 4/26/2016 for JB
-			
+
+			                        WHEN @COLL = 'FN' AND c.part_type LIKE 'CLIP%'
+                                    THEN ISNULL(c.Collection,'') + ' ' + ISNULL(c.model,'') + ' '
+                                        + UPPER(ISNULL(ia.field_3,'')) 
+                                        + ' ' + c.part_type + ' ' 
+                                        + RIGHT(c.part_no,2)
+                                                              
 									WHEN c.part_type = 'frame only'
                                     THEN ISNULL(c.Collection,'') + ' ' + ISNULL(c.model,'') + ' '
                                         + UPPER(ISNULL(ia.field_3,'')) + CASE WHEN @tpr = 1 THEN ' CHASSIS ONLY ' ELSE ' FRAME ONLY ' END
-                                        + CAST(ROUND(ISNULL(c.eye_size,0), 0) AS VARCHAR(2))
+                                        + LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2)
                                         + '/'
-                                        + CAST(ROUND(ISNULL(c.dbl_size,0), 0) AS VARCHAR(2))
+                                        + LEFT(CAST(ROUND(c.dbl_size,0) AS VARCHAR(40)),2)
                                         + '/'
                                         + CAST(RTRIM(Ia.field_8) AS VARCHAR(3))
 			
@@ -1703,7 +1800,9 @@ INSERT  #i
                                         + UPPER(ia.field_3) + ' '
 										+ CASE WHEN @TPR = 1 THEN 'PADDLE ' ELSE '' END
                                         + ia.category_3 + ' '
-                                        + CASE WHEN @TPR = 1 THEN '145' ELSE CAST(CAST (ISNULL(c.temple_size,0) AS INTEGER) AS VARCHAR(3)) END
+                                        + CASE WHEN @TPR = 1 THEN '145'
+                                               WHEN @COLL = 'FN' THEN RIGHT(c.part_no,3)
+                                               ELSE CAST(CAST (ISNULL(c.temple_size,0) AS INTEGER) AS VARCHAR(3)) END
 								   WHEN c.part_type IN ( 'temple-tip')
                                    THEN c.Collection + ' ' + c.model + ' '
                                         + UPPER(ia.field_3) + ' '
@@ -1797,7 +1896,8 @@ INSERT  #i
 					WHERE     description = c.country_origin
                             OR country_code = c.country_origin
                 ), '' ),
-                cmdty_code = CASE WHEN c.part_type = 'demolen' THEN 'PLASTIC'
+                cmdty_code = CASE WHEN c.part_type IN ('demolen') THEN 'PLASTIC'
+                                  WHEN @COLL = 'FN' THEN 'PLASTIC'
                                   WHEN c.part_type IN ( 'frame', 'frame only', 'front',
                                                         'bruit' )
                                   THEN CASE WHEN (c.frame_material LIKE '%acetate%'
@@ -2101,7 +2201,44 @@ INSERT  #pp
 				--AND NOT EXISTS ( SELECT 1
     --                         FROM   #err_list e
     --                         WHERE  e.part_no = c.part_no )
-                AND c.part_type IN ( 'frame', 'frame only' );
+                AND c.part_type IN ( 'frame', 'frame only' )
+                ;
+
+-- fn CLIPS AND TEMPLES
+INSERT  #pp
+        ( part_no ,
+          p_price ,
+          std_cost ,
+          std_ovhd_dolrs ,
+          std_util_dolrs
+        )
+        SELECT DISTINCT
+                c.part_no ,
+                c.front_price,
+                ROUND(CASE WHEN c.part_type = 'CLIP FULL' THEN C.frame_cost
+                     WHEN c.part_type = 'CLIP HALF' THEN C.frame_only_cost
+                     WHEN C.part_type = 'CLIP SUN' THEN C.LENS_COST
+                     ELSE c.temple_COST
+                     END, 2),
+                ROUND(CASE WHEN c.part_type = 'CLIP FULL' THEN ROUND(C.frame_cost * @ovhd_pct,2)
+                     WHEN c.part_type = 'CLIP HALF' THEN ROUND(C.frame_only_cost* @ovhd_pct,2)
+                     WHEN C.part_type = 'CLIP SUN' THEN ROUND(C.LENS_COST* @ovhd_pct,2)
+                     ELSE ROUND(c.temple_COST* @ovhd_pct,2)
+                     END, 2),
+                ROUND(CASE WHEN c.part_type = 'CLIP FULL' AND C.frame_cost > 1 THEN @util_cost
+                     WHEN c.part_type = 'CLIP HALF' AND C.frame_only_cost > 1 THEN @UTIL_COST
+                     WHEN C.part_type = 'CLIP SUN' AND C.LENS_COST > 1 THEN @util_cost
+                     ELSE 0 END, 2)
+                     
+                    
+        FROM    #parts_to_add c
+                INNER JOIN #ia ia ON ia.part_no = c.part_no
+        WHERE   1=1 
+				--AND NOT EXISTS ( SELECT 1
+    --                         FROM   #err_list e
+    --                         WHERE  e.part_no = c.part_no )
+                AND @COLL = 'FN' AND c.part_type LIKE 'clip%'
+                ;
 
 INSERT  #pp
         ( part_no ,
@@ -2376,7 +2513,7 @@ BEGIN
 				0.00000000, @std_ovhd_dolrs, @std_util_dolrs, 0.00000000, 0.00000000, 
 				0.00000000, getdate(), 'P', 0.00000000, 0, 0.00000000, 'N', 'EA', 'EA' 
 				-- add to ALL locations 4/22/2016
-				-- FROM (SELECT location FROM locations WHERE ISNUMERIC(LEFT(location,1)) = 1 AND void <> 'v') L
+				-- FROM (SELECT location FROM locations WHERE ISfloat(8)(LEFT(location,1)) = 1 AND void <> 'v') L
 				FROM (SELECT location FROM locations WHERE ISNULL(void,'N') = 'N') L
 				where not exists (select 1 from inv_list il (nolock) where il.part_no = @last_part and il.location = l.location)
 			end
@@ -2585,52 +2722,6 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

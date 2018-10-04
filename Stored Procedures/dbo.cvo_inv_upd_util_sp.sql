@@ -176,8 +176,8 @@ BEGIN
 													ELSE CONVERT(varchar(10),b.field_28,101) + ' To Not Set' END -- v1.1
 												ELSE
 												CASE WHEN b.field_28 IS NULL THEN 'Not Set To ' 
-													WHEN CONVERT(varchar(10),b.field_28,101) = CONVERT(varchar(10),a.pom_date,101) THEN 'No Change'
-													ELSE CONVERT(varchar(10),b.field_28,101) + ' To ' + CONVERT(varchar(10),a.pom_date,101) END
+													WHEN CONVERT(varchar(10),ISNULL(b.field_28,''),101) = CONVERT(varchar(10),a.pom_date,101) THEN 'No Change'
+													ELSE CONVERT(varchar(10),ISNULL(b.field_28,''),101) + ' To ' + CONVERT(varchar(10),a.pom_date,101) END
 												END,
 		-- if setting or changing a pom date, watch has to be set to No
 -- 060716 tag - watch is category_1, not category_2
@@ -282,6 +282,7 @@ BEGIN
 	END
 
 END
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_inv_upd_util_sp] TO [public]
 GO

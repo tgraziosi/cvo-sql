@@ -100,7 +100,7 @@ BEGIN
             ON il.part_no = sta.sku -- part/location must exist
                AND il.location = stt.location
     WHERE st.isActive = 1
-          AND NOT stt.territory_code IN ( '50534', '70770' ) -- 534-broo
+          AND NOT stt.territory_code IN ( '50534' ) -- 534-broo
     ORDER BY stt.location,
              sta.sku;
 
@@ -372,6 +372,7 @@ BEGIN
 END;
 
 GRANT EXECUTE ON dbo.cvo_sc_transfer_create_sp TO PUBLIC;
+
 
 
 

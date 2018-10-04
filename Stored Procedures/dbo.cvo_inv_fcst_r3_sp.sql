@@ -32,16 +32,16 @@ CREATE PROCEDURE [dbo].[cvo_inv_fcst_r3_sp]
 /*
 exec cvo_inv_fcst_r3_sp
 
-@asofdate = '04/01/2018', 
-@endrel = '04/01/2018', 
+@asofdate = '10/01/2018', 
+@endrel = '10/01/2018', 
 @current = 0, 
-@collection = 'bt', 
+@collection = null, 
 @style = null, 
 @specfit = null,
 @usg_option = 'o',
-@debug = 1, -- debug
-@location = '001',
-@restype = 'frame,sun',
+@debug = 0, -- debug
+@location = '001,002ELM',
+@restype = 'POP',
 @WKSONHANDGTLT = 'all',
 @WKSONHAND = 0
 
@@ -1986,7 +1986,8 @@ BEGIN
            t.p_gross_w4,
            t.p_gross_w12,
            specs.price,
-           specs.frame_type
+           specs.frame_type,
+           pur.last_order_date
     FROM #sku_tbl sku
         INNER JOIN #t t
             ON t.part_no = sku.sku
@@ -2063,9 +2064,15 @@ BEGIN
                AND WOH.style = s.style
         LEFT OUTER JOIN dbo.cvo_ifp_rank r
             ON r.brand = s.brand
-               AND r.style = s.style;
+               AND r.style = s.style
+        LEFT OUTER JOIN 
+        ( SELECT pl.part_no, MAX(rel_date) last_order_date FROM pur_list pl 
+             where pl.status = 'C' AND pl.rel_date < @asofdate GROUP BY pl.part_no ) pur ON pur.part_no = sku.sku
+              
+         ;
 
 END;
+
 
 
 

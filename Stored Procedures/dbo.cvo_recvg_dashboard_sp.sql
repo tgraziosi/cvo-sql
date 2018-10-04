@@ -8,7 +8,7 @@ CREATE PROCEDURE [dbo].[cvo_recvg_dashboard_sp] @recalc_usage INT = 0, @det INT 
 
 AS
 
--- exec cvo_recvg_dashboard_sp 0, 0, 5
+-- exec cvo_recvg_dashboard_sp 1, -1, 7
 -- SELECT * FROM ##cvo_usage
 
 SET NOCOUNT ON
@@ -37,6 +37,73 @@ BEGIN
 	
 END
 
+
+IF @det = -1
+begin
+select 
+	DATEDIFF(d, @asofdate, ISNULL(r.inhouse_date, r.confirm_date)) due_days,
+	isnull(r.inhouse_date, r.confirm_date) inhouse_date,
+--	ISNULL(r.departure_date, r.confirm_date) departure_date,
+    	Case when p.ship_via_method IS NULL and pa.ship_via_method IS NULL THEN 'NA'
+		WHEN p.ship_via_method = 0 THEN 'None'
+			WHEN p.ship_via_method = 1 THEN 'Air'
+				WHEN p.ship_via_method = 2 THEN 'Ocean'
+                END AS ship_via,
+	aa.address_name vendor_name,
+	b.brands,
+	COUNT(p.line) num_lines ,
+	MAX(CASE  WHEN ia.field_26 > @asofdate THEN 'New Release' 
+		  WHEN 	isnull(drp.qty_avl,0) < 0 AND isnull(drp.open_ord,0) > 0 THEN 'Backorders'
+		  ELSE '' END 
+		) AS Info_tag,
+	qty_open = case when SUM(qty_ordered-qty_received) < 0 then 0
+					else SUM(qty_ordered-qty_received)
+				end
+from pur_list p (nolock) 
+inner join purchase_all pa (nolock)
+on pa.po_key = p.po_key
+INNER JOIN dbo.apmaster_all AS aa (NOLOCK) ON aa.vendor_code = pa.vendor_no
+left join releases r (nolock)
+on p.po_key = r.po_key and p.line = r.po_line
+left join inv_master_add ia (nolock) on p.part_no = ia.part_no
+left join ##cvo_usage AS drp (nolock) 
+on p.part_no = drp.part_no and p.location = drp.location
+LEFT OUTER JOIN
+(SELECT DISTINCT ppp.po_key, brands = STUFF (( SELECT DISTINCT ';' + i.category
+												 FROM pur_list pp  (NOLOCK)
+												 JOIN inv_master i (NOLOCK) ON pp.part_no = i.part_no
+												 WHERE pp.status = 'o' AND pp.void <> 'v'
+												 AND pp.po_key = ppp.po_key
+									 FOR XML PATH('') ),1,1, '' )
+			 FROM dbo.purchase AS ppp (NOLOCK)
+			 WHERE ppp.status = 'o' AND ppp.void <> 'v' ) b ON b.po_key = pa.po_key
+		  
+where p.po_key = p.po_no and pa.po_no = pa.po_key
+and r.po_key = r.po_no
+AND p.status = 'o' AND p.void <> 'v'
+AND DATEDIFF(d, @asofdate, isnull(r.inhouse_date, r.confirm_date)) BETWEEN -@days_out AND @days_out
+GROUP BY DATEDIFF(d, @asofdate, ISNULL(r.inhouse_date, r.confirm_date)),
+         ISNULL(r.inhouse_date, r.confirm_date),
+         CASE
+         WHEN p.ship_via_method IS NULL
+         AND pa.ship_via_method IS NULL
+         THEN
+         'NA'
+         WHEN p.ship_via_method = 0
+         THEN
+         'None'
+         WHEN p.ship_via_method = 1
+         THEN
+         'Air'
+         WHEN p.ship_via_method = 2
+         THEN
+         'Ocean'
+         END,
+         aa.address_name,
+         b.brands
+--ORDER BY 	isnull(r.inhouse_date, r.confirm_date), p.po_key
+END
+
 IF @det = 0
 begin
 select 
@@ -48,7 +115,7 @@ select
 	pa.user_category category,
 	p.location ,
 	b.brands,
-	COUNT(p.line) num_lines ,
+	COUNT(DISTINCT p.part_no) num_skus ,
 	MAX(CASE  WHEN ia.field_26 > @asofdate THEN 'New Release' 
 		  WHEN 	isnull(drp.qty_avl,0) < 0 AND isnull(drp.open_ord,0) > 0 THEN 'Backorders'
 		  ELSE '' END 

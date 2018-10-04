@@ -6,7 +6,7 @@ CREATE TABLE [dbo].[cvo_bcode_log]
 [sku] [varchar] (16) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [upc] [varchar] (18) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [bin] [varchar] (18) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[sort] [varchar] (4) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[sort] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [aisle] [varchar] (4) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [sort_bin] [varchar] (4) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [isActive] [tinyint] NULL CONSTRAINT [DF__cvo_bcode__isAct__59C25495] DEFAULT ('1'),

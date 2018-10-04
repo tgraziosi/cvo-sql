@@ -13,8 +13,14 @@ CREATE TABLE [dbo].[cvo_svc_config]
 [aspire_content] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [ch_content] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [sunps_content] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[me_content] [nvarchar] (max) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+[me_content] [nvarchar] (max) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[fashion_config] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[blutech_config] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[op_config] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[revo_config] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[kids_config] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[bcbg_config] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+) ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_svc_config] ADD CONSTRAINT [PK__cvo_svc_config__6CEA05D8] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
 GO

@@ -10,17 +10,27 @@ SET NOCOUNT ON
 
 -- exec cvo_bt_order_log_sp '1/1/2018','8/31/2018'
 
+DECLARE @sdate DATETIME, @edate DATETIME
+SELECT @sdate = @startdate, @edate = @enddate
+
 BEGIN
 
 ;WITH bt
 AS
 (
-SELECT MAX(CASE WHEN (i.category = 'bt' OR col.add_polarized = 'y') AND i.type_code IN ('frame','sun') THEN ol.part_no ELSE '' END) frame,
-       MAX(CASE WHEN col.is_polarized = 1 AND i.category = 'bt' AND i.type_code = 'lens' THEN ol.part_no ELSE '' END) lens,
+SELECT CASE WHEN i.type_code = 'lens' THEN ol.part_no END lens,
+       CASE WHEN i.type_code IN ('frame','sun') THEN ol.part_no end frame,
        ol.order_no,
        ol.order_ext,
-       o.user_category,
-       SUM(ol.ordered) qty_ord
+       ol.ordered qty_ord,
+       CASE WHEN col.add_polarized = 'Y' AND i.category <> 'BT' 
+                    AND EXISTS (SELECT 1 FROM inv_master ii JOIN dbo.ord_list ool ON ii.part_no = ool.part_no 
+                                WHERE ii.category = 'bt' AND ii.type_code = 'lens' AND ool.order_no = col.order_no AND col.order_ext = o.ext) THEN 'MIB'
+            WHEN col.is_polarized = 1 AND i.category = 'bt' AND i.type_code = 'lens' AND i.description LIKE '%plano%' THEN 'Lens-Plano'
+            WHEN col.is_polarized = 1 AND i.category = 'bt' AND i.type_code = 'lens' AND i.description LIKE '%reader%' THEN 'Lens-Reader'
+            WHEN i.category = 'bt' AND RIGHT(i.part_no,2) = 'F1' THEN 'BTF1'
+            WHEN i.category = 'BT' THEN 'BT'
+            END AS line_type
 FROM dbo.ord_list ol (nolock)
     JOIN orders o (NOLOCK) ON o.order_no = ol.order_no AND o.ext = ol.order_ext
     JOIN dbo.CVO_ord_list col (nolock)
@@ -30,62 +40,42 @@ FROM dbo.ord_list ol (nolock)
     JOIN dbo.inv_master i (nolock)
         ON i.part_no = ol.part_no
 WHERE ol.status ='T' AND o.type = 'i'
+      AND RIGHT(o.user_category,2) <> 'RB'
       AND O.who_entered <> 'BACKORDR'
       AND i.type_code IN ('frame','sun','lens')
       AND
-      (
+      ( -- request for polarized lens
       col.add_polarized = 'Y'
       OR
-      (
+      ( -- BT lens
       col.is_polarized = 1
       AND i.category = 'bt'
       AND i.type_code = 'lens'
       )
-      OR i.category = 'bt'
+      OR i.category = 'bt' -- BT frame w/lens
       )
-GROUP BY ol.order_no,
-         ol.order_ext,
-         o.user_category
+      AND o.date_entered BETWEEN @sdate AND @edate
+
          
-
-HAVING MAX(CASE WHEN (i.category = 'bt' OR col.add_polarized = 'y') AND i.type_code IN ('frame','sun') THEN ol.part_no ELSE '' END) <> ''
-
 )
-SELECT CASE WHEN iframe.category = 'bt' AND iframe.part_no LIKE '%F1' AND ISNULL(bt.lens,'') <> '' THEN 'BT Readers'
-            WHEN iframe.category = 'bt' AND (CHARINDEX('plano',lens.description)>0 OR ISNULL(bt.lens,'') = '') THEN 'BT Plano'
-            WHEN iframe.category <> 'BT' AND ISNULL(bt.lens,'') <> '' THEN 'Make it BT'
-            ELSE ' ' END
-            AS SalesType,
-        IFRAME.category BRAND,
-       bt.frame,
-        frame.field_2 model,
-        iframe.type_code,
-       bt.lens,
-       ISNULL(CASE WHEN CHARINDEX('plano', lens.description) > 0 THEN 'PLANO '
-                    WHEN CHARINDEX('reader', lens.description) > 0 THEN 'READER '
-                    ELSE '' END, '')
-                    +
-       ISNULL(CASE WHEN CHARINDEX('ULTRA', lens.description) > 0 THEN 'ULTRA'
-                    WHEN CHARINDEX('MAXX', lens.description) > 0 THEN 'MAXX'
-                    WHEN CHARINDEX('CLASSIC', lens.description) > 0 THEN 'CLASSIC'
-                    ELSE '' END, '')
-                    +
-       ISNULL(CASE WHEN 
-            CASE WHEN CHARINDEX('+',LENS.description) > 0 THEN SUBSTRING(LENS.DESCRIPTION, CHARINDEX('+',LENS.description) + 1,3) ELSE '' END 
-            = '50' THEN ' 50' ELSE '' END, '') 
-       lens_description,
+SELECT sum(CASE WHEN bt.line_type = 'lens-plano' THEN 1 ELSE 0 END) num_lens_plano,
+       SUM(CASE WHEN bt.line_type = 'lens-reader' THEN 1 ELSE 0 END) num_lens_reader,
+       SUM(CASE WHEN bt.line_type = 'MIB' THEN 1 ELSE 0 END) num_MIB,
+       SUM(CASE WHEN BT.line_type = 'BTF1' THEN 1 ELSE 0 END) NUM_BTF1,
+       SUM(CASE WHEN bt.line_type = 'bt' THEN 1 ELSE 0 END) num_bt,
        bt.order_no,
        bt.order_ext,
-       bt.user_category,
-       BT.qty_ord,
+       SUM(BT.qty_ord) qty_ord,
        o.ship_to_name,
        o.date_entered,
        o.date_shipped,
        o.user_category,
        o.ship_to_region territory,
        o.salesperson,
-       co.promo_id,
-       co.promo_level
+       ISNULL(co.promo_id,'') promo_id,
+       ISNULL(co.promo_level,'') promo_level,
+       FRAME_PARTS.FRAME_PARTS,
+       LENS_PARTS.LENS_PARTS
 FROM bt
     JOIN dbo.orders o (NOLOCK)
         ON o.order_no = bt.order_no
@@ -93,18 +83,46 @@ FROM bt
     JOIN dbo.CVO_orders_all co (NOLOCK)
         ON co.order_no = o.order_no
            AND co.ext = o.ext
-    JOIN inv_master_add frame (NOLOCK) ON frame.part_no = bt.frame
-    JOIN inv_master iframe (NOLOCK) ON iframe.part_no = bt.frame
+    LEFT OUTER JOIN inv_master_add frame (NOLOCK) ON frame.part_no = bt.frame
+    LEFT OUTER JOIN inv_master iframe (NOLOCK) ON iframe.part_no = bt.frame
     LEFT OUTER JOIN inv_master lens (NOLOCK) ON lens.part_no = bt.lens
-    WHERE o.status = 'T'
-    AND RIGHT(o.user_category,2) <> 'RB'
-    AND o.date_entered BETWEEN @startdate AND @enddate
-    AND (iframe.category = 'bt' OR (iframe.category <> 'bt' AND ISNULL(lens.part_no,'') > ''))
+    LEFT OUTER JOIN 
+    ( SELECT DISTINCT bt.order_no, bt.order_ext,
+        STUFF(( SELECT '; '+ FRAME FROM BT BT2 WHERE BT2.ORDER_NO = BT.ORDER_NO AND BT2.ORDER_EXT = BT.order_ext
+        FOR XML PATH('')
+        ),1,1,'') FRAME_PARTS
+        FROM BT  )
+        AS FRAME_PARTS ON FRAME_PARTS.order_no = bt.order_no AND FRAME_PARTS.order_ext = bt.order_ext
+    LEFT OUTER JOIN 
+    ( SELECT DISTINCT bt.order_no, bt.order_ext,
+        STUFF(( SELECT '; '+ LENS FROM BT BT2 WHERE BT2.ORDER_NO = BT.ORDER_NO AND BT2.ORDER_EXT = BT.order_ext
+        FOR XML PATH('')
+        ),1,1,'') LENS_PARTS
+        FROM BT  )
+        AS LENS_PARTS ON LENS_PARTS.order_no = bt.order_no AND LENS_PARTS.order_ext = bt.order_ext
+    GROUP BY bt.order_no,
+             bt.order_ext,
+             o.ship_to_name,
+             o.date_entered,
+             o.date_shipped,
+             o.user_category,
+             o.ship_to_region,
+             o.salesperson,
+             co.promo_id,
+             co.promo_level,
+             FRAME_PARTS.FRAME_PARTS,
+             LENS_PARTS.LENS_PARTS
+    HAVING (sum(CASE WHEN bt.line_type = 'lens-plano' THEN 1 ELSE 0 END)+
+            SUM(CASE WHEN bt.line_type = 'lens-reader' THEN 1 ELSE 0 END)+
+            SUM(CASE WHEN bt.line_type = 'MIB' THEN 1 ELSE 0 END)+
+            SUM(CASE WHEN bt.line_type = 'btF1' THEN 1 ELSE 0 END)+
+            SUM(CASE WHEN bt.line_type = 'bt' THEN 1 ELSE 0 END)) > 0
     ;
 
     END
     
     GRANT EXECUTE ON cvo_bt_order_log_sp  TO public
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_bt_order_log_sp] TO [public]

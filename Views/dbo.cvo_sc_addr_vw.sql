@@ -26,6 +26,7 @@ SELECT sc.salesperson_code,
        sc.user_name,
        sc.security_code,
        sc.email_address,
+       sc.PresCouncil,
        sc.salesperson_type,
        sc.sales_mgr_code,
        sc.sales_mgr_name,
@@ -73,6 +74,7 @@ cast( isnull(slp.territory_code,'') as varchar(8) ) territory_code,
 case when x.status = 1 then x.user_name else '' END user_name, 
 case when x.status = 1 then x.security_code else '' END security_code,
 case when x.status = 1 then x.email_address else '' END email_address, 
+CASE WHEN x.status = 1 THEN ISNULL(x.PresCouncil,'0') ELSE '0' END PresCouncil,
 slp.salesperson_type,
 slp.sales_mgr_code,
 rsm.salesperson_name sales_mgr_name,
@@ -117,6 +119,7 @@ LA.PHONE phone,
 '' user_name,
 '0000' security_code,
 '' email_address , 
+'' PresCouncil,
 0 salesperson_type,
 '' sales_mgr_code,
 '' sales_mgr_name,
@@ -148,6 +151,7 @@ L.PHONE phone,
 '' user_name,
 '0000' security_code,
 '' email_address , 
+'' PresCouncil,
 0 salesperson_type,
 '' sales_mgr_code,
 '' sales_mgr_name,
@@ -160,6 +164,7 @@ l.location, -- 10/5/2017
 FROM DBO.locations AS l WHERE LOCATION IN ('015-NSBAG','016-NSBAG','017-NSBAG')
 
 ) sc
+
 
 
 

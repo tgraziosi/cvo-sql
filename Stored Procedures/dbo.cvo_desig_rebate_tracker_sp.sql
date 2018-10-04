@@ -161,7 +161,7 @@ AS
                cdr.goal2 ,
                cdr.rebatepct2 ,
                cdr.RRLess ,
-               ar.past_due ,
+               ISNULL(ar.past_due,0) past_due ,
                cust.mergecust ,
                t.region ,
                t.terr territory_code ,
@@ -337,6 +337,7 @@ AS
     -- SELECT * FROM dbo.cvo_designation_codes AS ccdc
 
     END;
+
 
 
 

@@ -32,7 +32,6 @@ CREATE PROCEDURE [dbo].[CVO_buying_group_export_sp] (@WHERECLAUSE VARCHAR(1024))
 -- v1.7 CB 27/06/2018 - Fix rounding issues
 -- v1.8 CB 27/07/2018 - Addition to v1.7
 -- v1.9 CB 27/07/2018 - Addition to v1.8
--- v2.0 CB 27/07/2018 - Addition to v1.9
 AS  
 BEGIN
 
@@ -289,9 +288,7 @@ BEGIN
 		inv_tax			decimal(20,8), 
 		inv_net			decimal(20,8), 
 		disc_perc		float, 
-		rowid			int,
-		ar_tot			decimal(20,8), -- v2.0
-		ar_diff			decimal(20,8)) -- v2.0
+		rowid			int)
 
 	INSERT	#install_rounding (doc_ctrl_num, inv_gross, inv_freight, inv_tax, inv_net, disc_perc, rowid)
 	SELECT	doc_ctrl_num, SUM(inv_tot), SUM(freight), SUM(tax), SUM(inv_due), disc_perc, 0
@@ -391,30 +388,6 @@ BEGIN
 	ON		a.invoice = b.doc_ctrl_num
 	AND		a.id = b.rowid
 	-- v1.9 End
-	
-	-- v2.0 Start
-	UPDATE	a
-	SET		ar_tot = b.amt_net - (b.amt_tax + b.amt_freight)
-	FROM	#install_rounding a
-	JOIN	artrx_all b (NOLOCK)
-	ON		a.doc_ctrl_num = b.doc_ctrl_num
-
-	UPDATE	#install_rounding
-	SET		ar_diff = ar_tot - inv_net
-
-	UPDATE	#install_rounding
-	SET		inv_gross = inv_gross + ar_diff,
-			inv_net = inv_net + ar_diff	
-			
-	UPDATE	a
-	SET		merch = convert(varchar(13),convert(money,b.inv_gross)), 
-			total =  convert(varchar(13),convert(money,b.inv_gross)), 
-			mer_disc =  convert(varchar(13),convert(money,b.inv_net)), 
-			tot_due = convert(varchar(13),convert(money,b.inv_net))
-	FROM	#buy a
-	JOIN	#install_rounding b
-	ON		a.invoice = b.doc_ctrl_num
-	-- v2.0 End
 
 	DROP TABLE #install_rounding
 	-- v1.7 End

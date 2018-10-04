@@ -5,17 +5,23 @@ GO
 CREATE PROCEDURE [dbo].[cvo_item_label_print_wrap_sp]
 
     @sku_no_1 VARCHAR(30) = NULL ,
-	@sort_idx_1 VARCHAR(3) = '  ',
+	@sort_idx_1 VARCHAR(5) = '     ',
+    @who_1 VARCHAR(3) = '   ',
+
 	@sku_no_2 VARCHAR(30) = NULL ,
-    @sort_idx_2 VARCHAR(3) = '  ',
+    @sort_idx_2 VARCHAR(5) = '     ',
+    @who_2 varchar(3) = '   ',
+
 	@sku_no_3 VARCHAR(30) = NULL ,
-	@sort_idx_3 VARCHAR(3) = '  ',
+	@sort_idx_3 VARCHAR(5) = '     ',
+    @who_3 varchar(3) = '   ',
     @printer_id_param INT = NULL
 
 
 AS 
 
--- EXEC dbo.cvo_item_label_print_wrap_sp 'ASACCLBLA5717','a1','ASACCLGRE5717','b2','ASACCLSMO5717','c3',14
+-- EXEC dbo.cvo_item_label_print_wrap_sp 'BCENRAME4716','SA001','TAG','BCREIBRO5117','SA002','TAG','BCEMEINK5116','SA003','TAG',2
+
 
     BEGIN
 
@@ -204,6 +210,15 @@ AS
 						( 'LP_SORT_1' ,
                                 @sort_idx_1
 						);
+
+                INSERT  INTO #PrintData
+                        ( data_field ,
+                          data_value
+                        )
+						VALUES
+						( 'LP_WHO_1' ,
+                                @WHO_1
+						);
                         
 
                 INSERT  INTO #PrintData
@@ -272,6 +287,14 @@ AS
                                 @sort_idx_2
 						);
                  
+                INSERT  INTO #PrintData
+                        ( data_field ,
+                          data_value
+                        )
+						VALUES
+						( 'LP_WHO_2' ,
+                                @WHO_2
+						);
 
                 INSERT  INTO #PrintData
                         ( data_field ,
@@ -338,7 +361,14 @@ AS
 						( 'LP_SORT_3' ,
                                 @sort_idx_3
 						);
-                 
+                INSERT  INTO #PrintData
+                        ( data_field ,
+                          data_value
+                        )
+						VALUES
+						( 'LP_WHO_3' ,
+                                @WHO_3
+						);                 
 	
                 SELECT  @row_id = MIN(row_id)
                 FROM    #PrintDataDetail
@@ -354,7 +384,7 @@ AS
 
         IF @no_rows > 0
             BEGIN 
-                SET @detail_lines = 24; -- 8 lines per item
+                SET @detail_lines = 27; -- 8 lines per item
                 SET @FORMAT = '*FORMAT,' + @format_id;
 	
                 IF ( @no_rows % @detail_lines ) > 0
@@ -365,10 +395,10 @@ AS
 		-- SELECT @totPage
 
                 SELECT  @PRINTERNUMBER = '*PRINTERNUMBER,'
-                        + CAST(@printer_id AS CHAR(2)) ,
+                        + CAST(ISNULL(@printer_id,23) AS CHAR(2)) ,
                         @QUANTITY = '*QUANTITY,1' ,
-                        @DUPLICATES = '*DUPLICATES,'
-                        + CAST(ABS(@number_of_copies) AS CHAR(2)) ,
+                        @DUPLICATES = '*DUPLICATES,1',
+                        -- + CAST(ABS(@number_of_copies) AS CHAR(2)) ,
                         @PRINTLABEL = '*PRINTLABEL';
 	
                 SET @i = 1;
@@ -467,6 +497,8 @@ AS
 
 
 	GRANT EXECUTE ON cvo_item_label_print_wrap_sp TO PUBLIC;    
+
+
 
 
 GO

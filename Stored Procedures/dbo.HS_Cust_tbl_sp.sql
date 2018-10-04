@@ -70,6 +70,8 @@ BEGIN
 
 	  INSERT INTO #userGroup (customer_code, allterr) VALUES ('052834','I-Sales')
 
+      INSERT INTO #usergroup(customer_code, AllTerr) VALUES ('017755','40454') -- Rosin for Zigman
+
 	  -- 2/3/2017 - updated territory list
 	  -- 3/16/2017 - new list per email
 
@@ -85,12 +87,13 @@ BEGIN
 	  OR allterr LIKE '%30315%'
 	  OR allterr LIKE '%30324%'
       OR allterr LIKE '%30338%'
-      OR allterr LIKE '%40430%'
-      OR allterr LIKE '%70750%'
+      OR allterr LIKE '%40453%'
+      OR allterr LIKE '%40435%'
       OR allterr LIKE '%30336%'
       OR allterr LIKE '%20250%'
       OR allterr LIKE '%20215%'
         OR allterr LIKE '%50534%'
+
 
  --for Phil for VE - 032717
 	--  UPDATE #userGroup SET AllTerr = allterr + ',20206'
@@ -329,6 +332,9 @@ SELECT h.id ,
 
 
 END
+
+
+
 
 
 

@@ -215,9 +215,19 @@ and end_date is null
 
 -- 11/13/2017
 
-	UPDATE ar SET salesperson_code = 'LeribeEl' 
+	UPDATE ar SET salesperson_code = 'CobbWh' 
 	-- select territory_code, salesperson_code, * 
-	FROM armaster ar WHERE territory_code = '70775' AND ar.salesperson_code <> 'LeribeEl'
+	FROM armaster ar WHERE territory_code = '70775' AND ar.salesperson_code <> 'CobbWh'
+
+-- 9/18/2018 - special territory commission rate for Tom Lyon
+
+    UPDATE car SET commission = 25.5, car.commissionable = 1
+    -- SELECT car.* 
+    FROM armaster ar 
+    JOIN cvo_armaster_all car ON car.customer_code = ar.customer_code AND car.ship_to = ar.ship_to_code
+    WHERE ar.status_type = 1 AND ar.territory_code = '40432' AND ar.salesperson_code = 'LyonTo'
+    AND (ISNULL(car.commission,0) <> 25.5 OR ISNULL(car.commissionable,0) <> 1)
+
 
 /*
 update o set o.territory_code = ar.territory_code
@@ -260,6 +270,8 @@ FROM dbo.armaster_all ar (ROWLOCK) WHERE ar.address_type = 0 AND ar.ship_to_code
 
 
 END
+
+
 
 
 

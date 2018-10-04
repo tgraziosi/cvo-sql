@@ -104,7 +104,7 @@ left outer JOIN inv_master inv (NOLOCK) ON ol.part_no = inv.part_no
 left outer JOIN inv_master_add inva (NOLOCK) ON ol.part_no = inva.part_no    
 left outer join part_price pp (nolock) on ol.part_no = pp.part_no
 where 1=1
-and (ol.shipped <> 0 or ol.cr_shipped <> 0)
+and (ol.ordered <> 0 or ol.cr_ordered <> 0)
 and x.trx_type in (2031,2032)
 AND x.DOC_DESC NOT LIKE 'CONVERTED%' AND x.doc_desc NOT LIKE '%NONSALES%'
 AND x.doc_ctrl_num NOT LIKE 'CB%' AND x.doc_ctrl_num NOT LIKE 'FIN%'
@@ -212,7 +212,7 @@ left outer JOIN inv_master inv (NOLOCK) ON ol.part_no = inv.part_no
 left outer JOIN inv_master_add inva (NOLOCK) ON ol.part_no = inva.part_no    
 left outer join part_price pp (nolock) on ol.part_no = pp.part_no
 where 1=1
-and (ol.shipped <> 0 or ol.cr_shipped <> 0)
+and (ol.ordered <> 0 or ol.cr_ordered <> 0)
 and x.trx_type in (2031,2032)
 AND x.DOC_DESC NOT LIKE 'CONVERTED%' AND x.doc_desc NOT LIKE '%NONSALES%'
 AND x.doc_ctrl_num NOT LIKE 'CB%' AND x.doc_ctrl_num NOT LIKE 'FIN%'
@@ -390,6 +390,7 @@ where 1=1
 --and (o.user_def_fld3 is null 
 --	or o.user_def_fld3 not in ('don','eag','eor','qop','eos','ff','survey','si','ca','sv','pc'))
 --and user_category not in ('st-sa')
+
 
 
 
