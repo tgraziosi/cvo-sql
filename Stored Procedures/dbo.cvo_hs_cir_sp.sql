@@ -131,10 +131,7 @@ FROM #ryg
 UPDATE #t SET ryg = CASE WHEN #ryg.RYg ='x' THEN '' ELSE #ryg.RYg END 
 FROM #ryg JOIN #t ON #t.part_no = #ryg.part_no
 
--- SELECT '** set mastersku status', GETDATE()
-UPDATE #T SET MASTERSKU = ISNULL(HS.MASTERSKU,'')
-FROM #t
-LEFT OUTER JOIN dbo.cvo_hs_inventory_8 hs (NOLOCK) ON hs.sku = #T.part_no
+
 
 
 SELECT 'CIR v2' report_id,
@@ -240,7 +237,16 @@ WHERE NOT EXISTS  (SELECT 1 FROM #cir WHERE
 				AND #cir.ship_to = chct.ship_to)
 				OR chct.ship_to = '0002.'
 
+-- mastersku updates
+
+-- SELECT '** set mastersku status', GETDATE()
+UPDATE chct SET chct.MASTERSKU = ISNULL(HS.MASTERSKU,''), chct.last_update = GETDATE()
+FROM dbo.cvo_hs_cir_tbl chct
+LEFT OUTER JOIN dbo.cvo_hs_inventory_8 hs (NOLOCK) ON hs.sku = chct.part_no
+WHERE chct.mastersku <> hs.mastersku
+
 END
+
 
 
 

@@ -10,7 +10,7 @@ CREATE PROCEDURE [dbo].[cvo_commission_bldr_closeout_overages_sp]
 AS
 BEGIN 
 
--- exec cvo_commission_bldr_closeout_overages_sp '8/1/2018', '8/31/2018'
+-- exec cvo_commission_bldr_closeout_overages_sp '9/1/2018', '9/30/2018'
 
     SET NOCOUNT ON;
     SET ANSI_WARNINGS OFF;
@@ -100,7 +100,9 @@ BEGIN
            SUM(ipa.ExtPrice) extprice,
            SUM(Shipped) shipped,
            SUM(ipa.ordered) ordered,
-           CASE WHEN SUM(ordered) <> 0 THEN SUM(ExtPrice) / SUM(ordered) ELSE 0 END net_price_calc
+           --CASE WHEN SUM(ordered) <> 0 THEN SUM(ExtPrice) / SUM(ordered) ELSE 0 END net_price_calc
+           -- 10/8/2018 - use shipped qty, as the exprice is based on shipped qty too
+           CASE WHEN SUM(shipped) <> 0 THEN SUM(ExtPrice) / SUM(shipped) ELSE 0 END net_price_calc
     FROM
     (SELECT DISTINCT Order_no, Ext FROM #cb) ord
         JOIN dbo.cvo_item_pricing_analysis AS ipa
@@ -135,6 +137,7 @@ BEGIN
            ROUND(PROMO.price, 2) promo_price,
            ROUND(qualord.net_price_calc, 2) actual_price,
            qualord.ordered qty_ordered,
+           qualord.shipped qty_shipped,
            -- CASE WHEN qualord.net_price_calc > promo.price THEN 'OverPrice' ELSE '' END overprice,
            CASE
            -- WHEN qualord.net_price_calc <= PROMO.strike_price1 THEN PROMO.strike1_comm_pct
@@ -160,11 +163,13 @@ BEGIN
         JOIN #cb cb
             ON cb.Order_no = qualord.order_no
                AND cb.Ext = qualord.order_ext
-    WHERE qualord.net_price_calc > PROMO.strike_price1;
+     WHERE qualord.net_price_calc > PROMO.strike_price1;
 
 END;
 
 GRANT EXECUTE ON cvo_commission_bldr_closeout_overages_sp TO PUBLIC;
+
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_commission_bldr_closeout_overages_sp] TO [public]

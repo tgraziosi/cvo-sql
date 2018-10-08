@@ -2,7 +2,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[cvo_bo_to_subst_st]
+CREATE PROCEDURE [dbo].[cvo_bo_to_subst_st] @inv_month_bucket INT = null
 AS
 BEGIN
 
@@ -18,8 +18,8 @@ BEGIN
             @location VARCHAR(10),
             @collection VARCHAR(1000),
             @Style_list VARCHAR(8000),
-			@qty_threshold INT,
-			@inv_month_bucket int
+			@qty_threshold INT
+            --,@inv_month_bucket int
             ;
 
     DECLARE @today DATETIME;
@@ -27,10 +27,12 @@ BEGIN
 
     SELECT @asofdate = DATEADD(mm, DATEDIFF(mm, 0, GETDATE()), 0);
 
+    IF @inv_month_bucket IS null
 	SELECT @inv_month_bucket = CASE WHEN DAY(@today) <=15 THEN 4 ELSE 5 END;
 
 	SELECT @qty_threshold = 50;
 
+    
     IF OBJECT_ID('tempdb..#orders') IS NOT NULL
         DROP TABLE #orders;
     CREATE TABLE #orders
@@ -205,7 +207,8 @@ BEGIN
         p_gross_w4 INT,
         p_gross_w12 INT,
         price DECIMAL(20, 8),
-        frame_type VARCHAR(40)
+        frame_type VARCHAR(40),
+        last_order_date      DATETIME
     );
 
 
@@ -293,7 +296,8 @@ BEGIN
 	    p_gross_w4,
 	    p_gross_w12,
 	    price,
-	    frame_type
+	    frame_type,
+        last_order_date
 	)
     EXEC dbo.cvo_inv_fcst_r3_sp @asofdate = @asofdate,
                                 @collection = @collection,
@@ -650,6 +654,7 @@ BEGIN
              order_no;
 
 END;
+
 
 
 

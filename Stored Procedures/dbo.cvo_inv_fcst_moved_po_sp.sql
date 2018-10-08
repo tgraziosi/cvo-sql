@@ -147,7 +147,8 @@ create table #mpo
     p_gross_w4 INT,
     p_gross_w12 INT,
     price DECIMAL(20, 8),
-    frame_type VARCHAR(40)
+    frame_type VARCHAR(40),
+    last_order_date datetime
 
 )
 
