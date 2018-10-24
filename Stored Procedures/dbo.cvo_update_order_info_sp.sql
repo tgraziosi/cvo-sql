@@ -17,7 +17,8 @@ CREATE PROC [dbo].[cvo_update_order_info_sp]	@order_no				int,
 											@sch_ship_date			datetime,
 											@note					varchar(255),
 											@special_instr			varchar(255),
-											@delivery_date			datetime -- v1.4
+											@delivery_date			datetime, -- v1.4
+											@free_shipping			varchar(10) -- v1.5
 
 AS
 BEGIN
@@ -42,6 +43,7 @@ BEGIN
 			@o_req_ship_date		datetime, -- v1.4
 			@o_note					varchar(255),
 			@o_special_instr		varchar(255),
+			@o_free_shipping		varchar(30), -- v1.5
 			@status					char(1),
 			@SQL					varchar(5000)
 
@@ -70,15 +72,22 @@ BEGIN
 	WHERE	order_no = @order_no
 	AND		ext = @order_ext
 
+	-- v1.5 Start
+	SELECT	@o_free_shipping = ISNULL(free_shipping,'N')
+	FROM	cvo_orders_all (NOLOCK)
+	WHERE	order_no = @order_no
+	AND		ext = @order_ext
+	-- v1.5 End
+
 	-- Check if the order has been packed and if so has it been freighted or masterpacked
 	-- Fail validation only if relevant fields have been changed
-	IF (@o_freight_allow_type <> @freight_allow_type OR @o_routing <> @routing OR @o_sold_to <> @sold_to)
+	IF (@o_freight_allow_type <> @freight_allow_type OR @o_routing <> @routing OR @o_sold_to <> @sold_to OR @o_free_shipping <> @free_shipping) -- v1.5
 	BEGIN
 		IF EXISTS (SELECT 1 FROM tdc_carton_tx (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext
 					AND	order_type = 'S' AND status NOT IN ('O','C'))
 		BEGIN
 			SET @ret = -1
-			SET @message = 'Order information cannot be changed (freight type, carrier, global ship to). Carton has been freighted/staged.'
+			SET @message = 'Order information cannot be changed (freight type, carrier, global ship to, free shipping). Carton has been freighted/staged.' -- v1.5
 			SELECT	@ret, @message
 			RETURN
 		END
@@ -86,7 +95,7 @@ BEGIN
 					WHERE b.order_no = @order_no AND b.order_ext = @order_ext)
 		BEGIN
 			SET @ret = -1
-			SET @message = 'Order information cannot be changed (freight type, carrier, global ship to). Carton has been masterpacked.'
+			SET @message = 'Order information cannot be changed (freight type, carrier, global ship to, free shipping). Carton has been masterpacked.' -- v1.5
 			SELECT	@ret, @message
 			RETURN
 		END
@@ -218,6 +227,21 @@ BEGIN
 			RETURN
 		END
 	END
+
+	-- v1.5 Start
+	IF (@o_free_shipping <> @free_shipping)
+	BEGIN
+		UPDATE	cvo_orders_all
+		SET		free_shipping = @free_shipping
+		WHERE	order_no = @order_no
+		AND		ext = @order_ext
+
+		EXEC CVO_GetFreight_recalculate_sp @order_no, @order_ext, 0
+			
+		EXEC dbo.fs_updordtots @order_no, @order_ext		
+
+	END
+	-- v1.5 End
 
 	-- START v1.3
 	IF @o_routing <> @routing

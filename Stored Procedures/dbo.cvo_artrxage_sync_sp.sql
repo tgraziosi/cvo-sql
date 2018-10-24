@@ -24,6 +24,7 @@ BEGIN
             doc_date VARCHAR(10),
             parent VARCHAR(10)
         );
+        CREATE CLUSTERED INDEX idx_ar_data ON dbo.cvo_artrxage (customer_code, doc_ctrl_num, order_ctrl_num);
 
         GRANT INSERT, UPDATE, DELETE, SELECT ON dbo.cvo_artrxage TO PUBLIC;
     END;
@@ -89,6 +90,8 @@ BEGIN
     DROP TABLE #bg_data;
 
 END;
+
+
 
 
 

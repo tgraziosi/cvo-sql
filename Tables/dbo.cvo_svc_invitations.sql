@@ -113,6 +113,9 @@ CREATE TABLE [dbo].[cvo_svc_invitations]
 [bsn] [tinyint] NULL CONSTRAINT [DF__cvo_svc_inv__bsn__602604B8] DEFAULT ((0)),
 [bsn_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__bsn_s__611A28F1] DEFAULT ((0)),
 [bsn_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__bsn_o__620E4D2A] DEFAULT ((0)),
-[cst_bsn] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__cst_b__63027163] DEFAULT ((0))
+[cst_bsn] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__cst_b__63027163] DEFAULT ((0)),
+[percent_off] [tinyint] NULL,
+[show_price] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__show___6F333E1E] DEFAULT ((0)),
+[show_off_price] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__show___70276257] DEFAULT ((0))
 ) ON [PRIMARY]
 GO

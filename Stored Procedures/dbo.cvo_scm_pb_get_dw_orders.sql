@@ -196,7 +196,8 @@ BEGIN
 			CVO_orders_all.must_go_today, -- v1.2
 			CASE WHEN ISNULL(cvo_charge_sc.sc_no,0) = 0 THEN 0 ELSE 1 END sc_flag, -- v1.3
 			cvo_charge_sc.sc_no, -- v1.3
-			ISNULL(cvo_charge_sc.sc_order_no,0) -- v1.3
+			ISNULL(cvo_charge_sc.sc_order_no,0), -- v1.3
+			CVO_orders_all.free_ship_override -- v1.4
         FROM orders          
 		  left outer join adm_cust_all (nolock) on ( orders.cust_code  = adm_cust_all.customer_code) 
 		  left outer join glcurr_vw (nolock) on ( orders.curr_key  = glcurr_vw.currency_code)    

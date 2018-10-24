@@ -67,6 +67,7 @@ BEGIN
 	  WHERE ISNULL(employee_code,'') > ''
 	  AND status_type = 1
 	  AND NOT EXISTS(SELECT 1 FROM #userGroup WHERE #userGroup.customer_code = ISNULL(employee_code,'') )
+      AND dbo.calculate_region_fn(territory_code) = '800'
 
 	  INSERT INTO #userGroup (customer_code, allterr) VALUES ('052834','I-Sales')
 
@@ -332,6 +333,7 @@ SELECT h.id ,
 
 
 END
+
 
 
 

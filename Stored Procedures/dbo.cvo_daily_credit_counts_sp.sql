@@ -3,7 +3,7 @@ GO
 SET ANSI_NULLS ON
 GO
 CREATE PROCEDURE [dbo].[cvo_daily_credit_counts_sp]
-    @sdate DATETIME, @edate DATETIME
+    @sdate DATETIME = null, @edate DATETIME = null
 AS
 
 -- EXEC cvo_daily_credit_counts_sp '08/28/2017', '08/28/2017'
@@ -13,7 +13,12 @@ SET NOCOUNT ON
 SET ANSI_WARNINGS OFF
 ;
 
-SELECT @edate = DATEADD(ms,-1,DATEADD(DAY,1,@edate))
+IF @edate IS NULL SELECT @edate = GETDATE()
+IF @sdate IS NULL SELECT @sdate = DATEADD(dd,DATEDIFF(dd,0,GETDATE()), 0 )
+
+-- SELECT @sdate, @edate 
+
+-- SELECT @edate = DATEADD(ms,-1,DATEADD(DAY,1,@edate))
 
 
 SELECT
@@ -99,6 +104,7 @@ GROUP BY REPLACE(xfer.who_entered,'cvoptical\', '')
 
 
 ;
+
 
 
 

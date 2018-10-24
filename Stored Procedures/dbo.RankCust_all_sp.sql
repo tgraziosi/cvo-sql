@@ -7,12 +7,13 @@ GO
 -- Author: elabarbera
 -- Create date: 7/1/2013
 -- Description:, NEW Ranking Customer BILL TO
--- EXEC RankCust_all_sp '1/1/2017', '12/31/2017','true'
+-- EXEC RankCust_all_sp '9/1/2017', '08/31/2018','sf','bcbg','50514',null,'s'
 -- EXEC RankCustBillTo_sp '1/1/2014','12/31/2014','TRUE'
 -- EXEC RankCustshipTo_sp '1/1/2014','12/31/2014','TRUE'
 -- 12/5/2014 - tag - update RA figures to be only ra returns.  was including wty too
 -- 12/19/14 - tag - update ra amounts to exclude RBs
 -- 3/2016 - update coop info so there is only one record/per customer
+-- 10/2018 - dont include RB order types in qty figures
 -- -- SF STANDS FOR SUN FRAME ONLY DEFAULT IS ALL
 -- =============================================
 
@@ -354,11 +355,13 @@ BEGIN
            SUM(ISNULL(t2.asales, 0)) asales,
            SUM(ISNULL(t2.areturns, 0)) areturns,
            SUM(ISNULL(t2.anet, 0)) anet,
-           SUM(ISNULL(t2.qsales, 0)) qsales,
-           SUM(ISNULL(t2.qreturns, 0)) qreturns,
-           SUM(ISNULL(t2.qnet, 0)) qnet,
+           -- 10/2018 - dont include RB order types in qty figures
+           SUM(ISNULL(CASE WHEN t2.user_category LIKE '%RB' THEN 0 ELSE t2.qsales end, 0)) qsales,
+           SUM(ISNULL(CASE when t2.user_category LIKE '%RB' THEN 0 ELSE t2.qreturns end, 0)) qreturns,
+           SUM(ISNULL(CASE WHEN t2.user_category LIKE '%RB' THEN 0 ELSE t2.qnet end, 0)) qnet,
            SUM(ISNULL(t2.lsales, 0)) lsales,
            CASE WHEN t2.yyyymmdd BETWEEN @DateFromTY AND @DateToTY THEN 'TY' ELSE 'LY' END AS TYLY
+
     INTO #sales
     FROM @coll_tbl c
         INNER JOIN inv_master (NOLOCK) INV
@@ -503,8 +506,8 @@ BEGIN
            ship_to = CASE WHEN @CustOpt = 'B' THEN '' ELSE t1.ship_to END,
            CASE WHEN promo_id <> 'BEP' THEN ISNULL(SUM(asales), 0) ELSE 0 END AS GrossNoBepSTY_R12,
            CASE WHEN return_code /*<> 'EXC'*/ = '' THEN -1 * ISNULL(SUM(areturns), 0) ELSE 0 END AS RetSRaTY_R12,
-           CASE WHEN promo_id <> 'BEP' AND type_code IN ( 'SUN', 'FRAME' ) THEN ISNULL(SUM(qsales), 0) ELSE 0 END AS GrossNoBepUTY_R12,
-           CASE WHEN return_code /*<> 'EXC'*/ = ''
+           CASE WHEN t1.user_category NOT LIKE '%rb' AND promo_id <> 'BEP' AND type_code IN ( 'SUN', 'FRAME' ) THEN ISNULL(SUM(qsales), 0) ELSE 0 END AS GrossNoBepUTY_R12,
+           CASE WHEN t1.user_category NOT LIKE '%rb' AND return_code /*<> 'EXC'*/ = ''
                      AND type_code IN ( 'SUN', 'FRAME' ) THEN -1 * ISNULL(SUM(qreturns), 0) ELSE 0
            END AS RetURaTY_R12,
            CASE WHEN yyyymmdd
@@ -525,6 +528,7 @@ BEGIN
              promo_id,
              return_code,
              type_code,
+             t1.user_category,
              yyyymmdd
 
     ) r12data
@@ -658,10 +662,10 @@ BEGIN
                CASE WHEN TYLY <> 'TY' AND user_category LIKE 'RX%' THEN -1 * ISNULL(SUM(qreturns), 0) ELSE 0 END AS RetURXLY,
                CASE WHEN TYLY = 'TY' AND user_category NOT LIKE 'RX%' THEN -1 * ISNULL(SUM(qreturns), 0) ELSE 0 END AS RetUSTTY,
                CASE WHEN TYLY <> 'TY' AND user_category NOT LIKE 'RX%' THEN -1 * ISNULL(SUM(qreturns), 0) ELSE 0 END AS RetUSTLY,
-               CASE WHEN TYLY = 'TY' THEN ISNULL(SUM(qsales), 0) ELSE 0 END AS GrossUTY,
-               CASE WHEN TYLY <> 'TY' THEN ISNULL(SUM(qsales), 0) ELSE 0 END AS GrossULY,
-               CASE WHEN TYLY = 'TY' AND promo_id <> 'BEP' THEN ISNULL(SUM(qsales), 0) ELSE 0 END AS GrossNoBepUTY,
-               CASE WHEN TYLY <> 'TY' AND promo_id <> 'BEP' THEN ISNULL(SUM(qsales), 0) ELSE 0 END AS GrossNoBepULY,
+               CASE WHEN TYLY = 'TY' AND user_category NOT LIKE '%RB' THEN ISNULL(SUM(qsales), 0) ELSE 0 END AS GrossUTY,
+               CASE WHEN TYLY <> 'TY' AND user_category NOT like '%RB' THEN ISNULL(SUM(qsales), 0) ELSE 0 END AS GrossULY,
+               CASE WHEN TYLY = 'TY' AND promo_id <> 'BEP' AND user_category NOT LIKE '%RB' THEN ISNULL(SUM(qsales), 0) ELSE 0 END AS GrossNoBepUTY,
+               CASE WHEN TYLY <> 'TY' AND promo_id <> 'BEP' AND user_category NOT LIKE '%RB' THEN ISNULL(SUM(qsales), 0) ELSE 0 END AS GrossNoBepULY,
                CASE WHEN TYLY = 'TY'
                          AND yyyymmdd
                          BETWEEN t1.Start_date AND ISNULL(t1.End_date, @DateToTY) THEN ISNULL(SUM(anet), 0) ELSE 0
@@ -734,7 +738,7 @@ BEGIN
            RIGHT(cust_code, 5) Cust,
            ship_to = CASE WHEN @CustOpt = 'B' THEN '' ELSE A.ship_to END,
            (
-           SELECT TOP 1
+           SELECT TOP (1)
                   last_st_ord_date
            FROM cvo_carbi B (NOLOCK)
            WHERE A.cust_code = B.cust_code
@@ -965,6 +969,7 @@ BEGIN
             ON T1.customer = ar.customer;
 
 END;
+
 
 GO
 

@@ -15,8 +15,8 @@ GO
 -- v1.3 1/8/2014 - fixed issue with even/odd and prior years  EL
 -- v1.4 12/3/2015 - add parameter to run for one customer only.
 
-CREATE PROCEDURE [dbo].[cvo_coop_status_sp] @cust VARCHAR(10)  = NULL
-	-- exec cvo_coop_status_sp 	'026595'
+CREATE PROCEDURE [dbo].[cvo_coop_status_sp] @cust VARCHAR(10)  = NULL, @debug INT = null
+	-- exec cvo_coop_status_sp 	'010351', 1
 AS
 BEGIN
 	-- SET NOCOUNT ON added to prevent extra result sets from
@@ -103,7 +103,7 @@ set @evenyear = datepart(yy,@todate) % 2 -- 1 = odd, 0 = even
  SELECT   
 	o.cust_code customer_code,
 	datepart(yy,o.date_shipped) yyear,
-	SUM(CASE WHEN type = 'C' THEN ((ISNULL(gross_sales,0) - ISNULL(total_discount,0)) * -1)		ELSE ISNULL(gross_sales,0) - ISNULL(total_discount,0) END) as coop_sales
+    SUM((ISNULL(o.gross_sales,0) - ISNULL(o.total_discount,0)) * CASE WHEN o.type = 'c' THEN -1 ELSE 1 END) AS coop_sales
  into #coop_det
  FROM   
 	#COOP_CUST_INFO CO (NOLOCK)
@@ -115,13 +115,36 @@ set @evenyear = datepart(yy,@todate) % 2 -- 1 = odd, 0 = even
  AND ((o.user_category IN (SELECT order_category FROM CVO_order_types WHERE category_eligible = 'Y')) OR (o.[type] = 'C')) -- vx.3  
   
  group by o.cust_code, datepart(yy,o.date_shipped)
--- -- SELECT * FROM #COOP_DET
+
+ IF @debug IS NOT NULL
+ BEGIN
+  SELECT * FROM #COOP_DET
+   SELECT   
+	o.cust_code customer_code,
+	datepart(yy,o.date_shipped) yyear,
+    o.order_no,
+    o.type,
+    o.user_category,
+    SUM((ISNULL(o.gross_sales,0) - ISNULL(o.total_discount,0)) * CASE WHEN o.type = 'c' THEN -1 ELSE 1 END) AS coop_sales
+ -- into #coop_det
+ FROM   
+	#COOP_CUST_INFO CO (NOLOCK)
+	inner join orders (NOLOCK) o on co.customer_code = o.cust_code
+ WHERE   
+ isnull(co.coop_eligible,'n') = 'Y' and 
+ o.status in ('t')
+ AND o.date_shipped BETWEEN @fromdate and @todate
+ AND ((o.user_category IN (SELECT order_category FROM CVO_order_types WHERE category_eligible = 'Y')) OR (o.[type] = 'C')) -- vx.3  
+  group by o.cust_code, DATEPART(yy,o.date_shipped), o.order_no, o.type, o.user_category
+
+ END
+ 
 
  insert into #coop_det
  SELECT   
 	o.cust_code customer_code,
 	datepart(yy,o.date_shipped) yyear,
-	SUM(CASE WHEN type = 'C' THEN ((ISNULL(total_amt_order,0) - ISNULL(tot_ord_disc,0)) * -1)		ELSE ISNULL(total_amt_order,0) - ISNULL(tot_ord_disc,0) END) as coop_sales
+    SUM((ISNULL(o.total_amt_order,0) - ISNULL(o.tot_ord_disc,0)) * CASE WHEN o.type = 'c' THEN -1 ELSE 1 END) AS coop_sales
  FROM   
 	#COOP_CUST_INFO CO (NOLOCK)
 	inner join cvo_orders_all_hist (NOLOCK) o on co.customer_code = o.cust_code
@@ -297,6 +320,7 @@ where cte.customer_code = ci.customer_code
 
 
 END
+
 
 
 

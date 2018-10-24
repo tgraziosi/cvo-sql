@@ -2006,16 +2006,17 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
             AND CHARINDEX('HV', longdesc) = 0;
 
     UPDATE hi SET longdesc = REPLACE(longdesc,'HV', 'HVS'), NAME = REPLACE(NAME,'HV', 'HVS')
-    -- SELECT coll, longdesc, I.type_code, hi.POMDate, HI.STATUS
+    -- SELECT coll, longdesc, I.type_code,hi.[category:2], hi.POMDate, HI.STATUS
     FROM dbo.cvo_hs_inventory_8 AS hi
     JOIN INV_MASTER I ON I.part_no = HI.sku
-    WHERE longdesc LIKE '%HV%' AND COLL = 'bcbg' AND LONGDESC NOT LIKE '%RETAIL%' 
+    WHERE longdesc LIKE '%HV%' AND COLL = 'bcbg' 
+    AND (LONGDESC NOT LIKE '%RETAIL%' OR [category:2] = 'fashion')
     AND I.type_code = 'SUN'
     AND (ISNULL(pomdate,GETDATE()) >= GETDATE() OR HI.STATUS = 'G')
 
     
     UPDATE hi SET longdesc = REPLACE(longdesc,'HV', 'HVO'), NAME = REPLACE(NAME,'HV', 'HVO')
-    -- SELECT coll, longdesc, I.type_code, hi.POMDate, HI.STATUS
+    -- SELECT coll, longdesc, I.type_code, hi.[category:2], hi.POMDate, HI.STATUS
     FROM dbo.cvo_hs_inventory_8 AS hi
     JOIN INV_MASTER I ON I.part_no = HI.sku
     WHERE longdesc LIKE '%HV%' AND COLL = 'bcbg' AND LONGDESC NOT LIKE '%HVS%' 
@@ -2062,6 +2063,7 @@ IF GETDATE() >= '9/30/2018'
     END;
 
     END;
+
 
 
 

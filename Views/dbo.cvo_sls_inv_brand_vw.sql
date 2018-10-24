@@ -21,6 +21,7 @@ GO
 
 -- 8/16/2016 - remove 999 from inventory to include.  They want it as part of salesperson bags, as per DL
 -- 2/16/2018 - add pogo Accessories
+-- 10/2018 - add the three new NSBAG locations to SLP Bag Inventory
 
 --SELECT @MONTH = 7
 --SELECT @YEAR = 2013
@@ -38,7 +39,7 @@ obs, location, datepart(month,asofdate) month, datepart(year,asofdate) year
 from DBO.cvo_inv_val_month INV
 where
  -- (location <= '200 - AAAA' or location >= '999')
- (location <= '200 - AAAA' or location > '999')
+ ( (location <= '200 - AAAA' or location > '999') and location NOT LIKE '%NSBAG' )
 and type_code in ('frame','sun','ACC') 
 --AND @MONTH = DATEPART(MONTH,ASOFDATE) AND @YEAR = DATEPART(YEAR,ASOFDATE)
 group BY 
@@ -80,6 +81,7 @@ GROUP BY case when category = 'UN' then 'ME'
 		 WHEN I.type_code = 'ACC' THEN 'ACC' 
 		 ELSE 'PARTS' end, 
     I.obsolete, sbm.location, sbm.c_month, sbm.c_year
+
 
 
 

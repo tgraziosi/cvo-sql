@@ -221,7 +221,7 @@ AS
                                                          'Puriti Sunglass Collection'
                                                      WHEN 'REVO' THEN
                                                          'REVO Sunglass Collection'
-                                                     WHEN 'SM' THEN 'Steve Madden'
+                                                     WHEN 'SM' THEN 'Steve Madden Sunglass Collection'
                                                      ELSE '**Undefined**'
                                                 END
                                        END ,
@@ -569,6 +569,7 @@ AS
     -- tempdb..sp_help #framesdatalist
 
     END;
+
 
 
 

@@ -5,7 +5,8 @@ GO
 
 -- 8/18/2015 - when calculating FirstOrder units, don't qualify on promo/level, only on promo
 
--- exec cvo_brandtracker_bcbg_sp '10/1/2018', null, 'bcbg', null, 'bcbg','new,current', 0
+-- exec cvo_brandtracker_bcbg_sp '09/01/2018', null, 'bcbg', null, 'bcbg','new,current', 0
+
 
 CREATE PROCEDURE [dbo].[cvo_brandtracker_bcbg_sp]
     @df DATETIME = NULL ,      -- fromdate
@@ -199,23 +200,21 @@ BEGIN
 
     FROM   #terr
            INNER JOIN dbo.arcust ar ( NOLOCK ) ON terr = ar.territory_code
-           INNER JOIN dbo.adm_arcontacts AS aa (nolock) ON aa.customer_code = ar.customer_code AND aa.ship_to_code = ar.ship_to_code AND aa.contact_code = 'AMB'
+           LEFT OUTER JOIN dbo.adm_arcontacts AS aa (nolock) ON aa.customer_code = ar.customer_code AND aa.contact_code = 'AMB'
 
-           LEFT OUTER  JOIN (   SELECT   b.brand ,
+           LEFT OUTER  JOIN (   SELECT null brand, 
                                    sbm.customer ,
                                    MIN(ISNULL(sbm.promo_id, '')) promo_id ,
                                    MIN(ISNULL(sbm.promo_level, '')) promo_level ,
                                    MIN(sbm.DateOrdered) first_order_date ,
                                    MIN(sbm.yyyymmdd) first_order_ship
 
-                          FROM     #brand b
-                                   INNER JOIN dbo.inv_master i ON b.brand = i.category
-                                   INNER JOIN dbo.inv_master_add ia ON ia.part_no = i.part_no
-
-                                   JOIN dbo.cvo_sbm_details sbm ON sbm.part_no = i.part_no
-                                   JOIN #bp ON bp = sbm.promo_id
-                                   JOIN #bl ON bl = sbm.promo_level
-                                   JOIN cvo_promotions p on p.promo_id = sbm.promo_id AND p.promo_level = sbm.promo_level
+                          FROM     cvo_promotions p
+                                   JOIN #bp ON bp = p.promo_id
+                                   JOIN #bl ON bl = p.promo_level
+                                   JOIN dbo.cvo_sbm_details sbm ON sbm.promo_id = p.promo_id AND sbm.promo_level = p.promo_level
+                                   INNER JOIN dbo.inv_master i ON sbm.part_no = i.part_no
+                                   
                           WHERE    1 = 1
                                    -- and i.type_code in ('frame','sun')
                                    -- and sbm.user_category like 'ST%' 
@@ -226,8 +225,9 @@ BEGIN
                                    -- and dateordered between @datefrom and @dateto
                                    AND ISNULL(sbm.yyyymmdd,@datefrom)
                                    BETWEEN ISNULL(p.promo_start_date,@datefrom) AND @dateto
-                          GROUP BY b.brand,
-                                   sbm.customer ) AS bb ON bb.customer = ar.customer_code;
+                          GROUP BY sbm.customer ) 
+                          AS bb ON bb.customer = ar.customer_code
+                          WHERE (bb.first_order_date IS NOT NULL OR aa.contact_code = 'AMB');
 
 
     CREATE NONCLUSTERED INDEX idx_t ON #t (customer_code);
@@ -243,14 +243,11 @@ BEGIN
              '' BUCKET,
              '' mm
         FROM     #t
-             INNER JOIN dbo.inv_master i ON i.category = #t.brand
-                                        -- AND i.type_code = #t.tc
-             INNER JOIN dbo.inv_master_add ia ON ia.part_no = i.part_no
              INNER JOIN dbo.cvo_sbm_details sbm ON sbm.customer = #t.customer_code
-                                               AND sbm.part_no = i.part_no
                                                AND sbm.promo_id = #t.promo_id
                                                AND sbm.promo_level = #t.promo_level
              INNER JOIN cvo_promotions p on p.promo_id = #t.promo_id AND p.promo_level = #t.promo_level
+             INNER JOIN inv_master i ON i.part_no = sbm.part_no
 
     WHERE    sbm.yyyymmdd BETWEEN p.promo_start_date AND @dateto
              AND (RIGHT(sbm.user_category, 2) <> 'rb' )
@@ -324,7 +321,7 @@ BEGIN
              #t.customer_code ,
              #t.ship_to_code,
              #t.customer_name ,
-             #t.contact_name ,
+             ISNULL(#t.contact_name,'No Ambassador') contact_name ,
              #t.contact_phone ,
              #t.contact_email ,
              #t.promo_id ,
@@ -355,6 +352,9 @@ BEGIN
     
 
 END;
+
+
+
 
 
 

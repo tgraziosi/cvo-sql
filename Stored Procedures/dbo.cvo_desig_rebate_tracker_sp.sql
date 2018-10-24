@@ -13,7 +13,7 @@ AS
         SET NOCOUNT ON;
         SET ANSI_WARNINGS OFF;
 
-        -- exec cvo_desig_rebate_tracker_sp '1/1/2017', '11/20/2017', '40453', 0
+        -- exec cvo_desig_rebate_tracker_sp '1/1/2018', '12/31/2018', null, 0
 
 
         -- DECLARE @sdate DATETIME, @edate DATETIME, @terr VARCHAR(1024), @single_email int
@@ -299,6 +299,9 @@ AS
                                  MAX(contact_email) contact_email ,
                                  territory_code
                         FROM     arcust
+                        -- 10/16/2018 - active customers only
+                        WHERE status_type = 1
+                        --
                         GROUP BY RIGHT(customer_code, 5) ,
                                  territory_code ) AS cust ON cust.mergecust = facts.mergecust
 
@@ -337,6 +340,7 @@ AS
     -- SELECT * FROM dbo.cvo_designation_codes AS ccdc
 
     END;
+
 
 
 

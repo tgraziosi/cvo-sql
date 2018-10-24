@@ -50,8 +50,9 @@ SELECT  DISTINCT
         ccv.RES_type ,
         ccv.model ,
         ccv.PrimaryDemographic ,
-		CASE WHEN ccv.specialty_fit = 'Regular Fit' THEN '' ELSE ccv.specialty_fit END AS specialty_fit,
-		ccv.special_program,
+		-- CASE WHEN ccv.specialty_fit = 'Regular Fit' THEN '' ELSE ccv.specialty_fit END AS specialty_fit,
+        cmi.specialty_fit,
+		ISNULL(ccv.special_program,'') special_program,
 		ccv.supplier ,
         ccv.country_origin ,
         ccv.frame_category ,
@@ -62,7 +63,7 @@ SELECT  DISTINCT
         END Spring_hinge ,
         ISNULL(ccv.print_flag, '') print_flag ,
         cmi.release_date ,
-        cmi.pom_date ,
+        CASE WHEN cmi.pom_date IN ('1/1/1900','12/31/2999') THEN NULL ELSE cmi.pom_date END pom_date ,
         s.front_price ,
         s.temple_price ,
         s.frame_price wholesale_price ,
@@ -81,18 +82,21 @@ FROM    dbo.cvo_cmi_catalog_view AS ccv
         JOIN ( SELECT   Collection ,
                         model ,
                         MIN(release_date) release_date ,
-                        MAX(ISNULL(pom_date, '12/31/2999')) pom_date
-               FROM     dbo.cvo_cmi_catalog_view
-               GROUP BY Collection ,
-                        model
+                        MAX(ISNULL(pom_date, '12/31/2999')) pom_date,
+                        MAX(imrv.specialty_fit) specialty_fit
+               FROM     dbo.cvo_inv_master_r2_vw AS imrv
+               GROUP BY Collection , model
              ) cmi ON cmi.Collection = ccv.Collection
                       AND cmi.model = ccv.model
+
 ORDER BY ccv.Collection ,
         ccv.RES_type ,
         ccv.model 
 		;
 
 end
+
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_style_info_sp] TO [public]
 GO

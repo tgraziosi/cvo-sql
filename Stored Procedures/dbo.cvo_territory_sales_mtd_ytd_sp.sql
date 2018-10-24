@@ -2,24 +2,26 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[cvo_territory_sales_mtd_ytd_sp] @CompareYear VARCHAR(1000)
+CREATE PROCEDURE [dbo].[cvo_territory_sales_mtd_ytd_sp] @CompareYear VARCHAR(1000), @t VARCHAR(1024) = NULL  -- territory
 AS
 BEGIN
 
-    -- exec cvo_territory_sales_mtd_ytd_sp '2018'
-	--
-    --declare @compareyear varchar(1000)
-    --set @compareyear = '2018'
+    --  
+	-- cvo_territory_sales_mtd_ytd_sp '2018', '50503'
+    -- declare @compareyear varchar(1000)
+    -- set @compareyear = '2018'
 
 	set NOCOUNT ON 
 
 	    -- get workdays info
-    DECLARE @workday INT, @today DATETIME,
+    DECLARE @workday INT, @today DATETIME, @sdate DATETIME, @edate DATETIME,
             @totalworkdays INT,
+            @terr VARCHAR(1024),
             @pct_month FLOAT;
 
-	SELECT @today = GETDATE();
+	SELECT @today = GETDATE(), @terr = @t;
 
+    
     SELECT @workday
         = dbo.cvo_f_get_work_days(
                                      CONVERT(VARCHAR(25), DATEADD(dd, - (DAY(@today) - 1), @today), 101),
@@ -37,6 +39,93 @@ BEGIN
                                  );
 
     SELECT @pct_month = CAST(@workday AS FLOAT) / CAST(@totalworkdays AS FLOAT);
+
+    -- get TY LY UC from STock order Activity report
+
+    
+    IF (OBJECT_ID('tempdb.dbo.#st') IS NOT NULL)
+        DROP TABLE #st;
+
+    CREATE TABLE #st
+    (
+        cust_code VARCHAR(10) null,
+        ship_to VARCHAR(10) null,
+        ship_To_door VARCHAR(10),
+        ship_to_name VARCHAR(40),
+        salesperson VARCHAR(10),
+        salesperson_name VARCHAR(60),
+        Territory VARCHAR(10),
+        region VARCHAR(3),
+        total_amt_order DECIMAL(38, 8),
+        total_discount DECIMAL(38, 8),
+        total_tax DECIMAL(38, 8),
+        freight DECIMAL(38, 8),
+        qty_ordered DECIMAL(38, 8),
+        qty_shipped DECIMAL(38, 8),
+        total_invoice DECIMAL(38, 8),
+        FramesOrdered DECIMAL(38, 8),
+        FramesShipped DECIMAL(38, 8),
+        FramesRMA INT,
+        net_rx DECIMAL(38, 8),
+        net_sales DECIMAL(38, 8),
+		yy VARCHAR(2) null
+        );
+
+        SELECT @sdate = begindate, @edate = enddate FROM dbo.cvo_date_range_vw AS drv WHERE period = 'Month to Date'
+        INSERT #st
+        (
+            cust_code,
+            ship_to,
+            ship_To_door,
+            ship_to_name,
+            salesperson,
+            salesperson_name,
+            Territory,
+            region,
+            total_amt_order,
+            total_discount,
+            total_tax,
+            freight,
+            qty_ordered,
+            qty_shipped,
+            total_invoice,
+            FramesOrdered,
+            FramesShipped,
+            FramesRMA,
+            net_rx,
+            net_sales)
+        EXEC dbo.cvo_ST_Activity_log_sp @startdate = @sdate, @enddate = @edate
+			, @Territory = @terr, @qualorder = 1, @detail = 0
+	    UPDATE #st SET yy = 'TY' WHERE yy IS NULL;
+
+        SELECT @sdate = begindate, @edate = enddate FROM dbo.cvo_date_range_vw AS drv WHERE period = 'Month to Date LY'
+                INSERT #st
+        (
+            cust_code,
+            ship_to,
+            ship_To_door,
+            ship_to_name,
+            salesperson,
+            salesperson_name,
+            Territory,
+            region,
+            total_amt_order,
+            total_discount,
+            total_tax,
+            freight,
+            qty_ordered,
+            qty_shipped,
+            total_invoice,
+            FramesOrdered,
+            FramesShipped,
+            FramesRMA,
+            net_rx,
+            net_sales)
+        EXEC dbo.cvo_ST_Activity_log_sp @startdate = @sdate, @enddate = @edate
+			, @Territory = @terr, @qualorder = 1, @detail = 0
+	    UPDATE #st SET yy = 'LY' WHERE yy IS NULL;
+
+
 
     IF (OBJECT_ID('tempdb.dbo.#tsr') IS NOT NULL)
         DROP TABLE #tsr;
@@ -85,7 +174,7 @@ INSERT INTO #tsr
     ly_ytd
 )
 
-    EXEC dbo.cvo_territory_sales_r2016_sp @compareyear = @CompareYear, @territory = null;
+    EXEC dbo.cvo_territory_sales_r2016_sp @compareyear = @CompareYear, @territory = @terr;
 
     UPDATE #tsr
     SET agoal = anet,
@@ -200,7 +289,9 @@ INSERT INTO #tsr
            SUM(ISNULL(#tsr.anet_ty,0)) anet_ty,
            SUM(ISNULL(#tsr.anet_ly,0)) anet_ly,
            mgr.mgr_name,
-           mgr.mgr_date_of_hire
+           mgr.mgr_date_of_hire,
+           st.tyuc, 
+           st.lyuc
     FROM #tsr
         LEFT OUTER JOIN
         (
@@ -217,6 +308,12 @@ INSERT INTO #tsr
                '1/1/1949'
         ) mgr
             ON #tsr.Region = mgr.region
+        LEFT OUTER JOIN
+        ( SELECT Territory, cOUNT(DISTINCT CASE WHEN yy = 'TY' THEN cust_code+ship_to ELSE NULL end) tyuc,
+        cOUNT(DISTINCT CASE WHEN yy = 'LY' THEN cust_code+ship_to ELSE NULL end) lyuc
+        FROM #st
+        GROUP BY Territory
+        ) st ON st.Territory = #tsr.territory_code
         CROSS JOIN
         (SELECT MAX(x_month) maxmth FROM #tsr WHERE yyear = @compareyear AND anet <> 0) maxmth
     GROUP BY territory_code,
@@ -228,13 +325,17 @@ INSERT INTO #tsr
              mmonth,
              #tsr.Region,
              mgr.mgr_name,
-             mgr.mgr_date_of_hire;
+             mgr.mgr_date_of_hire,
+             st.tyuc,
+             st.lyuc;
 
 -- set the goal to be LY total sales
 
 
 
 END;
+
+
 
 
 

@@ -33,6 +33,7 @@ v3.5 CB 19/06/2014 - Performance
 v3.6 CB 18/09/2014 - #572 Masterpack - Third Party Ship To 
 v3.7 CB 22/09/2014 - #572 Masterpack - Global Ship To 
 v3.8 CB 17/09/2015 - #1540 - weight code for non US
+v3.9 CB 24/09/2018 - #1676 Overrode promo free shipping
 
 EXEC CVO_GetFreight_recalculate_sp 1420064, 0, 2
 */
@@ -137,7 +138,12 @@ BEGIN
 
 	-- v1.0
 	IF EXISTS (SELECT 1 FROM dbo.cvo_orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @ext AND free_shipping = 'Y') -- v1.1
+	BEGIN -- v3.9 Start
+		UPDATE dbo.orders WITH (ROWLOCK)
+		SET    freight	= 0
+		WHERE  order_no = @order_no AND ext = @ext -- v3.9 End
 		RETURN
+	END
 
 	-- START v3.1
 	IF @calc_tot_ord_freight = 2

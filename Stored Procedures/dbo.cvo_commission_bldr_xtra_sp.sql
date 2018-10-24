@@ -9,8 +9,8 @@ CREATE PROCEDURE [dbo].[cvo_commission_bldr_xtra_sp]
 AS
 BEGIN
 
-	-- exec cvo_commission_bldr_xtra_sp '20215,20220', '07/01/2018','07/30/2018'
-		-- exec cvo_commission_bldr_r3_sp '20215,20220', '07/01/2018','07/30/2018'
+	-- exec cvo_commission_bldr_xtra_sp '20215,20220', '10/01/2018','10/30/2018'
+		-- exec cvo_commission_bldr_r3_sp '20215,20220', '10/01/2018','10/30/2018'
 
     SET NOCOUNT ON;
 
@@ -164,6 +164,7 @@ BEGIN
 END;
 
 GRANT EXECUTE on dbo.cvo_commission_bldr_xtra_sp TO public
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_commission_bldr_xtra_sp] TO [public]

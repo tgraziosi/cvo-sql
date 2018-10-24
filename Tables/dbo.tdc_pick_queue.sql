@@ -153,7 +153,7 @@ BEGIN
 			UPDATE
 				dbo.cvo_replenishment_qty 
 			SET
-				qty = qty + @qty
+				qty = qty + ISNULL(@qty,0)
 			WHERE 
 				location = @location 
 				AND part_no = @part_no
@@ -167,7 +167,7 @@ BEGIN
 			SELECT
 				@location,
 				@part_no,
-				@qty
+				ISNULL(@qty,0)
 		END
 	END
 END

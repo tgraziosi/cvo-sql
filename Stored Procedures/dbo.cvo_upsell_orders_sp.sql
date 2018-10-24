@@ -4,7 +4,7 @@ SET ANSI_NULLS ON
 GO
 CREATE PROCEDURE [dbo].[cvo_upsell_orders_sp] (@s DATETIME, @e datetime) AS 
 
--- exec cvo_upsell_orders_sp '7/1/2016','7/31/2016'
+-- exec cvo_upsell_orders_sp '9/1/2018','9/30/2018'
 
 BEGIN
 SET NOCOUNT ON
@@ -85,6 +85,7 @@ WHERE   col.upsell_flag = 1
 END
 
 GRANT ALL ON dbo.cvo_upsell_orders_sp TO PUBLIC
+
 
 
 GO

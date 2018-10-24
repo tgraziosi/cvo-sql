@@ -19,7 +19,7 @@ BEGIN
 -- generate sku's from cmi into epicor
 --  
 -- 
--- exec [cvo_cmi_sku_generate_sp] 'sp', 'S Warren', NULL, null, '1/8/2019','N', 1
+-- exec [cvo_cmi_sku_generate_sp] 'sp', 'S Warren sun', NULL, null, '1/8/2019','N', 1
 
 
 
@@ -60,7 +60,7 @@ DECLARE
 	--   @upd CHAR(1)
 	--   ,@debug INT
 
- --SELECT  @coll = 'fn' , @model = 'e.j.', @colorname = null, @eye_size = null, @upd = 'n', @release_date = '12/11/2018', @debug = 1
+ --SELECT  @coll = 'sp' , @model = 's warren sun', @colorname = null, @eye_size = null, @upd = 'n', @release_date = '1/9/2019', @debug = 1
 
 
 -- SELECT  @coll = 'et' , @model = 'busan', @colorname = null, @eye_size = null, @upd = 'n', @release_date = '03/12/2019', @debug = 1
@@ -511,7 +511,7 @@ INSERT  INTO #parts_list
 				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
 				+ CASE WHEN @tpr = 0 THEN '' ELSE UPPER(LEFT(c.colorname,1)) end
                 + CASE WHEN @coll <> 'REVO' THEN ISNULL(UPPER(short_color_name), 'ccc')
-				            + CAST(c.eye_size AS VARCHAR(2))
+				            + LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2)
 							+ CAST(c.dbl_size AS VARCHAR(2)) ELSE '' end
 				+ CASE WHEN @coll = 'REVO' THEN ISNULL(UPPER(C.revo_frame_color),'XX') ELSE '' END
 				+ 'F1'
@@ -546,7 +546,7 @@ INSERT  INTO #parts_list
                 UPPER(
 				CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END + RTRIM(smn.short_model)
                 + ISNULL(UPPER(short_color_name), 'ccc') + 'F'
-                + CAST(CAST(c.eye_size AS INT) AS VARCHAR(2))
+                + LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2)
 				)
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
@@ -608,24 +608,24 @@ INSERT  INTO #parts_list
                 UPPER(c.Collection) collection ,
                 UPPER(c.model) model ,
                 UPPER(smn.short_model) short_model ,
-                upper(c.colorname) colorname ,
-                c.eye_size ,
+                upper(c.colorname) colorname           ,
+                c.eye_size  ,
                 NULL ,
                 'DEMOLEN' ,
                 CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END 
 				+ RTRIM(smn.short_model) + 'SUN' 
 				+ ISNULL(UPPER(short_color_name), 'ccc') 
-                + CAST(c.eye_size AS VARCHAR(2))
+                + LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2)
 				
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
         WHERE   1 = 1
-				AND c.colorname = ISNULL(@colorname,c.colorname)
-				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
-				AND C.RES_type = 'SUN'
+        		AND C.RES_type = 'SUN'
 				AND c.specialty_fit <> 'retail'
 				AND c.frame_category <> '3-piece rimless'
+				AND c.colorname = ISNULL(@colorname,c.colorname)
+				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
                 AND @COLL NOT IN  ('REVO','FN');
 
 
@@ -733,15 +733,16 @@ INSERT  INTO #parts_list
                 UPPER(
 				LEFT(c.Collection, 2) + RTRIM(smn.short_model)
                 + ISNULL(short_color_name, 'ccc') + 'TT'
-                + CAST(c.eye_size AS VARCHAR(2))
+                + LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2)
 				)
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                                     AND smn.model = c.model
         WHERE   1 = 1
+                AND c.tip_sku = 1
 				AND c.colorname = ISNULL(@colorname,c.colorname)
 				AND c.eye_size = ISNULL(@eye_size, c.eye_size)
-				and c.tip_sku = 1;
+				;
                 -- AND ISNULL(c.temple_tip_material, '') > ''; 
 
 
@@ -995,7 +996,7 @@ BEGIN
                 CASE WHEN c.collection = 'izx' THEN 'IZX' ELSE UPPER(LEFT(c.Collection, 2)) END 
 				+ RTRIM(smn.short_model) + 'DEM'
 				+ LEFT(c.colorname,1) 
-                + CAST(c.eye_size AS VARCHAR(2))
+                + LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2)
 				
         FROM    #cmi c
                 INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
@@ -1783,7 +1784,7 @@ INSERT  #i
                                    THEN c.Collection + ' ' + c.model + ' '
                                         + UPPER(ia.field_3) + ' '
                                         + ia.category_3 + ' '
-                                        + CAST(CAST (c.eye_size AS INTEGER) AS VARCHAR(2))
+                                        + LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2)
 								  WHEN c.part_type = 'bridge'
 								   THEN c.Collection + ' ' + c.model + ' '
                                         + UPPER(ia.field_3) + ' '
@@ -1825,7 +1826,7 @@ INSERT  #i
 										+ CASE WHEN @tpr = 1 THEN LEFT(ISNULL(IA.FIELD_3,''),2) 
 											   WHEN C.RES_TYPE = 'SUN' THEN UPPER(ISNULL(IA.FIELD_23,''))+' '
 											   ELSE '' END
-										+ CAST(CAST (c.eye_size AS INTEGER) AS VARCHAR(4))
+										+ LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2)
 								  WHEN c.part_type = 'hangtag'
 								  THEN LTRIM(RTRIM(c.collection))
 										+ ' '
@@ -1879,7 +1880,7 @@ INSERT  #i
 								 WHEN c.collection = 'REVO' THEN 'Revo'
                                  ELSE LTRIM(RTRIM(LEFT(c.Collection, 2)))
                             END ) + ' '
-                + CASE WHEN c.res_Type IN ('sun') AND collection IN ('PT','izx','SM') THEN 'Suns'
+                + CASE WHEN c.res_Type IN ('sun') AND collection IN ('PT','izx','SM','SP') THEN 'Suns'
 					   WHEN c.res_type IN ('sun') AND collection <> 'REVO' THEN 'Sun'
 					   --4/17/2017
 					   WHEN c.res_type ='OTHER' AND c.collection = 'BCBG' AND ISNULL(c.specialty_fit,'') = 'retail' THEN 'Sun'
@@ -1888,7 +1889,7 @@ INSERT  #i
                        or CHARINDEX('child',c.primarydemographic,0)>0
 					   OR CHARINDEX('kid',c.primarydemographic,0)>0 )
 					   THEN CASE WHEN c.collection = 'bt' THEN 'Kids' ELSE 'Kid' END
-                       WHEN LEFT(c.primarydemographic,3) = 'wom' AND c.collection IN ('PT','RR','IZOD') THEN 'Women'
+                       WHEN LEFT(c.primarydemographic,3) = 'wom' AND c.collection IN ('PT','RR','IZOD','SP') THEN 'Women'
                        ELSE LEFT(c.PrimaryDemographic, 3)
                   END ,
                 country_code = ISNULL ((SELECT TOP 1 country_code 
@@ -2722,6 +2723,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 
