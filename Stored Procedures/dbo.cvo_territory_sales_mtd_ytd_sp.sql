@@ -288,6 +288,7 @@ INSERT INTO #tsr
            SUM(ISNULL(CASE WHEN #tsr.yyear = @compareyear THEN  #tsr.agoal ELSE 0 end,0)) agoal,
            SUM(ISNULL(#tsr.anet_ty,0)) anet_ty,
            SUM(ISNULL(#tsr.anet_ly,0)) anet_ly,
+           SUM(ISNULL(CASE WHEN #tsr.yyear <> @compareyear AND #tsr.x_month = maxmth.maxmth THEN ISNULL(#tsr.anet,0) ELSE 0 END,0)) anet_mth_LY,
            mgr.mgr_name,
            mgr.mgr_date_of_hire,
            st.tyuc, 
@@ -334,6 +335,7 @@ INSERT INTO #tsr
 
 
 END;
+
 
 
 

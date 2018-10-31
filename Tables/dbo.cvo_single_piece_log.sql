@@ -8,6 +8,7 @@ CREATE TABLE [dbo].[cvo_single_piece_log]
 [location] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [flag] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [addTime] [datetime] NULL,
-[procTime] [datetime] NULL
+[procTime] [datetime] NULL,
+[sp_user] [varchar] (12) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO

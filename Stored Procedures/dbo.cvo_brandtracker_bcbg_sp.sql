@@ -5,7 +5,7 @@ GO
 
 -- 8/18/2015 - when calculating FirstOrder units, don't qualify on promo/level, only on promo
 
--- exec cvo_brandtracker_bcbg_sp '09/01/2018', null, 'bcbg', null, 'bcbg','new,current', 0
+-- exec cvo_brandtracker_bcbg_sp '09/01/2018', null, 'bcbg', '50512', 'bcbg','new,current', 1
 
 
 CREATE PROCEDURE [dbo].[cvo_brandtracker_bcbg_sp]
@@ -267,14 +267,13 @@ BEGIN
              END AS BUCKET,
              DATENAME(month,SBM.dateordered) mm
     FROM     #t
-             INNER JOIN dbo.inv_master i ON i.category = #t.brand
-                                        -- AND i.type_code = #t.tc
+             INNER JOIN dbo.cvo_sbm_details sbm ON sbm.customer = #t.customer_code -- AND sbm.ship_to = #t.ship_to_code
+             INNER JOIN dbo.inv_master i ON i.category = #t.brand AND i.part_no = sbm.part_no
              INNER JOIN dbo.inv_master_add ia ON ia.part_no = i.part_no
-             INNER JOIN dbo.cvo_sbm_details sbm ON sbm.customer = #t.customer_code AND sbm.ship_to = #t.ship_to_code
-                                               AND sbm.part_no = i.part_no
+
     WHERE    'RX' = LEFT(sbm.user_category,2)
              AND sbm.yyyymmdd BETWEEN @datefrom AND @dateto
-             AND sbm.promo_id NOT IN ( 'pc', 'ff', 'style out' ) 
+             AND ISNULL(sbm.promo_id,'') NOT IN ( 'pc', 'ff', 'style out' ) 
              AND (RIGHT(sbm.user_category, 2) <> 'rb' )
              AND i.type_code IN ('frame','sun')
 
@@ -352,6 +351,7 @@ BEGIN
     
 
 END;
+
 
 
 

@@ -8,7 +8,8 @@ GO
 -- Create date: 2/20/2013
 -- Description:	Handshake Main Customer Data
 -- EXEC hs_cust_tbl_sp
--- select * From hs_cust_tbl where modified_flag = 1
+-- select * From hs_cust_tbl where id = '045906'
+
 -- tag - 071213 - create a regular table instead of temp table
 -- tag - 8/21/2015 - add sales rep customer accounts
 -- tag - 10/18/2016 - use insert/update logic instead of rebuild
@@ -40,7 +41,7 @@ BEGIN
             ) Terr
 			   join
 			( SELECT distinct customer_code, territory_code FROM armaster (nolock)
-                WHERE address_type <> 9 
+                WHERE address_type <> 9 AND addr_sort1 <> 'Employee'
                    UNION ALL
             -- get the "covering" territories in play
             SELECT DISTINCT customer_code, RIGHT(code,5) territory
@@ -60,6 +61,7 @@ BEGIN
                              FOR XML PATH ('') ), 1, 1, ''  ) AS AllTerr
             FROM C
 
+            
 	  -- add sales rep customers too - 8/19/2015
 	  INSERT INTO #userGroup  (customer_code, AllTerr)
 	  SELECT DISTINCT ISNULL(employee_code,'') customer_code, territory_code
@@ -67,7 +69,7 @@ BEGIN
 	  WHERE ISNULL(employee_code,'') > ''
 	  AND status_type = 1
 	  AND NOT EXISTS(SELECT 1 FROM #userGroup WHERE #userGroup.customer_code = ISNULL(employee_code,'') )
-      AND dbo.calculate_region_fn(territory_code) = '800'
+      -- AND dbo.calculate_region_fn(territory_code) = '800'
 
 	  INSERT INTO #userGroup (customer_code, allterr) VALUES ('052834','I-Sales')
 
@@ -333,6 +335,7 @@ SELECT h.id ,
 
 
 END
+
 
 
 

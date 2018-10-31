@@ -84,10 +84,12 @@ set @evenyear = datepart(yy,@todate) % 2 -- 1 = odd, 0 = even
  	cvo_armaster_all co (nolock)
 	inner join arcust ar (nolock) on co.customer_code = ar.customer_code
 
+
  WHERE   
  isnull(co.coop_eligible,'') = 'Y'
  AND ar.customer_code = isnull(@cust,ar.customer_code)
- 
+ AND co.address_type = 0 -- 10/29/2018
+
  CREATE INDEX #COOP_IDX1 ON #COOP_CUST_INFO (CUSTOMER_CODE)
  
 -- --   SELECT * FROM #coop_cust_info
@@ -118,6 +120,7 @@ set @evenyear = datepart(yy,@todate) % 2 -- 1 = odd, 0 = even
 
  IF @debug IS NOT NULL
  BEGIN
+  SELECT * FROM #coop_cust_info AS cci
   SELECT * FROM #COOP_DET
    SELECT   
 	o.cust_code customer_code,
@@ -320,6 +323,7 @@ where cte.customer_code = ci.customer_code
 
 
 END
+
 
 
 

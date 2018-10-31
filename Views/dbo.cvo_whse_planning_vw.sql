@@ -5,6 +5,7 @@ GO
 
 -- select * from cvo_whse_planning_vw where isnull(location,'001') = '001' and  isnull(rel_date,'8/29/2017') = '8/29/2017'
 -- select * From cvo_whse_planning_vw where location = '001' and type_code in ('frame','sun','') and bin_no like 'f00%'
+-- SELECT * FROM dbo.cvo_whse_planning_vw AS wpv WHERE wpv.upc_code = '886453101248' AND location = '001'         
 -- =CONCATENATE("update tdc_bin_master set relative_point_y = '",D2,"', relative_point_x = '",E2,"' where bin_no = '",F2,"' and location = '001'")
 
 CREATE VIEW [dbo].[cvo_whse_planning_vw]
@@ -14,9 +15,10 @@ AS
             b.bin_no ,
 			i.category Brand,
 			ia.field_2 model,
-
+            
             i.description ,
             i.type_code ,
+            ia.category_3 part_type,
             CAST(b.qty AS INTEGER) qty ,
 			CASE WHEN ISNULL(pb.bin_no,'N') = 'N' THEN 'No' ELSE 'Yes' END AS Is_Assigned,
             ISNULL(pb.[primary], 'N') primary_bin ,
@@ -89,8 +91,8 @@ AS
 
     WHERE   1 = 1
 		-- AND i.void = 'n'
-			AND (b.bin_no IS NOT NULL OR pb.bin_no IS NOT NULL) -- 4/17/18
-    UNION -- assigned bins with no inventory
+			AND (b.bin_no IS NOT NULL OR pb.bin_no IS NOT NULL OR i.part_no IS NOT null) -- 4/17/18
+    UNION ALL -- assigned bins with no inventory
     SELECT	DISTINCT
 			i.part_no ,
             bm.bin_no ,
@@ -98,6 +100,7 @@ AS
 			ia.field_2 model,
             i.description ,
             i.type_code ,
+            ia.category_3 part_type,
             CAST(ISNULL(l.qty,0) AS INTEGER) qty ,
 			CASE WHEN ISNULL(s.bin_no,'N') = 'N' THEN 'No' ELSE 'Yes' END AS Is_Assigned,
             ISNULL(s.[primary], 'N') primary_bin ,
@@ -171,7 +174,7 @@ AS
     WHERE   l.location IS NULL
             AND l.part_no IS NULL
             AND l.bin_no IS NULL
-	UNION -- empty bins not assigned to parts
+	UNION ALL -- empty bins not assigned to parts
     SELECT	DISTINCT
 
 			'' part_no ,
@@ -181,6 +184,7 @@ AS
 
             bm.description ,
             '' type_code ,
+            '' part_type,
              0 qty ,
 			'Empty' AS  Is_Assigned,
             'N' primary_bin ,
@@ -227,6 +231,8 @@ AS
 			
 			;
     
+
+
 
 
 

@@ -143,11 +143,11 @@ select
 	,convert(datetime,'1/1/' + cast(year(getdate())-2 as varchar(4))) as BeginDate
 	,dateadd(yy,-2,convert(datetime,datediff(dd,0,getdate())))-1 as EndDate
 
---union all
---select 
---	Convert(varchar(100),'This Calendar Quarter') as [Period]
---	,DATEADD(qq, DATEDIFF(q,0,GETDATE()),0) as BeginDate
---	,DATEADD(qq, DATEDIFF(q,0,GETDATE())+1,0)-1 as EndDate
+union all
+select 
+	Convert(varchar(100),'This Quarter') as [Period]
+	,DATEADD(qq, DATEDIFF(q,0,GETDATE()),0) as BeginDate
+	,DATEADD(qq, DATEDIFF(q,0,GETDATE())+1,0)-1 as EndDate
 --union all
 --select 
 --	Convert(varchar(100),'This Calendar Quarter to Date') as [Period]
@@ -188,6 +188,7 @@ select
 	Convert(varchar(100),'Year To Date - ME') as [Period]
 	,convert(datetime,'1/1/' + cast(year(getdate()) as varchar(4))) as BeginDate
 	,convert(datetime,DATEADD(MONTH,DATEDIFF(month,0,GETDATE()),-0))-1 AS EndDate
+
 
 
 

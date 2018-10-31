@@ -26,7 +26,16 @@ BEGIN
           AND T.bin_no = 'rr putaway'
           AND T.trans_source = 'CO'
           AND T.tran_date >= @asofdate
-    GROUP BY ISNULL(u.fname + ' ' + u.lname, T.UserID);
+    GROUP BY ISNULL(u.fname + ' ' + u.lname, T.UserID)
+    UNION ALL
+        SELECT 'SGLPUTAWAY' QSTATUS,
+           ISNULL(u.fname + ' ' + u.lname, T.sp_user) username,
+           COUNT(T.id) num_trans
+    FROM dbo.cvo_single_piece_log AS T (NOLOCK)
+        LEFT OUTER JOIN cvo_cmi_users u (NOLOCK)
+            ON u.user_login = REPLACE(T.sp_user, 'cvoptical\', '')
+    WHERE T.addtime >= @asofdate
+    GROUP BY ISNULL(u.fname + ' ' + u.lname, T.sp_user);
 
 END;
 

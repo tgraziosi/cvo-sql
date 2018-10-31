@@ -78,12 +78,12 @@ EXEC dbo.tdc_ins_count_sp @err_msg = @err_msg OUTPUT, -- varchar(255)
 						  SELECT @err_msg
 
 
-EXEC dbo.tdc_ins_count_sp @err_msg = @err_msg OUTPUT, -- varchar(255)
-                          @team_id = 'CASE',              -- varchar(30)
-                          @cyc_code = 'CASE',        -- varchar(10)
-                          @location = '001'             -- varchar(10)
+--EXEC dbo.tdc_ins_count_sp @err_msg = @err_msg OUTPUT, -- varchar(255)
+--                          @team_id = 'CASE',              -- varchar(30)
+--                          @cyc_code = 'CASE',        -- varchar(10)
+--                          @location = '001'             -- varchar(10)
 
-						  SELECT @err_msg
+--						  SELECT @err_msg
 
 IF @station_id <> 'noprint'
 BEGIN
@@ -187,6 +187,7 @@ END
 --   select * From tdc_bcp_print_values
 
 END
+
 
 
 

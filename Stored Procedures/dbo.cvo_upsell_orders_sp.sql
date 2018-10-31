@@ -4,7 +4,7 @@ SET ANSI_NULLS ON
 GO
 CREATE PROCEDURE [dbo].[cvo_upsell_orders_sp] (@s DATETIME, @e datetime) AS 
 
--- exec cvo_upsell_orders_sp '9/1/2018','9/30/2018'
+-- exec cvo_upsell_orders_sp '10/1/2018','10/31/2018'
 
 BEGIN
 SET NOCOUNT ON
@@ -12,10 +12,12 @@ SET NOCOUNT ON
 DECLARE @sd DATETIME, @ed DATETIME
 SELECT @sd = @s, @ed = DATEADD(d,1,@e)
 
-SELECT  o.who_entered ,
+SELECT  o.who_entered,
+        REPLACE(ISNULL(tdc.userid,o.who_entered),'cvoptical\','') who_upsell,
         o.status ,
         o.date_entered ,
-		o.cust_code,
+		tdc.tran_date upsell_date,
+        o.cust_code,
 		o.ship_to,
 		o.ship_to_name,
         o.order_no ,
@@ -75,7 +77,14 @@ FROM    CVO_ord_list col
                          AND o.ext = col.order_ext
         JOIN dbo.CVO_orders_all AS co ON co.order_no = o.order_no
                                          AND co.ext = o.ext
-		LEFT OUTER JOIN dbo.CVO_TerritoryXref AS tx ON REPLACE(tx.User_name,'cvoptical\','') = o.who_entered
+		LEFT OUTER JOIN
+        (SELECT tl.userid, tl.TRAN_no, tl.tran_ext, tl.part_no, tl.tran_date
+         FROM tdc_log tl 
+        WHERE tran_date = (SELECT MAX(tran_date) FROM tdc_log t WHERE t.trans = 'upsell on' AND t.tran_no = tl.tran_no AND t.tran_Ext = tl.tran_ext AND tl.part_no = t.part_no) 
+        AND tl.trans = 'upsell on') tdc ON tdc.part_no = ol.part_no AND tdc.tran_no = ol.order_no AND tdc.tran_ext = ol.order_ext
+
+        LEFT OUTER JOIN dbo.CVO_TerritoryXref AS tx ON tx.User_name =  ISNULL(tdc.userid,'cvoptical\'+o.who_entered) -- for dept
+
 WHERE   col.upsell_flag = 1
         AND o.status <> 'v'
         AND o.who_entered <> 'backordr'
@@ -85,6 +94,9 @@ WHERE   col.upsell_flag = 1
 END
 
 GRANT ALL ON dbo.cvo_upsell_orders_sp TO PUBLIC
+
+
+-- SELECT * FROM dbo.CVO_TerritoryXref AS tx
 
 
 

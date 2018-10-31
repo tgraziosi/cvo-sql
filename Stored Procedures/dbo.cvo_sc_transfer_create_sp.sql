@@ -121,7 +121,7 @@ BEGIN
     BEGIN
         SELECT DISTINCT
                'Error:  Not enough inventory for one or more skus';
-        RETURN;
+        --RETURN;
     END;
 
     --SELECT * FROM   #xfer AS x;
@@ -372,6 +372,7 @@ BEGIN
 END;
 
 GRANT EXECUTE ON dbo.cvo_sc_transfer_create_sp TO PUBLIC;
+
 
 
 

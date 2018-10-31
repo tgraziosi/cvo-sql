@@ -7,7 +7,7 @@ GO
 -- 8/1/2017 - update to include items with no orders or shipments yet
 -- 8/31/2017 - use 
 
-create FUNCTION [dbo].[f_cvo_calc_weekly_usage_loc]
+CREATE FUNCTION [dbo].[f_cvo_calc_weekly_usage_loc]
 (
     @usg_option CHAR(1) = 'o',
 	@type_option CHAR(1) = 'C', -- C or T - Collection or Type
@@ -142,7 +142,7 @@ RETURN
             part_no = i.part_no,
             subs_qty = 0, -- ISNULL( subs.quantity, 0) ,
             promo_qty = CASE
-                            WHEN ISNULL(promo_id, '') > '' THEN
+                            WHEN ISNULL(co.promo_id, '') > '' AND p.season_program = 1 THEN -- 102518 - only seasonal programs should be considered
                                 CASE
                                     WHEN type = 'i' THEN
                                         CASE
@@ -269,6 +269,7 @@ RETURN
             LEFT OUTER JOIN dbo.CVO_orders_all co (NOLOCK)
                 ON co.ext = o.ext
                    AND co.order_no = o.order_no
+            LEFT OUTER JOIN cvo_promotions p (nolock) ON p.promo_id = co.promo_id AND p.promo_level = co.promo_level
         WHERE
 			la.location = ISNULL(@loc, la.location) AND la.void = 'N'
 			AND ((@type_option = 't' AND i.type_code = ISNULL(@type, i.type_code)) OR 
@@ -459,6 +460,7 @@ RETURN
         usage.location, usage.part_no
 )
 ;
+
 
 
 
