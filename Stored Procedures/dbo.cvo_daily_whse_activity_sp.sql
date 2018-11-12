@@ -99,11 +99,92 @@ BEGIN
     BETWEEN @sdate AND @edate
     GROUP BY DATEADD(dd, DATEDIFF(dd, 0, cpp.pick_complete_dt), 0),
              cpp.user_login,
-             cpp.cart_no;
-
-
-
+             cpp.cart_no
+    UNION ALL
+    SELECT LTRIM(RTRIM(SUBSTRING(
+                                    o.user_def_fld3,
+                                    LEN(o.user_def_fld3) - CHARINDEX(' ', REVERSE(o.user_def_fld3)),
+                                    LEN(o.user_def_fld3)
+                                )
+                      )
+                ),
+           'CREDIT RETURN',
+           'CREDIT RECEIVE',
+           ISNULL(
+                     cu.fname + ' ' + cu.lname,
+                     LTRIM(RTRIM(SUBSTRING(
+                                              o.user_def_fld3,
+                                              LEN(o.user_def_fld3) - CHARINDEX(' ', REVERSE(o.user_def_fld3)),
+                                              LEN(o.user_def_fld3)
+                                          )
+                                )
+                          )
+                 ) Username,
+           COUNT(DISTINCT o.order_no) num_activity,
+           COUNT(DISTINCT ol.part_no) num_skus,
+           DATEADD(dd, DATEDIFF(dd, 0, o.date_shipped), 0)
+    FROM orders o (NOLOCK)
+        JOIN ord_list ol (NOLOCK)
+            ON ol.order_no = o.order_no
+               AND ol.order_ext = o.ext
+        LEFT OUTER JOIN dbo.cvo_cmi_users AS cu
+            ON cu.user_login = REPLACE(
+                                          LTRIM(RTRIM(SUBSTRING(
+                                                                   o.user_def_fld3,
+                                                                   LEN(o.user_def_fld3)
+                                                                   - CHARINDEX(' ', REVERSE(o.user_def_fld3)),
+                                                                   LEN(o.user_def_fld3)
+                                                               )
+                                                     )
+                                               ),
+                                          'cvoptical\',
+                                          ''
+                                      )
+    WHERE o.status = 't'
+          AND o.type = 'c'
+          AND o.date_shipped
+          BETWEEN @sdate AND @edate
+    GROUP BY LTRIM(RTRIM(SUBSTRING(
+                                      o.user_def_fld3,
+                                      LEN(o.user_def_fld3) - CHARINDEX(' ', REVERSE(o.user_def_fld3)),
+                                      LEN(o.user_def_fld3)
+                                  )
+                        )
+                  ),
+             ISNULL(
+                       cu.fname + ' ' + cu.lname,
+                       LTRIM(RTRIM(SUBSTRING(
+                                                o.user_def_fld3,
+                                                LEN(o.user_def_fld3) - CHARINDEX(' ', REVERSE(o.user_def_fld3)),
+                                                LEN(o.user_def_fld3)
+                                            )
+                                  )
+                            )
+                   ),
+             DATEADD(dd, DATEDIFF(dd, 0, o.date_shipped), 0)
+    UNION ALL
+    SELECT REPLACE(xa.who_recvd, 'cvoptical\', ''),
+           'ADM',
+           'XFER RECEIVE',
+           ISNULL(cu.fname + ' ' + cu.lname, REPLACE(xa.who_recvd, 'cvoptical\', '')) Username,
+           COUNT(DISTINCT xa.xfer_no) num_activity,
+           COUNT(DISTINCT xl.part_no) num_skus,
+           DATEADD(dd, DATEDIFF(dd, 0, xa.date_recvd), 0)
+    FROM dbo.xfers_all AS xa (NOLOCK)
+        JOIN dbo.xfer_list AS xl (NOLOCK)
+            ON xl.xfer_no = xa.xfer_no
+        LEFT OUTER JOIN dbo.cvo_cmi_users AS cu
+            ON cu.user_login = REPLACE(xa.who_recvd, 'cvoptical\', '')
+    WHERE xa.status = 's'
+          AND xa.to_loc = '001'
+          AND xa.date_recvd
+          BETWEEN @sdate AND @edate
+    GROUP BY REPLACE(xa.who_recvd, 'cvoptical\', ''),
+             ISNULL(cu.fname + ' ' + cu.lname, REPLACE(xa.who_recvd, 'cvoptical\', '')),
+             DATEADD(dd, DATEDIFF(dd, 0, xa.date_recvd), 0);
 END;
+
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_daily_whse_activity_sp] TO [public]

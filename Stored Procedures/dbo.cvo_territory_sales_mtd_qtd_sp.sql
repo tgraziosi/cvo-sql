@@ -7,7 +7,7 @@ AS
 BEGIN
 
     --  
-	-- cvo_territory_sales_mtd_qtd_sp '2018', '70775,70778'
+	-- cvo_territory_sales_mtd_qtd_sp '2018', null
     -- declare @compareyear varchar(1000)
     -- set @compareyear = '2018'
 
@@ -190,6 +190,7 @@ INSERT INTO #tsr
 		   #tsr.salesperson_code,
            #tsr.salesperson_name,
            #tsr.date_of_hire,
+           #tsr.x_month,
            #tsr.Q,
            #tsr.yyear,
            SUM(ISNULL(#tsr.anet,0)) anet,
@@ -201,8 +202,8 @@ INSERT INTO #tsr
            SUM(ISNULL(#tsr.anet_ly,0)) anet_ly,
            mgr.mgr_name,
            mgr.mgr_date_of_hire,
-           CASE WHEN #tsr.yyear = @CompareYear THEN g.q4_g1 ELSE 0 END q4_g1,
-           CASE WHEN #tsr.yyear = @CompareYear THEN g.q4_g2 ELSE 0 END q4_g2,
+           CASE WHEN #tsr.yyear = @CompareYear AND #tsr.x_month = MONTH(@today) THEN g.q4_g1 ELSE 0 END q4_g1,
+           CASE WHEN #tsr.yyear = @CompareYear AND #tsr.x_month = MONTH(@today) THEN g.q4_g2 ELSE 0 END q4_g2,
            @pct_qtr pct_qtr,
            @workday workday,
            @totalworkdays totalworkdays
@@ -228,12 +229,13 @@ INSERT INTO #tsr
         ) g ON g.territory = #tsr.territory_code
 
     
-    WHERE #tsr.q = DATEPART(QUARTER, @edate)
+    WHERE #tsr.q = DATEPART(QUARTER, @edate) AND 0 <> ISNULL(g.q4_g1,0)
 
     GROUP BY territory_code ,
              salesperson_code,
              salesperson_name,
              date_of_hire,
+             x_month,
              Q,
              yYear,
              #tsr.region,
@@ -248,6 +250,8 @@ INSERT INTO #tsr
 
 
 END;
+
+
 
 
 

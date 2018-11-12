@@ -9,14 +9,17 @@ GO
 -- Create date: 3/13/2013
 -- Description:	Territory ST Cycle Report
 -- EXEC Territory_ST_Cycle_SSRS_SP '06/30/2018' , '70721'
--- EXEC Territory_ST_Cycle_SSRS_r2_SP '06/30/2018' , '70721'
+-- EXEC Territory_ST_Cycle_SSRS_r3_SP '10/31/2018' , null, 'bbg,VT'
 -- 033015 - add territory parameter for performance
 -- 07/2018 - rewrite - TAG
 -- 10/2018 - added number of visits r12
+-- 11/2018 - add designations filter
+
 -- =============================================
-CREATE PROCEDURE [dbo].[Territory_ST_Cycle_SSRS_r2_SP]
+CREATE PROCEDURE [dbo].[Territory_ST_Cycle_desig_SP]
     @DateTo DATETIME,
-    @Terr VARCHAR(1000) = NULL
+    @Terr VARCHAR(1000) = NULL,
+    @ActiveDesig VARCHAR(1000) = NULL
 -- , @debug INT = NULL
 AS
 BEGIN
@@ -80,8 +83,24 @@ BEGIN
         FROM dbo.f_comma_list_to_table(@territory);
     END;
 
+        DECLARE @activedes_tbl TABLE
+    (
+        code VARCHAR(10)
+    );
+
+    IF (@ActiveDesig IS NOT NULL and @ActiveDesig <> '*all*')
+    BEGIN
+        INSERT INTO @activedes_tbl
+        (
+            code
+        )
+        SELECT ListItem
+        FROM dbo.f_comma_list_to_table(@ActiveDesig);
+    END;
+
     IF (OBJECT_ID('tempdb.dbo.#OrdersAll') IS NOT NULL)
         DROP TABLE dbo.#OrdersAll;
+
     SELECT tmp.Terr,
            tmp.cust_code,
            tmp.ship_to,
@@ -100,11 +119,11 @@ BEGIN
     FROM
     (
         SELECT DISTINCT
-               t2.territory_code AS Terr,
+               ar.territory_code AS Terr,
                cust_code,
                ship_to,
-               t2.address_name,
-               LEFT(t2.postal_code, 5) postal_code,
+               ar.address_name,
+               LEFT(ar.postal_code, 5) postal_code,
                contact_phone AS phone,
                order_no,
                invoice_no,
@@ -116,21 +135,21 @@ BEGIN
                (
                    SELECT SUM(ordered)
                    FROM ord_list t22
-                       JOIN orders o
-                           ON o.order_no = t22.order_no
-                              AND o.ext = t22.order_ext
+                       JOIN orders oo
+                           ON oo.order_no = t22.order_no
+                              AND oo.ext = t22.order_ext
                        JOIN inv_master T33
                            ON t22.part_no = T33.part_no
-                   WHERE t1.order_no = t22.order_no
-                         AND o.who_entered <> 'backordr'
+                   WHERE o.order_no = t22.order_no 
+                         AND oo.who_entered <> 'backordr'
                          AND T33.type_code IN ( 'SUN', 'FRAME' )
                ) Qty
         FROM #territory t
-            INNER JOIN armaster t2
-                ON t.territory = t2.territory_code
-            INNER JOIN orders_all t1
-                ON t1.cust_code = t2.customer_code
-                   AND t1.ship_to = t2.ship_to_code
+            INNER JOIN armaster ar (nolock)
+                ON t.territory = ar.territory_code
+            INNER JOIN orders_all o
+                ON o.cust_code = ar.customer_code
+                   AND o.ship_to = ar.ship_to_code
         WHERE who_entered <> 'backordr'
               AND date_entered
               BETWEEN @DateFrom AND @DateTo
@@ -138,26 +157,26 @@ BEGIN
               AND user_category NOT LIKE 'RX%'
               AND type = 'I'
               AND status <> 'V'
-        GROUP BY LEFT(t2.postal_code, 5),
-                 t2.territory_code,
-                 t1.cust_code,
-                 t1.ship_to,
-                 t2.address_name,
-                 t2.contact_phone,
-                 t1.order_no,
-                 t1.invoice_no,
-                 t1.invoice_date,
-                 t1.date_shipped,
-                 t1.date_entered,
-                 t1.user_category
+        GROUP BY LEFT(ar.postal_code, 5),
+                 ar.territory_code,
+                 o.cust_code,
+                 o.ship_to,
+                 ar.address_name,
+                 ar.contact_phone,
+                 o.order_no,
+                 o.invoice_no,
+                 o.invoice_date,
+                 o.date_shipped,
+                 o.date_entered,
+                 o.user_category
         --and status_type = 1
         UNION ALL
         SELECT DISTINCT
-               t2.territory_code AS Terr,
+               ar.territory_code AS Terr,
                cust_code,
                ship_to,
-               t2.address_name,
-               LEFT(t2.postal_code, 5) postal_code,
+               ar.address_name,
+               LEFT(ar.postal_code, 5) postal_code,
                contact_phone AS phone,
                order_no,
                invoice_no,
@@ -175,11 +194,11 @@ BEGIN
                          AND T33.type_code IN ( 'SUN', 'FRAME' )
                ) Qty
         FROM #territory t
-            INNER JOIN armaster t2
-                ON t2.territory_code = t.territory
+            INNER JOIN armaster ar
+                ON ar.territory_code = t.territory
             INNER JOIN CVO_orders_all_Hist t1
-                ON t1.cust_code = t2.customer_code
-                   AND t1.ship_to = t2.ship_to_code
+                ON t1.cust_code = ar.customer_code
+                   AND t1.ship_to = ar.ship_to_code
         WHERE who_entered <> 'backordr'
               AND date_entered
               BETWEEN @DateFrom AND @DateTo
@@ -190,6 +209,8 @@ BEGIN
     --and status_type = 1
     ) tmp;
 
+
+    
     -- select * from armaster where status_type='1' and address_type<>9 
 
     IF (OBJECT_ID('tempdb.dbo.#STCYC') IS NOT NULL)
@@ -297,6 +318,7 @@ BEGIN
     --and 
     WHERE address_type <> 9;
 
+-- final select 
 
     ;WITH r12
     AS (SELECT oa.cust_code,
@@ -305,28 +327,43 @@ BEGIN
         FROM #OrdersAll AS oa
         WHERE qty >= 5
         GROUP BY oa.cust_code,
-                 oa.ship_to)
-    SELECT status_type,
-           territory_code,
-           customer_code,
-           ship_to_code,
-           address_name,
-           city,
-           postal_code,
-           phone,
-           Ord#,
-           LastVisitDate,
-           Type,
-           OrdAmt,
-           Qty,
-           NetSales12,
+                 oa.ship_to),
+    desig 
+    AS ( SELECT DISTINCT cdc.customer_code, cdc.code, cdc.description, cdc.primary_flag
+                                         FROM @activedes_tbl a
+                                         JOIN dbo.cvo_cust_designation_codes AS cdc (NOLOCK)
+                                                 ON a.code = cdc.code
+                                         WHERE ISNULL(cdc.start_date, @dateto) <= @dateto
+                                               AND ISNULL(cdc.end_date, @dateto) >= @dateto )
+    SELECT s.status_type,
+           s.territory_code,
+           s.customer_code,
+           s.ship_to_code,
+           s.address_name,
+           s.city,
+           s.postal_code,
+           s.phone,
+           s.Ord#,
+           s.LastVisitDate,
+           s.Type,
+           s.OrdAmt,
+           s.Qty,
+           s.NetSales12,
            r12.numvisits,
-           M,
-           R
-    FROM #STCYC
+           s.M,
+           s.R,
+           desig.code,
+           desig.description,
+           desig.primary_flag
+    FROM #STCYC s
         LEFT OUTER JOIN r12
-            ON r12.cust_code = #STCYC.customer_code
-               AND r12.ship_to = #STCYC.ship_to_code;
+            ON r12.cust_code = s.customer_code
+               AND r12.ship_to = s.ship_to_code
+        LEFT OUTER JOIN desig
+             ON desig.customer_code = s.customer_code
+        WHERE EXISTS (SELECT 1 FROM @activedes_tbl AS at WHERE at.code = desig.code)
+              OR (@ActiveDesig IS NULL OR @ActiveDesig = '*ALL*')
+             ;
 
 END;
 
@@ -336,6 +373,7 @@ END;
 
 
 
+
 GO
-GRANT EXECUTE ON  [dbo].[Territory_ST_Cycle_SSRS_r2_SP] TO [public]
+GRANT EXECUTE ON  [dbo].[Territory_ST_Cycle_desig_SP] TO [public]
 GO

@@ -890,12 +890,12 @@ AS
 
                 IF ( @freight_chg_flag = '' )
                     BEGIN
-                        SET @freight_chg_flag = '0';
+                        SET @freight_chg_flag = '1';
                     END;
                 ELSE
                     BEGIN
-                        IF ( @freight_chg_flag NOT IN ( '0', '1', '2' ))
-                            SET @freight_chg_flag = '0';
+                        IF ( @freight_chg_flag NOT IN ( '1', '2', '3' ))
+                            SET @freight_chg_flag = '1';
                     END;
 
                 UPDATE dbo.cvo_cust_import
@@ -1820,6 +1820,7 @@ AS
                 WHERE  process = -1;
             END;
     END;
+
 
 
 

@@ -10,6 +10,7 @@ GO
 -- exec SSRS_SunPreSell_v2_sp
 -- switch to date ordered and summarize by level
 -- 111017 - update programs for 2018 season
+-- 110618 - tweeks for 2019 season
 -- =============================================
 
 CREATE PROCEDURE [dbo].[SSRS_SunPreSell_v2_sp]
@@ -21,16 +22,16 @@ CREATE PROCEDURE [dbo].[SSRS_SunPreSell_v2_sp]
 AS
     BEGIN
 
-        -- exec ssrs_sunpresell_V2_sp '10/20/2017', '11/1/2017', '1/31/2018', 0
+        -- exec ssrs_sunpresell_V2_sp '11/06/2018', '11/1/2018', '10/31/2019', 1
 
         SET NOCOUNT ON;
 
 
 
         IF @sdate IS NULL
-            SET @sdate = '11/13/2017';
+            SET @sdate = '11/1/2018';
         IF @edate IS NULL
-            SET @edate = '2/2/2018';
+            SET @edate = '10/31/2019';
 
         IF @asofdate IS NULL
             SELECT @asofdate = @sdate;
@@ -103,62 +104,62 @@ AS
 			);
 
         ---- HISTORY INVOICES
-		INSERT INTO #sunps
-		SELECT   cust_code ,
-		         o.ship_to ,
-		         o.type ,
-		         o.order_no ,
-		         invoice_no ,
-		         date_entered ,
-		         date_shipped ,
-		         UPPER(user_def_fld3) AS Promo_id ,
-		         user_def_fld9 AS Promo_level ,
-		         CASE WHEN type = 'C' THEN 0
-		              ELSE SUM(ordered)
-		         END AS OrdQty ,
-		         SUM(shipped) ShipQty ,
-		         SUM(cr_shipped) CRQty ,
-		         CASE WHEN type = 'I' THEN 1
-		              ELSE -1
-		         END AS Cnt ,
-		         period = CASE WHEN o.date_entered
-		                            BETWEEN @P2From AND @P2To THEN
-		                           DATEPART(YEAR, @P2To)
-		                       WHEN o.date_entered
-		                            BETWEEN @P3From AND @P3To THEN
-		                           DATEPART(YEAR, @P3To)
-		                       WHEN o.date_entered
-		                            BETWEEN @P4From AND @P4To THEN
-		                           DATEPART(YEAR, @P4To)
-		                       WHEN o.date_entered
-		                            BETWEEN @P5From AND @P5To THEN
-		                           DATEPART(YEAR, @P5To)
-							WHEN o.date_entered
-		                            BETWEEN @P6From AND @P6To THEN
-		                           DATEPART(YEAR, @P6To)
-		                       ELSE ''
-		                  END
-		--INTO     #sunps
+		--INSERT INTO #sunps
+		--SELECT   cust_code ,
+		--         o.ship_to ,
+		--         o.type ,
+		--         o.order_no ,
+		--         invoice_no ,
+		--         date_entered ,
+		--         date_shipped ,
+		--         UPPER(user_def_fld3) AS Promo_id ,
+		--         user_def_fld9 AS Promo_level ,
+		--         CASE WHEN type = 'C' THEN 0
+		--              ELSE SUM(ordered)
+		--         END AS OrdQty ,
+		--         SUM(shipped) ShipQty ,
+		--         SUM(cr_shipped) CRQty ,
+		--         CASE WHEN type = 'I' THEN 1
+		--              ELSE -1
+		--         END AS Cnt ,
+		--         period = CASE WHEN o.date_entered
+		--                            BETWEEN @P2From AND @P2To THEN
+		--                           DATEPART(YEAR, @P2To)
+		--                       WHEN o.date_entered
+		--                            BETWEEN @P3From AND @P3To THEN
+		--                           DATEPART(YEAR, @P3To)
+		--                       WHEN o.date_entered
+		--                            BETWEEN @P4From AND @P4To THEN
+		--                           DATEPART(YEAR, @P4To)
+		--                       WHEN o.date_entered
+		--                            BETWEEN @P5From AND @P5To THEN
+		--                           DATEPART(YEAR, @P5To)
+		--					WHEN o.date_entered
+		--                            BETWEEN @P6From AND @P6To THEN
+		--                           DATEPART(YEAR, @P6To)
+		--                       ELSE ''
+		--                  END
+		----INTO     #sunps
 
-		FROM     CVO_orders_all_Hist ( NOLOCK ) o
-		         JOIN cvo_ord_list_hist ( NOLOCK ) ol ON o.order_no = ol.order_no
-		                                                 AND o.ext = ol.order_ext
-		         JOIN inv_master ( NOLOCK ) i ON ol.part_no = i.part_no
-		WHERE    o.status <> 'v'
-		         AND user_def_fld3 LIKE '%SUNPS%'
-		         AND o.ext = 0
-		         AND o.date_entered
-		         BETWEEN @P6From AND @P2To
-		         AND i.type_code IN ( 'frame', 'sun' )
-		GROUP BY cust_code ,
-		         o.ship_to ,
-		         o.type ,
-		         o.order_no ,
-		         invoice_no ,
-		         date_entered ,
-		         date_shipped ,
-		         user_def_fld3 ,
-		         user_def_fld9;
+		--FROM     CVO_orders_all_Hist ( NOLOCK ) o
+		--         JOIN cvo_ord_list_hist ( NOLOCK ) ol ON o.order_no = ol.order_no
+		--                                                 AND o.ext = ol.order_ext
+		--         JOIN inv_master ( NOLOCK ) i ON ol.part_no = i.part_no
+		--WHERE    o.status <> 'v'
+		--         AND user_def_fld3 LIKE '%SUNPS%'
+		--         AND o.ext = 0
+		--         AND o.date_entered
+		--         BETWEEN @P6From AND @P2To
+		--         AND i.type_code IN ( 'frame', 'sun' )
+		--GROUP BY cust_code ,
+		--         o.ship_to ,
+		--         o.type ,
+		--         o.order_no ,
+		--         invoice_no ,
+		--         date_entered ,
+		--         date_shipped ,
+		--         user_def_fld3 ,
+		--         user_def_fld9;
 
         -- LIVE INVOICES
         INSERT INTO #sunps
@@ -202,7 +203,9 @@ AS
                                                                   AND o.ext = co.ext
                              JOIN inv_master ( NOLOCK ) i ON ol.part_no = i.part_no
                     WHERE    o.status <> 'v'
-                             AND promo_id  LIKE '%SUNPS%'
+                             -- AND promo_id  LIKE '%SUNPS%'
+                             AND promo_id IN ('sunps','op','selldown') 
+							 AND promo_level IN ('1','2','3','sun','suns1','suns2')
 
 
                              -- AND co.promo_level IN ('1','2','3') -- 11/3/2016
@@ -258,7 +261,7 @@ AS
                     WHERE    o.status <> 'v'
                              -- AND promo_id LIKE '%SUNPS%'
 							 AND promo_id IN ('sunps','op','selldown') 
-							 AND promo_level IN ('1','2','sun','suns1','suns2')
+							 AND promo_level IN ('1','2','3','sun','suns1','suns2')
                              -- and (o.ext='0' OR (o.ext>0 and o.who_entered='OutOfStock'))
                              AND o.who_entered <> 'backordr'
                              AND date_entered
@@ -341,6 +344,8 @@ AS
                AND Inv_cnt <> 0;
 
     END;
+
+
 
 
 

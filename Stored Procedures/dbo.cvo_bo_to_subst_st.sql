@@ -10,6 +10,7 @@ BEGIN
     -- exec cvo_bo_to_subst_st
     -- 6/15/2015 - tag - update to look at only stock with min 10 ATP
 	-- 03/08/2018 - tag - use IFP data to look for available subs
+     -- 11/7/2018 - change to subs with current products only
 
     SET NOCOUNT ON;
     SET ANSI_WARNINGS OFF;
@@ -305,7 +306,7 @@ BEGIN
                                 @location = @location,
 								@usg_option = 'o',
 								@restype = 'frame,sun',						
-                                @current = 0; -- show all;
+                                @current = 1; -- show all;  11/7/2018 - change to current products only
 
     IF OBJECT_ID('tempdb..#subs') IS NOT NULL
         DROP TABLE #subs;
@@ -654,6 +655,7 @@ BEGIN
              order_no;
 
 END;
+
 
 
 

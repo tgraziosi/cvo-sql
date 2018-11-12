@@ -9,6 +9,7 @@ GO
 -- Description:	LISTS FOR EOS - END OF SUNS
 -- EXEC CVO_EOS_SP
 -- 090314 - tag - read sku list from new table cvo_eos_tbl
+-- 11092018 - switch to look for an attribute instead of cvo_eos_tbl
 -- =============================================
 
 CREATE PROCEDURE [dbo].[CVO_EOS_SP]
@@ -58,14 +59,16 @@ AS
                         Avail     AS TrueAvail
                 -- tag 090314 - change to table from list of skus
                 FROM
-                        cvo_eos_tbl              eos (NOLOCK)
+                        -- cvo_eos_tbl              eos (NOLOCK)
+                        cvo_part_attributes eos (nolock)
                     LEFT OUTER JOIN
                         CVO_items_discontinue_vw id (NOLOCK)
                             ON eos.part_no = id.part_no
                 WHERE
                         ISNULL(id.type, 'SUN') = 'SUN'
-                        AND eos.eff_date < GETDATE()
-                        AND ISNULL(eos.obs_date, GETDATE()) >= GETDATE()
+                        -- AND eos.eff_date < GETDATE()
+                        -- AND ISNULL(eos.obs_date, GETDATE()) >= GETDATE()
+                        AND eos.attribute = 'eos'
             ) s
         ORDER BY
             Prog,
@@ -142,6 +145,7 @@ AS
                 style;
 
     END;
+
 
 
 

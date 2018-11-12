@@ -860,11 +860,7 @@ ELSE '' END GENDER,
                                             IA.field_26 = '4/26/2016'
                                             AND I.category <> 'AS'
                                         )
-                                    OR
-                                        (
-                                            IA.field_26 = '9/11/2018'
-                                            AND @today < '9/11/2018'
-                                        )
+
                                 );
 
         -- vee 2016
@@ -2062,7 +2058,16 @@ IF GETDATE() >= '9/30/2018'
                        AND hi.Model = r.Model;
     END;
 
+    -- sunps 2019
+
+    
+    UPDATE hi SET hide = 1, masterhide = 1
+    -- SELECT * 
+    FROM dbo.cvo_hs_inventory_8 AS hi WHERE sunps = 'sunps' AND hi.ReleaseDate = '1/15/2019'
+    AND '11/6/2018' > GETDATE()
+
     END;
+
 
 
 

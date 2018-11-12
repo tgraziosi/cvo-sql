@@ -73,7 +73,8 @@ AS
 			bm.relative_point_y,
 			bm.modified_by,
 			bm.last_modified_date,
-			i.void inv_void
+			i.void inv_void,
+            parent.type_code parent_type_code
 
     FROM    inv_master i ( NOLOCK ) 
 			INNER JOIN inv_master_add ia (nolock) ON ia.part_no = i.part_no
@@ -87,6 +88,11 @@ AS
 			LEFT OUTER JOIN dbo.tdc_bin_replenishment AS tbr (NOLOCK) ON tbr.location = il.location
 													AND tbr.part_no = i.part_no
 													AND tbr.bin_no = b.bin_no
+            LEFT OUTER JOIN
+            (SELECT DISTINCT ii.category coll, iaa.field_2 model, ii.type_code 
+            FROM inv_master ii JOIN inv_master_add iaa ON ii.part_no = iaa.part_no WHERE ii.type_code IN ('frame','sun') and ii.void = 'n'
+            ) parent 
+            ON parent.model = ia.field_2 AND parent.coll = i.category
             
 
     WHERE   1 = 1
@@ -155,7 +161,8 @@ AS
 			bm.relative_point_y,
 			bm.modified_by,
 			bm.last_modified_date,
-			i.void inv_void
+			i.void inv_void,
+            parent.type_code
 
 
     FROM    tdc_bin_part_qty s ( NOLOCK )
@@ -171,6 +178,12 @@ AS
 			LEFT OUTER JOIN dbo.tdc_bin_replenishment AS tbr (NOLOCK) ON tbr.location = s.location
 													AND tbr.part_no = s.part_no
 													AND tbr.bin_no = s.bin_no
+            LEFT OUTER JOIN
+            (SELECT DISTINCT ii.category coll, iaa.field_2 model, ii.type_code 
+            FROM inv_master ii JOIN inv_master_add iaa ON ii.part_no = iaa.part_no WHERE ii.type_code IN ('frame','sun') and ii.void = 'n'
+            ) parent 
+            ON parent.model = ia.field_2 AND parent.coll = i.category
+
     WHERE   l.location IS NULL
             AND l.part_no IS NULL
             AND l.bin_no IS NULL
@@ -221,7 +234,8 @@ AS
 			bm.relative_point_y,
 			bm.modified_by,
 			bm.last_modified_date,
-			'N' inv_void
+			'N' inv_void,
+            '' parent_type_code
 
     FROM    tdc_bin_master bm (NOLOCK)
 			WHERE 
@@ -231,6 +245,7 @@ AS
 			
 			;
     
+
 
 
 

@@ -6,7 +6,13 @@ CREATE PROCEDURE [dbo].[cvo_dc_dash_cc_sp]
 AS
 BEGIN
 
-    SELECT b.group_code,
+    DECLARE @asofdate DATETIME
+    SELECT @asofdate = DATEADD(dd, DATEDIFF(dd,0,GETDATE()),0)
+
+    SELECT tpcc.team_id,
+            userid,
+            b.group_code,
+           
            CASE
                WHEN count_qty IS NULL THEN
                    'PENDING COUNT'
@@ -18,15 +24,33 @@ BEGIN
         JOIN tdc_bin_master b
             ON b.bin_no = tpcc.bin_no
                AND b.location = tpcc.location
-    GROUP BY CASE
+    GROUP BY tpcc.team_id,
+             USERID,
+             CASE
                  WHEN count_qty IS NULL THEN
                      'PENDING COUNT'
                  ELSE
                      'COMPLETED COUNT'
              END,
-             b.group_code;
+             b.group_code
 
+    UNION ALL
+    SELECT team_id,
+           userid,
+           b.group_code,
+           'POSTED COUNT' COUNT_STATUS,
+           COUNT(TPCC.part_no) NUM_COUNTS
+           FROM tdc_cyc_count_log tpcc
+                   JOIN tdc_bin_master b
+            ON b.bin_no = tpcc.bin_no
+               AND b.location = tpcc.location
+           WHERE cycle_date > @asofdate
+           GROUP BY tpcc.team_id,
+                    tpcc.userid,
+                    b.group_code
 END;
 
 GRANT EXECUTE ON cvo_dc_dash_cc_sp TO public
+GO
+GRANT EXECUTE ON  [dbo].[cvo_dc_dash_cc_sp] TO [public]
 GO
