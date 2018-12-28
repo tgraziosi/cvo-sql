@@ -80,20 +80,20 @@ FROM    CVO_ord_list col (NOLOCK)
 		LEFT OUTER JOIN
         (SELECT tl.userid, tl.TRAN_no, tl.tran_ext, tl.part_no, tl.tran_date
          FROM tdc_log tl (nolock)
-        WHERE tran_date = (SELECT MAX(tran_date) FROM tdc_log t (nolock) WHERE t.trans = 'upsell on' AND t.tran_no = tl.tran_no AND t.tran_Ext = tl.tran_ext AND tl.part_no = t.part_no) 
-        AND tl.trans = 'upsell on') tdc ON tdc.part_no = ol.part_no AND tdc.tran_no = ol.order_no AND tdc.tran_ext = ol.order_ext
+        WHERE tran_date = (SELECT MAX(tran_date) FROM tdc_log t (nolock) WHERE t.trans = 'upsell on' AND t.tran_no = tl.tran_no AND tl.part_no = t.part_no) 
+        AND tl.trans = 'upsell on') tdc ON tdc.part_no = ol.part_no AND tdc.tran_no = ol.order_no 
 
         LEFT OUTER JOIN dbo.CVO_TerritoryXref AS tx (NOLOCK) ON tx.User_name =  ISNULL(tdc.userid,'cvoptical\'+o.who_entered) -- for dept
 
 WHERE   ISNULL(col.upsell_flag,0) = 1
         AND o.status <> 'v'
-        AND (o.who_entered <> 'backordr' 
-            OR
-             (o.who_entered = 'backordr' AND 
-             ISNULL((SELECT ISNULL(ol2.upsell_flag,0) FROM dbo.CVO_ord_list AS ol2 (nolock) 
-             WHERE ol2.order_no = ol.order_no AND ol2.order_ext = ol.order_ext-1 AND ol2.line_no = ol.line_no), 0) <> col.upsell_flag
-             )
-             )
+        --AND (o.who_entered <> 'backordr' 
+        --    OR
+        --     (o.who_entered = 'backordr' AND 
+        --     ISNULL((SELECT ISNULL(ol2.upsell_flag,0) FROM dbo.CVO_ord_list AS ol2 (nolock) 
+        --     WHERE ol2.order_no = ol.order_no AND ol2.order_ext = ol.order_ext-1 AND ol2.line_no = ol.line_no), 0) <> col.upsell_flag
+        --     )
+        --     )
         AND o.type = 'i'
 		AND o.date_entered BETWEEN @sd AND @ed
 
@@ -103,6 +103,7 @@ GRANT ALL ON dbo.cvo_upsell_orders_sp TO PUBLIC
 
 
 -- SELECT * FROM dbo.CVO_TerritoryXref AS tx
+
 
 
 

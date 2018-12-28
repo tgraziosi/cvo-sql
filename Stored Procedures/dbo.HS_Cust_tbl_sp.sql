@@ -8,7 +8,7 @@ GO
 -- Create date: 2/20/2013
 -- Description:	Handshake Main Customer Data
 -- EXEC hs_cust_tbl_sp
--- select * From hs_cust_tbl where id = '045906'
+-- select * From hs_cust_tbl where id = '032165'
 
 -- tag - 071213 - create a regular table instead of temp table
 -- tag - 8/21/2015 - add sales rep customer accounts
@@ -75,6 +75,8 @@ BEGIN
 
       INSERT INTO #usergroup(customer_code, AllTerr) VALUES ('017755','40454') -- Rosin for Zigman
 
+      -- SELECT * FROM #userGroup AS ug WHERE ug.customer_code = '032165'
+
 	  -- 2/3/2017 - updated territory list
 	  -- 3/16/2017 - new list per email
 
@@ -110,6 +112,18 @@ BEGIN
 -- PULL LIST FOR CUSTOMERS
 --IF(OBJECT_ID('dbo.hs_cust_tbl') is not null)
 --truncate table hs_cust_tbl
+
+-- get rid of any junky corporate accounts that are not sales reps
+
+;WITH corp AS 
+( SELECT DISTINCT ar.customer_code 
+  FROM #userGroup AS ug JOIN arcust ar ON ar.customer_code = ug.customer_code
+  WHERE dbo.calculate_region_fn(ar.territory_code) >= '800' AND ar.addr_sort1 <> 'Employee'
+)
+DELETE ug 
+FROM 
+#userGroup AS ug
+JOIN corp ON corp.customer_code = ug.customer_code
 
 IF(OBJECT_ID('#hs') is not null) DROP table #hs
 
@@ -331,10 +345,14 @@ SELECT h.id ,
 	   FROM dbo.#hs AS h
 	WHERE NOT EXISTS (SELECT 1 FROM dbo.hs_cust_tbl AS hct WHERE hct.id = h.id)
 
+    -- get rid of customers that don't belong
 
-
+    DELETE hct
+    FROM dbo.hs_cust_tbl hct
+    WHERE NOT EXISTS (SELECT 1 FROM #hs h WHERE h.id = hct.id)
 
 END
+
 
 
 

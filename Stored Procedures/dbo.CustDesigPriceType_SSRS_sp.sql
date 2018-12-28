@@ -103,6 +103,9 @@ AS
                            AND price_code <> 'P'
                            AND t1.customer_code = t4.parent
                          ) -- 7/8/2016 PER MS REQUEST - 8/22/2016 - only if not in BG
+                      OR (t1.code = 'TPG'       
+                            AND price_code <> 'D'
+                         ) -- 11/15/2018 per JB request
                     )
                 AND primary_flag = 1
         ORDER BY t1.customer_code ,
@@ -190,6 +193,7 @@ AS
 -- EXEC CustDesigPriceType_SSRS_sp
 
     END;
+
 
 
 

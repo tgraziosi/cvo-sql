@@ -2,7 +2,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-
+-- v1.0 CB 19/12/2018 - Performance
 CREATE PROCEDURE [dbo].[tdc_pps_validate_and_redirect_xfer_sp]
 	--Input only fields
 	@packing_flg		int,         --Flag for Packing/Unpacking.  Packing = 1
@@ -131,7 +131,7 @@ SELECT @ID_SERIAL_VERSION = field_index FROM tdc_pps_field_index_tbl (NOLOCK)
 IF (@last_index > @ID_CARTON_NO) AND (@current_carton = 0)
 BEGIN
 	SELECT @cnt = COUNT(*) 
-          FROM tdc_carton_tx
+          FROM tdc_carton_tx (NOLOCK) -- v1.0
 	 WHERE order_no  = @xfer_no
 	   AND order_ext = 0
 	   AND order_type = 'T'

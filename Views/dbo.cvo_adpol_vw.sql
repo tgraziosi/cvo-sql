@@ -7,7 +7,7 @@ GO
 
 
 
--- select * From cvo_adpol_vw WHERE LOCATION = '001' AND STATUS_DESC = 'OPEN'
+-- select * From cvo_adpol_vw WHERE LOCATION = '001' AND STATUS_DESC = 'OPEN' and part_no like 'sp%'
 
 CREATE VIEW [dbo].[cvo_adpol_vw] AS
 -- tag - 013013 - add release date and po header note
@@ -100,7 +100,7 @@ SELECT
 	ISNULL(dbo.cvo_fn_rem_crlf(pa.note),'') AS note
 	--isnull(ltrim(rtrim(left(pa.note,60))),'') note
 	, i.type_code
-
+    , i.upc_code -- 11/26/2018
 FROM pur_list p (NOLOCK) 
 INNER JOIN purchase_all pa (NOLOCK)
 ON pa.po_key = p.po_key
@@ -117,6 +117,7 @@ LEFT OUTER JOIN
 --on p.part_no = drp.part_no and p.location = drp.location
 WHERE p.po_key = p.po_no AND pa.po_no = pa.po_key
 AND r.po_key = r.po_no
+
 
 
 

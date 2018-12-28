@@ -39,7 +39,10 @@ DECLARE
 @sold_to				varchar(10) ,	
 @sch_ship_date			datetime ,
 @note					varchar(255) ,
-@special_instr			varchar(255) 
+@special_instr			varchar(255),
+@delivery_date			datetime, -- v1.4
+@free_shipping			varchar(10) -- v1.5
+
 
 declare @allocation_date datetime, @last_id int, @today DATETIME, @order_sch_shp_date datetime
 
@@ -100,9 +103,10 @@ begin
 
 		insert into #log (ret, err_msg)
 	--	select -1,'Error 123'
-		EXEC CVO_UPDATE_ORDER_INFO_SP @ORDER_NO, @ORDER_EXT, @FREIGHT_ALLOW_TYPE, @ATTENTION,
+		EXEC dbo.CVO_UPDATE_ORDER_INFO_SP @ORDER_NO, @ORDER_EXT, @FREIGHT_ALLOW_TYPE, @ATTENTION,
 		 @PHONE, @CUST_PO, @USER_CATEGORY, @SO_PRIORITY_CODE, @ROUTING, @TERMS_CODE, @SOLD_TO,
-		 @SCH_SHIP_DATE, @NOTE, @SPECIAL_INSTR
+		 @SCH_SHIP_DATE, @NOTE, @SPECIAL_INSTR, @delivery_date, @free_shipping -- 12/11/2018
+
 	end
 		 
 	update #log set id = @last_id, ret = case when ret = 0 then 1 ELSE ret END 
@@ -156,6 +160,7 @@ while @userid is not null
 
  end -- while @userid is not null
  
+
 
 
 

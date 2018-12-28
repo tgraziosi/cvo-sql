@@ -4,6 +4,7 @@ SET ANSI_NULLS ON
 GO
 
 -- v1.0 CT 18/10/2012 - Process record in the CVO_autopack_transfer table
+-- v1.1 CB 19/12/2018 - Performance
 /*
 Processed values:
 0 = New record, not processed
@@ -14,6 +15,9 @@ Processed values:
 CREATE PROC [dbo].[CVO_process_autopack_transfer_sp]
 AS
 BEGIN
+
+	SET NOCOUNT ON -- v1.1
+
 	DECLARE @rec_id		INT,
 			@xfer_no	INT,
 			@user_id	VARCHAR(50),

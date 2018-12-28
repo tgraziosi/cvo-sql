@@ -40,11 +40,14 @@ BEGIN
             @weight_ea DECIMAL(20, 8),
             @serial_flag INT;
 
-    --SELECT * FROM   dbo.cvo_sc_transfers;
+    --SELECT * FROM   dbo.cvo_sc_transfers where isactive = 1;
     --SELECT * FROM   dbo.cvo_sc_transfers_allocation AS sta;
-    --SELECT * FROM   cvo_sc_transfers_templates AS stt;
+    --SELECT * FROM   cvo_sc_transfers_templates AS stt WHERE TERRITORY_CODE = '20220' OR TEMPLATE = 'B';
+    
 
-    -- SELECT * FROM xfers WHERE date_entered > '05/25/2018'
+    -- SELECT * FROM xfers WHERE date_entered > '12/05/2018' AND WHO_ENTERED = 'AUTOXFERGEN'
+
+   -- SELECT * FROM dbo.cvo_sc_addr_vw AS sav WHERE sav.territory_code = '20220'
 
     --SELECT * 
     --FROM cvo_sc_transfers t
@@ -57,6 +60,11 @@ BEGIN
     --FROM dbo.cvo_sc_transfers_allocation AS sta 
     --WHERE transfer_id = 12 AND TEMPLATE_GROUP = 2 AND MODEL = 'P ZOOM'
     -- UPDATE dbo.cvo_sc_transfers SET isactive = 1 WHERE id > 6
+
+    --UPDATE X SET ROUTING = SAV.SHIP_VIA_CODE
+    ---- SELECT x.xfer_no, x.routing, sav.ship_via_code 
+    --FROM dbo.xfers AS x JOIN dbo.cvo_sc_addr_vw AS sav ON X.to_loc = SAV.location 
+    --WHERE x.xfer_no BETWEEN 147751 AND 147827 AND X.routing <> SAV.ship_via_code
 
     SELECT @today = GETDATE();
 
@@ -372,6 +380,7 @@ BEGIN
 END;
 
 GRANT EXECUTE ON dbo.cvo_sc_transfer_create_sp TO PUBLIC;
+
 
 
 

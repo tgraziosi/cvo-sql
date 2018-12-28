@@ -32,6 +32,7 @@ AS
   -- v3.1 CB 16/01/2015 - Include transactions for customer or parent
   -- v3.2 CB 19/08/2015 - Stop the void records showing twice
   -- v3.3 CB 15/09/2015 - #1524 - Add order number to payment history
+  -- v3.4 CB 10/12/2018 - Fix issue with data doubling up
 
  SET NOCOUNT ON  
   
@@ -88,7 +89,7 @@ AS
     
     CREATE INDEX #customers_ind1 ON #customers(customer_code) 
 
-	SELECT	a.* 
+	SELECT	DISTINCT a.* -- v3.4
 	INTO	#artrxage   
 	FROM	artrxage a (NOLOCK) 
 	JOIN	#bg_data b
@@ -100,7 +101,7 @@ AS
 	CREATE INDEX #artrxage_idx2 ON #artrxage(customer_code, doc_ctrl_num, trx_type)   
 	CREATE INDEX #artrxage_idx3 ON #artrxage(order_ctrl_num)  
 
-	SELECT	a.* 
+	SELECT	DISTINCT a.* -- v3.4
 	INTO	#artrx   
 	FROM	artrx a (NOLOCK) 
 	JOIN	#bg_data b

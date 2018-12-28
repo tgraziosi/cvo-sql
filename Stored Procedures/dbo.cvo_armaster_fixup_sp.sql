@@ -247,6 +247,13 @@ and end_date is null
     -- 11/13/2017
 
     UPDATE ar
+    SET salesperson_code = 'BangsLi'
+    -- select territory_code, salesperson_code, * 
+    FROM armaster ar
+    WHERE territory_code = '20215'
+          AND ar.salesperson_code <> 'BangsLi';
+
+    UPDATE ar
     SET salesperson_code = 'CobbWh'
     -- select territory_code, salesperson_code, * 
     FROM armaster ar
@@ -376,6 +383,7 @@ VALUES
 
 
 END;
+
 
 
 

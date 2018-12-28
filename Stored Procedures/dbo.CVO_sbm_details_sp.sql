@@ -61,7 +61,7 @@ BEGIN
     SELECT @first = BeginDate,
            @last = EndDate
     FROM dbo.cvo_date_range_vw AS drv
-    WHERE Period = 'Last 90 days';
+    WHERE Period = 'Last 60 days';
 
     --SELECT @first = '1/1/2015'; -- add 09 and 10 once validated and fixed
     --SELECT @last = '12/31/2015';
@@ -745,16 +745,16 @@ then 'CVZPOSTAGE' ELSE D.ITEM_CODE END AS  part_no,
     UPDATE c SET isCL = 1
 	-- SELECT *
 	FROM #cvo_sbm_det  c
-	JOIN cvo_promotions p ON p.promo_id = c.PROMO_ID AND p.promo_level = c.promo_level
-	JOIN dbo.CVO_line_discounts AS ld ON ld.promo_ID = c.PROMO_ID AND ld.promo_level = c.promo_level
-	WHERE ((ld.price_override = 'Y' AND c.PROMO_ID NOT IN ('sunps'))
-		  OR (ld.discount_per BETWEEN 50 AND 99 AND c.PROMO_ID NOT IN ('aap','eag','ff','pc'))
+	LEFT JOIN cvo_promotions p ON p.promo_id = c.PROMO_ID AND p.promo_level = c.promo_level
+	LEFT OUTER JOIN dbo.CVO_line_discounts AS ld ON ld.promo_ID = c.PROMO_ID AND ld.promo_level = c.promo_level
+	WHERE ((ISNULL(ld.price_override,'N') = 'Y' AND ISNULL(c.PROMO_ID,'') NOT IN ('sunps'))
+		  OR (ISNULL(ld.discount_per,0) BETWEEN 50 AND 99 AND ISNULL(c.PROMO_ID,'') NOT IN ('aap','eag','ff','pc'))
 		  )
 		  OR c.user_category = 'ST-CL'
 		  OR 
-		  ( lsales <> 0 AND doctype = 'I'
+		  ( c.lsales <> 0 AND c.doctype = 'I'
           -- AND (1 - (asales - areturns) / lsales)
-		  AND (1 - (asales) / CASE WHEN lsales = 0 THEN 1 ELSE lsales end)
+		  AND (1 - (c.asales) / CASE WHEN c.lsales = 0 THEN 1 ELSE c.lsales end)
           BETWEEN .8 AND .99);
 
     IF (OBJECT_ID('cvo.dbo.cvo_sbm_details') IS NOT NULL)
@@ -1016,6 +1016,9 @@ then 'CVZPOSTAGE' ELSE D.ITEM_CODE END AS  part_no,
 
 
 END;
+
+
+
 
 
 

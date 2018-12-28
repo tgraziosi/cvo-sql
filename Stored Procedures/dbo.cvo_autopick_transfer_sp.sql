@@ -6,6 +6,9 @@ GO
 CREATE PROC [dbo].[cvo_autopick_transfer_sp] (@xfer_no INT,  @user_id varchar(50))
 AS
 BEGIN
+
+	SET NOCOUNT ON -- v1.1
+
 	DECLARE @tran_id INT
 
 	-- Check if transfer is set to autopack or autoship

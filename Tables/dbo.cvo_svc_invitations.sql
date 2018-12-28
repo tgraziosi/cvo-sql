@@ -29,7 +29,7 @@ CREATE TABLE [dbo].[cvo_svc_invitations]
 [cst_show] [int] NULL CONSTRAINT [DF__cvo_svc_i__cst_s__57F90A93] DEFAULT ((1)),
 [cst_order] [int] NULL CONSTRAINT [DF__cvo_svc_i__cst_o__58ED2ECC] DEFAULT ((1)),
 [note] [varchar] (80) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[ship_to] [char] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[ship_to] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [suns_sp] [smallint] NULL CONSTRAINT [DF__cvo_svc_i__suns___40AC5C3E] DEFAULT ((0)),
 [suns_sp_show] [smallint] NULL CONSTRAINT [DF__cvo_svc_i__suns___41A08077] DEFAULT ((1)),
 [suns_sp_order] [smallint] NULL CONSTRAINT [DF__cvo_svc_i__suns___4294A4B0] DEFAULT ((1)),
@@ -116,6 +116,8 @@ CREATE TABLE [dbo].[cvo_svc_invitations]
 [cst_bsn] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__cst_b__63027163] DEFAULT ((0)),
 [percent_off] [tinyint] NULL,
 [show_price] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__show___6F333E1E] DEFAULT ((0)),
-[show_off_price] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__show___70276257] DEFAULT ((0))
+[show_off_price] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__show___70276257] DEFAULT ((0)),
+[discount_type] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[evite_program] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO

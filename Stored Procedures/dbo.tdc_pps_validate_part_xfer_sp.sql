@@ -2,6 +2,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
+-- v1.0 CB 19/12/2018 - Performance
 
 CREATE PROC [dbo].[tdc_pps_validate_part_xfer_sp]
 	@validating_part_no_field char(1),
@@ -119,7 +120,7 @@ SELECT @ID_SERIAL_LOT = field_index FROM tdc_pps_field_index_tbl (NOLOCK)
 		END
 
 		IF NOT EXISTS(SELECT * 
-				FROM inventory a(NOLOCK)
+				FROM inv_master a (NOLOCK) -- v1.0
 			       WHERE a.part_no   = @part_no)
 		BEGIN
 			-- @err_msg = 'Invalid Part Number'
@@ -127,7 +128,7 @@ SELECT @ID_SERIAL_LOT = field_index FROM tdc_pps_field_index_tbl (NOLOCK)
 			RETURN -1
 		END
 		IF NOT EXISTS(SELECT * 
-				FROM inventory a(NOLOCK),
+				FROM inv_master a(NOLOCK), -- v1.0
 				     xfer_list b(NOLOCK)
 			       WHERE a.part_no   = @part_no
 				 AND b.xfer_no   = @xfer_no
@@ -373,7 +374,6 @@ SELECT @ID_SERIAL_LOT = field_index FROM tdc_pps_field_index_tbl (NOLOCK)
 	END
 
 	RETURN @ID_QUANTITY
-	
 GO
 GRANT EXECUTE ON  [dbo].[tdc_pps_validate_part_xfer_sp] TO [public]
 GO

@@ -3,6 +3,7 @@ GO
 SET ANSI_NULLS ON
 GO
 
+
 -- select * From cvo_adord_vw where territory = '50505' and date_entered BETWEEN '2/1/2018' AND '2/28/2018'
 -- select * --into #t 
 --From cvo_adord_vw where territory like '%20205%' and status = 'v'
@@ -107,6 +108,7 @@ SELECT CONVERT(VARCHAR(10), orders.order_no) order_no,
        ISNULL(ar.addr_sort1, '') AS Cust_type,
        ISNULL(user_def_fld4, '') AS HS_order_no, -- 101613 - as per HK
        cvo.allocation_date allocation_date,
+       orders.freight_allow_type, -- 11/28/2018 - jb request
 
        dbo.adm_get_pltdate_f(orders.invoice_date) x_date_invoice,
        dbo.adm_get_pltdate_f(orders.date_entered) x_date_entered,
@@ -250,6 +252,8 @@ SELECT CONVERT(VARCHAR(10), t1.order_no) order_no,
        ISNULL(ar.addr_sort1, '') AS Cust_type,
        ISNULL(t1.user_def_fld4, '') AS HS_order_no, -- 101613 - as per HK
        GETDATE() allocation_date,
+       '' freight_allow_type, -- 11/28/2018 - jb request
+
        dbo.adm_get_pltdate_f(t1.invoice_date) x_date_invoice,
        dbo.adm_get_pltdate_f(t1.date_entered) x_date_entered,
        dbo.adm_get_pltdate_f(t1.sch_ship_date) x_date_sch_ship,
@@ -278,6 +282,8 @@ FROM dbo.CVO_orders_all_Hist t1 (NOLOCK)
            AND t1.ship_to = ar.ship_to_code
 
 WHERE t1.type = 'I';
+
+
 GO
 
 

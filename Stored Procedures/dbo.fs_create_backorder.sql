@@ -71,6 +71,7 @@ SET NOCOUNT ON
 -- v12.2 CB 12/07/2016 - Issue #1602 - Default Must Go Today flag to zero for backorders
 -- v12.3 CB 06/03/2017 - For backorders clean out the freight_allow_type ifthe carrier is not 3rd party
 -- v12.4 CB 19/09/2017 - Check for customers set for no freight charge
+-- v12.5 CB 13/11/2018 - Add upsell_flag for detail
   
 exec @err = fs_updordtots @ordno, @ordext  
  if @@error != 0  
@@ -424,7 +425,7 @@ BEGIN
 	add_pattern, from_line_no, is_case, is_pattern,  
 	add_polarized, is_polarized, is_pop_gif,
 	is_amt_disc, amt_disc, is_customized, promo_item, list_price, orig_list_price, -- v1.3 v10.3
-	free_frame -- v10.4
+	free_frame, upsell_flag -- v10.4 v12.5
 	)  
 	SELECT  order_no,  @ext,   line_no, add_case,  
 	--    add_pattern, from_line_no, is_case, is_pattern,  -- v10.0
@@ -434,7 +435,8 @@ BEGIN
 	is_amt_disc, CASE @is_discadj WHEN 1 THEN (CASE @promo_disc WHEN 0 THEN 0 ELSE @std_price * (@promo_disc/100) END ) ELSE amt_disc END, is_customized, promo_item, list_price, orig_list_price, -- v1.3  v10.3
 	--is_amt_disc, amt_disc, is_customized, promo_item, list_price, orig_list_price, -- v1.3  v10.3
 	-- END v11.1
-	free_frame -- v10.4
+	free_frame, -- v10.4
+	upsell_flag -- v12.5
 	FROM CVO_ord_list  
 	WHERE order_no=@ordno and order_ext=@ordext and line_no=@xlp  
 	if @@error != 0  

@@ -6,6 +6,9 @@ GO
 CREATE PROC [dbo].[cvo_autopick_transfer_line_sp] (@tran_id INT,  @user_id varchar(50))
 AS
 BEGIN
+
+	SET NOCOUNT ON -- v1.1
+
 	DECLARE @location		VARCHAR(10),
 			@part_no		VARCHAR(30),
 			@qty_to_process DECIMAL(20,8),

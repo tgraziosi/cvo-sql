@@ -89,7 +89,9 @@ CREATE NONCLUSTERED INDEX [idx_hs_cir_main] ON [dbo].[cvo_hs_cir_tbl]
 END
 
 -- SELECT '** get sales data'	, GETDATE()
-SELECT s.customer, s.ship_to
+SELECT s.customer, 
+-- 12/2018 - only create cir records for doors
+CASE WHEN car.door = 0 THEN '' ELSE s.ship_to END ship_to
 , SPACE(30) AS mastersku
 , s.part_no
 , st_units = SUM(CASE WHEN s.user_category LIKE 'st%' AND s.user_category NOT LIKE '%rb' THEN qsales ELSE 0 end)
@@ -106,6 +108,7 @@ FROM inv_master i (NOLOCK)
 INNER JOIN inv_master_add ia (NOLOCK) ON ia.part_no = i.part_no
 INNER join cvo_sbm_details s (NOLOCK) oN s.part_no = i.part_no
 INNER JOIN armaster ar (NOLOCK) ON ar.customer_code = s.customer AND ar.ship_to_code = s.ship_to
+INNER JOIN cvo_armaster_all car (nolock) ON car.customer_code = ar.customer_code AND car.ship_to = ar.ship_to_code
 INNER JOIN #territory AS t ON t.territory = ar.territory_code
 WHERE s.yyyymmdd >= @startdate AND i.type_code IN ('frame','sun') AND ISNULL(i.void,'n') = 'n'
 AND i.category NOT IN ('FP','CH','ME','UN') -- 5/18/2017 - REMOVE CH, ME, AND UN NO LONGER SELLING
@@ -113,7 +116,7 @@ AND EXISTS (SELECT 1 FROM dbo.hs_cust_tbl AS hct WHERE hct.id = s.customer)
 AND s.ship_to <> '0002.' -- 11/29/2017 - fudge for bad data till we fix it permanently
 
 GROUP BY s.customer ,
-         s.ship_to ,
+         CASE WHEN car.door = 0 THEN '' ELSE s.ship_to end ,
          s.part_no ,
          ia.field_17 ,
          ia.field_3
@@ -131,13 +134,13 @@ FROM #ryg
 UPDATE #t SET ryg = CASE WHEN #ryg.RYg ='x' THEN '' ELSE #ryg.RYg END 
 FROM #ryg JOIN #t ON #t.part_no = #ryg.part_no
 
-
+-- SELECT * FROM #t
 
 
 SELECT 'CIR v2' report_id,
 		customer ,
        ship_to ,
-       mastersku ,
+       hi.mastersku ,
        upper(part_no) part_no ,
        ISNULL(st_units,0) st_units ,
        ISNULL(rx_units,0) rx_units ,
@@ -146,12 +149,13 @@ SELECT 'CIR v2' report_id,
        ' '+ISNULL(CAST(DATEPART(MONTH,last_st) AS VARCHAR(2)) + '/' + RIGHT(CAST(DATEPART(YEAR,last_st) AS VARCHAR(4)),2),'') AS last_st ,
        CL = CASE WHEN ISNULL(#t.CL,0) > 0 THEN 'CL' ELSE '' END ,
        ISNULL(RYG,'') ryg,
-	   CAST(ISNULL(size,0) AS INT) size,
-	   upper(ISNULL(color,'')) color
+	   CAST(ISNULL(#t.size,0) AS INT) size,
+	   upper(ISNULL(#t.color,'')) color
 INTO #cir
 FROM #t 
+JOIN dbo.cvo_hs_inventory_8 AS hi ON hi.sku = #t.part_no
 
-WHERE mastersku > ''
+WHERE hi.mastersku > ''
 -- order by customer, ship_to, part_no
 
 -- add new records
@@ -193,6 +197,7 @@ SELECT #cir.report_id ,
 FROM #cir
 WHERE NOT EXISTS (SELECT 1 FROM dbo.cvo_hs_cir_tbl AS chct 
 				  WHERE #cir.part_no = chct.part_no 
+                  AND #cir.mastersku = chct.mastersku
 				  AND #cir.customer = chct.customer
 				  AND #cir.ship_to = chct.ship_to)
 
@@ -213,6 +218,7 @@ FROM dbo.cvo_hs_cir_tbl AS chct
 INNER JOIN #cir ON #cir.customer = chct.customer 
 				AND #cir.part_no = chct.part_no
 				AND #cir.ship_to = chct.ship_to
+                AND #cir.mastersku = chct.mastersku
 WHERE 
 (
 chct.cl <> #cir.CL
@@ -226,26 +232,31 @@ OR chct.st_units <> #cir.st_units
 
 -- deletes
 
-UPDATE chct 
-SET 
-last_update = '1/1/1900'
+--UPDATE chct 
+--SET 
+--last_update = '1/1/1900'
+DELETE chct
 -- select  * 
 FROM dbo.cvo_hs_cir_tbl AS chct
 WHERE NOT EXISTS  (SELECT 1 FROM #cir WHERE
 				 #cir.customer = chct.customer 
 				AND #cir.part_no = chct.part_no
+                AND #cir.mastersku = chct.mastersku
 				AND #cir.ship_to = chct.ship_to)
 				OR chct.ship_to = '0002.'
 
 -- mastersku updates
 
--- SELECT '** set mastersku status', GETDATE()
-UPDATE chct SET chct.MASTERSKU = ISNULL(HS.MASTERSKU,''), chct.last_update = GETDATE()
-FROM dbo.cvo_hs_cir_tbl chct
-LEFT OUTER JOIN dbo.cvo_hs_inventory_8 hs (NOLOCK) ON hs.sku = chct.part_no
-WHERE chct.mastersku <> hs.mastersku
+---- SELECT '** set mastersku status', GETDATE()
+--UPDATE chct SET chct.MASTERSKU = ISNULL(HS.MASTERSKU,''), chct.last_update = GETDATE()
+--FROM dbo.cvo_hs_cir_tbl chct
+--LEFT OUTER JOIN dbo.cvo_hs_inventory_8 hs (NOLOCK) ON hs.sku = chct.part_no
+--WHERE chct.mastersku <> hs.mastersku
 
 END
+
+
+
 
 
 

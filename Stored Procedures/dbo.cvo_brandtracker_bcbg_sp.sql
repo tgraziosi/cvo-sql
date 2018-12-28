@@ -26,7 +26,8 @@ BEGIN
             @brand VARCHAR(1024) ,
             @terr VARCHAR(1024) ,
             @bpromo_id VARCHAR(1024) ,
-            @bpromo_level VARCHAR(1024);
+            @bpromo_level VARCHAR(1024),
+            @weekstart datetime;
 
 
     SELECT @datefrom = @df ,
@@ -34,7 +35,9 @@ BEGIN
            @brand = @b ,
            @terr = @t ,
            @bpromo_id = @bp ,
-           @bpromo_level = @bl;
+           @bpromo_level = @bl
+
+           ;
     -- select @tc = null
 
     IF ( OBJECT_ID('tempdb.dbo.#brand') IS NOT NULL )
@@ -100,8 +103,10 @@ BEGIN
 
     IF @datefrom IS NULL
         SELECT @datefrom = '09/1/2018';
-    IF @dateto IS NULL
+    IF @dateto IS NULL OR @dateto > GETDATE()
         SELECT @dateto = GETDATE();
+    SELECT @weekstart = DATEADD(WEEK,-1,@dateto); -- 11/26/2018
+
     -- if @brand is null select @brand = 'as'
 
     IF ISNULL(@brand, '') = ''
@@ -260,7 +265,7 @@ BEGIN
              ISNULL(sbm.qnet, 0) NetUnits ,
              ISNULL(sbm.anet, 0.0) NetSales ,
              'RX'   sale_type,
-             CASE WHEN datepart(WEEK,sbm.DateOrdered) = DATEPART(WEEK,@dateto)  THEN 'WEEK'
+             CASE WHEN sbm.DateOrdered >= @weekstart  THEN 'WEEK'
                     WHEN MONTH(SBM.DATEORDERED) = MONTH(@DATETO) THEN 'MTH'
                     WHEN SBM.DateOrdered BETWEEN @datefrom AND @DATETO THEN 'PGM'          
                 ELSE '' 
@@ -351,6 +356,7 @@ BEGIN
     
 
 END;
+
 
 
 

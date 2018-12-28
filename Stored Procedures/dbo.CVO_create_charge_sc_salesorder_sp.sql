@@ -328,7 +328,7 @@ BEGIN
 	WHERE	order_no = @new_order_no
 	AND		ext = 0
 	
-	EXEC dbo.fs_calculate_oetax_wrap @ord = @new_order_no,@ext = 0,@batch_call = -1 
+	EXEC dbo.fs_calculate_oetax_wrap @ord = @new_order_no,@ext = 0,@batch_call = 1 -- v1.3 was -1 
 	EXEC fs_updordtots @ordno = @new_order_no,@ordext = 0
 
 	UPDATE	cvo_charge_sc	

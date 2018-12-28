@@ -9,7 +9,7 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT hide, masterhide, releasedate, * FROM dbo.cvo_hs_inventory_8 WHERE hide = 1 or releasedate = '9/11/2018' coll = 'DD' AND [CATEGORY:1] = 'REVO SELLDWN' SKU LIKE 'DD%' where [category:1] = 'sun' where  ReleaseDate > '1/1/2018' AND SpecialtyFit = '[multiple]'
+-- SELECT hide, masterhide, releasedate, * FROM dbo.cvo_hs_inventory_8 WHERE hide = 1 or releasedate = '12/11/2018' coll = 'DD' AND [CATEGORY:1] = 'REVO SELLDWN' SKU LIKE 'DD%' where [category:1] = 'sun' where  ReleaseDate > '1/1/2018' AND SpecialtyFit = '[multiple]'
 -- SELECT DISTINCT [category:1],[category:2] FROM dbo.cvo_hs_inventory_8 AS hi WHERE [hi].[category:1] = 'sun'
 -- DROP TABLE dbo.cvo_hs_inventory_8
 -- 		
@@ -857,8 +857,8 @@ ELSE '' END GENDER,
                                        ) -- 11/8/2017 for new presell seaason
                                     OR
                                         (
-                                            IA.field_26 = '4/26/2016'
-                                            AND I.category <> 'AS'
+                                            IA.field_26 = '12/11/2018'
+                                            -- AND I.category <> 'AS'
                                         )
 
                                 );
@@ -1429,6 +1429,7 @@ ELSE '' END GENDER,
                            1
                              -- 8/23/18 - remove revo selldown --
                        -- WHEN [category:1] = 'REVO SELLDWN' AND @revosv > @TODAY THEN 1 -- 042718
+                       WHEN ReleaseDate = '12/11/2018' AND @today < '12/10/2018' THEN 1
                        ELSE
                            0
                    END;
@@ -1981,7 +1982,8 @@ SELECT * FROM cvo_hs_inventory_8 t1  where [category:2] in ('revo')
         FROM
             dbo.cvo_hs_inventory_8 AS hsi
         WHERE
-            EXISTS
+            [category:1] <> 'KODI SELLDWN'
+            AND EXISTS
             (
                 SELECT
                     1
@@ -2067,6 +2069,9 @@ IF GETDATE() >= '9/30/2018'
     AND '11/6/2018' > GETDATE()
 
     END;
+
+
+
 
 
 

@@ -180,7 +180,7 @@ BEGIN
 			END
 			
 			IF (@usage_type = 'REPLENISH' AND @group_code = 'RESERVE')
-			OR (@usage_type = 'OPEN' AND @group_code IN ('HIGHBAY','BULK') )-- tag 2/2017
+			OR (@usage_type = 'OPEN' AND @group_code IN ('HIGHBAY','BULK','PICKAREA') )-- tag 2/2017
 			BEGIN
 				IF (@fill_qty_max > 0)
 				BEGIN
@@ -399,6 +399,7 @@ BEGIN
 	END
 	
 END
+
 
 
 

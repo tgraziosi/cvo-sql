@@ -10,6 +10,7 @@ GO
 -- exec cvo_bg_data_extract_log_sp ' Where parent like ''%000655%'' AND parent_name like ''%the professional edge%'' AND xinv_date BETWEEN 736695 AND 736846'
 
 CREATE PROC [dbo].[cvo_bg_data_extract_log_sp] @whereclause varchar(1024)
+WITH RECOMPILE -- v2.0
 AS
 BEGIN
 	-- DIRECTIVES
@@ -26,9 +27,6 @@ BEGIN
 			@test_string2	varchar(1024),
 			@bg_start		varchar(10),
 			@bg_end			varchar(10)
-
-    --DECLARE @whereclause VARCHAR(1024)
-    --SET @whereclause = 'where xinv_date between 736876 and 736906'
 
 	-- PROCESS WHERECLAUSE
 	IF (CHARINDEX ('parent',@whereclause) <> 0)  
@@ -216,13 +214,13 @@ BEGIN
 			z.installment_days,
 			CASE WHEN o.type = 'I' THEN 'Invoice' ELSE 'Credit' END,
 			CONVERT(varchar(12), DATEADD(dd, h.date_doc - 639906, '1/1/1753'),101),
-			(ROUND(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped) * (z.installment_prc/100),2)),
-			(ROUND(((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped) * (z.installment_prc/100),2)),
+			((((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped) * (z.installment_prc/100))),
+			((((CASE WHEN d.curr_price > c.list_price THEN d.curr_price ELSE c.list_price END) * d.shipped) * (z.installment_prc/100))),
 			0,
 			0,
 			0,
-			(d.Shipped * ROUND((d.curr_price - (d.curr_price * ((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) / 100))) * (z.installment_prc/100),2)),
-			(d.Shipped * ROUND((d.curr_price - (d.curr_price * ((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) / 100))) * (z.installment_prc/100),2)),
+			(d.Shipped * ((d.curr_price - (d.curr_price * ((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) / 100))) * (z.installment_prc/100))),
+			(d.Shipped * ((d.curr_price - (d.curr_price * ((CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) / 100))) * (z.installment_prc/100))),
 			CASE WHEN (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END) > 0 
 				THEN (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END)/100 ELSE (CASE WHEN d.curr_price > c.list_price 
 				THEN 0 ELSE p.disc_perc END) END,
@@ -1066,101 +1064,256 @@ BEGIN
 			disc_perc, date_due_month, xinv_date, rec_type
 	ORDER BY parent, cust_code, doc_ctrl_num
 
-	CREATE TABLE #install_rounding (
+	-- v1.8 Start
+	IF (OBJECT_ID('tempdb..#doc_lines') IS NOT NULL)
+		DROP TABLE #doc_lines
+
+	CREATE TABLE #doc_lines (
 		doc_ctrl_num	varchar(16),
-		inv_gross		decimal(20,8),
-		inv_freight		decimal(20,8),
-		inv_tax			decimal(20,8),
-		inv_net			decimal(20,8),
-		inv_total		decimal(20,8),
-		inv_diff		decimal(20,8),
-		amt_gross		float,
-		amt_freight		float,
-		amt_tax			float,
-		amt_net			float,
-		disc_perc		float,
-		rowid			int)
+		ar_value		decimal(20,8),
+		rep_value		decimal(20,8),
+		ar_freight		decimal(20,8),
+		rep_freight		decimal(20,8),
+		no_disc			decimal(20,8),
+		diff			decimal(20,8),
+		diff_freight	decimal(20,8),
+		no_disc_diff	decimal(20,8),
+		row_id			int,
+		row_id_freight	int)
 
-	INSERT	#install_rounding
-	SELECT	doc_ctrl_num, SUM(inv_tot), SUM(freight), SUM(tax), SUM(inv_due), 0,0,0,0,0,0, disc_perc, 0
+	INSERT	#doc_lines
+	SELECT	doc_ctrl_num, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 	FROM	#results
 	WHERE	CHARINDEX('-',doc_ctrl_num) > 0
-	GROUP BY doc_ctrl_num, disc_perc
+	GROUP BY doc_ctrl_num
 
-	CREATE INDEX #install_rounding_ind0 ON #install_rounding(doc_ctrl_num)
+	CREATE INDEX #doc_lines_ind0 ON #doc_lines(doc_ctrl_num)
 
-	SELECT	doc_ctrl_num, MIN(row_id) id
-	INTO	#row_ids
+	UPDATE	a
+	SET		ar_value = b.amt_net,
+			ar_freight = b.amt_freight			
+	FROM	#doc_lines a
+	JOIN	artrx b
+	ON		a.doc_ctrl_num = b.doc_ctrl_num
+
+	SELECT	doc_ctrl_num, SUM(CAST(freight as decimal(20,8))) inv_freight, SUM(CAST(inv_due as decimal(20,8))) inv_total
+	INTO	#temp_rep
+	FROM	#results b
+	GROUP BY doc_ctrl_num
+
+	UPDATE	a
+	SET		rep_value = b.inv_total,
+			rep_freight = b.inv_freight
+	FROM	#doc_lines a
+	JOIN	#temp_rep b
+	ON		a.doc_ctrl_num = b.doc_ctrl_num	
+
+	DROP TABLE #temp_rep
+
+	UPDATE	#doc_lines
+	SET		diff_freight = ROUND((ar_freight - rep_freight),2),
+			rep_value = ROUND( rep_value,2)
+
+	SELECT	doc_ctrl_num, MAX(row_id) row_id -- v1.9 MIN(row_id) row_id
+	INTO	#tempids
 	FROM	#results
-	WHERE	CHARINDEX('-',doc_ctrl_num) > 0
-	AND		tax = 0
-	AND		freight = 0
+	-- v1.9 WHERE	freight = '0' AND tax = '0'	
 	GROUP BY doc_ctrl_num
 
 	UPDATE	a
-	SET		rowid = b.id
-	FROM	#install_rounding a
-	JOIN	#row_ids b
+	SET		row_id = b.row_id
+	FROM	#doc_lines a
+	JOIN	#tempids b
 	ON		a.doc_ctrl_num = b.doc_ctrl_num
 
-	DROP TABLE #row_ids
+	DROP TABLE #tempids
 
-	SELECT	doc_ctrl_num, SUM(inv_net) total
-	INTO	#temp_totals
-	FROM	#install_rounding
+	SELECT	doc_ctrl_num, MAX(row_id) row_id -- v1.9 MIN(row_id) row_id
+	INTO	#tempids_freight
+	FROM	#results
+	WHERE	freight <> '0' AND inv_due <> '0'	
 	GROUP BY doc_ctrl_num
 
 	UPDATE	a
-	SET		inv_total = b.total
-	FROM	#install_rounding a
-	JOIN	#temp_totals b
-	ON		a.doc_ctrl_num = b.doc_ctrl_num
-	
-	DROP TABLE  #temp_totals
-
-	UPDATE	a
-	SET		amt_gross = b.amt_gross,
-			amt_freight = b.amt_freight,
-			amt_tax = b.amt_tax,
-			amt_net = b.amt_net,
-			inv_diff = b.amt_net - inv_total
-	FROM	#install_rounding a
-	JOIN	artrx_all b (NOLOCK)
+	SET		row_id_freight = b.row_id
+	FROM	#doc_lines a
+	JOIN	#tempids_freight b
 	ON		a.doc_ctrl_num = b.doc_ctrl_num
 
-	DELETE	#install_rounding
-	WHERE	inv_net = amt_net
-
-	SELECT	doc_ctrl_num, COUNT(1) lines, MAX(inv_diff) diff, CAST(0.00 AS decimal(20,8)) split
-	INTO	#temp_lines
-	FROM	#install_rounding
-	WHERE	inv_freight = 0 
-	AND		inv_tax = 0
-	GROUP BY doc_ctrl_num
-
-	UPDATE	#temp_lines
-	SET		split = diff / CAST(lines as decimal(20,8))
+	DROP TABLE #tempids_freight
 
 	UPDATE	a
-	SET		inv_diff = diff --b.split
-	FROM	#install_rounding a
-	JOIN	#temp_lines b
-	ON		a.doc_ctrl_num = b.doc_ctrl_num
-
-	-- DROP TABLE #temp_lines
-
-	UPDATE	a
-	SET		inv_tot = a.inv_tot + b.inv_diff,
-			mer_tot = a.mer_tot + b.inv_diff,
-			mer_disc = a.mer_disc + b.inv_diff,
-			inv_due = a.inv_due + b.inv_diff
+	SET		inv_tot = inv_tot - freight,
+			inv_due = inv_due - freight 
 	FROM	#results a
-	JOIN	#install_rounding b
+	JOIN	#doc_lines b
+	ON		a.row_id = b.row_id_freight
+	AND		a.doc_ctrl_num = b.doc_ctrl_num
+
+	UPDATE	a
+	SET		freight = CONVERT(varchar(13),CONVERT(money,CAST(a.freight as decimal(20,8)) + b.diff_freight))
+	FROM	#results a
+	JOIN	#doc_lines b
+	ON		a.row_id = b.row_id_freight
+	AND		a.doc_ctrl_num = b.doc_ctrl_num
+
+	UPDATE	a
+	SET		inv_tot = inv_tot + freight,
+			inv_due = inv_due + freight 
+	FROM	#results a
+	JOIN	#doc_lines b
+	ON		a.row_id = b.row_id_freight
+	AND		a.doc_ctrl_num = b.doc_ctrl_num
+
+	SELECT	LEFT(doc_ctrl_num,10) doc_ctrl_num, SUM(ROUND(inv_due,2)) inv_due
+	INTO	#inv_values
+	FROM	#results
+	GROUP BY LEFT(doc_ctrl_num,10)
+
+	SELECT	LEFT(doc_ctrl_num,10) doc_ctrl_num, SUM(ar_value) ar_due
+	INTO	#ar_values
+	FROM	#doc_lines
+	GROUP BY LEFT(doc_ctrl_num,10)
+
+
+	SELECT	LEFT(doc_ctrl_num,10) doc_ctrl_num, MAX(row_id) row_id
+	INTO	#line_update
+	FROM	#doc_lines
+	GROUP BY LEFT(doc_ctrl_num,10)
+
+	UPDATE	a
+	SET		diff = CASE WHEN (d.ar_due - c.inv_due) > 0 THEN ((d.ar_due - c.inv_due) * -1) ELSE (d.ar_due - c.inv_due) END
+	FROM	#doc_lines a
+	JOIN	#line_update b
+	ON		a.row_id = b.row_id
+	JOIN	#inv_values c
+	ON		LEFT(a.doc_ctrl_num,10) = c.doc_ctrl_num
+	JOIN	#ar_values d
+	ON		LEFT(a.doc_ctrl_num,10) = d.doc_ctrl_num
+
+	DROP TABLE #inv_values	
+	DROP TABLE #line_update
+	DROP TABLE #ar_values
+
+	UPDATE	a
+	SET		inv_due = a.inv_due - b.diff
+	FROM	#results a
+	JOIN	#doc_lines b
+	ON		a.row_id = b.row_id
+	AND		a.doc_ctrl_num = b.doc_ctrl_num
+
+	UPDATE	a
+	SET		mer_disc = inv_due - freight,
+			mer_tot = inv_tot - freight			
+	FROM	#results a
+	JOIN	#doc_lines b
 	ON		a.doc_ctrl_num = b.doc_ctrl_num
-	WHERE	a.freight = 0 
-	AND		a.tax = 0
-	AND		a.row_id = b.rowid	
-	-- v1.5 End
+
+	UPDATE	a
+	SET		inv_tot = ROUND(a.inv_tot,2),
+			mer_tot = ROUND(a.mer_tot,2),
+			mer_disc = ROUND(a.mer_disc,2),
+			inv_due = ROUND(inv_due,2)
+	FROM	#results a
+	JOIN	#doc_lines b
+	ON		a.doc_ctrl_num = b.doc_ctrl_num
+
+	-- v1.9 Start
+--	SELECT	a.doc_ctrl_num, a.row_id, CAST(a.inv_tot as decimal(20,8)) inv_tot, CAST(a.freight as decimal(20,8)) + CAST(a.tax as decimal(20,8)) f_t, CAST(0.00 as decimal(20,8)) diff
+--	INTO	#fcheck
+--	FROM	#results a
+--	JOIN	#doc_lines b
+--	ON		a.doc_ctrl_num = b.doc_ctrl_num
+--	WHERE	a.freight <> 0 OR a.tax <> 0
+--
+--	UPDATE	#fcheck
+--	SET		diff = f_t - inv_tot
+--
+--	UPDATE	a
+--	SET		inv_tot = CAST(a.inv_tot as decimal(20,8)) + b.diff,
+--			mer_tot = CAST(a.mer_tot as decimal(20,8)) + b.diff,
+--			mer_disc = CAST(a.mer_disc as decimal(20,8)) + b.diff,
+--			inv_due = CAST(a.inv_due as decimal(20,8)) + b.diff
+--	FROM	#results a
+--	JOIN	#fcheck b
+--	ON		a.row_id = b.row_id	
+	-- v1.9 End
+
+	IF (OBJECT_ID('tempdb..#check_lines') IS NOT NULL)
+		DROP TABLE #check_lines
+
+	CREATE TABLE #check_lines (
+		doc_ctrl_num	varchar(16),
+		order_no		int,
+		order_ext		int,
+		ord_value		decimal(20,8),
+		inv_due			decimal(20,8),
+		inv_tot			decimal(20,8),
+		inv_due_diff	decimal(20,8),
+		inv_tot_diff	decimal(20,8),
+		row_id			int)
+
+	INSERT	#check_lines
+	SELECT	LEFT(a.doc_ctrl_num,10), b.order_no, b.order_ext,0,  SUM(inv_due), SUM(inv_tot), 0, 0, MAX(a.row_id)
+	FROM	#doc_lines a
+	JOIN	orders_invoice b (NOLOCK)
+	ON		LEFT(a.doc_ctrl_num,10) = b.doc_ctrl_num
+	JOIN	#results c
+	ON		a.doc_ctrl_num = c.doc_ctrl_num
+	GROUP BY LEFT(a.doc_ctrl_num,10), b.order_no, b.order_ext
+
+	UPDATE	a
+	SET		ord_value = b.total_invoice
+	FROM	#check_lines a
+	JOIN	orders_all b (NOLOCK)
+	ON		a.order_no = b.order_no
+	AND		a.order_ext = b.ext
+
+	UPDATE	#check_lines
+	SET		inv_due_diff = inv_due - ord_value
+
+	select  LEFT(a.doc_ctrl_num,10) doc_ctrl_num, SUM(a.mer_tot) inv_tot 
+	INTO	#ar_check
+	FROM	#order_data_extract_raw a 
+	JOIN	#check_lines b 
+	ON		LEFT(a.doc_ctrl_num,10) = b.doc_ctrl_num
+	GROUP BY LEFT(a.doc_ctrl_num,10)
+
+	select  LEFT(a.doc_ctrl_num,10) doc_ctrl_num, SUM(a.freight) freight,  SUM(a.tax) tax
+	INTO	#ext_check
+	FROM	#results a 
+	JOIN	#check_lines b 
+	ON		LEFT(a.doc_ctrl_num,10) = b.doc_ctrl_num
+	GROUP BY LEFT(a.doc_ctrl_num,10)
+	UPDATE	a
+	SET		inv_tot = a.inv_tot + b.freight + b.tax
+	FROM	#ar_check a
+	JOIN	#ext_check b
+	ON		a.doc_ctrl_num = b.doc_ctrl_num
+	UPDATE	a
+	SET		inv_tot_diff = a.inv_tot - b.inv_tot
+	FROM	#check_lines a
+	JOIN	#ar_check b
+	ON		a.doc_ctrl_num = b.doc_ctrl_num
+
+	DROP TABLE #ar_check
+
+	UPDATE	a
+	SET		inv_due = a.inv_due - b.inv_due_diff,
+			mer_disc = a.mer_disc - b.inv_due_diff,
+			inv_tot = a.inv_tot - b.inv_tot_diff,
+			mer_tot = a.mer_tot - b.inv_tot_diff
+	FROM	#results a
+	JOIN	#check_lines b
+	ON		a.row_id = b.row_id
+	-- v1.8 End
+	UPDATE	#results
+	SET		mer_tot = CAST(a.mer_tot as decimal(20,8)) - CAST(a.tax as decimal(20,8)),
+			mer_disc = CAST(a.mer_disc as decimal(20,8)) - CAST(a.tax as decimal(20,8))
+	FROM	#results a
+	JOIN	#doc_lines b
+	ON		a.doc_ctrl_num = b.doc_ctrl_num
+	WHERE	a.tax <> 0
 	
 	-- v1.4 Start
 	DELETE	#results
@@ -1196,9 +1349,7 @@ BEGIN
 	-- CLEAN UP
 	DROP TABLE #data_extract_raw
 	DROP TABLE #order_data_extract_raw
-	DROP TABLE #install_rounding
 END
-
 GO
 GRANT EXECUTE ON  [dbo].[cvo_bg_data_extract_log_sp] TO [public]
 GO

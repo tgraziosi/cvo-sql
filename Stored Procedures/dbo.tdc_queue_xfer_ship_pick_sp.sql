@@ -4,6 +4,7 @@ SET ANSI_NULLS ON
 GO
 -- v1.0 CB 19/10/2011 Performance Enhancements
 -- v1.1 CT 08/11/2012 Autopack for transfers
+-- v1.2 CB 19/12/2018 Performance
 CREATE PROCEDURE [dbo].[tdc_queue_xfer_ship_pick_sp]   
  @queue_id int,   
  @tote_bin varchar(12),   
@@ -11,7 +12,9 @@ CREATE PROCEDURE [dbo].[tdc_queue_xfer_ship_pick_sp]
  @stationid int,  
  @pallet int = 0   
   
-AS  
+AS
+
+SET NOCOUNT ON -- v1.2  
   
 DECLARE @lb_tracking char(1),  
  @part_no varchar(30),  

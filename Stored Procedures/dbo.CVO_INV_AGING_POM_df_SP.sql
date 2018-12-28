@@ -314,6 +314,37 @@ BEGIN
            'Suns EOS'
     FROM #temptable AS t WHERE eos = 'eos'
 
+        INSERT INTO #REPORTLIST
+    (
+        Brand,
+        ResType,
+        Style,
+        Gender,
+        eos,
+        part_no,
+        description,
+        POM_date,
+        age,
+        tot_cost_ea,
+        tot_ext_cost,
+        in_stock,
+        qty_avl,
+        SOF,
+        Allocated,
+        Quarantine,
+        Non_alloc,
+        Replen_Qty_Not_SA,
+        ReplenQty,
+		material,
+		color_desc,
+        VERSION_LABEL
+    )
+    SELECT t.*,
+           hi.[category:1] 
+    FROM #temptable AS t
+    JOIN dbo.cvo_hs_inventory_8 AS hi ON hi.sku = t.part_no 
+    WHERE hi.[category:1] IN ('qop','eor')
+
     SELECT r.VERSION_LABEL, r.Brand,
                             r.ResType,
                             r.Style,

@@ -2676,6 +2676,8 @@ ALTER TABLE [dbo].[orders_all] ADD CONSTRAINT [CK_orders_so_priority_code] CHECK
 GO
 CREATE NONCLUSTERED INDEX [ord2] ON [dbo].[orders_all] ([cust_code], [order_no], [ext]) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [cvo_orders_all_ind0] ON [dbo].[orders_all] ([cust_code], [ship_to], [date_entered], [status], [type]) ON [PRIMARY]
+GO
 CREATE NONCLUSTERED INDEX [ord4] ON [dbo].[orders_all] ([cust_po], [order_no], [ext]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [ord6] ON [dbo].[orders_all] ([invoice_no], [status]) ON [PRIMARY]

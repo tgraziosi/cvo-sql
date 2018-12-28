@@ -192,10 +192,18 @@ BEGIN
 			FROM	#splits
 			WHERE	line_no = @line_no
 
-			SELECT	@pol_line = MIN(line_no)
-			FROM	#splits
-			WHERE	part_no = @pol_part
-			AND		line_no > @line_no
+			-- v1.5 Start
+--			SELECT	@pol_line = MIN(line_no)
+--			FROM	#splits
+--			WHERE	part_no = @pol_part
+--			AND		line_no > @line_no
+
+			SELECT	@pol_line = line_no 
+			FROM	ord_list (NOLOCK)
+			WHERE	order_no = @order_no
+			AND		order_ext = @order_ext
+			AND		CAST(cust_po as int) = @line_no
+			-- v1.5 End
 
 			INSERT	#cvo_ord_list(order_no, order_ext, line_no, add_case, add_pattern, from_line_no, is_case, is_pattern, add_polarized, is_polarized, is_pop_gif)
 			SELECT	a.order_no, a.order_ext, a.line_no, 'N', 'N', @line_no, 0, 0, 'N', 

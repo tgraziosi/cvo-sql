@@ -561,10 +561,10 @@ PRINT 'Done with ord_list hist';
     -- v5.3 - don't need to do this here any longer
 
     -- Collapse ship-to's that are not active
-    --update a set ship_to = ''
-    --from cvo_armaster_all ca (nolock) inner join #vsordlist a
-    --on ca.customer_code = a.cust_code and ca.ship_to =a.ship_to
-    --where ca.ship_to <> '' and ca.door = 0
+    update a set ship_to = ''
+    from cvo_armaster_all ca (nolock) inner join #vsordlist a
+    on ca.customer_code = a.cust_code and ca.ship_to =a.ship_to
+    where ca.ship_to <> '' and ca.door = 0
 
 
     --update a set ship_to = ''
@@ -1241,6 +1241,7 @@ PRINT 'Done with ord_list hist';
 END;
 
 -- 
+
 
 
 

@@ -19,7 +19,7 @@ BEGIN
 -- generate sku's from cmi into epicor
 --  
 -- 
--- exec [cvo_cmi_sku_generate_sp] 'sp', 'S Warren sun', NULL, null, '1/8/2019','N', 1
+-- exec [cvo_cmi_sku_generate_sp] 'op', '856', NULL, null, '1/8/2019','N', 1
 
 
 
@@ -440,7 +440,7 @@ INSERT  INTO #parts_list
 		--		-- AND (c.eye_size =  case WHEN CHARINDEX('180',c.hinge_type) > 0 then c.eye_size ELSE ISNULL(@eye_size, c.eye_size) end)
 		--			 ;
 
-IF @debug = 1 SELECT c.eye_size, LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2), * FROM #cmi AS c
+IF @debug = 1 SELECT 'Eye Sizes: ', c.eye_size, LEFT(CAST(ROUND(c.eye_size,0) AS VARCHAR(40)),2), * FROM #cmi AS c
 
 INSERT  INTO #parts_list
         ( collection ,
@@ -1077,7 +1077,7 @@ BEGIN
 
 END
 
-IF @debug = 1 SELECT * FROM #parts_list AS pl
+IF @debug = 1 SELECT 'Parts List: ', pl.* FROM #parts_list AS pl
 
 IF ( OBJECT_ID('tempdb.dbo.#err_list') IS NOT NULL )
     DROP TABLE #err_list;
@@ -1210,7 +1210,8 @@ FROM    #parts_list pl
 				THEN c.eye_size
 				ELSE ISNULL(pl.eye_size, c.eye_size)
 				END
-            AND 1 = CASE WHEN (c.temple_size = ISNULL(pl.temple_size,c.temple_size) AND @coll <> 'fn') OR @coll = 'fn' THEN 1 ELSE 0 end
+            -- 12/14/2018
+            AND 1 = CASE WHEN ((c.temple_size = ISNULL(pl.temple_size,c.temple_size) OR CHARINDEX('180',c.hinge_type) > 0) AND @coll <> 'fn') OR @coll = 'fn' THEN 1 ELSE 0 end
         INNER JOIN #short_model_name smn ON smn.Collection = c.Collection
                                             AND smn.model = c.model
 WHERE   1 = 1
@@ -1888,7 +1889,9 @@ INSERT  #i
 					   OR ISNULL(c.specialty_fit,'') = 'pediatric'
                        or CHARINDEX('child',c.primarydemographic,0)>0
 					   OR CHARINDEX('kid',c.primarydemographic,0)>0 )
-					   THEN CASE WHEN c.collection = 'bt' THEN 'Kids' ELSE 'Kid' END
+					   THEN CASE WHEN c.collection = 'bt' THEN 'Kids' 
+                                 WHEN c.collection = 'FN' THEN 'Uni' -- 11/26/2018
+                                 ELSE 'Kid' END
                        WHEN LEFT(c.primarydemographic,3) = 'wom' AND c.collection IN ('PT','RR','IZOD','SP') THEN 'Women'
                        ELSE LEFT(c.PrimaryDemographic, 3)
                   END ,
@@ -2723,6 +2726,8 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
+
 
 
 

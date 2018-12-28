@@ -52,8 +52,9 @@ where yyyymmdd between @LYSTART and @edate
 
 group by ar.customer_code, ar.status_type
 -- , i.category
-)
-select customer_code, 
+),
+TEMP AS 
+(select customer_code, 
 -- brand
 LYNET, TYNET, 
 case when TYNET > 1 and LYNET = 0 then 1 else 0 end as New,
@@ -61,9 +62,8 @@ case when tynet > 1 then 1 else 0 end as Active,
 case when TYNET <= 500 and LYNET >= 1200 then 1 else 0 end as Dropped_Active,
 case when tynet <=0 and lynet >=1 then 1 else 0 end as Dropped_Any,
 case when tynet = 0 then 0 else (tynet-lynet)/tynet end as pct_diff
-
-into #temp
 from cte
+)
 
 select 
 sum(new) as New_Cust_cnt,
@@ -78,7 +78,8 @@ sum(case when pct_diff >0.01 then 1 else 0 end) as up_sales_cnt,
 sum(case when pct_diff >0.01 then tynet-lynet else 0 end) as up_sales,
 sum(case when pct_diff <=0.01 then 1 else 0 end) as down_sales_cnt,
 sum(case when pct_diff <=0.01 then tynet-lynet else 0 end) as down_sales
-from #temp
+from TEMP
+
 
 
 GO

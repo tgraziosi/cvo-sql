@@ -24,7 +24,10 @@ BEGIN
 			@addr3		varchar(40), -- v1.2
 			@addr4		varchar(40), -- v1.2
 			@addr5		varchar(40), -- v1.2
-			@addr_name	varchar(40) -- v1.2
+			@addr_name	varchar(40), -- v1.2
+			@bin_count	int, -- v1.3
+			@autoship	smallint -- v1.3
+
 	-- WORKING TABLES
 	-- v1.1 Start
 	CREATE TABLE #xfer_locations (
@@ -92,6 +95,21 @@ BEGIN
 			END
 			-- v1.2 End
 
+			-- v1.3 Start
+			SELECT	@autoship = autoship
+			FROM	xfers_all (NOLOCK) 
+			WHERE	xfer_no = @tran_no
+
+			SELECT	@bin_count = COUNT(1)
+			FROM	tdc_bin_master (NOLOCK)
+			WHERE	location = @location
+			AND		usage_type_code <> 'RECEIPT'
+			AND		status = 'A'
+
+			IF (@bin_count > 1)
+				SET @autoship = 0
+			-- v1.3 End
+
 			INSERT xfers_all (xfer_no, from_loc, to_loc, req_ship_date, sch_ship_date, date_shipped, date_entered, req_no, who_entered, 
 				status, attention, phone, routing, special_instr, fob, freight, printed, label_no, no_cartons, who_shipped, date_printed, 
 				who_picked, to_loc_name, to_loc_addr1, to_loc_addr2, note, rec_no, freight_type, no_pallets, to_loc_addr3, to_loc_addr4, 
@@ -99,7 +117,7 @@ BEGIN
 			SELECT	@new_tran, from_loc, @location, GETDATE(), GETDATE(), NULL, GETDATE(), NULL, @userid, 'N', attention, phone, routing, -- v1.1
 					special_instr, fob, freight, 'N', label_no, no_cartons, NULL, NULL, NULL, @addr_name, @addr1, @addr2, -- v1.2 
 					note, 0, freight_type, no_pallets, @addr3, @addr4, @addr5, NULL, NULL, from_organization_id, -- v1.2
-					to_organization_id, back_ord_flag, autopack, autoship
+					to_organization_id, back_ord_flag, autopack, @autoship -- v1.3
 			FROM	xfers_all 
 			WHERE	xfer_no = @tran_no
 

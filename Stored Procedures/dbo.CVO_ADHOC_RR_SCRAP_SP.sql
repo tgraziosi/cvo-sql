@@ -2,11 +2,12 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[CVO_ADHOC_RR_SCRAP_SP] AS
+CREATE PROCEDURE [dbo].[CVO_ADHOC_RR_SCRAP_SP]  @loc VARCHAR(10) , @bin VARCHAR(10)  AS
 
 -- 12/19/2014 - update to look at scrap bins in all locations
+-- 12/4/2018 - set up params for bin and loc
 -- EXEC CVO_ADHOC_RR_SCRAP_SP
--- select * From lot_bin_stock where bin_no = 'rr scrap'
+-- select * From lot_bin_stock where location = '018'
 
 BEGIN
 SET NOCOUNT ON
@@ -17,12 +18,12 @@ SET NOCOUNT ON
 -- =CONCATENATE("insert into #temp_part_list values('",A2,"','",left(a2,3),"','",b2,"','",D2,"')")
 
 
-DECLARE @BIN VARCHAR(10)
-DECLARE @LOC VARCHAR(10)
+--DECLARE @BIN VARCHAR(10)
+--DECLARE @LOC VARCHAR(10)
 
-SET @BIN = 'RR SCRAP'
--- SET @LOC = '001'
-SET @LOC = '%%'
+--SET @BIN = 'RR SCRAP'
+---- SET @LOC = '001'
+--SET @LOC = '%%'
 
 -- BIN = '1' AND LOCATION = '001'
 -- BIN = 'RR CASES' AND LOCATION = '001'
@@ -169,6 +170,7 @@ end
 -- SELECT * FROM #adm_INV_ADJ_log
 
 END
+
 
 GO
 GRANT EXECUTE ON  [dbo].[CVO_ADHOC_RR_SCRAP_SP] TO [public]
