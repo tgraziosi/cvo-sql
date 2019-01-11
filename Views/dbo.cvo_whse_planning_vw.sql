@@ -31,7 +31,9 @@ AS
 			ia.field_28 pom_date,
 			POM_age = CASE WHEN DATEDIFF(DAY,ISNULL(ia.field_28,GETDATE()),GETDATE()) <=0 THEN 'CURRENT'
 							WHEN DATEDIFF(year,ISNULL(ia.field_28,GETDATE()),GETDATE()) <2 THEN 'Y1 POM'
-							ELSE 'Y2+ POM'
+        					WHEN DATEDIFF(year,ISNULL(ia.field_28,GETDATE()),GETDATE()) <3 THEN 'Y2 POM'
+                            WHEN DATEDIFF(year,ISNULL(ia.field_28,GETDATE()),GETDATE()) <4 THEN 'Y3 POM'
+							ELSE 'Y4+ POM'
 							END,
 			ISNULL(ia.field_32,'') attribute,
 			ia.category_2 Primary_Demographic,
@@ -119,7 +121,9 @@ AS
 			ia.field_28 pom_date,
 			POM_age = CASE WHEN DATEDIFF(DAY,ISNULL(ia.field_28,GETDATE()),GETDATE()) <=0 THEN 'CURRENT'
 							WHEN DATEDIFF(year,ISNULL(ia.field_28,GETDATE()),GETDATE()) <2 THEN 'Y1 POM'
-							ELSE 'Y2+ POM'
+        					WHEN DATEDIFF(year,ISNULL(ia.field_28,GETDATE()),GETDATE()) <3 THEN 'Y2 POM'
+                            WHEN DATEDIFF(year,ISNULL(ia.field_28,GETDATE()),GETDATE()) <4 THEN 'Y3 POM'
+							ELSE 'Y4+ POM'
 							END,
 			ISNULL(ia.field_32,'') attribute,
 			ia.category_2 Primary_Demographic,
@@ -245,6 +249,8 @@ AS
 			
 			;
     
+
+
 
 
 

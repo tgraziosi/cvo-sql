@@ -6,17 +6,16 @@ GO
 CREATE PROCEDURE [dbo].[cvo_territory_sales_r2016_sp]
     @CompareYear INT = NULL,
     --v2
-    @territory VARCHAR(1000) = NULL
+    @territory VARCHAR(1000) = NULL,
 
-,   -- multi-valued parameter
+    -- multi-valued parameter
     @restype VARCHAR(1000) = NULL
-
 AS
 SET NOCOUNT ON;
 
 BEGIN
 
-    -- exec cvo_territory_sales_r2016_sp 2017 , 50508
+    -- exec cvo_territory_sales_r2016_sp 2018 
 
     --DECLARE @compareyear INT, @territory VARCHAR(1000)
     --SELECT @compareyear = 2015, @territory = '20201'
@@ -54,25 +53,11 @@ BEGIN
     SET @sdately = DATEADD(YEAR, (@cy - 1) - 1900, '01-01-1900');
     SET @edately
         = CASE WHEN @cy = YEAR(@today) THEN DATEADD(dd, DATEDIFF(dd, 0, DATEADD("yyyy", -1, @today)) + -1, 0) ELSE
-                                                                                                                  DATEADD(
-                                                                                                                             ms,
-                                                                                                                             -2,
-                                                                                                                             (DATEADD(
-                                                                                                                                         YEAR,
-                                                                                                                                         (@cy
-                                                                                                                                          - 1
-                                                                                                                                         )
-                                                                                                                                         - 1900
-                                                                                                                                         + 1,
-                                                                                                                                         '01-01-1900'
-                                                                                                                                     )
-                                                                                                                             )
-                                                                                                                         )
-          END;
+                                            DATEADD(ms,-2,(DATEADD(YEAR,(@cy-1)-1900+1,'01-01-1900'))) END;
     SET @sdate = DATEADD(YEAR, (@cy) - 1900, '01-01-1900');
     SET @edate
         = CASE WHEN @cy = YEAR(@today) THEN @today ELSE
-                                                       DATEADD(ms, -2, (DATEADD(YEAR, (@cy) - 1900 + 1, '01-01-1900'))) END;
+                                                   DATEADD(ms, -2, (DATEADD(YEAR, (@cy) - 1900 + 1, '01-01-1900'))) END;
 
     -- SELECT @sdately, @edately, @sdate, @edate
 
@@ -123,7 +108,7 @@ BEGIN
                dbo.calculate_region_fn(territory_code) region,
                0,
                0
-        FROM armaster ar (nolock)
+        FROM armaster ar (NOLOCK)
         WHERE territory_code IS NOT NULL
         ORDER BY territory_code;
     END;
@@ -202,7 +187,7 @@ BEGIN
            SUM(ISNULL(c.anet, 0)) anet,
            SUM(ISNULL(CASE WHEN i.type_code IN ( 'frame', 'sun' ) THEN c.qnet ELSE 0 END, 0)) qnet,
            Sales_type = CASE WHEN ISNULL(i.category, 'Core') IN ( 'OP' ) AND i.type_code = 'ACC' THEN 'Accessories' ELSE
-                                                                                                                        'Core' END
+                                                                                                                    'Core' END
     INTO #temp
     FROM @terr_tbl t
         INNER JOIN armaster (NOLOCK) a
@@ -264,7 +249,7 @@ BEGIN
            s.X_MONTH,
            SUM(s.anet) AS CurrentMonthSales,
            Sales_Type = CASE WHEN ISNULL(i.category, 'Core') IN ( 'op' ) AND i.type_code = 'ACC' THEN 'Accessories' ELSE
-                                                                                                                        'Core' END
+                                                                                                                    'Core' END
     INTO #MonthKey
     FROM @terr_tbl t
         INNER JOIN armaster a (NOLOCK)
@@ -293,14 +278,14 @@ BEGIN
            SUM(a.qnet) qnet,
            MAX(ISNULL(m.CurrentMonthSales, 0)) currentmonthsales,
            a.Sales_type
-
     INTO #ly
     FROM #temp a
         LEFT JOIN #MonthKey m
             ON a.territory_code = m.territory_code
                AND a.Year = m.year
                AND a.x_month = m.X_MONTH
-    WHERE a.Year = @cy - 1
+               AND a.Sales_type = m.Sales_Type -- 010219
+               WHERE a.Year = @cy - 1
     GROUP BY a.territory_code,
              a.x_month,
              a.Year,
@@ -317,7 +302,6 @@ BEGIN
            SUM(a.qnet) qnet,
            0 AS currentmonthsales,
            a.Sales_type
-
     INTO #ty
     FROM #temp a
     WHERE a.Year = @cy
@@ -330,16 +314,17 @@ BEGIN
     -- fixup sales person names
 
     SELECT LTRIM(RTRIM(t.territory)) territory_code,
-           salesperson_code = LTRIM(RTRIM(ISNULL((
-                                                 SELECT TOP 1
-                                                        salesperson_name
-                                                 FROM arsalesp
-                                                 WHERE salesperson_code <> 'smithma'
-                                                       AND territory_code = t.territory
-                                                       AND ISNULL(date_of_hire, '1/1/1900') <= @today
-                                                       AND status_type = 1
-                                                 ),
-                                                 'Empty'
+           salesperson_code = LTRIM(RTRIM(ISNULL(
+                                          (
+                                          SELECT TOP 1
+                                                 salesperson_name
+                                          FROM arsalesp
+                                          WHERE salesperson_code <> 'smithma'
+                                                AND territory_code = t.territory
+                                                AND ISNULL(date_of_hire, '1/1/1900') <= @today
+                                                AND status_type = 1
+                                          ),
+                                          'Empty'
                                                 )
                                          )
                                    ),
@@ -363,7 +348,6 @@ BEGIN
            qnet,
            ROUND(currentmonthsales, 2) currentmonthsales,
            Sales_type,
-
            #s1.region,
            CASE WHEN x_month > 9 THEN 4 WHEN x_month > 6 THEN 3 WHEN x_month > 3 THEN 2 ELSE 1 END AS Q,
            #s1.r_id,
@@ -389,7 +373,7 @@ BEGIN
            #s1.t_id,
            col = CASE WHEN #s1.t_id % 2 = 1 THEN 'L' ELSE 'R' END,
            ly_ytd = CASE WHEN x_month < MONTH(@edately) THEN ROUND(anet, 2)
-                        WHEN x_month = MONTH(@edately) THEN ROUND(currentmonthsales, 2) ELSE 0
+                    WHEN x_month = MONTH(@edately) THEN ROUND(currentmonthsales, 2) ELSE 0
                     END
     FROM #ly -- ly
         LEFT OUTER JOIN #s1
@@ -399,4 +383,6 @@ BEGIN
 
 
 END;
+
+
 GO

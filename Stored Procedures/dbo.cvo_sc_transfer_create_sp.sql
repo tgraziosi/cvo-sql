@@ -41,7 +41,7 @@ BEGIN
             @serial_flag INT;
 
     --SELECT * FROM   dbo.cvo_sc_transfers where isactive = 1;
-    --SELECT * FROM   dbo.cvo_sc_transfers_allocation AS sta;
+    --SELECT * FROM   dbo.cvo_sc_transfers_allocation AS sta where transfer_id = 56 order by template_id desc;
     --SELECT * FROM   cvo_sc_transfers_templates AS stt WHERE TERRITORY_CODE = '20220' OR TEMPLATE = 'B';
     
 
@@ -71,13 +71,13 @@ BEGIN
 	-- DECLARE @routing VARCHAR(12);
     -- IF @routing IS NULL SELECT @routing = 'SAL';
 
-    IF NOT EXISTS
-    (
-    SELECT 1
-    FROM dbo.CVO_carriers AS c
-    WHERE c.Carrier = ISNULL(@routing, c.Carrier)
-    )
-        SELECT @routing = 'SAL';
+    --IF NOT EXISTS
+    --(
+    --SELECT 1
+    --FROM dbo.CVO_carriers AS c
+    --WHERE c.Carrier = ISNULL(@routing, c.Carrier)
+    --)
+    --    SELECT @routing = 'SAL';
 
 
     IF (OBJECT_ID('tempdb.dbo.#xfer') IS NOT NULL)
@@ -378,17 +378,6 @@ BEGIN
 -- SELECT * FROM xfer_list WHERE xfer_no IN (134974, 134973, 135064,135063)
 
 END;
-
-GRANT EXECUTE ON dbo.cvo_sc_transfer_create_sp TO PUBLIC;
-
-
-
-
-
-
-
-
-
 
 
 

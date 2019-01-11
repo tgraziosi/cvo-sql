@@ -34,6 +34,7 @@ GO
 -- v12.1 CB 06/06/2017 - Capture missing invoice numbers
 -- v12.2 CB 08/01/2018 - #1656 - Customer Pricing Invoice
 -- v12.3 CB 12/01/2018 - Add routine to correct pricing
+-- v12.4 CB 28/11/2018 - Extend patient/tray field
 
 CREATE PROCEDURE [dbo].[tdc_print_ord_pack_list_sp](@user_id    varchar(50),  
 													@station_id varchar(20),  
@@ -82,7 +83,8 @@ BEGIN
 			@terms   varchar (10),   @printed_on_the_page    int,  
 			@cust_part_no  varchar (30), @drawing_no  varchar (30) ,  
 			@Sum_Qty_Short          varchar (20),   @header_add_note varchar (255),
-			@order_date	varchar(30),  @order_type varchar(30), @li_note varchar(10),						--v2.0  
+			@order_date	varchar(30),  @order_type varchar(30), 						--v2.0  
+			@li_note varchar(50), -- v12.4
 			@Tot_qty_ship	varchar(30),  @tot_qty_bo varchar(10), @bg_message varchar(100),					--v2.0  
 			@invoice_num	varchar(16),	@invoice_date	varchar(12),										--v6.0
 			@caller	varchar(60),																			--v6.0
@@ -676,7 +678,7 @@ BEGIN
 			ext_net_price	DECIMAL(20,2) NULL,
 			discount_amount DECIMAL(20,2) NULL, 
 			discount_pct	DECIMAL(20,2) NULL,
-			note			VARCHAR(10) NULL,
+			note			VARCHAR(50) NULL, -- v12.4
 			is_credit		SMALLINT NULL, --) -- v11.0
 			is_free			smallint NULL, -- v12.2) -- v11.4
 			is_quoted		smallint NULL, -- v12.2
@@ -846,6 +848,7 @@ BEGIN
 			EXEC tdc_trim_zeros_sp @Sum_Pack_Qty    OUTPUT  
 			EXEC tdc_trim_zeros_sp @Sum_Qty_Short   OUTPUT  
 			EXEC tdc_parse_string_sp @item_description, @item_description output   
+            EXEC tdc_parse_string_sp @li_note, @li_note OUTPUT
   
 			IF @Sum_Pack_Qty = '' SET @Sum_Pack_Qty = '0'			--v4.0 Make sure we show 0 for no shipments
 	   
@@ -1236,6 +1239,8 @@ BEGIN
   
 	RETURN
 END
+
+
 GO
 
 GRANT EXECUTE ON  [dbo].[tdc_print_ord_pack_list_sp] TO [public]

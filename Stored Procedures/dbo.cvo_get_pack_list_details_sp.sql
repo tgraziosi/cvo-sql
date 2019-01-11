@@ -14,6 +14,7 @@ GO
 -- v1.8 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
 -- v1.9 CB 08/01/2017 - #1656 - Customer Pricing Invoice
 -- v2.0 CB 12/01/2018 - Add routine to correct pricing
+-- v2.1 CB 28/11/2018 - Extend patient/tray field
 -- requires temp table
 /*
 CREATE TABLE #detail(
@@ -53,7 +54,7 @@ BEGIN
 			@qty_short			DECIMAL(20,8),
 			@ordered			DECIMAL(20,8),
 			@pack_qty			DECIMAL(20,8),
-			@note				VARCHAR(10),
+			@note				VARCHAR(50), -- v2.1
 			-- START v1.1
 			@buying_group		VARCHAR(8),
 			@bg_order			smallint
@@ -73,7 +74,7 @@ BEGIN
 		ext_net_price	DECIMAL(20,2) NULL,
 		discount_amount DECIMAL(20,2) NULL, 
 		discount_pct	DECIMAL(20,2) NULL,
-		note			VARCHAR(10),
+		note			VARCHAR(50), -- v2.1
 		is_free			smallint NULL, -- v1.9) -- v1.4
 		is_quoted		smallint NULL, -- v1.9
 		is_fixed		smallint NULL) -- v12.2
@@ -261,7 +262,7 @@ BEGIN
 										  ELSE CASE c.list_price WHEN 0 THEN 0
 										  ELSE CAST(ROUND((((c.list_price - (l.curr_price - ROUND(c.amt_disc,2))) / c.list_price) * 100),2,1) AS DECIMAL(20,2)) END END, 
 						@list_price		= CAST(c.list_price AS DECIMAL(20,2)),
-						@note		= SUBSTRING(IsNull(l.note,''),1,10)		
+						@note		= SUBSTRING(IsNull(l.note,''),1,50)	-- v2.1	
 						-- v1.5 End
 					FROM   
 						dbo.ord_list l (NOLOCK)
@@ -282,7 +283,7 @@ BEGIN
 				BEGIN
 					SELECT	
 						@list_price	= CAST(c.list_price	AS DECIMAL(20,2)),
-						@note     = SUBSTRING(IsNull(l.note,''),1,10),
+						@note     = SUBSTRING(IsNull(l.note,''),1,50), -- v2.1
 						-- v1.5 Start
 						@discount_pct	= CASE l.price WHEN 0 THEN 0				
 										  ELSE CASE c.list_price WHEN 0 THEN 0
@@ -319,7 +320,7 @@ BEGIN
 									  ELSE CASE c.list_price WHEN 0 THEN 0
 									  ELSE CAST(ROUND((((c.list_price - (l.curr_price - ROUND(c.amt_disc,2))) / c.list_price) * 100),2,1) AS DECIMAL(20,2)) END END, 
 					@list_price		= CAST(c.list_price AS DECIMAL(20,2)),
-					@note		= SUBSTRING(IsNull(l.note,''),1,10)						
+					@note		= SUBSTRING(IsNull(l.note,''),1,50) -- v2.1						
 				FROM 
 					dbo.ord_list l (NOLOCK)
 				LEFT OUTER JOIN 

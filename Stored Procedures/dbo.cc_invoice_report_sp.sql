@@ -25,6 +25,7 @@ GO
 -- v4.0 CB 08/01/2017 - #1656 - Customer Pricing Invoice
 -- v4.1 CB 12/01/2018 - Add routine to correct pricing
 -- v4.2 CB 09/08/2018 - For installment invoice just show totals
+-- v4.3 CB 28/11/2018 - Extend location_code field for patient/tray
 
 
 CREATE PROCEDURE [dbo].[cc_invoice_report_sp] @my_id	varchar(255),
@@ -40,7 +41,7 @@ DECLARE @curr_precision smallint
 CREATE TABLE	#ccarhdr_work
 (	trx_ctrl_num			varchar(16) NULL,
 	doc_ctrl_num			varchar(16) NULL,
-	location_code			varchar(10) NULL, -- v2.4 Increase to 10 as using this for patient/tray
+	location_code			varchar(50) NULL, --v4.3 v2.4 Increase to 10 as using this for patient/tray
 	item_code				varchar(30) NULL,
 	qty_shipped				float 			NULL,
 	unit_code				varchar(8) 	NULL,
@@ -381,7 +382,7 @@ CREATE TABLE	#ccarhdr_work
 	*/
 	-- END v3.3
 	-- START v2.6
-	location_code = LEFT(l.note,10)
+	location_code = LEFT(l.note,50) -- v4.3
 	-- location_code = l.note -- v2.4     
 	-- END v2.6
 	-- END v2.1

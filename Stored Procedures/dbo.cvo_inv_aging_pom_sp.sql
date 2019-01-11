@@ -89,8 +89,9 @@ SELECT cia.Brand,
 FROM cvo_item_avail_vw cia (NOLOCK)
     INNER JOIN #type
         ON #type.restype = cia.ResType
-    LEFT OUTER JOIN dbo.cvo_eos_tbl AS et
-        ON et.part_no = cia.part_no AND et.obs_date IS NULL
+    LEFT OUTER JOIN 
+    (SELECT DISTINCT part_no FROM dbo.cvo_part_attributes AS pa WHERE pa.attribute = 'eos') et
+        ON et.part_no = cia.part_no -- AND et.obs_date IS NULL
     JOIN cvo_gender g ON g.kys = cia.gender
 
 WHERE cia.POM_date IS NOT NULL
@@ -102,6 +103,7 @@ WHERE cia.POM_date IS NOT NULL
           OR cia.tot_ext_cost <> 0
       );
 END
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_inv_aging_pom_sp] TO [public]

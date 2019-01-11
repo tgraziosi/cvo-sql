@@ -5,7 +5,7 @@ GO
 CREATE PROCEDURE [dbo].[cvo_commission_statement_sp] @FiscalPeriod VARCHAR(10)
 AS
 
--- exec cvo_commission_statement_sp '05/2018'
+-- exec cvo_commission_statement_sp '12/2018'
 
 SET NOCOUNT ON;
 
@@ -55,7 +55,7 @@ BEGIN
 
     -- rebuild the summary too - 8/28/2017
 
-    -- exec cvo_commiss_bldr_create_summary_sp @fp
+    -- exec cvo_commiss_bldr_create_summary_sp '12/2018'
 
     ;
     WITH months
@@ -95,7 +95,7 @@ BEGIN
         ) comm
             ON comm.salesperson = sp.salesperson_code
     WHERE sp.status_type = 1 OR (ISNULL(sp.status_type,0) <> 1 AND YEAR(ISNULL(dbo.adm_format_pltdate_f(sp.date_terminated), '12/31/2099'))
-    										 >= YEAR(DATEADD(month,1,LEFT(@FiscalPeriod,2)+'/1/'+RIGHT(@FiscalPeriod,4))));
+    										 >= YEAR(DATEADD(month,0,LEFT(@FiscalPeriod,2)+'/1/'+RIGHT(@FiscalPeriod,4))));
 
     --;
     --WITH months
@@ -548,6 +548,7 @@ BEGIN
                AND ff.report_month = f.report_month;
 
 END;
+
 
 
 

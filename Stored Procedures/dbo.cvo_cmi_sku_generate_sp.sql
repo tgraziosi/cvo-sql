@@ -19,7 +19,7 @@ BEGIN
 -- generate sku's from cmi into epicor
 --  
 -- 
--- exec [cvo_cmi_sku_generate_sp] 'op', '856', NULL, null, '1/8/2019','N', 1
+-- exec [cvo_cmi_sku_generate_sp] 'op', '863', NULL, null, '6/11/2019','N', 1
 
 
 
@@ -1170,7 +1170,7 @@ SELECT distinct
         dbl_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'bridge','demolen' ) OR PL.PART_TYPE LIKE 'CLIP%' THEN c.dbl_size ELSE NULL END ,
         temple_size =   
 			CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'temple-l', 'temple-r', 'temple-tip', 'cable-r', 'cable-l' ) 
-			THEN c.temple_size
+			THEN pl.temple_size
 			ELSE NULL END ,
   --     
 		temple_tip_material = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'temple-l', 'temple-r', 'temple-tip','cable-r', 'cable-l' ) THEN c.temple_tip_material ELSE NULL END ,
@@ -2726,6 +2726,7 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
 
 
 

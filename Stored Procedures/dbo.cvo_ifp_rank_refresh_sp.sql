@@ -12,7 +12,7 @@ CREATE PROCEDURE [dbo].[cvo_ifp_rank_refresh_sp]
 AS 
 BEGIN
 
--- exec cvo_ifp_rank_refresh_sp 'jc', 'frame',null,4,1
+-- exec cvo_ifp_rank_refresh_sp null, 'frame',null,4,0
 -- SELECT * fROM CVO_IFP_CONFIG
 -- select * from cvo_ifp_rank where brand = 'jc'
 
@@ -349,8 +349,8 @@ ORDER BY CASE WHEN @RS = 'FRAME' THEN i.brand
 
 
 SELECT distinct       id ,
-                      brand ,
-                      style ,
+                      r.brand ,
+                      r.style ,
                       res_type ,
                       rel_date ,
                       pom_date ,
@@ -363,12 +363,20 @@ SELECT distinct       id ,
 					  rel_month ,
                       tier ,
                       order_thru_date ,
-                      last_upd_date
-FROM            cvo_ifp_rank
+                      last_upd_date,
+                      imrv.Gender, 
+                      imrv.matl,
+                      imrv.vendor
+FROM            cvo_ifp_rank r
+                JOIN 
+                ( SELECT DISTINCT Collection brand, model style, vendor, UPPER(LEFT(PrimaryDemographic,1)) Gender, front_material matl 
+                FROM dbo.cvo_inv_master_r2_vw
+                ) AS imrv  ON imrv.brand = r.brand AND imrv.style = r.style
 
 
 
 end
+
 
 
 

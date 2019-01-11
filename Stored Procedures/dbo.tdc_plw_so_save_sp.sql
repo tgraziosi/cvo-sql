@@ -2,7 +2,6 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- v1.0 CB 01/04/2011 - 14.Planners Workbench - Additional criteria
 -- v1.1 CB 13/04/2011 - Future Allocations
 -- v10.1 CB 12/07/2012 - CVO-CF-1 - Custom Frame Processing
@@ -19,6 +18,7 @@ GO
 -- v11.2 CB 22/09/2014 - #572 Masterpack - Stock Order Consolidation
 -- v11.3 CB 15/01/2015 - Only call consolidation routine if the record is selected
 -- v11.4 CB 12/01/2016 - #1586 - When orders are allocated or a picking list printed then update backorder processing
+-- v11.5 CB 29/11/2018 - If allocating an extra line after another has been picked the system is adding into soft alloc the picked lines
 
 CREATE PROCEDURE [dbo].[tdc_plw_so_save_sp]
 			@con_no			   int,
@@ -754,7 +754,8 @@ BEGIN
 			ON		a.line_no = c.line_no			
 			WHERE	a.order_no = @order_no
 			AND		a.order_ext = @order_ext
-			AND		(a.ordered - ISNULL(c.qty,0)) > 0
+			AND		((a.ordered - a.shipped) - ISNULL(c.qty,0)) > 0 -- v11.5
+			-- v11.5 AND		(a.ordered - ISNULL(c.qty,0)) > 0
 
 			-- v10.6
 			EXEC dbo.cvo_update_soft_alloc_case_adjust_sp @new_soft_alloc_no, @order_no, @order_ext
@@ -774,7 +775,8 @@ BEGIN
 			WHERE	a.order_no = @order_no
 			AND		a.order_ext = @order_ext	
 			AND		b.replaced = 'S'	
-			AND		(a.ordered - ISNULL(c.qty,0)) > 0	
+			AND		((a.ordered - a.shipped) - ISNULL(c.qty,0)) > 0	-- v11.5
+			-- v11.5 AND		(a.ordered - ISNULL(c.qty,0)) > 0	
 		END
 
 	END
@@ -859,7 +861,6 @@ EXEC dbo.CVO_Consolidate_Pick_queue_sp -- moved from tdc_plw_so_alloc_management
 --------------------------------------------------------------------------------------------------------------
 INSERT INTO tdc_alloc_history_tbl(order_no, order_ext, location, fill_pct, alloc_date, alloc_by, order_type)
 SELECT order_no, order_ext, location, curr_alloc_pct, getdate(), @user_id, 'S'  FROM #so_alloc_management WHERE sel_flg != 0
-
 
 
 GO

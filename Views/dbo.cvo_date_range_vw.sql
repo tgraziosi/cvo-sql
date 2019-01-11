@@ -184,10 +184,10 @@ select
 --	,Convert(datetime,'1/1/' + cast(YEAR(GETDATE())+1 as varchar(4))) as BeginDate
 --	,Convert(datetime,cast(MONTH(GETDATE()) as varchar(2)) + '/' + cast(DAY(GETDATE()) as varchar(2)) + '/' + cast(YEAR(GETDATE())+1 as varchar(4)))  as EndDate
 UNION all
-select 
-	Convert(varchar(100),'Year To Date - ME') as [Period]
-	,convert(datetime,'1/1/' + cast(year(getdate()) as varchar(4))) as BeginDate
-	,convert(datetime,DATEADD(MONTH,DATEDIFF(month,0,GETDATE()),-0))-1 AS EndDate
+    select 
+	Convert(varchar(100),'Year To Date - ME') as [Period],
+    DATEADD(yy, -1, DATEADD (mm, DATEDIFF(mm,0,GETDATE()), 0)) begindate,
+    DATEADD(dd, -1, DATEADD (mm, DATEDIFF(mm,0,GETDATE()), 0)) AS enddate
 
 
 

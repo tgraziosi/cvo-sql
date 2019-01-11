@@ -796,6 +796,11 @@ BEGIN
 			RETURN
 		END
 
+		-- v1.9 Start
+		DELETE	cvo_soft_alloc_hdr WHERE order_no = @order_no AND order_ext = @order_ext
+		DELETE	cvo_soft_alloc_det WHERE order_no = @order_no AND order_ext = @order_ext
+		-- v1.9 End
+
 		-- v1.4 Start
 		INSERT INTO tdc_log ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
 		SELECT	GETDATE() , @user_id , 'BO' , 'ADM' , 'ORDER CREATION' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,

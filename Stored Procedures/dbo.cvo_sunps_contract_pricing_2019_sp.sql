@@ -154,14 +154,6 @@ BEGIN
 
 END;
 
-GRANT ALL ON dbo.cvo_sunps_contract_pricing_2019_sp TO PUBLIC
-
-
-
-
-
-
-
 GO
 GRANT EXECUTE ON  [dbo].[cvo_sunps_contract_pricing_2019_sp] TO [public]
 GO
