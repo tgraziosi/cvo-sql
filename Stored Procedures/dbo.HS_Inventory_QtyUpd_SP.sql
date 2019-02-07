@@ -70,7 +70,7 @@ AS
                 CASE WHEN i.COLL = 'SM'
                           AND '1/23/2017' > GETDATE() ---- 1/4/2017 - fudge SM inventory levels until released
                           THEN 2000
-					 WHEN i.APR = 'Y' OR i.sunps = 'SUNPS' THEN 2000 -- 10/17/2017
+					 WHEN i.APR = 'Y' OR (i.sunps = 'SUNPS' AND i.ReleaseDate > GETDATE()) THEN 2000 -- 10/17/2017
                      WHEN qty_avl < 0 THEN 0
 --                          OR i.COLL = 'ch' THEN 0
                      WHEN I.COLL = 'CH' THEN cia.qty_avl + cia.ReserveQty
@@ -206,6 +206,7 @@ AS
 
 
 	
+
 
 
 

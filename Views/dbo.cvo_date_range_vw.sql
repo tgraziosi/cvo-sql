@@ -186,8 +186,9 @@ select
 UNION all
     select 
 	Convert(varchar(100),'Year To Date - ME') as [Period],
-    DATEADD(yy, -1, DATEADD (mm, DATEDIFF(mm,0,GETDATE()), 0)) begindate,
+    CONVERT(datetime,'1/1/' + cast(year(getdate()) as varchar(4))) as BeginDate,
     DATEADD(dd, -1, DATEADD (mm, DATEDIFF(mm,0,GETDATE()), 0)) AS enddate
+
 
 
 

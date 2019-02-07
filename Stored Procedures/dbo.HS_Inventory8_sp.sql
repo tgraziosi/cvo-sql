@@ -9,10 +9,10 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT hide, masterhide, releasedate, * FROM dbo.cvo_hs_inventory_8 WHERE hide = 1 or releasedate = '12/11/2018' coll = 'DD' AND [CATEGORY:1] = 'REVO SELLDWN' SKU LIKE 'DD%' where [category:1] = 'sun' where  ReleaseDate > '1/1/2018' AND SpecialtyFit = '[multiple]'
+-- SELECT hide, masterhide, releasedate, * FROM dbo.cvo_hs_inventory_8 WHERE mastersku like 'sp%' sunps > ''hide = 1 or releasedate = '12/11/2018' coll = 'DD' AND [CATEGORY:1] = 'REVO SELLDWN' SKU LIKE 'DD%' where [category:1] = 'sun' where  ReleaseDate > '1/1/2018' AND SpecialtyFit = '[multiple]'
 -- SELECT DISTINCT [category:1],[category:2] FROM dbo.cvo_hs_inventory_8 AS hi WHERE [hi].[category:1] = 'sun'
 -- DROP TABLE dbo.cvo_hs_inventory_8
--- 		
+-- 		selec
 -- 072814 - tag - 1) add special values, 2) performance updates
 -- 082214 - add obsolete date for spv list
 -- 12/15/2014 - change category to be one per mastersku.  mark disco'd sku's
@@ -367,6 +367,7 @@ AS
                             1                                                AS minQty,
                             1                                                AS multQty,
                             CASE
+                                WHEN i.category = 'sp' THEN 'SPECTACULRS'
                                 WHEN I.category IN (
                                                        'LS'
                                                    )
@@ -665,8 +666,8 @@ ELSE '' END GENDER,
                                     ''
                             END                                              AS New,
                             CASE
-                                WHEN IA.field_26 > DATEADD(WEEK, 1, @today)
-                                     AND ISNULL(IA.field_36, '') IN (
+                                WHEN -- IA.field_26 > DATEADD(WEEK, 1, @today)AND 
+                                ISNULL(IA.field_36, '') IN (
                                                                         'SUNPS', 'PreSell'
                                                                     )
                                     THEN
@@ -744,8 +745,8 @@ ELSE '' END GENDER,
                         LEFT OUTER JOIN
                             #DRP                           drp
                                 ON drp.part_no = I.part_no
-                    WHERE
-                            I.category <> 'sp' -- 6/27/2018
+                    WHERE   1=1
+                            AND I.category <> 'sp' -- 6/27/2018
                             AND I.void <> 'V'
                             AND I.category NOT IN (
                                                       'CORP', 'FP'
@@ -1299,7 +1300,7 @@ ELSE '' END GENDER,
                     THEN
                     2000 -- 6/9/2016 - dummy up inventory for all promo kits
                 WHEN t1.APR = 'y'
-                     OR t1.SUNPS = 'sunps' /*OR t1.[CATEGORY:2] = 'revo'*/
+                     OR (t1.SUNPS = 'sunps' AND @today < T1.ReleaseDate ) /*OR t1.[CATEGORY:2] = 'revo'*/
                     THEN
                     2000 -- APR and sunps and revo
                 WHEN t1.[category:1] IN (
@@ -2069,6 +2070,9 @@ IF GETDATE() >= '9/30/2018'
     AND '11/6/2018' > GETDATE()
 
     END;
+
+
+
 
 
 

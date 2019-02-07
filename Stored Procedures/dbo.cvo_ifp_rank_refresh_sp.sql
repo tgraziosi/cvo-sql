@@ -369,13 +369,17 @@ SELECT distinct       id ,
                       imrv.vendor
 FROM            cvo_ifp_rank r
                 JOIN 
-                ( SELECT DISTINCT Collection brand, model style, vendor, UPPER(LEFT(PrimaryDemographic,1)) Gender, front_material matl 
-                FROM dbo.cvo_inv_master_r2_vw
+                ( SELECT Collection brand, model style, MAX(vendor) vendor, UPPER(LEFT(PrimaryDemographic,1)) Gender, front_material matl 
+                FROM dbo.cvo_inv_master_r2_vw GROUP  BY UPPER(LEFT(PrimaryDemographic, 1)),
+                                                        Collection,
+                                                        model,
+                                                        front_material
                 ) AS imrv  ON imrv.brand = r.brand AND imrv.style = r.style
 
 
 
 end
+
 
 
 

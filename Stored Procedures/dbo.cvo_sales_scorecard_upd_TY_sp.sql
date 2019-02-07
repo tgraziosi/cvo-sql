@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -42,8 +41,8 @@ FROM dbo.cvo_date_range_vw AS cdrv WHERE cdrv.Period = 'Two Years Ago to Date'
 
 -- select * from cvo_date_Range_vw
 
---SELECT @datefrom = '1/1/2015', @dateto = '12/31/2015'
---SELECT @datefromly = '1/1/2014', @datetoly = '12/31/2014'
+--SELECT @datefrom = '1/1/2018', @dateto = '12/31/2018'
+--SELECT @datefromly = '1/1/2017', @datetoly = '12/31/2017'
 
 SELECT @statyear = CAST(DATEPART(YEAR,@dateto) AS varchar(4))
 SELECT @statyearty = CAST(DATEPART(YEAR,@dateto) AS varchar(4))
@@ -445,4 +444,5 @@ END
 
 -- UPDATE dbo.cvo_terr_scorecard SET scdate = '12/31/2014' WHERE scdate IS NULL AND stat_year = '2014'
 -- update cvo_terr_scorecard set territory_code = 'Vet_avgs' where territory_code = 'Vet_avg'
+
 GO

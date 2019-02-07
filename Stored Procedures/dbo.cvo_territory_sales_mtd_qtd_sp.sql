@@ -9,8 +9,7 @@ AS
 BEGIN
 
     --  
-    -- cvo_territory_sales_mtd_qtd_sp '2018', '20201'
-    -- declare @compareyear varchar(1000)
+    -- cvo_territory_sales_mtd_qtd_sp '2019'
     -- set @compareyear = '2018'
 
     SET NOCOUNT ON;
@@ -204,6 +203,7 @@ BEGIN
         WHERE salesperson_type = 1
               AND territory_code IS NOT NULL
               AND status_type = 1 -- add status check for active
+              AND salesperson_name <> 'Patti Gertzen'
         UNION
         SELECT '800',
                'Corporate Accounts',
@@ -293,6 +293,7 @@ BEGIN
 
 
 END;
+
 
 
 

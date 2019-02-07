@@ -24,8 +24,10 @@ SELECT  s.collection ,
         s.front_cost,
 		ia.field_3 ColorName
 INTO    #s
-FROM    dbo.f_get_price_for_styles() s
-JOIN inv_master_add ia ON ia.part_no = s.part_no;
+FROM    inv_master i (NOLOCK)
+JOIN dbo.f_get_price_for_styles() s ON s.part_no = i.part_no
+JOIN inv_master_add ia ON ia.part_no = s.part_no
+WHERE i.void = 'n';
 
 CREATE INDEX idx_s_part ON #s (part_no ASC, colorname ASC, collection ASC, style ASC, frame_cost asc);
 
@@ -38,12 +40,13 @@ SELECT i.category, ia.field_2, pp.part_no, pp.price_a,
          0.0 , -- cable_cost - float
          0.0 , -- front_cost - float
          ia.field_3    -- ColorName - varchar(40)
-FROM dbo.part_price AS pp
-JOIN inv_master i ON i.part_no = pp.part_no
+FROM inv_master i 
+JOIN dbo.part_price AS pp ON pp.part_no = i.part_no
 JOIN inv_master_add ia ON ia.part_no = i.part_no
 JOIN inv_list il ON il.part_no = pp.part_no AND il.location = '001'
 LEFT OUTER JOIN #s ON #s.part_no = pp.part_no
-WHERE #s.part_no IS NULL AND i.type_code IN ('frame','sun');
+WHERE #s.part_no IS NULL AND i.type_code IN ('frame','sun')
+AND i.void = 'n';
 
 SELECT  DISTINCT 
 		ccv.Collection ,
@@ -95,6 +98,7 @@ ORDER BY ccv.Collection ,
 		;
 
 end
+
 
 
 GO

@@ -529,7 +529,8 @@ BEGIN
            f.year_ly,
            f.total_earnings_ly,
            f.general_note,
-           f.spec_pay
+           f.spec_pay,
+           CASE WHEN ISNULL(f.net_pay,0)+ISNULL(f.spec_pay,0) < 0 THEN 0 ELSE ISNULL(f.net_pay,0)+ISNULL(f.spec_pay,0) END total_pay
     FROM #final f
         LEFT OUTER JOIN
         (
@@ -548,6 +549,7 @@ BEGIN
                AND ff.report_month = f.report_month;
 
 END;
+
 
 
 

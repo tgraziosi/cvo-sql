@@ -28,6 +28,7 @@ Insert #temp_who select 'tdcsql','tdcsql'
 
 -- find the no stock transactions to count.  FORCE A COUNT ON ANY NO STOCKS
 
+/*
 UPDATE i SET cycle_type = 'DAILY'
 -- SELECT DISTINCT i.part_no , i.cycle_type, ia.field_28
 FROM CVO_no_stock_approval t (NOLOCK)
@@ -44,7 +45,7 @@ EXEC dbo.tdc_ins_count_sp @err_msg = @err_msg OUTPUT, -- varchar(255)
                           @location = '001'           -- varchar(10)
 
 						  SELECT @err_msg
-
+*/
 					  
 EXEC dbo.tdc_ins_count_sp @err_msg = @err_msg OUTPUT, -- varchar(255)
                           @team_id = @team,              -- varchar(30)
@@ -76,7 +77,14 @@ EXEC dbo.tdc_ins_count_sp @err_msg = @err_msg OUTPUT, -- varchar(255)
                           @location = '001'             -- varchar(10)
 
 						  SELECT @err_msg
+/*
+EXEC dbo.tdc_ins_count_sp @err_msg = @err_msg OUTPUT, -- varchar(255)
+                          @team_id = 'PARTS',         -- varchar(30)
+                          @cyc_code = 'PARTS',        -- varchar(10)
+                          @location = '001'             -- varchar(10)
 
+						  SELECT @err_msg
+*/
 
 --EXEC dbo.tdc_ins_count_sp @err_msg = @err_msg OUTPUT, -- varchar(255)
 --                          @team_id = 'CASE',              -- varchar(30)
@@ -187,6 +195,8 @@ END
 --   select * From tdc_bcp_print_values
 
 END
+
+
 
 
 

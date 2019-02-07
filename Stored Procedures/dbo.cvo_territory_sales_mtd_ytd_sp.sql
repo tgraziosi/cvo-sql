@@ -390,6 +390,7 @@ BEGIN
             FROM dbo.arsalesp
             WHERE salesperson_type = 1
                   AND territory_code IS NOT NULL
+                  AND salesperson_name <> 'Patti Gertzen'
                   AND status_type = 1 -- add status check for active
             UNION
             SELECT '800',
@@ -444,6 +445,7 @@ BEGIN
 
 
 END;
+
 
 
 

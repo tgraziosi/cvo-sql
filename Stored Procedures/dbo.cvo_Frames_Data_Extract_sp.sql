@@ -229,11 +229,13 @@ AS
                  Brand_id = CAST(CASE ISNULL(i.category, '')
                                       WHEN 'AS' THEN '8311'   -- 040915
                                       WHEN 'bcbg' THEN '6799'
-                                      WHEN 'CVO' THEN
-                                          CASE WHEN ia.field_10 LIKE 'Metal%' THEN
-                                                   '6432'
-                                               ELSE '875'
-                                          END
+                                      -- 1/2019 - put all CVO under brand 875
+                                      --WHEN 'CVO' THEN
+                                      --    CASE WHEN ia.field_10 LIKE 'Metal%' THEN
+                                      --             '6432'
+                                      --         ELSE '875'
+                                      --    END
+                                      WHEN 'CVO' THEN '875'
                                       WHEN 'CH' THEN '7112'
                                       WHEN 'DD' THEN '7853'
                                       WHEN 'DH' THEN '8314'   -- 040915
@@ -569,6 +571,7 @@ AS
     -- tempdb..sp_help #framesdatalist
 
     END;
+
 
 
 

@@ -118,6 +118,8 @@ CREATE TABLE [dbo].[cvo_svc_invitations]
 [show_price] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__show___6F333E1E] DEFAULT ((0)),
 [show_off_price] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__show___70276257] DEFAULT ((0)),
 [discount_type] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[evite_program] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[evite_program] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[isExternal] [tinyint] NULL CONSTRAINT [DF__cvo_svc_i__isExt__555E5D82] DEFAULT ((0)),
+[customer_type] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__cvo_svc_i__custo__592EEE66] DEFAULT ('Customer')
 ) ON [PRIMARY]
 GO

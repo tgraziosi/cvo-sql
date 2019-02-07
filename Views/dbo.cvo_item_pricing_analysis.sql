@@ -87,8 +87,8 @@ cl.promo_item,
 cl.free_frame, 
 o.terms,
 ol.return_code,
-inv.upc_code,
 o.who_entered,
+inv.upc_code,
 'Posted' as source 
 FROM ord_list ol (NOLOCK)
 INNER JOIN orders o (NOLOCK) ON ol.order_no = o.order_no AND ol.order_ext = o.ext       
@@ -197,8 +197,8 @@ cl.promo_item,
 cl.free_frame, 
 o.terms,
 ol.return_code,
-inv.upc_code,
 o.who_entered,
+inv.upc_code,
 'UnPosted' as source 
 FROM ord_list ol (NOLOCK)
 INNER JOIN orders o (NOLOCK) ON ol.order_no = o.order_no AND ol.order_ext = o.ext       
@@ -305,8 +305,8 @@ cl.promo_item,
 cl.free_frame,
 o.terms,
 ol.return_code,
-inv.upc_code,
 o.who_entered,
+inv.upc_code,
 'Open' as source 
 FROM ord_list ol (NOLOCK)
 INNER JOIN orders o (NOLOCK) ON ol.order_no = o.order_no AND ol.order_ext = o.ext       
@@ -382,8 +382,8 @@ o.user_category,
 0 AS free_frame,
 o.terms,
 'ST' AS return_code,
-inv.upc_code,
 o.who_entered,
+inv.upc_code,
 'Hist' as source
 FROM CVO_ORDERS_ALL_HIST O (NOLOCK)    
 INNER JOIN CVO_ORD_LIST_HIST ol(NOLOCK) ON O.order_no = ol.order_no AND O.ext = ol.order_ext       

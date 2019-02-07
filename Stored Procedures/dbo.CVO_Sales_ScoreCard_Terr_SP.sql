@@ -11,8 +11,8 @@ GO
 -- 7/29/2015 - new counts for retention pcts
 -- =============================================
 CREATE PROCEDURE [dbo].[CVO_Sales_ScoreCard_Terr_SP]
-    @DF DATETIME,
-    @DT DATETIME
+    @DF DATETIME = NULL,
+    @DT DATETIME = NULL
 --,@Terr varchar(1024) = null
 
 AS
@@ -29,6 +29,8 @@ BEGIN
     -- uncomment for testing
     --DECLARE @DF datetime, @DT datetime
     --select @df = '01/01/2017', @dt = '09/29/2017'
+    IF @df IS NULL OR @dt IS NULL
+        SELECT @df = begindate, @dt = enddate FROM dbo.cvo_date_range_vw AS drv WHERE period = 'rolling 12 TY'
 
     SELECT @DateFrom = @DF,
            @DateTo = @DT,
@@ -1169,6 +1171,7 @@ END;
 -- SELECT * FROM dbo.armaster WHERE customer_code = '032056'
 
 --SELECT * FROM #data2 AS s WHERE (s.Territory='20203' and stat='rea') OR s.customer_code = '013853'
+
 
 
 GO

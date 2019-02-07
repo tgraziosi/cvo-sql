@@ -43,6 +43,7 @@ AS
 			il.abc_code,
 			i.cycle_type,
 			il.cycle_date,
+            b.date_tran,
 			i.upc_code,
 			aisle = LEFT(b.bin_no,3),
 			section = SUBSTRING(b.bin_no,4,1),
@@ -133,6 +134,7 @@ AS
 			il.abc_code,
 			i.cycle_type,
 			il.cycle_date,
+            l.date_tran date_tran,
 			i.upc_code,	
 			aisle = LEFT(bm.bin_no,3),
 			section = SUBSTRING(bm.bin_no,4,1),
@@ -221,6 +223,7 @@ AS
 			'' abc_code,
 			'' cycle_type,
 			NULL cycle_date,
+            NULL date_tran,
 			'' upc_code,
 			aisle = LEFT(bm.bin_no,3),
 			section = SUBSTRING(bm.bin_no,4,1),
@@ -249,6 +252,7 @@ AS
 			
 			;
     
+
 
 
 
