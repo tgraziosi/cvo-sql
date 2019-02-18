@@ -5,6 +5,7 @@ GO
 -- v1.0 CB 19/10/2011 Performance Enhancements
 -- v1.1 CT 08/11/2012 Autopack for transfers
 -- v1.2 CB 19/12/2018 Performance
+-- v1.3 CB 11/02/2019 - Add logging
 CREATE PROCEDURE [dbo].[tdc_queue_xfer_ship_pick_sp]   
  @queue_id int,   
  @tote_bin varchar(12),   
@@ -120,6 +121,14 @@ BEGIN
   
  SELECT @to_loc = @loc  
 END  
+
+-- v1.3 Start
+IF (@xfer_ship = 'T')  
+BEGIN
+	INSERT	dbo.cvo_transfer_pick_pack_log (log_date, xfer_no, log_message)
+	SELECT	GETDATE(), @order_no, 'Calling tdc_adm_pick_ship for @line_no ' + CAST(@line_no as varchar(20)) 
+END
+-- v1.3 End
   
 BEGIN TRAN  
   
@@ -138,6 +147,15 @@ END
 IF (@return < 0)  
 BEGIN  
  IF (@@TRANCOUNT > 0) ROLLBACK  
+
+	-- v1.3 Start
+	IF (@xfer_ship = 'T')  
+	BEGIN
+		INSERT	dbo.cvo_transfer_pick_pack_log (log_date, xfer_no, log_message)
+		SELECT	GETDATE(), @order_no, 'Error returned from tdc_adm_pick_ship for @line_no ' + CAST(@line_no as varchar(20)) 
+	END
+	-- v1.3 End
+
  RETURN -101  
 END  
   
@@ -205,6 +223,15 @@ BEGIN
   IF (@@ERROR <> 0)  
   BEGIN  
    IF (@@TRANCOUNT > 0) ROLLBACK  
+
+	-- v1.3 Start
+	IF (@xfer_ship = 'T')  
+	BEGIN
+		INSERT	dbo.cvo_transfer_pick_pack_log (log_date, xfer_no, log_message)
+		SELECT	GETDATE(), @order_no, 'Error inserting tdc_dist_item_pick for @line_no ' + CAST(@line_no as varchar(20)) 
+	END
+	-- v1.3 End
+
    RETURN -101  
   END  
  END  
@@ -234,6 +261,15 @@ BEGIN
   IF (@@ERROR <> 0)  
   BEGIN  
    IF (@@TRANCOUNT > 0) ROLLBACK  
+
+	-- v1.3 Start
+	IF (@xfer_ship = 'T')  
+	BEGIN
+		INSERT	dbo.cvo_transfer_pick_pack_log (log_date, xfer_no, log_message)
+		SELECT	GETDATE(), @order_no, 'Error updating tdc_dist_item_pick for @line_no ' + CAST(@line_no as varchar(20)) 
+	END
+	-- v1.3 End
+
    RETURN -101  
   END  
  END  
@@ -323,6 +359,15 @@ EXEC @return = tdc_update_queue_sp @queue_id, @qty, @line_no
 IF (@return < 0)  
 BEGIN  
  IF (@@TRANCOUNT > 0) ROLLBACK  
+
+	-- v1.3 Start
+	IF (@xfer_ship = 'T')  
+	BEGIN
+		INSERT	dbo.cvo_transfer_pick_pack_log (log_date, xfer_no, log_message)
+		SELECT	GETDATE(), @order_no, 'Error from tdc_update_queue_sp for @line_no ' + CAST(@line_no as varchar(20)) + ' and tran_id ' + CAST(@queue_id as varchar(20)) 
+	END
+	-- v1.3 End
+
  RETURN -101  
 END  
   
@@ -422,6 +467,11 @@ BEGIN
 	-- START v1.1
 	IF @xfer_ship = 'T'
 	BEGIN
+		-- v1.3 Start
+		INSERT	dbo.cvo_transfer_pick_pack_log (log_date, xfer_no, log_message)
+		SELECT	GETDATE(), @trans_type_no, 'Calling CVO_transfer_auto_pack_out_sp'
+		-- v1.3 End
+
 		EXEC CVO_transfer_auto_pack_out_sp @trans_type_no, @stationid
 	END
 	ELSE

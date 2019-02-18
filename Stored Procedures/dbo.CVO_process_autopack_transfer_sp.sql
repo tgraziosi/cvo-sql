@@ -5,6 +5,7 @@ GO
 
 -- v1.0 CT 18/10/2012 - Process record in the CVO_autopack_transfer table
 -- v1.1 CB 19/12/2018 - Performance
+-- v1.2 CB 11/02/2019 - Add logging
 /*
 Processed values:
 0 = New record, not processed
@@ -37,6 +38,11 @@ BEGIN
 		processed = -1
 	WHERE 
 		processed IN (0,-1,-2)
+
+	-- v1.2 Start
+	INSERT	dbo.cvo_transfer_pick_pack_log (log_date, xfer_no, log_message)
+	SELECT	GETDATE(), NULL, 'CVO_process_autopack_transfer_sp processing starting'
+	-- v1.2 End
 
 	-- Loop through records and process them
 	SET @rec_id = 0
@@ -73,6 +79,10 @@ BEGIN
 
 		IF @valid = 1
 		BEGIN
+			-- v1.2 Start
+			INSERT	dbo.cvo_transfer_pick_pack_log (log_date, xfer_no, log_message)
+			SELECT	GETDATE(), @xfer_no, 'Calling cvo_autopick_transfer_sp'
+			-- v1.2 End
 			EXEC dbo.cvo_autopick_transfer_sp @xfer_no, @user_id
 		END
 		SET @processed = 2
@@ -86,6 +96,11 @@ BEGIN
 		WHERE
 			rec_id = @rec_id
 	END
+
+	-- v1.2 Start
+	INSERT	dbo.cvo_transfer_pick_pack_log (log_date, xfer_no, log_message)
+	SELECT	GETDATE(), NULL, 'CVO_process_autopack_transfer_sp process complete'
+	-- v1.2 End
 
 END
 

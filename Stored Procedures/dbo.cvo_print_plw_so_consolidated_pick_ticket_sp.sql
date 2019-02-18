@@ -10,6 +10,8 @@ GO
 -- v10.4 CB 13/01/2016 - #1586 - When orders are allocated or a picking list printed then update backorder processing
 -- v10.5 CB 08/06/2016 - Split out manual case qty
 -- v10.6 CB 15/11/2017 - Fix issue with UNION statement
+-- v10.7 CB 07/12/2018 - #1687 Box Type Update
+-- v10.8 CB 23/01/2019 - Fix box count
 
 
 CREATE PROCEDURE [dbo].[cvo_print_plw_so_consolidated_pick_ticket_sp]  
@@ -351,7 +353,46 @@ BEGIN
 	  AND o.ext = @order_ext																			-- v2.0
 	INSERT INTO #PrintData (data_field, data_value) VALUES ('LP_ORDER_TYPE',ISNULL(@order_type,' '))	-- v2.0
 	INSERT INTO #PrintData (data_field, data_value) VALUES ('LP_ROUTING',ISNULL(@routing,' '))			-- v2.0
-	--																									-- v2.0
+	--	
+
+	-- v10.7 Start																									-- v2.0
+	DECLARE	@packing_summary	varchar(100),
+			@box_type			varchar(20),
+			@box_type_count		int
+
+	CREATE TABLE #packing_summary (
+		box_type	varchar(20),
+		box_count	int)
+
+	INSERT	#packing_summary
+	SELECT  box_type, COUNT(distinct box_id) -- v10.8
+	FROM	cvo_pre_packaging  (NOLOCK) 
+	WHERE	cons_no = @consolidation_no
+	AND		order_type = 'S'
+	GROUP BY box_type
+
+	SET @packing_summary = ''
+	SET @box_type = ''
+
+	WHILE (1 = 1)
+	BEGIN
+		SELECT	TOP 1 @box_type = box_type,
+				@box_type_count = box_count
+		FROM	#packing_summary
+		WHERE	box_type > @box_type
+		ORDER BY box_type ASC
+
+		IF (@@ROWCOUNT = 0)
+			BREAK
+
+		SET @packing_summary = @packing_summary + @box_type + ' x ' + CAST(@box_type_count as varchar(5)) + '; '
+
+	END
+
+	DROP TABLE #packing_summary
+
+	INSERT INTO #PrintData (data_field, data_value) VALUES ('LP_PACKING_SUMMARY',ISNULL(@packing_summary,' '))
+	-- v10.9 End																								-- v2.0
 
 
 	-- CVO - Need Order values for printing

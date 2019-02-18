@@ -37,7 +37,7 @@ BEGIN
 			( SELECT DISTINCT ar.territory_code, ar.customer_code 
 			from
             ( SELECT DISTINCT territory_code FROM dbo.arterr (NOLOCK) 
-			   WHERE dbo.calculate_region_fn(territory_code) < '800'
+			   WHERE dbo.calculate_region_fn(territory_code) < '800' OR territory_code IN ('80810','80811') -- spectaculars customers
             ) Terr
 			   join
 			( SELECT distinct customer_code, territory_code FROM armaster (nolock)
@@ -119,6 +119,7 @@ BEGIN
 ( SELECT DISTINCT ar.customer_code 
   FROM #userGroup AS ug JOIN arcust ar ON ar.customer_code = ug.customer_code
   WHERE dbo.calculate_region_fn(ar.territory_code) >= '800' AND ar.addr_sort1 <> 'Employee'
+  AND ar.territory_code NOT IN ('80810','80811')
 )
 DELETE ug 
 FROM 
@@ -352,6 +353,7 @@ SELECT h.id ,
     WHERE NOT EXISTS (SELECT 1 FROM #hs h WHERE h.id = hct.id)
 
 END
+
 
 
 

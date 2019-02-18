@@ -3,6 +3,7 @@ GO
 SET ANSI_NULLS ON
 GO
 -- v1.0 CB 14/03/2013 - Issue #1167 - Allow ship comp holds to be unallocated  
+-- v1.1 CB 04/12/2018 - #1687 Box Type Update
 CREATE PROCEDURE  [dbo].[tdc_plw_xfer_unallocate_sp]   
  @user_id varchar(50)  
 AS  
@@ -203,6 +204,10 @@ BEGIN
     AND #xfer_alloc_management.xfer_no   = tdc_alloc_history_tbl.order_no  
     AND #xfer_alloc_management.from_loc  = tdc_alloc_history_tbl.location  
     AND order_type = 'T'  
+
+	-- v1.1 Start
+	EXEC dbo. cvo_calculate_packaging_sp @xfer_no, 0, 'T'
+	-- v1.1 End
   
  FETCH NEXT FROM UnAllocate_Cursor INTO @xfer_no, @from_loc, @to_loc, @line_no, @part_no, @lot_ser, @bin_no, @qty_to_unallocate  
 END  

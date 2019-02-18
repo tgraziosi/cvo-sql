@@ -11,6 +11,7 @@ GO
 -- v1.6 CB 26/08/2016 - Sort order wrong way around
 -- v1.7 CB 03/02/2017 - Remove v1.6
 -- v1.8 CB 18/05/2017 - Fix issue with routine over allocating - cursor not working so change to temp table
+-- v1.9 CB 04/12/2018 - #1687 Box Type Update
   
 CREATE PROCEDURE [dbo].[tdc_plw_xfer_soft_alloc_sp]  
   @user_id        varchar(50),  
@@ -946,10 +947,14 @@ BEGIN
 		END  
 	  
 		CLOSE    parts_on_order_cursor  
-		DEALLOCATE parts_on_order_cursor  
+		DEALLOCATE parts_on_order_cursor  	
 
 		-- v1.0
 		EXEC cvo_hold_ship_complete_xfer_allocations_sp @xfer_no
+
+		-- v1.9 Start
+		EXEC dbo. cvo_calculate_packaging_sp @xfer_no, 0, 'T'
+		-- v1.9 End
 
 		-- v1.2
 		EXEC cvo_xfer_autoship_allocated_sp @xfer_no

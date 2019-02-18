@@ -34,7 +34,8 @@ BEGIN
         Replen_Qty_Not_SA DECIMAL(38, 8),
         ReplenQty DECIMAL(20, 8),
 		material VARCHAR(40),
-		color_desc VARCHAR(40)
+		color_desc VARCHAR(40),
+        img_web VARCHAR(100)
     );
 
     CREATE TABLE #REPORTLIST
@@ -60,7 +61,9 @@ BEGIN
         ReplenQty DECIMAL(20, 8),
 		material VARCHAR(40),
 		color_desc VARCHAR(40),
+        img_web VARCHAR(100),
         VERSION_LABEL VARCHAR(100) NULL
+        
     );
 
     INSERT INTO #temptable
@@ -85,7 +88,9 @@ BEGIN
         Replen_Qty_Not_SA,
         ReplenQty,
 		material,
-		color_desc
+		color_desc,
+        img_web
+        
     )
     EXEC cvo_inv_aging_pom_sp @TODAY, '001', 'frame,sun';
 
@@ -113,6 +118,7 @@ BEGIN
         ReplenQty,
 		material,
 		color_desc,
+        img_web,
         VERSION_LABEL
     )
     SELECT t.*,
@@ -146,6 +152,7 @@ BEGIN
         ReplenQty,
 		material,
 		color_desc,
+        img_web,
         VERSION_LABEL
     )
     SELECT t.*,
@@ -179,6 +186,7 @@ BEGIN
         ReplenQty,
 		material,
 		color_desc,
+        img_web,
         VERSION_LABEL
     )
     SELECT t.*,
@@ -211,6 +219,7 @@ BEGIN
         ReplenQty,
 		material,
 		color_desc,
+        img_web,
         VERSION_LABEL
     )
     SELECT t.*,
@@ -243,6 +252,7 @@ BEGIN
         ReplenQty,
 		material,
 		color_desc,
+        img_web,
         VERSION_LABEL
     )
     SELECT t.*,
@@ -275,6 +285,7 @@ BEGIN
         ReplenQty,
 		material,
 		color_desc,
+        img_web,
         VERSION_LABEL
     )
     SELECT t.*,
@@ -308,6 +319,7 @@ BEGIN
         ReplenQty,
 		material,
 		color_desc,
+        img_web,
         VERSION_LABEL
     )
     SELECT t.*,
@@ -337,6 +349,7 @@ BEGIN
         ReplenQty,
 		material,
 		color_desc,
+        img_web,
         VERSION_LABEL
     )
     SELECT t.*,
@@ -364,9 +377,14 @@ BEGIN
                             r.Non_alloc,
                             r.Replen_Qty_Not_SA,
                             r.ReplenQty,
-							r.material,
-							r.color_desc
-    FROM #REPORTLIST AS r;
+							fm.description material,
+							r.color_desc,
+                            r.IMG_WEB
+    FROM #REPORTLIST AS r
+    LEFT OUTER JOIN dbo.CVO_frame_matl AS fm ON fm.kys = r.material
+    ;
 
 END;
+
+
 GO

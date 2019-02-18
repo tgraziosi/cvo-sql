@@ -19,6 +19,7 @@ GO
 -- v11.3 CB 15/01/2015 - Only call consolidation routine if the record is selected
 -- v11.4 CB 12/01/2016 - #1586 - When orders are allocated or a picking list printed then update backorder processing
 -- v11.5 CB 29/11/2018 - If allocating an extra line after another has been picked the system is adding into soft alloc the picked lines
+-- v11.6 CB 04/12/2018 - #1687 Box Type Update
 
 CREATE PROCEDURE [dbo].[tdc_plw_so_save_sp]
 			@con_no			   int,
@@ -550,6 +551,7 @@ BEGIN
 								@assigned_user,   @lbs_order_by	
 		END -- v10.3 End
 		--END   SED009 -- AutoAllocation  																
+
 		COMMIT TRAN			
 
 		-- v10.7 Start
@@ -792,6 +794,11 @@ BEGIN
 	-- v11.4 Start
 	EXEC dbo.cvo_update_bo_processing_sp 'A', @order_no, @order_ext
 	-- v11.4 End
+
+	-- v11.6 Start
+	EXEC dbo.cvo_calculate_packaging_sp	@order_no, @order_ext, 'S'
+		-- v11.6 End
+
 
 	SET	@last_row_id = @row_id
 

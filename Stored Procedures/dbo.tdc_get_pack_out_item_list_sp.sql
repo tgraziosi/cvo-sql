@@ -2,7 +2,6 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
-
 CREATE PROCEDURE [dbo].[tdc_get_pack_out_item_list_sp] 
 	@dist_method 	char(2), 
 	@order_no 	int, 
@@ -27,8 +26,8 @@ BEGIN
 	INSERT INTO #tdc_pack_out_item (line_no, display_line, part_no, [description], ordered, picked, carton, cum_packed, cur_packed, status)
 	SELECT a.line_no, a.display_line, a.part_no, a.[description], a.ordered, a.shipped, @carton_no,
 		total_packed = ISNULL((SELECT SUM(b.pack_qty)
-				  FROM tdc_carton_detail_tx b,
-				       tdc_carton_tx c
+				  FROM tdc_carton_detail_tx b (NOLOCK),
+				       tdc_carton_tx c (NOLOCK)
 				 WHERE b.order_no = a.order_no
 				   AND b.order_ext = a.order_ext
 				   AND b.line_no = a.line_no
@@ -41,8 +40,8 @@ BEGIN
 				  THEN 0
 				  ELSE
 					ISNULL((SELECT SUM(d.pack_qty)
-					   FROM tdc_carton_detail_tx d,
-				                tdc_carton_tx e
+					   FROM tdc_carton_detail_tx d (NOLOCK),
+				                tdc_carton_tx e (NOLOCK)
 					  WHERE d.carton_no = @carton_no
 					    AND d.order_no = a.order_no
 					    AND d.order_ext = a.order_ext
@@ -53,7 +52,7 @@ BEGIN
 				          GROUP BY d.order_no, d.order_ext, d.line_no, d.part_no), 0)
 			     END,
 		a.status
-	  FROM ord_list a 
+	  FROM ord_list a (NOLOCK)
 	 WHERE a.order_no =  @order_no
 	   AND a.order_ext = @order_ext
 
@@ -64,7 +63,7 @@ BEGIN
 		SELECT line_no 
 		  FROM #tdc_pack_out_item
 		 WHERE line_no IN(SELECT line_no 
-				    FROM ord_list_kit
+				    FROM ord_list_kit (NOLOCK)
 				   WHERE order_no = @order_no
 				     AND order_ext = @order_ext)
 	OPEN kits_packed_cur
@@ -105,8 +104,8 @@ BEGIN
 	INSERT INTO #tdc_pack_out_item_xfer (line_no, part_no, [description], ordered, picked, carton, cum_packed, cur_packed, status)
 	SELECT a.line_no, a.part_no, a.[description], a.ordered, a.shipped, @carton_no,
 		total_packed = ISNULL((SELECT SUM(b.pack_qty)
-				  FROM tdc_carton_detail_tx b,
-				       tdc_carton_tx c
+				  FROM tdc_carton_detail_tx b (NOLOCK),
+				       tdc_carton_tx c (NOLOCK)
 				 WHERE b.order_no = a.xfer_no
 				   AND b.order_ext = 0
 				   AND b.line_no = a.line_no
@@ -119,8 +118,8 @@ BEGIN
 				  THEN 0
 				  ELSE
 					ISNULL((SELECT SUM(d.pack_qty)
-					   FROM tdc_carton_detail_tx d,
-				                tdc_carton_tx e
+					   FROM tdc_carton_detail_tx d (NOLOCK),
+				                tdc_carton_tx e (NOLOCK)
 					  WHERE d.carton_no = @carton_no
 					    AND d.order_no = a.xfer_no
 					    AND d.order_ext = 0
@@ -131,11 +130,12 @@ BEGIN
 				          GROUP BY d.order_no, d.order_ext, d.line_no, d.part_no), 0)
 			     END,
 		a.status
-	  FROM xfer_list a 
+	  FROM xfer_list a  (NOLOCK)
 	 WHERE a.xfer_no =  @order_no
 END
 
 RETURN 0
+
 
 GO
 GRANT EXECUTE ON  [dbo].[tdc_get_pack_out_item_list_sp] TO [public]

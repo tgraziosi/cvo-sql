@@ -241,10 +241,19 @@ BEGIN
 		@user_id
 
 	-- Execute transfer pick
+	-- v1.2 Start
+	INSERT	dbo.cvo_transfer_pick_pack_log (log_date, xfer_no, log_message)
+	SELECT	GETDATE(), @trans_type_no, 'Calling tdc_queue_xfer_ship_pick_sp with tran_id ' + CAST(@tran_id as varchar(20)) 
+	-- v1.2 End
+
 	EXEC @retval = tdc_queue_xfer_ship_pick_sp @tran_id,'','T','0'
 	
 	IF @retval <> 0
 	BEGIN
+		-- v1.2 Start
+		INSERT	dbo.cvo_transfer_pick_pack_log (log_date, xfer_no, log_message)
+		SELECT	GETDATE(), @trans_type_no, 'Error returned from tdc_queue_xfer_ship_pick_sp with tran_id ' + CAST(@tran_id as varchar(20)) 
+		-- v1.2 End
 		Goto ReleaseRecord
 	END
 
@@ -303,6 +312,11 @@ BEGIN
 		user_id = NULL 
 	WHERE 
 		tran_id = @tran_id
+
+	-- v1.2 Start
+	INSERT	dbo.cvo_transfer_pick_pack_log (log_date, xfer_no, log_message)
+	SELECT	GETDATE(), @trans_type_no, 'Pick completed tdc_queue_xfer_ship_pick_sp with tran_id ' + CAST(@tran_id as varchar(20)) 
+	-- v1.2 End
 	
 	RETURN
 END

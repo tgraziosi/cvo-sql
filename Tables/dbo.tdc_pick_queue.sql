@@ -71,7 +71,7 @@ BEGIN
 			@tran_id = tran_id,
 			@location = location,
 			@part_no = part_no,
-			@qty = qty_to_process
+			@qty = ISNULL(qty_to_process,0) -- 2/12/19 - tag
 		FROM
 			deleted
 		WHERE

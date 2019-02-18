@@ -3,6 +3,8 @@ GO
 SET ANSI_NULLS ON
 GO
 -- v1.1 CB 04/11/2011 - Fix line number issue
+-- v1.2 CB 07/12/2018 - #1687 Box Type Update
+-- v1.3 CB 23/01/2019 - Fix box count
 
 CREATE PROCEDURE [dbo].[tdc_print_plw_xfer_pick_ticket_sp]
 			@user_id    varchar(50),
@@ -66,10 +68,10 @@ SELECT  DISTINCT
 	@addr3 		= b.addr3,
 	@addr4 		= b.addr4,  	   
 	@addr5 		= b.addr5
-  FROM  xfers a, locations b, arshipv s			--v3.0
+  FROM  xfers a
+	LEFT OUTER JOIN locations b ON a.from_loc = b.location
+	LEFT OUTER JOIN arshipv s ON a.routing = s.ship_via_code			--v3.0
  WHERE  a.xfer_no  = @xfer_no
-   AND  a.from_loc = b.location
-   AND  a.routing = s.ship_via_code				--v3.0
 
 EXEC tdc_parse_string_sp @Special_Instr, @Special_Instr output	
 EXEC tdc_parse_string_sp @Note,          @Note          output	
@@ -100,6 +102,47 @@ INSERT INTO #PrintData (data_field, data_value) VALUES ('LP_ADDR3',	    ISNULL(@
 INSERT INTO #PrintData (data_field, data_value) VALUES ('LP_ADDR4', 	    ISNULL(@addr4, 		''))
 INSERT INTO #PrintData (data_field, data_value) VALUES ('LP_ADDR5', 	    ISNULL(@addr5, 		''))
 INSERT INTO #PrintData (data_field, data_value) VALUES ('LP_USER_ID',       ISNULL(@user_id, 		''))
+
+-- v1.2 Start																									-- v2.0
+DECLARE	@packing_summary	varchar(100),
+		@box_type			varchar(20),
+		@box_type_count		int
+
+CREATE TABLE #packing_summary (
+	box_type	varchar(20),
+	box_count	int)
+
+INSERT	#packing_summary
+SELECT  box_type, COUNT(distinct box_id) -- v1.3
+FROM	cvo_pre_packaging (NOLOCK) 
+WHERE	order_no = @xfer_no
+AND		order_ext = 0
+AND		order_type = 'T'
+GROUP BY box_type
+
+SET @packing_summary = ''
+SET @box_type = ''
+
+WHILE (1 = 1)
+BEGIN
+	SELECT	TOP 1 @box_type = box_type,
+			@box_type_count = box_count
+	FROM	#packing_summary
+	WHERE	box_type > @box_type
+	ORDER BY box_type ASC
+
+	IF (@@ROWCOUNT = 0)
+		BREAK
+
+	SET @packing_summary = @packing_summary + @box_type + ' x ' + CAST(@box_type_count as varchar(5)) + '; '
+
+END
+
+DROP TABLE #packing_summary
+
+INSERT INTO #PrintData (data_field, data_value) VALUES ('LP_PACKING_SUMMARY',ISNULL(@packing_summary,' '))
+-- v1.2 End
+
 
 IF (@@ERROR <> 0 )
 BEGIN

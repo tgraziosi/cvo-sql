@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -21,6 +20,7 @@ AS
 -- v1.8 CB 04/02/2014 - Issue #1358 - Remove call to ship complete hold
 -- v1.9 CB 31/07/2015 - Rebuild consolidated picks
 -- v2.0 CB 12/01/2016 - #1586 - When orders are allocated or a picking list printed then update backorder processing
+-- v2.1 CB 04/12/2018 - #1687 Box Type Update
   
 DECLARE @order_no  int,  
  @order_ext  int,  
@@ -451,6 +451,10 @@ DECLARE allocate_cursor CURSOR FOR
 
 	IF @@ROWCOUNT = 0
 		BREAK
+
+	-- v2.1 Start
+	EXEC dbo.cvo_calculate_packaging_sp	@order_no, @order_ext, 'S'
+	-- v2.1 End	
 
 	EXEC dbo.CVO_build_autopack_carton_sp @order_no, @order_ext
 

@@ -17,7 +17,7 @@ CREATE TABLE [dbo].[lot_bin_xfer]
 [uom_qty] [decimal] (20, 8) NOT NULL,
 [conv_factor] [decimal] (20, 8) NOT NULL,
 [line_no] [int] NOT NULL,
-[who] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+[who] [varchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [to_bin] [varchar] (12) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [qty_received] [decimal] (20, 8) NULL,
 [row_id] [int] NOT NULL IDENTITY(1, 1)
@@ -362,13 +362,13 @@ CREATE NONCLUSTERED INDEX [lot_bin_xfer_row_id] ON [dbo].[lot_bin_xfer] ([row_id
 GO
 CREATE UNIQUE CLUSTERED INDEX [lbxfr1] ON [dbo].[lot_bin_xfer] ([tran_no], [line_no], [location], [part_no], [bin_no], [lot_ser]) ON [PRIMARY]
 GO
-GRANT REFERENCES ON  [dbo].[lot_bin_xfer] TO [public]
-GO
-GRANT SELECT ON  [dbo].[lot_bin_xfer] TO [public]
+GRANT DELETE ON  [dbo].[lot_bin_xfer] TO [public]
 GO
 GRANT INSERT ON  [dbo].[lot_bin_xfer] TO [public]
 GO
-GRANT DELETE ON  [dbo].[lot_bin_xfer] TO [public]
+GRANT REFERENCES ON  [dbo].[lot_bin_xfer] TO [public]
+GO
+GRANT SELECT ON  [dbo].[lot_bin_xfer] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[lot_bin_xfer] TO [public]
 GO

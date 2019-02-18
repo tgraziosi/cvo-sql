@@ -418,22 +418,22 @@ insert into #new_price values('CVO','5605','26.5','15','52.99','02/19/2019')
 insert into #new_price values('CVO','5608','26.5','15','52.99','02/19/2019')
 insert into #new_price values('CVO','ADAM II','23','13.25','45.99','02/19/2019')
 insert into #new_price values('CVO','BAY PARK','23','12.75','45.99','02/19/2019')
-insert into #new_price values('CVO','CARNIIVAL','25','14.25','49.99','02/19/2019')
+insert into #new_price values('SM','CARNIIVAL','25','14.25','49.99','02/19/2019')
 insert into #new_price values('CVO','CLINT II','25','14.25','49.99','02/19/2019')
 insert into #new_price values('CVO','D 10','26.5','15','52.99','02/19/2019')
 insert into #new_price values('CVO','D 15','26.5','15','52.99','02/19/2019')
 insert into #new_price values('CVO','D 17','26.5','15','52.99','02/19/2019')
 insert into #new_price values('CVO','D 20','26.5','15','52.99','02/19/2019')
 insert into #new_price values('CVO','D 54','26.5','15','52.99','02/19/2019')
-insert into #new_price values('CVO','FUNFFETTI','25','14.25','49.99','02/19/2019')
-insert into #new_price values('CVO','G-TWIINKLE','25','14.25','49.99','02/19/2019')
+insert into #new_price values('SM','FUNFFETTI','25','14.25','49.99','02/19/2019')
+insert into #new_price values('SM','G-TWIINKLE','25','14.25','49.99','02/19/2019')
 insert into #new_price values('CVO','HAROLD II','25','14.25','49.99','02/19/2019')
 insert into #new_price values('CVO','MEDFORD','25','14.25','49.99','02/19/2019')
 insert into #new_price values('CVO','NATHAN II','25','14.25','49.99','02/19/2019')
 insert into #new_price values('CVO','NORMAN II','25','14.25','49.99','02/19/2019')
 insert into #new_price values('CVO','PROSPECT PARK','23','13.25','45.99','02/19/2019')
 insert into #new_price values('CVO','SEDONA','25','14.25','49.99','02/19/2019')
-insert into #new_price values('CVO','SPPLASHED','25','14.25','49.99','02/19/2019')
+insert into #new_price values('SM','SPPLASHED','25','14.25','49.99','02/19/2019')
 insert into #new_price values('CVO','VINCE II','25','14.25','49.99','02/19/2019')
 insert into #new_price values('CVO','WALTER A','25','14.25','49.99','02/19/2019')
 insert into #new_price values('CVO','WALTER N','25','14.25','49.99','02/19/2019')
@@ -443,7 +443,12 @@ insert into #new_price values('CVO','WILSHIRE PARK','25','14.25','49.99','02/19/
 insert into #new_price values('BCBG','BEXLEY','36.50','20.00','72.99','02/19/2019')
 insert into #new_price values('BCBG','MAEVE','36.50','20.00','72.99','02/19/2019')
 
--- SELECT * FROM cvo_inv_master_r2_vw WHERE model = 'spplashed'
+--SELECT r2.Collection, n.brand, n.* 
+--FROM cvo_inv_master_r2_vw r2 join #new_price n on  r2.model = n.model
+--WHERE r2.Collection <> n.brand
+
+
+-- WHERE model = 'spplashed'
 
 SELECT DISTINCT np.*
 INTO #t 
@@ -542,6 +547,7 @@ DROP TABLE #t
 
 
 END
+
 
 
 GO

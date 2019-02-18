@@ -40,6 +40,7 @@ GO
 -- 4/27/18 - REVO SELLDOWN
 -- 5/23/2018 - ADD DD NYLON BANDS
 -- 08/23 - remove revo selldown
+-- 2/19 - change from eos table to eos attribute
 -- =============================================
 
 CREATE PROCEDURE [dbo].[HS_Inventory8_sp]
@@ -61,20 +62,21 @@ AS
             @kodi     DATETIME,
             @revosv   DATETIME;
 
-        DECLARE @EOS TABLE
-            (
-                Columnn     INT,
-                Prog        VARCHAR(3),
-                Brand       VARCHAR(4),
-                Style       VARCHAR(60),
-                part_no     VARCHAR(30),
-                pom_date    DATETIME,
-                Gender      VARCHAR(30),
-                Avail       DECIMAL(10, 2),
-                ReserveQty  DECIMAL(10, 2),
-                TrueAvail_2 DECIMAL(10, 2),
-                TrueAvail   VARCHAR(20)
-            );
+        --DECLARE @EOS TABLE
+        --    (
+        --        Columnn     INT,
+        --        Prog        VARCHAR(3),
+        --        Brand       VARCHAR(4),
+        --        Style       VARCHAR(60),
+        --        part_no     VARCHAR(30),
+        --        pom_date    DATETIME,
+        --        Gender      VARCHAR(30),
+        --        Avail       DECIMAL(10, 2),
+        --        ReserveQty  DECIMAL(10, 2),
+        --        TrueAvail_2 DECIMAL(10, 2),
+        --        TrueAvail   VARCHAR(20)
+        --    );
+
         SET @today = DATEADD(dd, DATEDIFF(dd, 0, GETDATE()), 0);
         SET @location = '001';
         SET @CH = '9/1/2015'; -- START OF CH SELL-DOWN PERIOD
@@ -86,46 +88,46 @@ AS
         SET @revosv = '08/31/2018 12:00';
 
 
-        INSERT INTO @EOS
-            (
-                Columnn,
-                Prog,
-                Brand,
-                Style,
-                part_no,
-                pom_date,
-                Gender,
-                Avail,
-                ReserveQty,
-                TrueAvail_2,
-                TrueAvail
-            )
-        EXEC dbo.CVO_EOS_SP;
+        --INSERT INTO @EOS
+        --    (
+        --        Columnn,
+        --        Prog,
+        --        Brand,
+        --        Style,
+        --        part_no,
+        --        pom_date,
+        --        Gender,
+        --        Avail,
+        --        ReserveQty,
+        --        TrueAvail_2,
+        --        TrueAvail
+        --    )
+        --EXEC dbo.CVO_EOS_SP;
 
-        -- 8/26/2015
-        DELETE
-        @EOS
-        FROM
-                @EOS               EOS
-            JOIN
-                dbo.inv_master_add ia (NOLOCK)
-                    ON ia.part_no = EOS.part_no
-        WHERE
-                (
-                    EOS.Brand = 'ch'
-                    AND @today >= @CH
-                )
-                OR
-                    (
-                        EOS.Brand = 'me'
-                        AND @today >= @ME
-                    )
-                OR
-                    (
-                        EOS.Brand = 'UN'
-                        AND @today >= @UN
-                    )
-                OR (ISNULL(ia.field_36, '')) = 'SUNPS';
+        ---- 8/26/2015
+        --DELETE
+        --@EOS
+        --FROM
+        --        @EOS               EOS
+        --    JOIN
+        --        dbo.inv_master_add ia (NOLOCK)
+        --            ON ia.part_no = EOS.part_no
+        --WHERE
+        --        (
+        --            EOS.Brand = 'ch'
+        --            AND @today >= @CH
+        --        )
+        --        OR
+        --            (
+        --                EOS.Brand = 'me'
+        --                AND @today >= @ME
+        --            )
+        --        OR
+        --            (
+        --                EOS.Brand = 'UN'
+        --                AND @today >= @UN
+        --            )
+        --        OR (ISNULL(ia.field_36, '')) = 'SUNPS';
 
         -- get usage data
 
@@ -488,9 +490,9 @@ AS
                                                      SELECT
                                                          1
                                                      FROM
-                                                         @EOS EOS
+                                                         dbo.cvo_part_attributes AS pa2
                                                      WHERE
-                                                         EOS.part_no = I.part_no
+                                                         pa2.part_no = I.part_no AND pa2.attribute = 'EOS'
                                                  )
                                      AND IA.field_2 <> 'COURAGE' -- FOR HV PROGRAM 9/18
                                     THEN
@@ -559,9 +561,9 @@ AS
                                                  SELECT
                                                      1
                                                  FROM
-                                                     @EOS EOS
+                                                     dbo.cvo_part_attributes AS eos
                                                  WHERE
-                                                     EOS.part_no = I.part_no
+                                                     EOS.part_no = I.part_no AND eos.attribute = 'EOS'
                                              )
                                      AND NOT EXISTS
                                                  (
@@ -746,7 +748,7 @@ ELSE '' END GENDER,
                             #DRP                           drp
                                 ON drp.part_no = I.part_no
                     WHERE   1=1
-                            AND I.category <> 'sp' -- 6/27/2018
+                            -- AND I.category <> 'sp' -- 6/27/2018
                             AND I.void <> 'V'
                             AND I.category NOT IN (
                                                       'CORP', 'FP'
@@ -818,11 +820,10 @@ ELSE '' END GENDER,
                                                               )
                                             AND cia.ReleaseDate <= @today
                                             AND (
-                                            (
-                                                cia.qty_avl >= 10
-                                                AND cia.location = '001'
-                                            )
+                                                -- cia.qty_avl >= 10 AND 
+                                                cia.location = '001'
                                                 )
+                                                
                                         )
                                 )
                             AND
@@ -1054,30 +1055,46 @@ ELSE '' END GENDER,
                    WHERE
                           New <> ''
                    UNION ALL -- 072814 - add special values list
-                   SELECT  DISTINCT
-                           #Data1.mastersku,
-                           5     AS num,
-                           'SPV'
-                   FROM
-                           #Data1
-                       JOIN
-                           dbo.cvo_spv_tbl s
-                               ON #Data1.sku = s.sku
-                   WHERE
-                           @today
-                           BETWEEN s.eff_date AND ISNULL(s.obs_date, @today)
-                           AND s.mastersku IS NOT NULL
-                           -- 02/27/2015 - if it's already qop it can't be a spv too
-                           AND #Data1.[category:1] <> 'QOP'
-                           AND NOT EXISTS
+                   --SELECT  DISTINCT
+                   --        #Data1.mastersku,
+                   --        5     AS num,
+                   --        'SPV'
+                   --FROM
+                   --        #Data1
+                   --    JOIN
+                   --        dbo.cvo_spv_tbl s
+                   --            ON #Data1.sku = s.sku
+                   --WHERE
+                   --        @today
+                   --        BETWEEN s.eff_date AND ISNULL(s.obs_date, @today)
+                   --        AND s.mastersku IS NOT NULL
+                   --        -- 02/27/2015 - if it's already qop it can't be a spv too
+                   --        AND #Data1.[category:1] <> 'QOP'
+                   --        AND NOT EXISTS
+                   --    (
+                   --        SELECT
+                   --            1
+                   --        FROM
+                   --            dbo.cvo_part_attributes AS pa2
+                   --        WHERE
+                   --            pa2.part_no = #Data1.sku
+                   --            AND pa2.attribute = 'HV'
+                   --    )
+                   SELECT DISTINCT mastersku,
+                   5 AS num,
+                   attribute
+                   FROM #Data1 AS d2
+                   JOIN dbo.cvo_part_attributes AS pa2 ON pa2.part_no = d2.sku
+                   WHERE pa2.attribute = 'SPV'
+                        AND NOT EXISTS
                        (
                            SELECT
                                1
                            FROM
-                               dbo.cvo_part_attributes AS pa2
+                               dbo.cvo_part_attributes AS pa3
                            WHERE
-                               pa2.part_no = #Data1.sku
-                               AND pa2.attribute = 'HV'
+                               pa3.part_no = D2.sku
+                               AND pa3.attribute = 'HV'
                        )
                    UNION ALL
                    SELECT DISTINCT
@@ -2038,7 +2055,7 @@ IF GETDATE() >= '9/30/2018'
                     dbo.cvo_hs_inventory_8 AS hi
                 WHERE
                     hi.[category:1] IN (
-                                           'qop', 'eor', 'eors'
+                                           'qop', 'eor', 'eors', 'bcbg retail' 
                                        )
                     AND MasterHIDE <> 1
                 GROUP BY
@@ -2070,6 +2087,9 @@ IF GETDATE() >= '9/30/2018'
     AND '11/6/2018' > GETDATE()
 
     END;
+
+
+
 
 
 

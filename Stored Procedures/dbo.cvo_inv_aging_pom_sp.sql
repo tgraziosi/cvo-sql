@@ -11,7 +11,8 @@ CREATE PROCEDURE [dbo].[cvo_inv_aging_pom_sp]
 )
 AS
 BEGIN
--- exec cvo_inv_aging_pom_sp '12/11/2017', '001', 'frame,sun'
+-- exec cvo_inv_aging_pom_sp '02/08/2019', '001', 'frame,sun'
+
 SET NOCOUNT ON;
 
 -- declare @asofdate datetime, @loc varchar(12), @type varchar(1000)
@@ -85,7 +86,12 @@ SELECT cia.Brand,
        cia.Replen_Qty_Not_SA,
        cia.ReplenQty,
 	   cia.Material,
-	   cia.Color_desc
+	   cia.Color_desc,
+       -- 'http://s3.amazonaws.com/cvo-brand-img/' + '200/' + imrv.IMG_WEB AS IMG_WEB
+       
+       -- 'http://s3.amazonaws.com/cvo-brand-img/' + imrv.Collection + '/1200/' + imrv.IMG_WEB AS IMG_WEB
+
+       'http://s3.amazonaws.com/cvo-brand-img/' + imrv.Collection + '/' + imrv.IMG_WEB AS IMG_WEB
 FROM cvo_item_avail_vw cia (NOLOCK)
     INNER JOIN #type
         ON #type.restype = cia.ResType
@@ -93,6 +99,7 @@ FROM cvo_item_avail_vw cia (NOLOCK)
     (SELECT DISTINCT part_no FROM dbo.cvo_part_attributes AS pa WHERE pa.attribute = 'eos') et
         ON et.part_no = cia.part_no -- AND et.obs_date IS NULL
     JOIN cvo_gender g ON g.kys = cia.gender
+    JOIN dbo.cvo_inv_master_r2_vw AS imrv ON imrv.part_no = cia.part_no
 
 WHERE cia.POM_date IS NOT NULL
       AND cia.POM_date <= @asofdate
@@ -103,6 +110,10 @@ WHERE cia.POM_date IS NOT NULL
           OR cia.tot_ext_cost <> 0
       );
 END
+
+
+
+
 
 
 GO

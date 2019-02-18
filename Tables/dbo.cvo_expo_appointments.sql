@@ -23,15 +23,16 @@ CREATE TABLE [dbo].[cvo_expo_appointments]
 [notify] [tinyint] NULL CONSTRAINT [DF__cvo_expo___notif__5E2FA1F2] DEFAULT ((1)),
 [booth] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [company_name] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[appt_code] [varchar] (80) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[appt_code] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [isOutlook] [tinyint] NULL CONSTRAINT [DF__cvo_expo___isOut__5F23C62B] DEFAULT ((0)),
 [expo_id] [int] NULL,
 [requested_by] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [notes] [varchar] (max) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [isNotified] [tinyint] NULL CONSTRAINT [DF__cvo_expo___isNot__1D61BB1D] DEFAULT ((0)),
 [cancel_date] [datetime] NULL,
-[action_user] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+[action_user] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[calendar_id] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+) ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_expo_appointments] ADD CONSTRAINT [PK__cvo_expo_appoint__5D3B7DB9] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
 GO

@@ -112,6 +112,7 @@ BEGIN
 		 WHERE 1=1
 		   AND b.location = @location
 		   AND b.part_no = @temp_part
+           AND b.bin_no <> 'CUSTOM' -- 02/13/2019
 		   AND c.usage_type_code in ('OPEN', 'REPLENISH')
 		   AND NOT EXISTS (SELECT 1 FROM dbo.tdc_phy_cyc_count AS tpcc 
 							WHERE tpcc.part_no = @temp_part AND tpcc.location = @location AND tpcc.cyc_code = @cyc_code AND tpcc.team_id
@@ -134,6 +135,7 @@ DEALLOCATE Item_cursor
 COMMIT TRAN
 
 RETURN(0)
+
 
 
 

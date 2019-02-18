@@ -26,6 +26,7 @@ GO
 -- v3.0 CB 22/09/2014 - #572 Masterpack - Stock Order Consolidation
 -- v3.1 CB 31/07/2015 - Rebuild consolidated picks
 -- v3.2 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
+-- v3.3 CB 04/12/2018 - #1687 Box Type Update
       
 CREATE PROCEDURE  [dbo].[tdc_plw_so_unallocate_sp]       
  @user_id     VARCHAR(50),      
@@ -1182,6 +1183,10 @@ ORDER BY id ASC
 
 WHILE @@ROWCOUNT <> 0
 BEGIN
+
+	-- v3.3 Start
+	EXEC dbo.cvo_calculate_packaging_sp	@order_no, @order_ext, 'S'
+	-- v3.3 End
 
 	-- v1.9 Start
 	SET @cur_status = 0

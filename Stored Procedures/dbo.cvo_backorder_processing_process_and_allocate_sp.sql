@@ -11,6 +11,7 @@ EXEC cvo_backorder_processing_process_and_allocate_sp
 -- v1.1 CT 17/02/2014 - Issue #1453 - Print pick tickets in order of bin number
 -- v1.2 CT 03/04/2014 - Issue #572 - Changes for Masterpack order consolidation
 -- v1.3 CB 07/11/2017 - Add process info for tdc_log
+-- v1.4 CB 04/12/2018 - #1687 Box Type Update
 */
 
 CREATE PROC [dbo].[cvo_backorder_processing_process_and_allocate_sp] @template_code VARCHAR(30)
@@ -343,10 +344,14 @@ BEGIN
 			#print_list
 		WHERE 
 			rec_id = @parent_rec_id
-			
 		
 		IF @is_transfer = 0
 		BEGIN
+
+			-- v1.4 Start
+			EXEC dbo. cvo_calculate_packaging_sp @order_no, @ext, 'S'
+			-- v1.4 End		
+
 
 			IF EXISTS (SELECT 1 FROM tdc_soft_alloc_tbl (NOLOCK) WHERE order_no = @order_no AND order_ext = @ext AND order_type = 'S')
 			BEGIN
@@ -424,6 +429,10 @@ BEGIN
 	*/
 		IF @is_transfer = 1
 		BEGIN
+			-- v1.4 Start
+			EXEC dbo. cvo_calculate_packaging_sp @order_no, @ext, 'T'
+			-- v1.4 End	
+
 			IF EXISTS (SELECT 1 FROM tdc_soft_alloc_tbl (NOLOCK) WHERE order_no = @order_no AND order_type = 'T')
 			BEGIN
 				SET @msg = 'Printing Pick Ticket for transfer ' + CAST(@order_no AS VARCHAR(10)) 
@@ -432,6 +441,7 @@ BEGIN
 				EXEC dbo.cvo_print_xfer_pick_ticket_sp @order_no, 1				
 			END
 		END
+
 	END
 	-- END v1.1
 

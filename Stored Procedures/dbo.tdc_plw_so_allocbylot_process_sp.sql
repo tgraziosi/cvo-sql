@@ -1073,6 +1073,10 @@ DELETE tdc_main WITH (ROWLOCK) WHERE consolidation_no NOT IN (SELECT consolidati
 -- v1.3 - Call autopack routine
 EXEC dbo.CVO_build_autopack_carton_sp @order_no, @order_ext
 
+-- v3.6 Start
+EXEC dbo. cvo_calculate_packaging_sp @order_no, @order_ext, 'S'
+-- v3.6 End
+
 -- v3.0 Start
 EXEC dbo.cvo_update_bo_processing_sp 'A', @order_no, @order_ext
 -- v3.0 End

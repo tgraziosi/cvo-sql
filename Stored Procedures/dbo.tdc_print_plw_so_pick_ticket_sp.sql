@@ -34,6 +34,8 @@ GO
 -- v7.1 CB 25/09/2017 - Fix issue with manual case qty
 -- v7.2 CB 20/12/2017 - Change "Plrzd Ln" to "Line"
 -- v7.3 CB 23/03/2018 - Use display line for polarized item
+-- v7.4 CB 07/12/2018 - #1687 Box Type Update
+-- v7.5 CB 23/01/2019 - Fix box count
 
 CREATE PROCEDURE [dbo].[tdc_print_plw_so_pick_ticket_sp]  
  @user_id     varchar(50),  
@@ -318,8 +320,47 @@ WHERE o.order_no = @order_no																		-- v2.0
   AND o.ext = @order_ext																			-- v2.0
 INSERT INTO #PrintData (data_field, data_value) VALUES ('LP_ORDER_TYPE',ISNULL(@order_type,' '))	-- v2.0
 INSERT INTO #PrintData (data_field, data_value) VALUES ('LP_ROUTING',ISNULL(@routing,' '))			-- v2.0
---																									-- v2.0
+--
 
+-- v7.4 Start																									-- v2.0
+DECLARE	@packing_summary	varchar(100),
+		@box_type			varchar(20),
+		@box_type_count		int
+
+CREATE TABLE #packing_summary (
+	box_type	varchar(20),
+	box_count	int)
+
+INSERT	#packing_summary
+SELECT  box_type, COUNT(distinct box_id) -- v7.5
+FROM	cvo_pre_packaging (NOLOCK) 
+WHERE	order_no = @order_no
+AND		order_ext = @order_ext
+AND		order_type = 'S'
+GROUP BY box_type
+
+SET @packing_summary = ''
+SET @box_type = ''
+
+WHILE (1 = 1)
+BEGIN
+	SELECT	TOP 1 @box_type = box_type,
+			@box_type_count = box_count
+	FROM	#packing_summary
+	WHERE	box_type > @box_type
+	ORDER BY box_type ASC
+
+	IF (@@ROWCOUNT = 0)
+		BREAK
+
+	SET @packing_summary = @packing_summary + @box_type + ' x ' + CAST(@box_type_count as varchar(5)) + '; '
+
+END
+
+DROP TABLE #packing_summary
+
+INSERT INTO #PrintData (data_field, data_value) VALUES ('LP_PACKING_SUMMARY',ISNULL(@packing_summary,' '))
+-- v7.4 End
 
 -- CVO - Need Order values for printing
 DECLARE @order_tax		Decimal(20,2),

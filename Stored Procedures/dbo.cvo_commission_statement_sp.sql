@@ -21,7 +21,7 @@ BEGIN
             @i INT;
 
     --DECLARE @fiscalperiod VARCHAR(10);
-    --SELECT @FiscalPeriod = '04/2018';
+    --SELECT @FiscalPeriod = '01/2019';
 
     SELECT @fp = @FiscalPeriod;
 
@@ -481,6 +481,8 @@ BEGIN
                AND #mm.mm = spec_pay.month_num
                AND #mm.territory = spec_pay.territory;
 
+-- SELECT * FROM #final WHERE territory = '90618'
+    
     DELETE FROM #final
     WHERE #final.salesperson + #final.territory IN
           (
@@ -488,7 +490,7 @@ BEGIN
           FROM #final
           GROUP BY salesperson,
                    territory
-          HAVING SUM(amount) = 0
+          HAVING SUM(amount) = 0 AND SUM(net_pay) = 0 -- 02/12/2019
           );
 
     SELECT DISTINCT
@@ -549,6 +551,7 @@ BEGIN
                AND ff.report_month = f.report_month;
 
 END;
+
 
 
 
