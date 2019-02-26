@@ -40,7 +40,6 @@ insert into #new_price values('BCBG','ASHLYN','39.5','21.5','78.99','02/19/2019'
 insert into #new_price values('BCBG','AUGUSTINA','36.5','19.5','72.99','02/19/2019')
 insert into #new_price values('BCBG','AVRIL','36.5','19.5','72.99','02/19/2019')
 insert into #new_price values('BCBG','BEATRIZ','36.5','20','72.99','02/19/2019')
-insert into #new_price values('BCBG','BEXLEY','34','18.75','67.99','02/19/2019')
 insert into #new_price values('BCBG','BLAKELY','36.5','19.5','72.99','02/19/2019')
 insert into #new_price values('BCBG','BRYNN','39.5','21.5','78.99','02/19/2019')
 insert into #new_price values('BCBG','CAMDEN','39.5','21.5','78.99','02/19/2019')
@@ -69,7 +68,6 @@ insert into #new_price values('BCBG','KINSLEY','36.5','19.5','72.99','02/19/2019
 insert into #new_price values('BCBG','LAUREN','31.5','17.5','62.99','02/19/2019')
 insert into #new_price values('BCBG','LILAH','36.5','20','72.99','02/19/2019')
 insert into #new_price values('BCBG','LIZZIE','36.5','20','72.99','02/19/2019')
-insert into #new_price values('BCBG','MAEVE','34','18.75','67.99','02/19/2019')
 insert into #new_price values('BCBG','MAJESTIC','0','0','74.99','02/19/2019')
 insert into #new_price values('BCBG','MARTINA','34','18.75','67.99','02/19/2019')
 insert into #new_price values('BCBG','MEERA','39.5','21','78.99','02/19/2019')
@@ -411,12 +409,12 @@ insert into #new_price values('SM','TROOPAH','28.5','16','56.99','02/19/2019')
 insert into #new_price values('SM','TWIRLSS','31.5','17','62.99','02/19/2019')
 insert into #new_price values('SM','WITTIE','31.5','17','62.99','02/19/2019')
 
-insert into #new_price values('CVO','5001','26.5','15','52.99','02/19/2019')
-insert into #new_price values('CVO','5004','26.5','15','52.99','02/19/2019')
-insert into #new_price values('CVO','5604','26.5','15','52.99','02/19/2019')
-insert into #new_price values('CVO','5605','26.5','15','52.99','02/19/2019')
-insert into #new_price values('CVO','5608','26.5','15','52.99','02/19/2019')
-insert into #new_price values('CVO','ADAM II','23','13.25','45.99','02/19/2019')
+insert into #new_price values('CVO','T 5001','26.5','15','52.99','02/19/2019')
+insert into #new_price values('CVO','T 5004','26.5','15','52.99','02/19/2019')
+insert into #new_price values('CVO','T 5604','26.5','15','52.99','02/19/2019')
+insert into #new_price values('CVO','T 5605','26.5','15','52.99','02/19/2019')
+insert into #new_price values('CVO','T 5608','26.5','15','52.99','02/19/2019')
+insert into #new_price values('CVO','ADAM III','23','13.25','45.99','02/19/2019')
 insert into #new_price values('CVO','BAY PARK','23','12.75','45.99','02/19/2019')
 insert into #new_price values('SM','CARNIIVAL','25','14.25','49.99','02/19/2019')
 insert into #new_price values('CVO','CLINT II','25','14.25','49.99','02/19/2019')
@@ -435,8 +433,8 @@ insert into #new_price values('CVO','PROSPECT PARK','23','13.25','45.99','02/19/
 insert into #new_price values('CVO','SEDONA','25','14.25','49.99','02/19/2019')
 insert into #new_price values('SM','SPPLASHED','25','14.25','49.99','02/19/2019')
 insert into #new_price values('CVO','VINCE II','25','14.25','49.99','02/19/2019')
-insert into #new_price values('CVO','WALTER A','25','14.25','49.99','02/19/2019')
-insert into #new_price values('CVO','WALTER N','25','14.25','49.99','02/19/2019')
+insert into #new_price values('CVO','WALTER A II','25','14.25','49.99','02/19/2019')
+insert into #new_price values('CVO','WALTER N II','25','14.25','49.99','02/19/2019')
 insert into #new_price values('CVO','WATERTOWN','25','14.25','49.99','02/19/2019')
 insert into #new_price values('CVO','WILSHIRE PARK','25','14.25','49.99','02/19/2019')
 
@@ -459,6 +457,19 @@ INSERT INTO #new_price
 SELECT * FROM #t AS t
 
 DROP TABLE #t
+
+--SELECT np.brand,
+--       np.model,
+--       np.front_price,
+--       np.temple_price,
+--       np.list_price,
+--       np.eff_date,
+--       t.collection, t.model
+--       FROM #new_price AS np
+--LEFT OUTER JOIN dbo.cvo_inv_master_r2_tbl AS t ON t.collection = np.brand AND t.model = np.model
+--WHERE t.model IS null
+
+
 
 		--select distinct np.brand ,
   --                      np.model ,

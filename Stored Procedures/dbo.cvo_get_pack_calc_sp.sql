@@ -243,7 +243,8 @@ BEGIN
 
 	-- v1.1 Start
 	UPDATE	#results
-	SET		box_ranking = (CASE WHEN fill_perc = 100 THEN 100 ELSE ((1 - fill_perc) * 100) END) * result_count -- v1.2
+	SET		box_ranking = (CASE WHEN fill_perc = 100 THEN 100 ELSE ((100 - fill_perc) * 100) END) * result_count -- v1.3
+	-- v1.3 box_ranking = (CASE WHEN fill_perc = 100 THEN 100 ELSE ((1 - fill_perc) * 100) END) * result_count -- v1.2
 	-- v1.2 SET		box_ranking = CASE WHEN fill_perc = 100 THEN 100 ELSE ((1 - fill_perc) * 100) END
 
 	SELECT	result_id, SUM(ABS(box_ranking)) ranking
@@ -266,7 +267,7 @@ BEGIN
 	-- RETURN
 	SELECT	TOP 1 @result_id = result_id
 	FROM	#results
-	ORDER BY box_ranking ASC -- v1.1
+	ORDER BY result_count, box_ranking ASC -- v1.1
 	-- v1.1 End
 
 	INSERT	#pack_results (result_id, box, box_capacity, qty, fill_perc)

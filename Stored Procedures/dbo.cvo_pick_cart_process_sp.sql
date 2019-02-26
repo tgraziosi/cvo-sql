@@ -26,12 +26,23 @@ AS
     -- select * From cvo_cart_order_parts where order_no like '3217575%'
     -- select * from cvo_cart_scan_orders where order_no like '3217575%'
     -- exec cvo_pick_cart_process_sp 1, 3217575, 0, 99 -- void
-    -- exec cvo_pick_cart_process_sp 1, 3217575, 0, 0 -- check in
-    -- exec cvo_pick_cart_process_sp 1, 3217575, 0, 1 -- pick and check out
+    -- exec cvo_pick_cart_process_sp 1, 25686, 0, 0 -- check in
+    -- exec cvo_pick_cart_process_sp 1, 25686, 0, 1 -- pick and check out
 
-    --  select * From dbo.cvo_cart_parts_processed AS cpp order by tran_id desc
-	--  HERE cpp.order_no LIKE '3217575%'
+    /*
+      select * From dbo.cvo_cart_parts_processed AS cpp -- order by tran_id desc
+	  wHERE cpp.order_no LIKE '25686%'
 
+      UPDATE cpp SET cpp.isPicked = 'N', cpp.pick_complete_dt = NULL
+      -- SELECT * 
+      FROM dbo.cvo_cart_parts_processed AS cpp -- order by tran_id desc
+	  wHERE cpp.order_no LIKE '25686'
+            UPDATE cpp SET cpp.isPicked = 'Y', cpp.pick_complete_dt = getdate()
+      -- SELECT * 
+      FROM dbo.cvo_cart_parts_processed AS cpp -- order by tran_id desc
+	  wHERE cpp.order_no LIKE '25686'
+
+    */
     -- exec cvo_pick_cart_process_sp 'rlanka', 2404590, 0, 0
 
     --SELECT * FROM dbo.tdc_pick_queue AS tpq WHERE tpq.trans_type_no = 134655
@@ -183,7 +194,7 @@ AS
         BEGIN
 
             IF NOT EXISTS (   SELECT 1
-                              FROM   dbo.tdc_pick_queue AS tpq
+                              FROM   dbo.tdc_pick_queue AS tpq (nolock)
                               WHERE  (   (   @iscons = 0
                                              AND trans_type_no = @order_no
                                              AND trans_type_ext = @order_ext )
@@ -199,7 +210,7 @@ AS
 
             IF @isorder = 1
                AND NOT EXISTS (   SELECT 1
-                                  FROM   dbo.orders AS o
+                                  FROM   dbo.orders AS o (nolock)
                                   WHERE  (   (   order_no = @order_no
                                                  AND o.ext = @order_ext )
                                              AND status IN ( 'n', 'p', 'q' )))
@@ -212,7 +223,7 @@ AS
 
             IF @isxfer = 1
                AND NOT EXISTS (   SELECT 1
-                                  FROM   dbo.xfers_all AS xa
+                                  FROM   dbo.xfers_all AS xa (nolock)
                                   WHERE  (   ( xa.xfer_no = @order_no )
                                              AND status IN ( 'n', 'p', 'q' )))
                 BEGIN
@@ -224,7 +235,7 @@ AS
 
             -- Check in ... set WMS picks on hold
             IF EXISTS (   SELECT 1
-                          FROM   dbo.tdc_pick_queue AS tpq
+                          FROM   dbo.tdc_pick_queue AS tpq (nolock)
                           WHERE  (   (   @iscons = 0
                                          AND trans_type_no = @order_no
                                          AND trans_type_ext = @order_ext )
@@ -246,7 +257,7 @@ AS
             IF @iscons = 0
                 BEGIN
                     IF EXISTS (   SELECT 1
-                                  FROM   tdc_soft_alloc_tbl
+                                  FROM   tdc_soft_alloc_tbl (nolock)
                                   WHERE  order_no = @order_no
                                          AND order_ext = @order_ext
                                          AND user_hold <> 'Y' )
@@ -259,7 +270,7 @@ AS
             IF @iscons = 1
                 BEGIN
                     IF EXISTS (   SELECT 1
-                                  FROM   tdc_soft_alloc_tbl SA
+                                  FROM   tdc_soft_alloc_tbl SA (nolock)
                                          JOIN dbo.cvo_masterpack_consolidation_det AS cmcd ON cmcd.order_no = SA.order_no
                                                                                               AND cmcd.order_ext = SA.order_ext
                                   WHERE  cmcd.consolidation_no = @order_no
@@ -276,10 +287,10 @@ AS
 
             -- write to cart pick table ?
             IF NOT EXISTS (   SELECT 1
-                              FROM   dbo.cvo_cart_scan_orders
+                              FROM   dbo.cvo_cart_scan_orders (NOLOCK)
                               WHERE  order_no = @cart_order_no )
                AND NOT EXISTS (   SELECT 1
-                                  FROM   dbo.cvo_cart_order_parts
+                                  FROM   dbo.cvo_cart_order_parts (nolock)
                                   WHERE  order_no = @cart_order_no )
                 BEGIN
                     SELECT @order_type = CASE WHEN @isxfer = 1 THEN 'XF'
@@ -428,7 +439,7 @@ AS
                                            + CAST(@order_no AS VARCHAR(6))
                                            + ' TO CART ' + @cart_no
                                     FROM   orders o WITH ( ROWLOCK )
-                                           JOIN dbo.cvo_masterpack_consolidation_det AS cmcd ON cmcd.order_no = o.order_no
+                                           JOIN dbo.cvo_masterpack_consolidation_det AS cmcd (NOLOCK) ON cmcd.order_no = o.order_no
                                                                                                 AND cmcd.order_ext = o.ext
                                     WHERE  cmcd.consolidation_no = @order_no
                                            AND o.status <> @status
@@ -487,7 +498,7 @@ AS
 
             -- release holds
             IF EXISTS (   SELECT 1
-                          FROM   dbo.tdc_pick_queue
+                          FROM   dbo.tdc_pick_queue (NOLOCK)
                           WHERE  (   (   @iscons = 0
                                          AND trans_type_no = @order_no
                                          AND trans_type_ext = @order_ext )
@@ -508,7 +519,7 @@ AS
             IF ( @iscons = 0 )
                 BEGIN
                     IF EXISTS (   SELECT 1
-                                  FROM   dbo.tdc_soft_alloc_tbl AS tsat
+                                  FROM   dbo.tdc_soft_alloc_tbl AS tsat (NOLOCK)
                                   WHERE  order_no = @order_no
                                          AND order_ext = @order_ext
                                          AND user_hold <> 'N' )
@@ -638,7 +649,7 @@ AS
 
 
             SELECT @tran_id = MIN(p.tran_id)
-            FROM   tdc_pick_queue p
+            FROM   tdc_pick_queue p (NOLOCK)
             WHERE  (   @iscons = 0
                        AND trans_type_no = @order_no
                        AND trans_type_ext = @order_ext )
@@ -709,7 +720,7 @@ AS
 
 
                     SELECT @tran_id = MIN(p.tran_id)
-                    FROM   tdc_pick_queue p
+                    FROM   tdc_pick_queue p (NOLOCK)
                     WHERE  (   (   @iscons = 0
                                    AND trans_type_no = @order_no
                                    AND trans_type_ext = @order_ext )
@@ -913,6 +924,8 @@ AS
                                       AND OL.order_ext = o.ext ) = 0;
 
         END; -- proc_option = 99
+
+
 
 
 

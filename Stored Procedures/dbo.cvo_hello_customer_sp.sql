@@ -21,10 +21,10 @@ exec cvo_hello_customer_sp '011111' , null, null, null
         SET NOCOUNT ON;
 
         DECLARE @ship_to VARCHAR(12);
-        DECLARE @today DATETIME, @r12start DATETIME, @r12end DATETIME, @yrstart datetime;
+        DECLARE @today DATETIME, @r12start DATETIME, @r12end DATETIME, @yrstart DATETIME;
 
-        SELECT @today = enddate FROM cvo_date_range_vw WHERE period = 'today'
-		SELECT @r12start = begindate, @r12end = enddate FROM dbo.cvo_date_range_vw AS drv WHERE period = 'rolling 12 ty'
+        SELECT @today = EndDate FROM cvo_date_range_vw WHERE Period = 'today'
+		SELECT @r12start = BeginDate, @r12end = EndDate FROM dbo.cvo_date_range_vw AS drv WHERE Period = 'rolling 12 ty'
 		SELECT @yrstart = DATEADD(YEAR, DATEDIFF(YEAR,0,@r12end), 0);
 
 		-- SELECT @today, @r12start, @tystart
@@ -50,7 +50,7 @@ exec cvo_hello_customer_sp '011111' , null, null, null
               carrier VARCHAR(12) NULL ,
               tracking VARCHAR(255) NULL ,
               total_invoice DECIMAL(20, 8) NULL,
-			  hs_order_no VARCHAR(20) null           );
+			  hs_order_no VARCHAR(20) NULL           );
  
         IF OBJECT_ID('tempdb..#aging') IS NOT NULL
             DROP TABLE #aging;
@@ -153,7 +153,7 @@ exec cvo_hello_customer_sp '011111' , null, null, null
                                 DATEADD(d, DATEDIFF(d, 0, date_entered), 0) date_entered ,
                                 user_category ,
                                 CASE WHEN o.status IN ( 'a', 'b', 'c' )
-                                     THEN 'On Hold '+ ISNULL((SELECT ao.hold_reason FROM dbo.adm_oehold AS ao WHERE AO.hold_code = O.HOLD_REASON),'')
+                                     THEN 'On Hold '+ ISNULL((SELECT ao.hold_reason FROM dbo.adm_oehold AS ao WHERE ao.hold_code = o.hold_reason),'')
                                      WHEN o.status IN ( 'n', 'p', 'q' )
                                      THEN 'In Process'
                                      WHEN o.status IN ( 'r', 's', 't' )
@@ -191,7 +191,7 @@ exec cvo_hello_customer_sp '011111' , null, null, null
                                 DATEADD(d, DATEDIFF(d, 0, date_entered), 0) date_entered ,
                                 user_category ,
                                 CASE WHEN o.status IN ( 'a', 'b', 'c' )
-                                     THEN 'On Hold '+ ISNULL((SELECT ao.hold_reason FROM dbo.adm_oehold AS ao WHERE AO.hold_code = O.HOLD_REASON),'')
+                                     THEN 'On Hold '+ ISNULL((SELECT ao.hold_reason FROM dbo.adm_oehold AS ao WHERE ao.hold_code = o.hold_reason),'')
                                      WHEN o.status IN ( 'n', 'p', 'q' )
                                      THEN 'In Process'
                                      WHEN o.status IN ( 'r', 's', 't' )
@@ -270,7 +270,7 @@ exec cvo_hello_customer_sp '011111' , null, null, null
             ISNULL(rxe.code, 'No') RXE ,
             AR_Status = CASE WHEN dbo.f_cvo_get_buying_group_name(dbo.f_cvo_get_buying_group(ar.customer_code, @today)) > '' 
 								THEN 'Buying Group: '+dbo.f_cvo_get_buying_group_name(dbo.f_cvo_get_buying_group(ar.customer_code, @today))
-									+ CASE WHEN cc.CC_Status='BG' THEN ': On Hold' ELSE '' end
+									+ CASE WHEN cc.CC_Status='BG' THEN ': On Hold' ELSE '' END
 							 WHEN arbal.Ar_balance > ar.credit_limit AND ar.check_credit_limit = 1 THEN 'Over Credit Limit'
 							 WHEN arbal.Ar_balance < 0 THEN 'Credit Balance'
 							 WHEN arbal.pd_balance > 0 THEN 'Past Due > 30 Days'
@@ -303,11 +303,17 @@ exec cvo_hello_customer_sp '011111' , null, null, null
             i.total_invoice ,
             oi.doc_ctrl_num,
 			i.hs_order_no,
-			weborder.date_entered LastWebOrderDate -- 7/9/18    
+			weborder.date_entered LastWebOrderDate, -- 7/9/18    
+            -- 2/26/2019
+            rxe_activity.ytd_sls_rxe,
+            rxe_activity.ytd_num_rxe,
+            rxe_activity.mtd_sls_rxe,
+            rxe_activity.mtd_num_rxe
+
 			FROM    #info AS i
-            JOIN armaster ar (nolock) ON ar.customer_code = i.cust_code
+            JOIN armaster ar (NOLOCK) ON ar.customer_code = i.cust_code
                                 AND ar.ship_to_code = i.ship_to
-			JOIN dbo.CVO_armaster_all AS car (nolock) ON car.customer_code = ar.customer_code AND car.ship_to = ar.ship_to_code
+			JOIN dbo.CVO_armaster_all AS car (NOLOCK) ON car.customer_code = ar.customer_code AND car.ship_to = ar.ship_to_code
             JOIN arsalesp slp (NOLOCK) ON slp.salesperson_code = ar.salesperson_code
             LEFT OUTER JOIN 
 			( SELECT DISTINCT
@@ -323,13 +329,13 @@ exec cvo_hello_customer_sp '011111' , null, null, null
             LEFT OUTER JOIN dbo.orders_invoice AS oi ON oi.order_no = i.order_no
                                                         AND oi.order_ext = i.ext
 			LEFT OUTER JOIN 
-			( SELECT  distinct RIGHT(c.customer_code, 5) MergeCust ,
+			( SELECT  DISTINCT RIGHT(c.customer_code, 5) MergeCust ,
                             STUFF(( SELECT  ', ' + code
                                     FROM    cvo_cust_designation_codes (NOLOCK)
                                     WHERE   customer_code = c.customer_code
                                             AND ISNULL(start_date, @today) <= @today
                                             AND ISNULL(end_date, @today) >= @today
-									ORDER BY primary_flag DESC, code asc
+									ORDER BY primary_flag DESC, code ASC
                                     FOR
                                     XML PATH('')
                                     ), 1, 1, '') desig
@@ -337,20 +343,20 @@ exec cvo_hello_customer_sp '011111' , null, null, null
             ) AS designations ON designations.MergeCust = RIGHT(ar.customer_code,5)		
 			LEFT OUTER JOIN
 			( SELECT  customer_code, SUM(balance) Ar_balance, 
-									 SUM(CASE WHEN age_bucket > 1 THEN balance ELSE 0 end) pd_balance
+									 SUM(CASE WHEN age_bucket > 1 THEN balance ELSE 0 END) pd_balance
 							   FROM     #aging
                                WHERE    age_bucket <> 0 -- dont include future due amounts
 							   GROUP BY customer_code
              ) arbal ON arbal.customer_code = ar.customer_code
 			LEFT OUTER JOIN
-			(SELECT customer_code, 	CC_Status = IsNull(status_code,'') 
+			(SELECT customer_code, 	CC_Status = ISNULL(status_code,'') 
 				FROM	cc_cust_status_hist (NOLOCK) 
-				WHERE	clear_date is NULL 
+				WHERE	clear_date IS NULL 
 				AND		customer_code = @cust  
 			) cc ON cc.customer_code = ar.customer_code		
 			LEFT OUTER JOIN
-			(SELECT customer, CL_Status = MAX(iscl), SUM(CASE WHEN promo_id <> '' THEN qsales ELSE 0 END) prog_frames_sold
-			FROM cvo_sbm_details (nolock)
+			(SELECT customer, CL_Status = MAX(isCL), SUM(CASE WHEN promo_id <> '' THEN qsales ELSE 0 END) prog_frames_sold
+			FROM cvo_sbm_details (NOLOCK)
 			JOIN inv_master i (NOLOCK) ON i.part_no = dbo.cvo_sbm_details.part_no
 			WHERE yyyymmdd >= DATEADD(YEAR,-1,@today)
 			AND	 customer = @cust  
@@ -360,20 +366,20 @@ exec cvo_hello_customer_sp '011111' , null, null, null
 			LEFT OUTER JOIN
             (SELECT 	customer, RAretpct = (CASE WHEN facts.grosssales_r12 = 0 THEN 0 ELSE facts.rareturns_r12/facts.grosssales_r12 END)*100.00,
 			RAretpct_ytd = (CASE WHEN facts.grosssales_ytd = 0 THEN 0 ELSE facts.rareturns_ytd/facts.grosssales_ytd END)*100.00
-				from	
+				FROM	
 				(
 				SELECT customer,
-				SUM(ISNULL(sbm.asales,0)) - SUM(ISNULL((CASE WHEN return_code='exc' THEN sbm.areturns ELSE 0 end),0))  grosssales_r12, 
+				SUM(ISNULL(sbm.asales,0)) - SUM(ISNULL((CASE WHEN return_code='exc' THEN sbm.areturns ELSE 0 END),0))  grosssales_r12, 
 				SUM(CASE WHEN ISNULL(sbm.return_code,'') = '' THEN ISNULL(sbm.areturns,0) ELSE 0 END) rareturns_r12,
 
 				grosssales_ytd = 
 				SUM(CASE WHEN yyyymmdd >= @yrstart THEN ISNULL(sbm.asales,0) ELSE 0 END)-
-				SUM(CASE WHEN yyyymmdd >= @yrstart THEN ISNULL(CASE WHEN return_code='exc' THEN sbm.areturns ELSE 0 end,0) ELSE 0 END) , 
+				SUM(CASE WHEN yyyymmdd >= @yrstart THEN ISNULL(CASE WHEN return_code='exc' THEN sbm.areturns ELSE 0 END,0) ELSE 0 END) , 
 
-				SUM(CASE WHEN ISNULL(sbm.return_code,'') = '' and yyyymmdd >= @yrstart THEN ISNULL(sbm.areturns,0) ELSE 0 END) rareturns_ytd
+				SUM(CASE WHEN ISNULL(sbm.return_code,'') = '' AND yyyymmdd >= @yrstart THEN ISNULL(sbm.areturns,0) ELSE 0 END) rareturns_ytd
 
 
-				from
+				FROM
 				cvo_sbm_details sbm (NOLOCK)
 				WHERE 1=1 
 				AND sbm.yyyymmdd BETWEEN @r12start AND @r12end
@@ -387,16 +393,37 @@ exec cvo_hello_customer_sp '011111' , null, null, null
 			 WHERE o.cust_po LIKE 'M1000%'
 			 AND o.status <>'v'
 			 AND o.cust_code = @cust 
-			 ORDER BY o.date_entered desc
+			 ORDER BY o.date_entered DESC
 			 ) weborder ON weborder.cust_code = ar.customer_code
-
+             LEFT OUTER JOIN
+               (SELECT customer,
+                       COUNT(yyyymmdd) ytd_num_rxe,
+                       SUM(asales) ytd_sls_rxe,
+                       SUM(   CASE
+                                  WHEN c_month = month(@r12end) THEN
+                                      1
+                                  ELSE
+                                      0
+                              END
+                          ) mtd_num_rxe,
+                       SUM(   CASE
+                                  WHEN c_month = month(@r12end) THEN
+                                      asales
+                                  ELSE
+                                      0
+                              END
+                          ) mtd_sls_rxe
+                FROM dbo.cvo_sbm_details AS sd (nolock)
+                WHERE sd.customer = @cust
+                      AND yyyymmdd
+                      BETWEEN @yrstart AND @r12end
+                GROUP BY sd.customer
+             ) rxe_activity ON rxe_activity.customer = @cust
 			;
 
 
 
-
-
-
+            
 GO
 GRANT EXECUTE ON  [dbo].[cvo_hello_customer_sp] TO [public]
 GO

@@ -241,9 +241,9 @@ FROM
 WHERE
     ords.status >='N'
     AND 
-    (ORDS.ORDER_TYPE <> 'BO' AND  date_entered >=  DATEADD(dd, DATEDIFF(dd, 0, GETDATE()), 0))
+    ((ORDS.ORDER_TYPE <> 'BO' AND  date_entered >=  DATEADD(dd, DATEDIFF(dd, 0, GETDATE()), 0))
     OR 
-    (ords.order_type IN ('BO','MGT') AND EXISTS (SELECT 1 FROM dbo.tdc_soft_alloc_tbl AS tsat WHERE TSAT.order_no = ORDS.order_no AND TSAT.order_ext = ORDS.EXT))
+    (ords.order_type IN ('BO','MGT') AND ( ords.status BETWEEN 'p' AND 's' OR (ords.status ='n' AND EXISTS (SELECT 1 FROM dbo.tdc_soft_alloc_tbl AS tsat WHERE TSAT.order_no = ORDS.order_no AND TSAT.order_ext = ORDS.EXT)))))
 UNION ALL
 SELECT
     cust_code,
@@ -262,5 +262,7 @@ SELECT
 FROM xfers
 
 END
+
+
 
 GO

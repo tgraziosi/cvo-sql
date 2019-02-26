@@ -7,6 +7,7 @@ GO
 -- v10.0 CB 12/06/2012 - Soft Allocation - Remove case consolidation
 -- v10.1 CB 23/04/2015 - Performance Changes
 -- v10.2 CB 24/08/2016 - CVO-CF-49 - Dynamic Custom Frames
+-- v10.3 CB 25/02/2019 - Peformance
 
 CREATE PROC [dbo].[tdc_pps_grid_display]
 	@is_one_order_per_ctn	char(1),
@@ -88,6 +89,8 @@ BEGIN
 	INSERT	#upd_cur (order_no, order_ext, line_no, part_no)
 	SELECT	order_no, order_ext, line_no, part_no
 	FROM	#temp_pps_carton_display
+
+	CREATE INDEX #upd_cur_ind0 ON #upd_cur(row_id) -- v10.3
 
 	-- v10.1 OPEN upd_cur
 	-- v10.1 FETCH NEXT FROM upd_cur INTO @order_no, @order_ext, @line_no, @part_no
@@ -195,6 +198,7 @@ BEGIN
 	AND		a.line_no = b.line_no
 	AND		b.kit_part_no = c.part_no
 	AND		b.sub_kit_part_no IS NULL
+	AND		b.kit_picked <> 0 -- v10.3
 	UNION
 	SELECT	DISTINCT b.order_no, b.order_ext, b.line_no, b.kit_part_no, c.[description], b.kit_picked, kit_picked, b.kit_picked, 0, 0,
 			sub_kit_part_no 
@@ -207,6 +211,7 @@ BEGIN
 	AND		a.line_no = b.line_no
 	AND		b.kit_part_no = c.part_no
 	AND		b.sub_kit_part_no IS NOT NULL
+	AND		b.kit_picked <> 0 -- v10.3
  
 	-----------------------------------------------------------------------------------------------------------------
 	-- If the order number is passed in, insert all the records for this order.
@@ -228,6 +233,7 @@ BEGIN
 		AND		order_ext = @order_ext 
 	    AND		a.kit_part_no = b.part_no
 		AND		sub_kit_part_no IS NULL
+		AND		a.kit_picked <> 0 -- v10.3
 		AND NOT EXISTS(SELECT * FROM #temp_pps_kit_display
 					WHERE order_no = a.order_no
 				    AND order_ext = a.order_ext
@@ -250,6 +256,7 @@ BEGIN
 		AND		order_ext = @order_ext 
 	    AND		a.kit_part_no = b.part_no
 		AND		sub_kit_part_no IS NOT NULL
+		AND		a.kit_picked <> 0 -- v10.3
 		AND NOT EXISTS(SELECT * FROM #temp_pps_kit_display
 					WHERE order_no = a.order_no
 				    AND order_ext = a.order_ext
@@ -269,6 +276,8 @@ BEGIN
 	-- v10.1 DECLARE upd_cur CURSOR FOR 
 	SELECT	order_no, order_ext, line_no, part_no, sub_kit_part_no
 	FROM	#temp_pps_kit_display
+
+	CREATE INDEX #kit_upd_cur_ind0 ON #kit_upd_cur(row_id) -- v10.3
 	
 	-- v10.1 OPEN upd_cur
 	-- v10.1 FETCH NEXT FROM upd_cur INTO @order_no, @order_ext, @line_no, @part_no, @sub_kit_part_no

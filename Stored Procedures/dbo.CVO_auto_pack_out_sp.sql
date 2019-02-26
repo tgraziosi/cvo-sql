@@ -21,6 +21,7 @@ Copyright:   Epicor Software 2010.  All rights reserved. */
 -- v1.4 CB 20/04/2016 - #1584 - Add discount amount
 -- v1.5 CB 05/12/2018 - #1687 Box Type Update  
 -- v1.6 CB 30/01/2018 - Fix for v1.5
+-- v1.7 CB 25/02/2019 - Performance
   
 CREATE PROCEDURE [dbo].[CVO_auto_pack_out_sp]	@order_no INT,    
 												@order_ext INT,   
@@ -172,6 +173,8 @@ BEGIN
 		AND		order_type = 'S'
 		AND		pack_qty > 0 -- v1.6
 		ORDER BY box_id, line_no
+
+		CREATE INDEX #pre_packing_ind0 ON #pre_packing(pack_row_id) -- v1.7
 
 		SET @pack_row_id = 0
 		SET @last_box_id = 0

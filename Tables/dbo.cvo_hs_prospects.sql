@@ -17,6 +17,9 @@ CREATE TABLE [dbo].[cvo_hs_prospects]
 [lead_date] [datetime] NULL,
 [lead_updated] [datetime] NULL,
 [sc_notes] [text] COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[region] [varchar] (6) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+[region] [varchar] (6) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[contact] [varchar] (120) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[email] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[addr2] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+) ON [PRIMARY]
 GO

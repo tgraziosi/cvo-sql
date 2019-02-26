@@ -44,7 +44,10 @@ CREATE VIEW [dbo].[CVO_Jrnlines_vw] AS
 	LTRIM(RTRIM(ISNULL(gldet.document_2,''))) document_2,
 	gldet.nat_cur_code, 
   	gldet.nat_balance,
-	gldet.reference_code,
+	CASE WHEN gl.trx_type = 2151 THEN (SELECT TOP (1) x.apply_to_num FROM artrxage x (nolock) 
+                                        WHERE x.doc_ctrl_num = gldet.document_2 AND x.amount = gldet.balance AND gldet.document_1 = x.customer_code
+                                        ORDER BY x.apply_to_num) 
+                                        ELSE gldet.reference_code END reference_code,
   	gldet.rate_type_home,
 	gldet.rate,
 	gl.home_cur_code,
@@ -59,6 +62,7 @@ CREATE VIEW [dbo].[CVO_Jrnlines_vw] AS
 		ELSE 'Unknown'
 	END,
 	c.seg1_code natural_acct,
+    gl.trx_type,
  	x_date_applied=gl.date_applied,
  	x_sequence_id=gldet.sequence_id,
  	x_nat_balance=gldet.nat_balance,
@@ -70,14 +74,12 @@ FROM
 	glchart c (NOLOCK)
 	JOIN 	dbo.gltrxdet gldet (NOLOCK) ON gldet.account_code = c.account_code
 	INNER JOIN dbo.gltrx gl (NOLOCK) ON gldet.journal_ctrl_num = gl.journal_ctrl_num
-	LEFT JOIN dbo.apvodet vodet (nolock)
+	LEFT JOIN dbo.apvodet vodet (NOLOCK)
 	ON gldet.document_2 = vodet.trx_ctrl_num
 	AND gldet.seq_ref_id = vodet.sequence_id
-	LEFT JOIN apvohdr (nolock) vohdr ON vohdr.trx_ctrl_num = gldet.document_2
-	LEFT JOIN apmaster ap (nolock) ON ap.vendor_code = vohdr.vendor_code AND ap.address_type = 0
+	LEFT JOIN apvohdr (NOLOCK) vohdr ON vohdr.trx_ctrl_num = gldet.document_2
+	LEFT JOIN apmaster ap (NOLOCK) ON ap.vendor_code = vohdr.vendor_code AND ap.address_type = 0
 	LEFT JOIN arcust ar (NOLOCK) ON ar.customer_code = gldet.document_1
-	
-
 
 
 
