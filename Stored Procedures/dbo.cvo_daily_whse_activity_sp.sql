@@ -8,7 +8,7 @@ CREATE PROCEDURE [dbo].[cvo_daily_whse_activity_sp]
 AS
 BEGIN
 
-    -- EXEC cvo_daily_whse_activity_sp '10/1/2018', '10/1/2018'
+    -- EXEC cvo_daily_whse_activity_sp '03/11/2019', '03/13/2019'
 
     SET NOCOUNT ON;
     SET ANSI_WARNINGS OFF;
@@ -24,9 +24,9 @@ BEGIN
            COUNT(DISTINCT wms.part_no) total_skus,
            DATEADD(dd, DATEDIFF(dd, 0, wms.tran_date), 0) tran_date
     FROM tdc_log wms (NOLOCK)
-        LEFT OUTER JOIN dbo.cvo_cmi_users AS cu
+        LEFT OUTER JOIN dbo.cvo_cmi_users AS cu (NOLOCK)
             ON cu.user_login = REPLACE(wms.UserID, 'cvoptical\', '')
-        LEFT OUTER JOIN inv_master i
+        LEFT OUTER JOIN inv_master i (NOLOCK)
             ON i.part_no = wms.part_no
     WHERE wms.tran_date
           BETWEEN @sdate AND @edate
@@ -48,7 +48,7 @@ BEGIN
            COUNT(crp.source_pick) NUM_ACTIVITY,
            COUNT(DISTINCT crp.part_no) TOTAL_SKUS,
            DATEADD(dd, DATEDIFF(dd, 0, crp.pick_time), 0) tran_date
-    FROM dbo.cvo_cart_replenish_processed AS crp
+    FROM dbo.cvo_cart_replenish_processed AS crp (NOLOCK)
     WHERE CAST(ISNULL(crp.pick_time, DATEADD(DAY, 1, @edate)) AS DATETIME)
           BETWEEN @sdate AND @edate
           AND ISNULL(crp.isSkipped, 1) = 0
@@ -62,12 +62,61 @@ BEGIN
            COUNT(crp.target_put) NUM_ACTIVITY,
            COUNT(DISTINCT crp.part_no) TOTAL_SKUS,
            DATEADD(dd, DATEDIFF(dd, 0, crp.put_time), 0)
-    FROM dbo.cvo_cart_replenish_processed AS crp
+    FROM dbo.cvo_cart_replenish_processed AS crp (NOLOCK)
     WHERE CAST(ISNULL(crp.put_time, DATEADD(DAY, 1, @edate)) AS DATETIME)
           BETWEEN @sdate AND @edate
           AND ISNULL(crp.isSkipped, 1) = 0
     GROUP BY crp.put_user,
              DATEADD(dd, DATEDIFF(dd, 0, crp.put_time), 0)
+    UNION ALL
+    SELECT REPLACE(crp.UserID, 'cvoptical\', '') who_processed,
+           'REPL',
+           'REPL PICK',
+           ISNULL(cu.fname + ' ' + cu.lname, REPLACE(crp.UserID, 'cvoptical\', '')) Username,
+           COUNT(crp.tran_no) NUM_ACTIVITY,
+           COUNT(DISTINCT crp.part_no) TOTAL_SKUS,
+           DATEADD(dd, DATEDIFF(dd, 0, crp.tran_date), 0) tran_date
+    FROM dbo.cvo_replenishment_log AS rl (NOLOCK)
+            JOIN dbo.tdc_log AS crp (NOLOCK)     
+            ON rl.location = crp.location
+               AND rl.part_no = crp.part_no
+               AND rl.queue_id = crp.tran_no
+        LEFT OUTER JOIN dbo.cvo_cmi_users AS cu
+            ON cu.user_login = REPLACE(crp.UserID, 'cvoptical\', '')
+    WHERE NOT EXISTS(SELECT 1 FROM dbo.cvo_cart_replenish_processed AS crp2 WHERE crp2.tran_id = crp.tran_no)
+          AND CAST(ISNULL(crp.tran_date, DATEADD(DAY, 1, @edate)) AS DATETIME)
+          BETWEEN @sdate AND @edate
+          AND module = 'qtx'
+          AND crp.trans = 'qbn2bn'
+    GROUP BY crp.UserID,
+             cu.fname,
+             cu.lname,
+             DATEADD(dd, DATEDIFF(dd, 0, crp.tran_date), 0)
+    UNION ALL
+    SELECT REPLACE(crp.UserID, 'cvoptical\', '') who_processed,
+           'REPL',
+           'REPL PICK',
+           ISNULL(cu.fname + ' ' + cu.lname, REPLACE(crp.UserID, 'cvoptical\', '')) Username,
+           COUNT(crp.tran_no) NUM_ACTIVITY,
+           COUNT(DISTINCT crp.part_no) TOTAL_SKUS,
+           DATEADD(dd, DATEDIFF(dd, 0, crp.tran_date), 0) tran_date
+    FROM dbo.cvo_replenishment_log AS rl (NOLOCK)
+         JOIN  dbo.tdc_log AS crp (NOLOCK)
+        
+            ON rl.location = crp.location
+               AND rl.part_no = crp.part_no
+               AND rl.queue_id = crp.tran_no
+        LEFT OUTER JOIN dbo.cvo_cmi_users AS cu (NOLOCK)
+            ON cu.user_login = REPLACE(crp.UserID, 'cvoptical\', '')
+    WHERE NOT EXISTS(SELECT 1 FROM dbo.cvo_cart_replenish_processed AS crp2 WHERE crp2.tran_id = crp.tran_no)
+          AND CAST(ISNULL(crp.tran_date, DATEADD(DAY, 1, @edate)) AS DATETIME)
+          BETWEEN @sdate AND @edate
+          AND module = 'qtx'
+          AND crp.trans = 'qbn2bn'
+    GROUP BY crp.UserID,
+             cu.fname,
+             cu.lname,
+             DATEADD(dd, DATEDIFF(dd, 0, crp.tran_date), 0)
     UNION ALL
     SELECT tccl.userid,
            tccl.team_id,
@@ -76,7 +125,7 @@ BEGIN
            COUNT(count_qty) num_activity,
            COUNT(DISTINCT part_no) num_skus,
            DATEADD(dd, DATEDIFF(dd, 0, tccl.count_date), 0)
-    FROM dbo.tdc_cyc_count_log AS tccl
+    FROM dbo.tdc_cyc_count_log AS tccl (NOLOCK)
         LEFT OUTER JOIN dbo.cvo_cmi_users AS cu
             ON cu.user_login = REPLACE(tccl.userid, 'cvoptical\', '')
     WHERE count_date
@@ -94,7 +143,7 @@ BEGIN
            COUNT(cpp.scanned) num_activity,
            COUNT(DISTINCT cpp.part_no) num_skus,
            DATEADD(dd, DATEDIFF(dd, 0, cpp.pick_complete_dt), 0)
-    FROM dbo.cvo_cart_parts_processed AS cpp
+    FROM dbo.cvo_cart_parts_processed AS cpp (NOLOCK)
     WHERE cpp.pick_complete_dt
     BETWEEN @sdate AND @edate
     GROUP BY DATEADD(dd, DATEDIFF(dd, 0, cpp.pick_complete_dt), 0),
@@ -183,6 +232,7 @@ BEGIN
              ISNULL(cu.fname + ' ' + cu.lname, REPLACE(xa.who_recvd, 'cvoptical\', '')),
              DATEADD(dd, DATEDIFF(dd, 0, xa.date_recvd), 0);
 END;
+
 
 
 

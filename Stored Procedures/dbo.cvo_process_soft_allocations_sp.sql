@@ -2078,6 +2078,29 @@ BEGIN
 
 			EXEC dbo.cvo_masterpack_consolidate_pick_records_sp @stcons_no
 
+			-- v8.5 Start
+			SET @order_no = 0
+			WHILE (1 = 1)
+			BEGIN
+				SELECT	TOP 1 @order_no = order_no,
+						@order_ext = ext
+				FROM	#consolidate_picks
+				WHERE	consolidation_no = @stcons_no
+				AND		order_no > @order_no
+				ORDER BY order_no ASC
+
+				IF (@@ROWCOUNT = 0)
+					BREAK
+
+				
+				IF NOT EXISTS (SELECT 1 FROM cvo_pre_packaging (NOLOCK) WHERE order_no = @order_no AND order_ext = @order_ext)
+				BEGIN
+					EXEC dbo. cvo_calculate_packaging_sp @order_no, @order_ext, 'S'
+				END
+			END
+			-- v8.5 End
+
+
 			SET @last_stcons_no = @stcons_no
 
 			SELECT	TOP 1 @stcons_no = consolidation_no

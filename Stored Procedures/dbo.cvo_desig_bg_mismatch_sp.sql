@@ -32,7 +32,7 @@ BEGIN
                END AS primary_flag,
                dbo.f_cvo_get_buying_group(customer_code, GETDATE()) Current_BG,
                'Designation does not Match BG' err_msg
-        FROM cvo_cust_designation_codes d
+        FROM cvo_cust_designation_codes d (nolock)
         WHERE code IN ( 'bbg', 'fec-a', 'fec-m', 'oogp', 'villa', 'vwest', 'CE' )
               AND ISNULL(end_date, GETDATE()) >= GETDATE()
     ) s
@@ -65,6 +65,67 @@ BEGIN
               code IN ( 'vwest' )
               AND ISNULL(Current_BG, '') <> '000563'
           )
+    UNION ALL
+    
+    SELECT s.customer_code child,
+           s.customer_code,
+           s.code,
+           s.description,
+           s.start_date,
+           s.end_date,
+           s.primary_flag,
+           s.Current_BG,
+           s.err_msg
+    FROM
+    (
+        SELECT d.customer_code,
+               d.code,
+               d.description,
+               d.start_date,
+               d.end_date,
+               CASE
+                   WHEN ISNULL(d.primary_flag, 0) = 1 THEN
+                       'Yes'
+                   ELSE
+                       'No'
+               END AS primary_flag,
+               dbo.f_cvo_get_buying_group(customer_code, GETDATE()) Current_BG,
+               'Primary Designation does not Match BG' err_msg
+        FROM cvo_cust_designation_codes d (nolock)
+        WHERE code IN ( 'bbg', 'fec-a', 'fec-m', 'oogp', 'villa', 'vwest', 'CE' )
+              AND ISNULL(end_date, GETDATE()) >= GETDATE()
+              AND d.primary_flag = 1
+    ) s
+    WHERE (
+              code = 'bbg'
+              AND ISNULL(Current_BG, '') <> '000502'
+          )
+          OR
+          (
+              code = 'ce'
+              AND ISNULL(Current_BG, '') <> '000507'
+          )
+          OR
+          (
+              code IN ( 'fec-a', 'fec-m' )
+              AND ISNULL(Current_BG, '') <> '000550'
+          )
+          OR
+          (
+              code IN ( 'oogp' )
+              AND ISNULL(Current_BG, '') <> '000542'
+          )
+          OR
+          (
+              code IN ( 'villa' )
+              AND ISNULL(Current_BG, '') <> '000549'
+          )
+          OR
+          (
+              code IN ( 'vwest' )
+              AND ISNULL(Current_BG, '') <> '000563'
+          )
+
     UNION ALL
     -- have BG, does not match designation
 
@@ -189,6 +250,7 @@ BEGIN
     WHERE c.child <> ISNULL(d.customer_code, '');
 
 END;
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_desig_bg_mismatch_sp] TO [public]
 GO

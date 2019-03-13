@@ -17,7 +17,7 @@ BEGIN
     -- add RMA figures - 6/19/2014
     -- 06/07/2016 - tag - per HK remove these qualifications for regular dstribution to Mark McCann
 
-    -- exec cvo_ST_Activity_log_sp '02/01/2018','02/28/2018', '50505', -1 , 1
+    -- exec cvo_ST_Activity_log_sp '01/01/2019','01/31/2019', '50505', -1 , 1
 
     /*
 declare @startdate datetime, @enddate datetime
@@ -252,9 +252,9 @@ set @territory = '90614'
            o.source
 
     FROM #territory AS t
-		JOIN dbo.cvo_adord_vw AS o WITH (NOLOCK) 
-            ON o.territory = t.Territory
-    WHERE 1 = 1
+        JOIN dbo.cvo_adord_vw AS o WITH (NOLOCK) 
+        ON o.Territory = t.territory
+    WHERE 1 = 1          
           AND o.status <> 'V'
           AND (o.date_entered
           BETWEEN @startdate AND DATEADD(ms, -3, DATEADD(dd, DATEDIFF(dd, 0, @enddate) + 1, 0))
@@ -395,9 +395,8 @@ set @territory = '90614'
         ISNULL(o.user_def_fld4, '') AS HS_order_no,
         'C' AS source
 
-    FROM orders o (NOLOCK)
-        INNER JOIN #territory t
-            ON t.territory = o.ship_to_region
+    FROM #territory t
+        INNER JOIN orders o (nolock) ON t.territory = o.ship_to_region
         INNER JOIN #temp
             ON #temp.cust_code = o.cust_code
                AND #temp.ship_to = o.ship_to
@@ -503,10 +502,6 @@ set @territory = '90614'
 
     -- active accounts only
 
-
-    -- select * from #temp 
-
-    -- Final Select 
 
     SELECT #temp.cust_code,
 		   #temp.ship_to,
@@ -676,6 +671,7 @@ set @territory = '90614'
 
 
 END;
+
 
 
 

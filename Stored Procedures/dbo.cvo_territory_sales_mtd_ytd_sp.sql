@@ -7,11 +7,12 @@ CREATE PROCEDURE [dbo].[cvo_territory_sales_mtd_ytd_sp]
     @t VARCHAR(1024) = NULL -- territory
 AS
 BEGIN
-
+-- New 030719
     --  
-    -- cvo_territory_sales_mtd_ytd_sp '2018', '50503'
-    -- declare @compareyear varchar(1000)
-    -- set @compareyear = '2018'
+    -- cvo_territory_sales_mtd_ytd_sp '2019', '20201,40449'
+     --declare @compareyear varchar(1000), @t VARCHAR(1024)
+     --set @compareyear = '2019'
+     --SET @t = '40450'
 
     SET NOCOUNT ON;
 
@@ -156,50 +157,49 @@ BEGIN
 
     CREATE TABLE #tsr
     (
-        territory_code VARCHAR(8),
-        salesperson_code VARCHAR(40),
-        salesperson_name VARCHAR(40),
-        date_of_hire DATETIME,
-        x_month INT,
-        yYear INT,
-        mmonth VARCHAR(15),
-        agoal DECIMAL(20, 8),
-        anet DECIMAL(20, 8),
-        qnet INTEGER,
-        currentmonthsales DECIMAL(20, 8),
-        Sales_type VARCHAR(11),
-        region VARCHAR(3),
-        Q INT,
-        r_id INT,
-        t_id INT,
-        col VARCHAR(1),
-        ly_ytd DECIMAL(20, 8),
-        anet_ty DECIMAL(20, 8),
-        anet_ly DECIMAL(20, 8)
+    territory_code VARCHAR(8),
+    salesperson_code VARCHAR(40),
+    x_month INT,
+    yYear INT,
+    mmonth NVARCHAR(30),
+    anet FLOAT(8),
+    qnet FLOAT(8),
+    currentmonthsales FLOAT(8),
+    Sales_type VARCHAR(4),
+    region VARCHAR(3),
+    Q INT,
+    r_id INT,
+    t_id INT,
+    ly_ytd FLOAT(8),
+    agoal FLOAT(8),
+    salesperson_name VARCHAR(40),
+    date_of_hire DATETIME,
+    anet_ty FLOAT(8),
+    anet_ly FLOAT(8)
     );
 
     CREATE NONCLUSTERED INDEX idx_tsr ON #tsr (territory_code);
 
 
-    INSERT INTO #tsr
-    (
-        territory_code,
-        salesperson_name,
-        x_month,
-        yYear,
-        mmonth,
-        anet,
-        qnet,
-        currentmonthsales,
-        Sales_type,
-        region,
-        Q,
-        r_id,
-        t_id,
-        col,
-        ly_ytd
-    )
-    EXEC dbo.cvo_territory_sales_r2016_sp @CompareYear = @CompareYear,
+INSERT INTO #tsr
+(
+    territory_code,
+    salesperson_code,
+    x_month,
+    yYear,
+    mmonth,
+    anet,
+    qnet,
+    currentmonthsales,
+    Sales_type,
+    region,
+    Q,
+    r_id,
+    t_id,
+    ly_ytd
+)
+
+    EXEC dbo.cvo_territory_sales_r2019_sp @CompareYear = @CompareYear,
                                           @territory = @terr;
 
     UPDATE #tsr
@@ -207,35 +207,26 @@ BEGIN
         anet = 0,
         qnet = 0,
         currentmonthsales = 0
-    WHERE salesperson_name LIKE '%Goal%'
+    WHERE Sales_type LIKE '%Goal%'
           AND yYear = @CompareYear;
 
     UPDATE #tsr
-    SET #tsr.salesperson_name = #terr.salesperson_name
+    SET #tsr.salesperson_name = #terr.salesperson_name,
+    #tsr.salesperson_code = #terr.salesperson_code,
+    #tsr.date_of_hire = #terr.date_of_hire
     FROM #tsr
         INNER JOIN
         (
             SELECT DISTINCT
-                   #tsr.territory_code,
-                   #tsr.salesperson_name
-            FROM #tsr
-            WHERE #tsr.salesperson_name NOT LIKE '%Goal%'
+                   slp.territory_code,
+                   slp.salesperson_code,
+                   slp.salesperson_name,
+                   slp.date_of_hire
+            FROM arsalesp slp (NOLOCK)
+            WHERE slp.status_type = 1 -- active
         ) #terr
             ON #terr.territory_code = #tsr.territory_code;
 
-    UPDATE #tsr
-    SET #tsr.salesperson_code = slp.salesperson_code,
-        #tsr.date_of_hire = slp.date_of_hire
-    FROM dbo.arsalesp slp
-    WHERE slp.territory_code = #tsr.territory_code
-          AND slp.salesperson_name = #tsr.salesperson_name;
-
-    -- empty territories
-    UPDATE #tsr
-    SET #tsr.salesperson_name = slp.salesperson_name,
-        #tsr.date_of_hire = slp.date_of_hire
-    FROM dbo.arsalesp slp
-    WHERE slp.salesperson_code = #tsr.salesperson_name;
 
     UPDATE #tsr
     SET anet_ty = anet
@@ -270,7 +261,7 @@ BEGIN
            frame.mmonth,
            frame.region,
            SUM(anet) lynetsales
-    FROM cvo_sbm_details s
+    FROM cvo_sbm_details s (NOLOCK)
         JOIN armaster ar (NOLOCK)
             ON ar.customer_code = s.customer
                AND ar.ship_to_code = s.ship_to
@@ -353,8 +344,9 @@ BEGIN
            mgr.mgr_date_of_hire,
            st.tyuc,
            st.lyuc,
-           ISNULL(avg_mth.avg_net_sales, 0) avg_mth_net
-    FROM #tsr
+           ISNULL(avg_mth.avg_net_sales, 0) avg_mth_net,
+           sav.PresCouncil -- 3/7/2019 per rr request for pf
+      FROM #tsr
         LEFT OUTER JOIN
         (
             SELECT yrs.territory_code,
@@ -400,7 +392,7 @@ BEGIN
             ON #tsr.region = mgr.region
         LEFT OUTER JOIN
         (
-            SELECT Territory,
+            SELECT #st.Territory,
                    COUNT(DISTINCT CASE
                                       WHEN yy = 'TY' THEN
                                           cust_code + ship_to
@@ -416,9 +408,13 @@ BEGIN
                                   END
                         ) lyuc
             FROM #st
-            GROUP BY Territory
+            GROUP BY #st.Territory
         ) st
             ON st.Territory = #tsr.territory_code
+            LEFT OUTER JOIN 
+            (SELECT DISTINCT territory_code, sv.PresCouncil FROM dbo.cvo_sc_addr_vw AS sv) sav ON sav.territory_code = #tsr.territory_code 
+
+        
         CROSS JOIN
         (
             SELECT MAX(x_month) maxmth
@@ -428,8 +424,8 @@ BEGIN
         ) maxmth
     GROUP BY ISNULL(avg_mth.avg_net_sales, 0),
              #tsr.territory_code,
-             salesperson_code,
-             salesperson_name,
+             #tsr.salesperson_code,
+             #tsr.salesperson_name,
              date_of_hire,
              x_month,
              yYear,
@@ -438,13 +434,15 @@ BEGIN
              mgr.mgr_name,
              mgr.mgr_date_of_hire,
              st.tyuc,
-             st.lyuc;
+             st.lyuc,
+             sav.PresCouncil;
 
 -- set the goal to be LY total sales
 
 
 
 END;
+
 
 
 

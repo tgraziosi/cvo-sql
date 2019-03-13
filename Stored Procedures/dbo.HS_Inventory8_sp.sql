@@ -78,6 +78,7 @@ AS
         --    );
 
         SET @today = DATEADD(dd, DATEDIFF(dd, 0, GETDATE()), 0);
+        SET @today = '3/14/2019'
         SET @location = '001';
         SET @CH = '9/1/2015'; -- START OF CH SELL-DOWN PERIOD
         SET @ME = '01/31/2017';
@@ -2087,6 +2088,7 @@ IF GETDATE() >= '9/30/2018'
     AND '11/6/2018' > GETDATE()
 
     END;
+
 
 
 

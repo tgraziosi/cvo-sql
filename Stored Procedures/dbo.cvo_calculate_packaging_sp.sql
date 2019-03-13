@@ -103,11 +103,17 @@ BEGIN
 	END
 	ELSE
 	BEGIN	
-		DELETE	a
-		FROM	dbo.cvo_pre_packaging a
-		JOIN	dbo.cvo_masterpack_consolidation_det b (NOLOCK)
-		ON		a.order_no = b.order_no
-		AND		a.order_ext = b.order_ext
+		-- v1.5 Start
+		DELETE	dbo.cvo_pre_packaging
+		WHERE	order_no = @order_no
+		AND		order_ext = @order_ext	
+
+--		DELETE	a
+--		FROM	dbo.cvo_pre_packaging a
+--		JOIN	dbo.cvo_masterpack_consolidation_det b (NOLOCK)
+--		ON		a.order_no = b.order_no
+--		AND		a.order_ext = b.order_ext
+		-- v1.5 End
 	END	
 
 	-- Get the allocated quantities dealing with custom kits
@@ -309,6 +315,8 @@ BEGIN
 			BEGIN
 				IF (@kit_item = 'Y')
 				BEGIN
+					DELETE	dbo.cvo_pre_packaging WHERE order_no = @alloc_order_no AND order_ext = @alloc_order_ext AND line_no = @line_no AND box_id = @box_id
+				
 					INSERT	dbo.cvo_pre_packaging (order_no, order_ext, cons_no, line_no, part_no, ordered, pack_qty, box_type, box_id, carton_no, order_type, kit_item)						
 					SELECT	a.order_no, a.order_ext, @cons_no, a.line_no, a.part_no, a.qty, a.qty, @box_type, @box_id, 0, @order_type, CASE b.part_type WHEN 'C' THEN 'Y' ELSE 'N' END					
 					FROM	dbo.tdc_soft_alloc_tbl a (NOLOCK)
@@ -322,6 +330,8 @@ BEGIN
 				END
 				ELSE
 				BEGIN
+					DELETE	dbo.cvo_pre_packaging WHERE order_no = @alloc_order_no AND order_ext = @alloc_order_ext AND line_no = @line_no AND box_id = @box_id
+				
 					INSERT	dbo.cvo_pre_packaging (order_no, order_ext, cons_no, line_no, part_no, ordered, pack_qty, box_type, box_id, carton_no, order_type, kit_item)						
 					SELECT	@alloc_order_no, @alloc_order_ext, @cons_no, @line_no, @part_no, @ord_qty, @alloc_qty, @box_type, @box_id, 0, @order_type, 'N'					
 				END
@@ -344,6 +354,8 @@ BEGIN
 				SET @packed_qty = @packed_qty + @alloc_qty
 				SET @box_remainder = @box_remainder - @alloc_qty
 
+				DELETE	dbo.cvo_pre_packaging WHERE order_no = @alloc_order_no AND order_ext = @alloc_order_ext AND line_no = @line_no AND box_id = @box_id
+				
 				INSERT	dbo.cvo_pre_packaging (order_no, order_ext, cons_no, line_no, part_no, ordered, pack_qty, box_type, box_id, carton_no, order_type, kit_item)						
 				SELECT	@alloc_order_no, @alloc_order_ext, @cons_no, @line_no, @part_no, @ord_qty, @alloc_qty, @box_type, @box_id, 0, @order_type, 'N'					
 

@@ -25,8 +25,8 @@ SELECT DISTINCT
     country_code AS CC,
 	ar.contact_email,
     ar.price_code price_class, -- 042015 - LF request
-	Pri_desig.desig Primary_Designation,
-	replace (STUFF(( SELECT  '; ' + dc.description
+	ISNULL(Pri_desig.desig,'') Primary_Designation,
+	ISNULL(REPLACE (STUFF(( SELECT  '; ' + dc.description
                                     FROM    cvo_cust_designation_codes (NOLOCK) cd
 									JOIN dbo.cvo_designation_codes dc on dc.rebate = 'Y' AND dc.code = cd.code
 									WHERE   cd.customer_code = ar.customer_code
@@ -36,7 +36,7 @@ SELECT DISTINCT
                                     FOR
                                     XML PATH('')
                                     ), 1, 1, '')
-                                    ,'&amp;','&') Active_Rebateable_Designations,
+                                    ,'&amp;','&'), '') Active_Rebateable_Designations,
 	getdate() asofdate
 
 FROM dbo.armaster AS ar
@@ -54,6 +54,7 @@ LEFT OUTER JOIN
 WHERE (ar.address_type = 0) 
 -- ORDER BY ar.customer_code
 ;
+
 
 
 

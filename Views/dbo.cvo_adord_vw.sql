@@ -109,6 +109,8 @@ SELECT CONVERT(VARCHAR(10), orders.order_no) order_no,
        ISNULL(user_def_fld4, '') AS HS_order_no, -- 101613 - as per HK
        cvo.allocation_date allocation_date,
        orders.freight_allow_type, -- 11/28/2018 - jb request
+       ISNULL(orders.sold_to,'') global_lab, -- 2/27/2019 - per RR request
+       ISNULL(orders.sold_to_addr1,'') global_name,
 
        dbo.adm_get_pltdate_f(orders.invoice_date) x_date_invoice,
        dbo.adm_get_pltdate_f(orders.date_entered) x_date_entered,
@@ -253,6 +255,8 @@ SELECT CONVERT(VARCHAR(10), t1.order_no) order_no,
        ISNULL(t1.user_def_fld4, '') AS HS_order_no, -- 101613 - as per HK
        GETDATE() allocation_date,
        '' freight_allow_type, -- 11/28/2018 - jb request
+       '' sold_to,
+       '' sold_to_name,
 
        dbo.adm_get_pltdate_f(t1.invoice_date) x_date_invoice,
        dbo.adm_get_pltdate_f(t1.date_entered) x_date_entered,
@@ -282,6 +286,7 @@ FROM dbo.CVO_orders_all_Hist t1 (NOLOCK)
            AND t1.ship_to = ar.ship_to_code
 
 WHERE t1.type = 'I';
+
 
 
 GO

@@ -89,15 +89,13 @@ BEGIN
 
 	  UPDATE #userGroup SET AllTerr = allterr + ',I-Sales'
 	  WHERE allterr LIKE '%30306%'
-	  OR allterr LIKE '%30315%'
 	  OR allterr LIKE '%30324%'
       OR allterr LIKE '%30338%'
-      OR allterr LIKE '%40453%'
       OR allterr LIKE '%40435%'
-      OR allterr LIKE '%30336%'
-      OR allterr LIKE '%20250%'
-      OR allterr LIKE '%20215%'
         OR allterr LIKE '%50534%'
+        OR allterr LIKE '%20230%'
+        OR allterr LIKE '%30310%'
+        OR allterr LIKE '%50510%'
 
 
  --for Phil for VE - 032717
@@ -353,6 +351,7 @@ SELECT h.id ,
     WHERE NOT EXISTS (SELECT 1 FROM #hs h WHERE h.id = hct.id)
 
 END
+
 
 
 

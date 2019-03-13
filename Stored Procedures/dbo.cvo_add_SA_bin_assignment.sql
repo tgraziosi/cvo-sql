@@ -5,15 +5,16 @@ GO
 CREATE PROCEDURE [dbo].[cvo_add_SA_bin_assignment]
 (
     @part_no VARCHAR(40),
-    @location VARCHAR(10) = '001',
-    @bin_no VARCHAR(10) OUTPUT
+    @location VARCHAR(10) = '001'
+    
 )
 AS
 
 /*
 DECLARE @bin_no VARCHAR(10)
 
-EXECUTE cvo_add_sa_bin_assignment 'BCANOBLA5116', '001', @bin_no output
+EXECUTE cvo_add_sa_bin_assignment 'BCANOBLA5116', '001'
+
 SELECT @bin_no
 
 EXECUTE cvo_add_sa_bin_assignment 'BCCHFBER5314', '001', @bin_no output
@@ -30,12 +31,15 @@ select * From tdc_bin_part_qty where part_no in ('BCANOBLA5116','BCCHFBER5314')
 */
 
 BEGIN
+
+
     SET NOCOUNT ON;
 
     DECLARE
         --@part_no VARCHAR(40),
         --       @location VARCHAR(10),
         --        @bin_no VARCHAR(12),
+        @bin_no VARCHAR(10),
         @fill_qty_max INT,
         @seq_no INT;
 
@@ -77,6 +81,7 @@ BEGIN
           AND wpv.group_code = 'pickarea'
           AND wpv.usage_type_code = 'open'
           AND wpv.bin_no LIKE 'S____'
+          AND wpv.status = 'A'
     ORDER BY wpv.bin_no;
 
     IF @bin_no IS NULL
@@ -84,11 +89,12 @@ BEGIN
         SELECT TOP (1)
                @bin_no = bin_no
         FROM dbo.cvo_whse_planning_vw AS wpv
-        WHERE wpv.bin_no LIKE 'S____'
+        WHERE wpv.bin_no LIKE 'S____' -- 5 digits
               AND location = @location
               AND wpv.group_code = 'PICKAREA'
               AND wpv.usage_type_code = 'OPEN'
               AND Is_Assigned = 'Empty'
+              AND wpv.status = 'A'
         ORDER BY wpv.bin_no;
 
         -- 3)
@@ -136,10 +142,14 @@ BEGIN
     --GROUP BY part_no) maxs ON maxs.part_no = wpv.part_no
     --WHERE location = '001' AND wpv.group_code = 'pickarea' AND wpv.usage_type_code = 'open' AND bin_no LIKE 'S____'
     --AND qty <> 0 AND wpv.Is_Assigned = 'No'
-
+    
+    SELECT @bin_no bin_no
     RETURN;
 
 END;
+
+
+
 
 
 GO

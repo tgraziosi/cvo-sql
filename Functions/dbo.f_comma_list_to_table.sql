@@ -16,7 +16,7 @@ Revision History
 */
 
 CREATE FUNCTION [dbo].[f_comma_list_to_table] (@inputlist varchar(8000))
-RETURNS @ListTable TABLE (ListItem varchar(40))
+RETURNS @ListTable TABLE (ListItem varchar(80))  -- tag - change from 40 to 80
 AS
 BEGIN
 	DECLARE	@CharPos	int

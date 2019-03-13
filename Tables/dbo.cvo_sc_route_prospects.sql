@@ -22,6 +22,10 @@ CREATE TABLE [dbo].[cvo_sc_route_prospects]
 [last_visit] [datetime] NULL,
 [group_id] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [lat] [varchar] (14) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[lng] [varchar] (14) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[lng] [varchar] (14) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[new_group_id] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[init_group_id] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[new_group] [varchar] (8) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[distance] [float] NULL
 ) ON [PRIMARY]
 GO

@@ -102,14 +102,14 @@ AS
 
         -- parse out multiple emails
         SELECT DISTINCT mergecust ,
-               REPLACE(contact_email, ';', ',') contact_email ,
+               REPLACE(REPLACE(RTRIM(contact_email), ';', ','),' ',',') contact_email ,
                0 AS email_id
         INTO   #single_email
         FROM   #email
-        WHERE  CHARINDEX(',', REPLACE(contact_email, ';', ','), 1) > 0;
+        WHERE  CHARINDEX(',', REPLACE(REPLACE(RTRIM(contact_email), ';', ','),' ',','), 1) > 0;
 
         DELETE FROM #email
-        WHERE CHARINDEX(',', REPLACE(contact_email, ';', ','), 1) > 0;
+        WHERE CHARINDEX(',', REPLACE(REPLACE(RTRIM(contact_email), ';', ','),' ',','), 1) > 0;
 
         SELECT @lastcust = MIN(mergecust)
         FROM   #single_email AS se;
@@ -340,6 +340,7 @@ AS
     -- SELECT * FROM dbo.cvo_designation_codes AS ccdc
 
     END;
+
 
 
 

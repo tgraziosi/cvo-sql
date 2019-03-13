@@ -94,6 +94,34 @@ BEGIN
     )
     EXEC cvo_inv_aging_pom_sp @TODAY, '001', 'frame,sun';
 
+    INSERT INTO #REPORTLIST
+    (
+        Brand,
+        ResType,
+        Style,
+        Gender,
+        eos,
+        part_no,
+        description,
+        POM_date,
+        age,
+        tot_cost_ea,
+        tot_ext_cost,
+        in_stock,
+        qty_avl,
+        SOF,
+        Allocated,
+        Quarantine,
+        Non_alloc,
+        Replen_Qty_Not_SA,
+        ReplenQty,
+        material,
+        color_desc,
+        img_web,
+        VERSION_LABEL
+    )
+    SELECT *,'Summary Only' FROM #temptable AS t;
+
     -- 1) REVO
     INSERT INTO #REPORTLIST
     (
@@ -385,6 +413,7 @@ BEGIN
     ;
 
 END;
+
 
 
 GO

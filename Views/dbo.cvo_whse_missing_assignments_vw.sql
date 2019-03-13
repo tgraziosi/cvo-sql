@@ -18,6 +18,7 @@ SELECT i.category Collection,
        CASE WHEN PICK.bin_no IS NULL AND i.type_code IN ( 'frame', 'sun', 'pattern' ) THEN 'Missing' ELSE PICK.bin_no END Pick_Bin,
        CASE WHEN HB.bin_no IS NULL AND i.type_code IN ( 'frame' ) THEN 'Missing' ELSE HB.bin_no END Highbay_Bin,
        CASE WHEN RESERVE.bin_no IS NULL AND i.type_code IN ( 'frame', 'sun' ) THEN 'Missing' ELSE RESERVE.bin_no END Reserve_Bin,
+       CASE WHEN parts.bin_no IS NULL AND i.type_code IN ('parts') THEN 'Missing' ELSE parts.bin_no END Parts_Bin,
        il.location
 FROM dbo.inv_master i (NOLOCK)
     JOIN dbo.inv_master_add ia (NOLOCK)
@@ -80,23 +81,33 @@ FROM dbo.inv_master i (NOLOCK)
     ) RESERVE
         ON RESERVE.part_no = i.part_no
            AND RESERVE.location = il.location
+    LEFT OUTER JOIN
+    (
+    SELECT bp.part_no,
+           bp.location,
+           bp.bin_no
+    FROM dbo.tdc_bin_part_qty bp
+        JOIN dbo.tdc_bin_master b
+            ON b.bin_no = bp.bin_no
+               AND b.location = bp.location
+    WHERE b.bin_no LIKE 'f13%'
+    ) parts
+        ON parts.part_no = i.part_no
+           AND parts.location = il.location
 WHERE i.void = 'n'
-      AND i.type_code IN ( 'frame', 'sun', 'pattern' )
+      AND i.type_code IN ( 'frame', 'sun', 'pattern', 'parts' )
       AND ISNULL(ia.field_28, '12/31/2020') > GETDATE()
       AND
       (
-      (PICK.bin_no IS NULL)
+      (PICK.bin_no IS NULL AND i.type_code <> 'parts')
+      OR 
+      (parts.bin_no IS NULL AND i.type_code = 'parts')
       OR
-      (
-      HB.bin_no IS NULL
-      AND i.type_code = 'frame'
-      )
+      (HB.bin_no IS NULL AND i.type_code = 'frame')
       OR
-      (
-      RESERVE.bin_no IS NULL
-      AND i.type_code IN ( 'frame', 'sun' )
-      )
+      (RESERVE.bin_no IS NULL AND i.type_code IN ( 'frame', 'sun' ))
       );
+
 
 
 
