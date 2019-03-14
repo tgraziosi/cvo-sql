@@ -31,7 +31,8 @@ CREATE TABLE [dbo].[cvo_expo_appointments]
 [isNotified] [tinyint] NULL CONSTRAINT [DF__cvo_expo___isNot__1D61BB1D] DEFAULT ((0)),
 [cancel_date] [datetime] NULL,
 [action_user] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[calendar_id] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+[calendar_id] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[subject] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[cvo_expo_appointments] ADD CONSTRAINT [PK__cvo_expo_appoint__5D3B7DB9] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]

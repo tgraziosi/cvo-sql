@@ -119,7 +119,7 @@ BEGIN
            t.material,
            t.color_desc,
            t.img_web,
-           '99Kids'
+           '60Kids'
     FROM #REPORTLIST AS t
     WHERE gender IN ('girls','boys','unisex kids','kids');
 
@@ -171,7 +171,7 @@ BEGIN
            t.material,
            t.color_desc,
            t.img_web,
-           '99Suns'
+           '98Suns'
     FROM #REPORTLIST AS t
     WHERE t.ResType = 'suns'
     
@@ -276,11 +276,15 @@ BEGIN
            t.material,
            t.color_desc,
            t.img_web,
-           '99'+CASE
+           CASE
                WHEN hi.longdesc LIKE '%SPV%' THEN
-                   'SV'
+                   '80SV'
+               WHEN hi.[category:1] = 'qop' THEN
+                    '85QOP'
+               WHEN hi.[category:1] = 'EOR' THEN
+                    '89EOR'
                ELSE
-                   hi.[category:1]
+                   '90'+hi.[category:1]
            END
     FROM #REPORTLIST AS t
         JOIN dbo.cvo_hs_inventory_8 AS hi
@@ -337,6 +341,7 @@ BEGIN
 
 
 END;
+
 
 
 

@@ -25,6 +25,7 @@ GO
 -- v3.0 CB 19/06/2014 - Performance
 -- v3.1 CB 12/01/2016 - #1586 - When orders are allocated or a picking list printed then update backorder processing
 -- v3.2 CB 04/12/2018 - #1687 Box Type Update
+-- v3.3 CB 07/01/2018 - CS0001311579 - Over weight overs not being updated
 CREATE PROCEDURE [dbo].[tdc_order_after_save]	@order_no  int,  
 											@ext		int  
 AS  
@@ -686,12 +687,13 @@ BEGIN
 	BEGIN
 
 		-- START v2.6
-		IF NOT EXISTS (SELECT 1 FROM dbo.orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @ext AND LEFT(user_category,2) IN ('ST','DO'))
+-- v3.3		IF NOT EXISTS (SELECT 1 FROM dbo.orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @ext AND LEFT(user_category,2) IN ('ST','DO'))
 		BEGIN
 			--BEGIN SED009 -- Freight Processing
 			--JVM 09/13/2010
 			--freight recalculation according alloc qty
-			EXEC [dbo].[CVO_GetFreight_recalculate_sp] @order_no, @ext, 1
+-- v3.3			EXEC [dbo].[CVO_GetFreight_recalculate_sp] @order_no, @ext, 1
+			EXEC [dbo].[CVO_GetFreight_recalculate_wrap_sp] @order_no, @ext -- v3.3 , 1
 			--END   SED009 -- Freight Processing
 
 			EXEC fs_updordtots @order_no, @ext
