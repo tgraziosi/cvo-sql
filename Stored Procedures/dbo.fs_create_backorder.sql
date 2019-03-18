@@ -72,6 +72,7 @@ SET NOCOUNT ON
 -- v12.3 CB 06/03/2017 - For backorders clean out the freight_allow_type ifthe carrier is not 3rd party
 -- v12.4 CB 19/09/2017 - Check for customers set for no freight charge
 -- v12.5 CB 13/11/2018 - Add upsell_flag for detail
+-- v12.6 CB 29/11/2018 - #1502 Multi Salesrep
   
 exec @err = fs_updordtots @ordno, @ordext  
  if @@error != 0  
@@ -274,19 +275,34 @@ INSERT orders_all ( order_no, ext,  cust_code, ship_to,
   return @@error  
  end  
  /*END: 03/31/2010, AMENDEZ, 68668-001-MOD Promotions modification*/  
+
+-- v12.6 Start
+	INSERT	ord_rep (order_no, order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+		primary_rep, include_rx, brand, brand_split, brand_excl, commission)
+	SELECT	order_no, @ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+		primary_rep, include_rx, brand, brand_split, brand_excl, commission	
+	FROM	ord_rep (NOLOCK)
+	WHERE	order_no = @ordno
+	AND		order_ext = @ordext
+
+	IF (@@ERROR <> 0)  
+	BEGIN  
+		RETURN @@error   
+	END  
    
-INSERT ord_rep (order_no, order_ext, salesperson,   
-  sales_comm, note,  percent_flag,  
-  exclusive_flag, split_flag, display_line )  
- SELECT  order_no, @ext,  salesperson,   
-  sales_comm, note,  percent_flag,  
-  exclusive_flag, split_flag, display_line   
- FROM ord_rep  
- WHERE order_no=@ordno and order_ext=@ordext   
- if @@error != 0  
-  begin  
-  return @@error  
-  end  
+--INSERT ord_rep (order_no, order_ext, salesperson,   
+--  sales_comm, note,  percent_flag,  
+--  exclusive_flag, split_flag, display_line )  
+-- SELECT  order_no, @ext,  salesperson,   
+--  sales_comm, note,  percent_flag,  
+--  exclusive_flag, split_flag, display_line   
+-- FROM ord_rep  
+-- WHERE order_no=@ordno and order_ext=@ordext   
+-- if @@error != 0  
+--  begin  
+--  return @@error  
+--  end  
+-- v12.6 End
   
 --#9 Start  
 IF EXISTS (SELECT 1 FROM icv_cctype WHERE payment_code = (SELECT payment_code FROM ord_payment WHERE order_no=@ordno and order_ext=@ordext))  
@@ -613,6 +629,5 @@ END
   
 return 1
 GO
-
 GRANT EXECUTE ON  [dbo].[fs_create_backorder] TO [public]
 GO

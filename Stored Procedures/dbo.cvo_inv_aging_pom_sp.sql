@@ -63,15 +63,15 @@ SELECT cia.Brand,
                  WHEN cia.POM_date > @asofdate THEN
                      'Future'
                  WHEN cia.POM_date >= DATEADD(yy, -1, @asofdate) THEN
-                     '<1'
+                     '0-12'
                  WHEN cia.POM_date >= DATEADD(yy, -2, @asofdate)
                       AND cia.POM_date < DATEADD(yy, -1, @asofdate) THEN
-                     '<2'
+                     '13-24'
                  WHEN cia.POM_date >= DATEADD(yy, -3, @asofdate)
                       AND cia.POM_date < DATEADD(yy, -2, @asofdate) THEN
-                     '<3'
+                     '25-36'
                  WHEN cia.POM_date < DATEADD(yy, -3, @asofdate) THEN
-                     '>3'
+                     '37+'
                  ELSE
                      'Unknown'
              END,
@@ -110,6 +110,7 @@ WHERE cia.POM_date IS NOT NULL
           OR cia.tot_ext_cost <> 0
       );
 END
+
 
 
 

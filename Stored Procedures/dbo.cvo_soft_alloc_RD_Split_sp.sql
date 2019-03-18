@@ -735,6 +735,16 @@ BEGIN
 			WHERE	order_no = @order_no
 			AND		ext = @order_ext
 
+			-- v2.1 Start
+			INSERT	ord_rep (order_no, order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+				primary_rep, include_rx, brand, brand_split, brand_excl, commission)
+			SELECT	order_no, @split_number, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+				primary_rep, include_rx, brand, brand_split, brand_excl, commission	
+			FROM	ord_rep (NOLOCK)
+			WHERE	order_no = @order_no
+			AND		order_ext = @order_ext
+			-- v2.1 End
+	
 			-- Soft Allocation hdr
 			UPDATE	dbo.cvo_soft_alloc_next_no
 			SET		next_no = next_no + 1
@@ -1209,6 +1219,5 @@ BEGIN
 
 END
 GO
-
 GRANT EXECUTE ON  [dbo].[cvo_soft_alloc_RD_Split_sp] TO [public]
 GO

@@ -51,6 +51,8 @@ BEGIN
 	SET	@ret = 0
 	SET @message = ''
 	SET @has_update = 0
+
+    IF @free_shipping IS NULL SET @free_shipping = 'N'
 			
 	-- Validation
 	-- Get the original values from the order

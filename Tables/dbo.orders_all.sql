@@ -138,6 +138,54 @@ CREATE TABLE [dbo].[orders_all]
 [addr_valid_ind] [int] NULL
 ) ON [PRIMARY]
 GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_NULLS ON
+GO
+
+CREATE TRIGGER [dbo].[cvo_orders_all_commission_trg] ON
+[dbo].[orders_all] FOR UPDATE
+AS
+BEGIN
+	-- DIRECTIVES
+	SET NOCOUNT ON
+
+	-- WORKING TABLE
+	CREATE TABLE #comms (
+		order_no		int,
+		ext				int,
+		type			char(1),
+		cust_code		varchar(10),
+		ship_to			varchar(10),
+		ship_to_region	varchar(10),
+		salesperson		varchar(10),
+		has_override	int,
+		order_date		datetime)
+
+	-- PROCESSING
+	INSERT #comms (order_no, ext, type, cust_code, ship_to, ship_to_region, salesperson, has_override, order_date)
+	SELECT	a.order_no, a.ext, a.type, a.cust_code, a.ship_to, a.ship_to_region, a.salesperson, 0, a.date_shipped
+	FROM	inserted a
+	JOIN	deleted b
+	ON		a.order_no = b.order_no
+	AND		a.ext = b.ext
+	WHERE	a.status = 'T'
+	AND		b.status <> 'T'	
+
+	INSERT dbo.cvo_c_orders (order_no, order_ext, order_type, row_type, territory_row_id, territory_level, parent_territory, parent_name, parent_row_id, territory, 
+		territory_name, brand, territory_split, sales_rep_row_id, sales_rep, sales_rep_name, sales_rep_split, valid_split, order_date)
+	SELECT	a.order_no, a.ext, a.type, 'E', -1, 0, '', '', -1, a.ship_to_region, b.territory_desc, '', 100, 0, a.salesperson, c.salesperson_name, 100, 1, a.order_date 
+	FROM	#comms a 
+	JOIN	arterr b (NOLOCK)
+	ON		a.ship_to_region = b.territory_code
+	JOIN	arsalesp c (NOLOCK)
+	ON		a.salesperson = c.salesperson_code	
+
+
+END
+GO
+DISABLE TRIGGER [dbo].[cvo_orders_all_commission_trg] ON [dbo].[orders_all]
+GO
 SET QUOTED_IDENTIFIER OFF
 GO
 SET ANSI_NULLS OFF
@@ -2670,9 +2718,9 @@ BEGIN
 END
 END
 GO
-ALTER TABLE [dbo].[orders_all] ADD CONSTRAINT [orders_multiple_flag_cc1] CHECK (([multiple_flag]='N' OR [multiple_flag]='Y'))
-GO
 ALTER TABLE [dbo].[orders_all] ADD CONSTRAINT [CK_orders_so_priority_code] CHECK (([so_priority_code]='' OR [so_priority_code]='8' OR [so_priority_code]='7' OR [so_priority_code]='6' OR [so_priority_code]='5' OR [so_priority_code]='4' OR [so_priority_code]='3' OR [so_priority_code]='2' OR [so_priority_code]='1'))
+GO
+ALTER TABLE [dbo].[orders_all] ADD CONSTRAINT [orders_multiple_flag_cc1] CHECK (([multiple_flag]='N' OR [multiple_flag]='Y'))
 GO
 CREATE NONCLUSTERED INDEX [ord2] ON [dbo].[orders_all] ([cust_code], [order_no], [ext]) ON [PRIMARY]
 GO

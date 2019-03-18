@@ -224,6 +224,39 @@ BEGIN
 END
 
 GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_NULLS ON
+GO
+
+CREATE TRIGGER [dbo].[armaster_all_ins_upd_sp_tr]
+ON [dbo].[armaster_all] FOR INSERT, UPDATE
+AS
+BEGIN
+
+	-- Deal with Insert
+	INSERT dbo.cvo_cust_salesperson (customer_code,	salesperson_code, primary_rep, include_rx, split, brand, 
+	brand_split, brand_excl)
+	SELECT	a.customer_code, a.salesperson_code, 'Y','Y',100,'',0,'N'
+	FROM	inserted a
+	LEFT JOIN deleted b
+	ON		a.customer_code = b.customer_code
+	WHERE	b.customer_code IS NULL
+	AND		a.address_type = 0
+
+	-- Deal with Updates
+	UPDATE	a
+	SET		salesperson_code = b.salesperson_code
+	FROM	dbo.cvo_cust_salesperson a
+	JOIN	inserted b
+	ON		a.customer_code = b.customer_code
+	JOIN	deleted c
+	ON		a.customer_code = c.customer_code
+	WHERE	b.address_type = 0
+	AND		a.primary_rep = 'Y'
+
+END
+GO
 SET QUOTED_IDENTIFIER OFF
 GO
 SET ANSI_NULLS ON
@@ -389,6 +422,78 @@ BEGIN
  END
 
 END
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_NULLS ON
+GO
+
+CREATE TRIGGER [dbo].[cvo_armaster_all_commission_trg] ON
+[dbo].[armaster_all] FOR INSERT
+AS
+BEGIN
+	-- DIRECTIVES
+	SET NOCOUNT ON
+
+	-- WORKING TABLE
+	CREATE TABLE #comms (
+		customer_code	varchar(10),
+		customer_name	varchar(60))
+
+	-- PROCESSING
+	INSERT #comms (customer_code, customer_name)
+	SELECT	a.customer_code, a.address_name
+	FROM	inserted a
+	LEFT JOIN deleted b
+	ON		a.customer_code = b.customer_code
+	WHERE	b.customer_code IS NULL
+	AND		a.address_type = 0
+
+	INSERT dbo.cvo_c_customers (customer, customer_name, valid)
+	SELECT	customer_code, customer_name, 1 
+	FROM	#comms 
+
+
+END
+GO
+DISABLE TRIGGER [dbo].[cvo_armaster_all_commission_trg] ON [dbo].[armaster_all]
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_NULLS ON
+GO
+
+CREATE TRIGGER [dbo].[cvo_armaster_all_ship_commission_trg] ON
+[dbo].[armaster_all] FOR INSERT
+AS
+BEGIN
+	-- DIRECTIVES
+	SET NOCOUNT ON
+
+	-- WORKING TABLE
+	CREATE TABLE #comms (
+		customer_code	varchar(10),
+		ship_to_code	varchar(10),
+		ship_to_name	varchar(60))
+
+	-- PROCESSING
+	INSERT #comms (customer_code, ship_to_code, ship_to_name)
+	SELECT	a.customer_code, a.ship_to_code, a.address_name
+	FROM	inserted a
+	LEFT JOIN deleted b
+	ON		a.customer_code = b.customer_code
+	AND		a.ship_to_code = b.ship_to_code
+	WHERE	b.ship_to_code IS NULL
+	AND		a.address_type = 1
+
+	INSERT dbo.cvo_c_customers_shipto (customer, ship_to, ship_to_name, valid)
+	SELECT	customer_code, ship_to_code, ship_to_name, 1
+	FROM	#comms 
+
+
+END
+GO
+DISABLE TRIGGER [dbo].[cvo_armaster_all_ship_commission_trg] ON [dbo].[armaster_all]
 GO
 SET QUOTED_IDENTIFIER ON
 GO

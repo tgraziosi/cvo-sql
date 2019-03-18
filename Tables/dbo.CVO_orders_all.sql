@@ -46,7 +46,8 @@ CREATE TABLE [dbo].[CVO_orders_all]
 [GSH_released] [smallint] NULL CONSTRAINT [DF__CVO_order__GSH_r__11C5B975] DEFAULT ((0)),
 [upsell_flag] [int] NULL,
 [must_go_today] [int] NULL CONSTRAINT [DF__CVO_order__must___18C657DB] DEFAULT ((0)),
-[free_ship_override] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [df_free_ship_override] DEFAULT ('N')
+[free_ship_override] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [df_free_ship_override] DEFAULT ('N'),
+[written_by] [varchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
 ) ON [PRIMARY]
 GO
 SET QUOTED_IDENTIFIER ON

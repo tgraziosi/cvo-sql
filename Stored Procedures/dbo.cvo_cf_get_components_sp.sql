@@ -1122,17 +1122,17 @@ BEGIN
 		IF (@prev_colour <> '' AND @prev_colour <> @colour AND @component_type = @last_component)
 		BEGIN
 			INSERT	dbo.cvo_cf_process_select (user_spid, location, order_part_type, order_part_no, line_no, orig_row, component_type, orig_component, repl_component, comp_desc, required_qty, 
-						available_qty, attribute, category, style, show_all_styles, all_type, colour, size_code, order_by, selected)
-			SELECT	@user_spid, '', '', 'BLANK_LINE', 0, 0, @component_type, '', '', '', 0, 0, '', '', '', 0, 0, '', '', @order_by, 0
+						available_qty, attribute, category, style, show_all_styles, all_type, colour, size_code, order_by, selected, selected_qty) -- v2.3
+			SELECT	@user_spid, '', '', 'BLANK_LINE', 0, 0, @component_type, '', '', '', 0, 0, '', '', '', 0, 0, '', '', @order_by, 0, 0 -- v2.3
 
 			SET @order_by = @order_by + 1
 
 		END
 
 		INSERT	dbo.cvo_cf_process_select (user_spid, location, order_part_type, order_part_no, line_no, orig_row, component_type, orig_component, repl_component, comp_desc, required_qty, 
-					available_qty, attribute, category, style, show_all_styles, all_type, colour, size_code, order_by, selected)
+					available_qty, attribute, category, style, show_all_styles, all_type, colour, size_code, order_by, selected, selected_qty) -- v2.3
 		SELECT	user_spid, location, order_part_type, order_part_no, line_no, orig_row, component_type, orig_component, repl_component, comp_desc, required_qty, 
-					available_qty, attribute, category, style, show_all_styles, all_type, colour, size_code, @order_by, selected
+					available_qty, attribute, category, style, show_all_styles, all_type, colour, size_code, @order_by, selected, 0 -- v2.3
 		FROM	#cvo_cf_process_select_order
 		WHERE	row_id = @row_id
 
@@ -1161,7 +1161,8 @@ BEGIN
 		WHERE	soft_alloc_no = @soft_alloc_no
 
 		UPDATE	a
-		SET		selected = 1
+		SET		selected = 1,
+				selected_qty = b.ordered -- v2.3
 		FROM	cvo_cf_process_select a
 		JOIN	ord_list_kit b (NOLOCK)
 		ON		a.repl_component = b.part_no

@@ -96,6 +96,7 @@ BEGIN
         OR allterr LIKE '%20230%'
         OR allterr LIKE '%30310%'
         OR allterr LIKE '%50510%'
+        OR allterr LIKE '%70770%'
 
 
  --for Phil for VE - 032717
@@ -378,7 +379,7 @@ END
 
 
 
-GO
 
+GO
 GRANT EXECUTE ON  [dbo].[HS_Cust_tbl_sp] TO [public]
 GO

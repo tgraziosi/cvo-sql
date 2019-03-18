@@ -18,7 +18,8 @@ BEGIN
 			@salesperson	varchar(10),
 			@territory		varchar(10),
 			@commission		decimal(20,8),
-			@today			int
+			@today			int,
+			@old_salesperson varchar(10) -- v1.2
 
 	-- Working Tables
 	CREATE TABLE #cvo_ship_process (
@@ -89,12 +90,27 @@ select * from #cvo_ship_process
 	WHILE (@@ROWCOUNT <> 0)
 	BEGIN
 
+		-- v1.2 Start
+		SELECT	@old_salesperson = salesperson
+		FROM	orders_all (NOLOCK)
+		WHERE	order_no = @order_no
+		AND		ext = @order_ext
+		-- v1.2 End
+
 		-- Update the orders
 		UPDATE	orders_all
 		SET		salesperson = @salesperson,
 				ship_to_region = @territory
 		WHERE	order_no = @order_no
 		AND		ext = @order_ext
+
+		-- v1.2 Start
+		UPDATE	ord_rep
+		SET		salesperson = @salesperson
+		WHERE	order_no = @order_no
+		AND		order_ext = @order_ext
+		AND		salesperson = @old_salesperson
+		-- v1.2 End
 
 		-- Update the commission
 		SELECT	@commission = dbo.f_get_order_commission(@order_no,@order_ext)

@@ -491,6 +491,16 @@ BEGIN
 			WHERE	order_no = @order_no
 			AND		ext = @order_ext
 
+			-- v3.5 Start
+			INSERT	ord_rep (order_no, order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+				primary_rep, include_rx, brand, brand_split, brand_excl, commission)
+			SELECT	order_no, @new_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+				primary_rep, include_rx, brand, brand_split, brand_excl, commission	
+			FROM	ord_rep (NOLOCK)
+			WHERE	order_no = @order_no
+			AND		order_ext = @order_ext
+			-- v3.5 End
+
 			-- v10.5 Start
 			INSERT INTO tdc_log ( tran_date , userid , trans_source , module , trans , tran_no , tran_ext , part_no , lot_ser , bin_no , location , quantity , data ) 
 			SELECT	GETDATE() , a.who_entered , 'BO' , 'ADM' , 'ORDER CREATION' , a.order_no , a.ext , '' , '' , '' , a.location , '' ,
@@ -1051,6 +1061,5 @@ BEGIN
 	DROP TABLE #part_splits
 END
 GO
-
 GRANT EXECUTE ON  [dbo].[cvo_soft_alloc_CF_Split_sp] TO [public]
 GO

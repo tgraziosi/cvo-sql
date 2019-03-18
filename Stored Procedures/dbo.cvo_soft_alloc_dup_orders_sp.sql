@@ -92,6 +92,21 @@ BEGIN
 		RETURN -1
 	END
 
+	-- v2.1 Start
+	INSERT	ord_rep (order_no, order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+		primary_rep, include_rx, brand, brand_split, brand_excl, commission)
+	SELECT	@new_order_no, 0, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+		primary_rep, include_rx, brand, brand_split, brand_excl, commission	
+	FROM	ord_rep (NOLOCK)
+	WHERE	order_no = @order_no
+	AND		order_ext = @order_ext
+
+	IF (@@ERROR <> 0)  
+	BEGIN  
+		RETURN -1  
+	END  
+	-- v2.1 End
+
 		-- ord_list
 	INSERT	ord_list (order_no,order_ext,line_no,location,part_no,description,time_entered,ordered,shipped,price,price_type,note,status,cost,who_entered,sales_comm,
 								temp_price,temp_type,cr_ordered,cr_shipped,discount,uom,conv_factor,void,void_who,void_date,std_cost,cubic_feet,printed,lb_tracking,labor,direct_dolrs,
@@ -360,6 +375,5 @@ BEGIN
 
 END
 GO
-
 GRANT EXECUTE ON  [dbo].[cvo_soft_alloc_dup_orders_sp] TO [public]
 GO

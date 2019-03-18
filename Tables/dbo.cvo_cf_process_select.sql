@@ -20,16 +20,17 @@ CREATE TABLE [dbo].[cvo_cf_process_select]
 [colour] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [size_code] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
 [order_by] [int] NULL,
-[selected] [int] NULL
+[selected] [int] NULL,
+[selected_qty] [decimal] (20, 8) NULL
 ) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [cvo_cf_process_select_ind0] ON [dbo].[cvo_cf_process_select] ([user_spid]) ON [PRIMARY]
 GO
-GRANT SELECT ON  [dbo].[cvo_cf_process_select] TO [public]
+GRANT DELETE ON  [dbo].[cvo_cf_process_select] TO [public]
 GO
 GRANT INSERT ON  [dbo].[cvo_cf_process_select] TO [public]
 GO
-GRANT DELETE ON  [dbo].[cvo_cf_process_select] TO [public]
+GRANT SELECT ON  [dbo].[cvo_cf_process_select] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[cvo_cf_process_select] TO [public]
 GO

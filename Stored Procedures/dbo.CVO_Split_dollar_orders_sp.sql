@@ -790,6 +790,8 @@ BEGIN
 	SELECT * INTO #orders_all FROM orders_all WHERE 1 = 2
 	-- cvo_orders_all
 	SELECT * INTO #cvo_orders_all FROM cvo_orders_all WHERE 1 = 2
+	-- ord_rep
+	SELECT * INTO #ord_rep FROM ord_rep WHERE 1 = 2 -- v12.6
 	-- ord_list
 	CREATE TABLE #ord_list(
 		timestamp timestamp NOT NULL,
@@ -1006,6 +1008,16 @@ BEGIN
 		FROM	cvo_orders_all (NOLOCK)
 		WHERE	order_no = @order_no
 		AND		ext = @order_ext
+
+		-- v12.6 Start
+		INSERT	#ord_rep (order_no, order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+			primary_rep, include_rx, brand, brand_split, brand_excl, commission)
+		SELECT	@order_no, @new_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+			primary_rep, include_rx, brand, brand_split, brand_excl, commission	
+		FROM	ord_rep (NOLOCK)
+		WHERE	order_no = @order_no
+		AND		order_ext = @order_ext
+		-- v12.6 End
 
 		-- ord_list for frames and suns
 		INSERT	#ord_list (order_no,order_ext,line_no,location,part_no,description,time_entered,ordered,shipped,price,price_type,note,status,cost,who_entered,sales_comm,
@@ -1250,6 +1262,19 @@ BEGIN
 		BEGIN
 			RETURN
 		END
+
+		-- v12.6 Start
+		INSERT	ord_rep (order_no, order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+			primary_rep, include_rx, brand, brand_split, brand_excl, commission)
+		SELECT	order_no, order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+			primary_rep, include_rx, brand, brand_split, brand_excl, commission	
+		FROM	#ord_rep (NOLOCK)
+
+		IF (@@ERROR <> 0)  
+		BEGIN  
+			RETURN  
+		END  
+		-- v12.6 End
 
 		-- ord_list for frames and suns
 		INSERT	ord_list (order_no,order_ext,line_no,location,part_no,description,time_entered,ordered,shipped,price,price_type,note,status,cost,who_entered,sales_comm,
@@ -1580,9 +1605,9 @@ BEGIN
 	DROP TABLE #cvo_ord_list_kit
 	DROP TABLE #case_adjust -- v11.2
 	DROP TABLE #cvo_so_holds -- v12.5
+	DROP TABLE #ord_rep -- v12.6
 
 END
 GO
-
 GRANT EXECUTE ON  [dbo].[CVO_Split_dollar_orders_sp] TO [public]
 GO

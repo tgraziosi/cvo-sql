@@ -11,6 +11,7 @@ GO
 -- v1.6 CB 29/09/2015 - #1570 - Add promo to release user hold
 -- v1.7 CB 23/05/2016 - Fixed hold reason desc not showing
 -- v1.8 CB 29/12/2016 - #1618 - Allow release of underlying promo holds
+-- v1.9 CB 19/11/2018 - #1502 Multi SalesRep
 
 -- EXEC fs_csv_hold '035192','C','%'
 -- EXEC fs_csv_hold '038318','C','**CHILD**'
@@ -235,6 +236,17 @@ WHERE	reason = 'STC'
 IF (@stat = 'A')
 BEGIN
 	DROP TABLE #hold_user
+
+		-- v1.9 Start
+		DECLARE @comm_hold	varchar(30)
+
+		SELECT	@comm_hold = value_str
+		FROM	config (NOLOCK)
+		WHERE	flag = 'ORDER COMM HOLD'
+
+		DELETE	#thold
+		WHERE	reason = @comm_hold
+		-- v1.9 End
 END
 -- v1.5 End
 

@@ -22,3 +22,5 @@ CREATE TABLE [dbo].[cvo_bcode_log]
 GO
 ALTER TABLE [dbo].[cvo_bcode_log] ADD CONSTRAINT [PK__cvo_bcode_log__58CE305C] PRIMARY KEY CLUSTERED  ([id]) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [cvo_bcode_log_idx1] ON [dbo].[cvo_bcode_log] ([isVoided]) INCLUDE ([bcode_date], [bcode_user]) ON [PRIMARY]
+GO

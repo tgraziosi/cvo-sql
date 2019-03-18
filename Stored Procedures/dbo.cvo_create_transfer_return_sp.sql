@@ -6,6 +6,7 @@ GO
 -- v1.0 CT 12/07/2012 - Create a transfer return
 -- v1.1 CT 24/06/2013 - Issue #1034 - Add to inventory functionality
 -- v1.2 CT 24/06/2013 - Fix bug with from/to location on xfer lines
+-- v1.3 CB 11/03/2019 - #1692 Transfer Return Update
 
 
 CREATE PROC [dbo].[cvo_create_transfer_return_sp] (@from_loc VARCHAR(10), @to_loc VARCHAR(10), @spid INT, @who_entered VARCHAR(20))
@@ -40,7 +41,9 @@ BEGIN
 			@freight_type		VARCHAR(10),
 			@date				DATETIME,
 			@add_to_inv			SMALLINT, -- v1.1
-			@bin_no				VARCHAR(12) -- v1.1
+			@bin_no				VARCHAR(12), -- v1.1
+			@qty_in_bin			decimal(20,8), -- v1.3
+			@exp_date			varchar(12) -- v1.3
 
 
 	-- If nothing in table return 0
@@ -49,6 +52,15 @@ BEGIN
 		SELECT 0
 		RETURN 0
 	END	
+
+	-- v1.3 Start
+	-- If only adjust out exists then skip the creation of the transfer
+	IF NOT EXISTS ( SELECT 1 FROM dbo.CVO_transfer_return (NOLOCK) WHERE spid = @spid AND process = 1 AND adjust_out = 0)
+	BEGIN
+		GOTO AdjustOut
+	END
+	-- v1.3 End
+
 
 	SET @date = GETDATE()
 
@@ -188,6 +200,7 @@ BEGIN
 			WHERE
 				rec_id > @rec_id
 				AND process = 1
+				AND	adjust_out = 0 -- v1.3
 				AND spid = @spid
 			ORDER BY
 				rec_id
@@ -264,8 +277,122 @@ BEGIN
 		-- Commit tran
 		COMMIT TRAN
 
+		-- v1.3 Start
+		IF NOT EXISTS ( SELECT 1 FROM dbo.CVO_transfer_return (NOLOCK) WHERE spid = @spid AND process = 1 AND adjust_out = 1)
+		BEGIN
+			GOTO Finish
+		END
+
+AdjustOut:	
+
+		IF OBJECT_ID('tempdb..#temp_who') IS NOT NULL 
+		BEGIN   
+			DROP TABLE #temp_who  
+		END
+
+		CREATE TABLE #temp_who (
+			who			varchar(50) not NULL, 
+			login_id	varchar(50) not NULL)
+
+		INSERT	#temp_who (who, login_id) 
+		VALUES	(@who_entered, @who_entered)
+
+		IF OBJECT_ID('tempdb..#adm_inv_adj') IS NOT NULL 
+		BEGIN   
+			DROP TABLE #adm_inv_adj  
+		END
+
+		CREATE TABLE #adm_inv_adj (
+			adj_no			int null,
+			loc				varchar(10) not null,
+			part_no			varchar(30) not null,
+			bin_no			varchar(12) null,
+			lot_ser			varchar(25) null,
+			date_exp		datetime null,
+			qty				decimal(20,8) not null,
+			direction		int not null,
+			who_entered		varchar(50) not null,
+			reason_code		varchar(10) null,
+			code 			varchar(8) not null,
+			cost_flag		char(1) null,
+			avg_cost		decimal(20,8) null,
+			direct_dolrs	decimal(20,8) null,
+			ovhd_dolrs		decimal(20,8) null,
+			util_dolrs		decimal(20,8) null,
+			err_msg			varchar(255) null,
+			row_id			int identity not null)
+
+		SELECT	TOP 1 @bin_no = bin_no 
+		FROM	dbo.tdc_bin_master (NOLOCK)
+		WHERE	location = @from_loc 
+		AND		usage_type_code in ('OPEN','REPLENISH') 
+		AND		[status] = 'A'
+
+		SET @rec_id = 0
+		WHILE 1=1
+		BEGIN
+
+			SELECT TOP 1 @rec_id = rec_id,
+					@part_no = part_no,
+					@ordered = qty
+			FROM	dbo.CVO_transfer_return (NOLOCK)
+			WHERE	rec_id > @rec_id
+			AND		process = 1
+			AND		adjust_out = 1
+			AND		spid = @spid
+			ORDER BY rec_id
+
+			IF @@ROWCOUNT = 0
+				BREAK	
+
+			SELECT	@qty_in_bin = qty
+			FROM	lot_bin_stock (NOLOCK)
+			WHERE	location = @from_loc
+			AND		bin_no = @bin_no
+			AND		part_no = @part_no
+
+			IF (@qty_in_bin >= @ordered)
+			BEGIN
+				TRUNCATE TABLE #adm_inv_adj
+
+				SELECT	@exp_date = CONVERT(varchar(12), date_expires, 101)
+				FROM	lot_bin_stock (NOLOCK)
+				WHERE	location = @from_loc 
+				AND		part_no = @part_no 
+				AND		bin_no = @bin_no 
+				AND		lot_ser = '1'
+
+				INSERT	#adm_inv_adj (loc, part_no, bin_no, lot_ser, date_exp, qty, direction, who_entered, reason_code, code) 
+				SELECT	@from_loc, @part_no, @bin_no, '1', @exp_date, @ordered, -1, @who_entered, '', 'ADHOC'
+
+				BEGIN TRAN
+
+				EXEC tdc_adm_inv_adj 
+				
+				IF (@@ERROR <> 0)
+				BEGIN 
+					IF (@@TRANCOUNT > 0)
+						ROLLBACK TRAN
+				END
+				ELSE
+				BEGIN
+
+					INSERT	tdc_log (tran_date,UserID,trans_source,module,trans,tran_no,tran_ext,part_no,lot_ser,bin_no,location,quantity,data)
+					SELECT	GETDATE(), @who_entered, 'BO','TRANRET', 'ADHOC', '', '', @part_no, '1', @bin_no, @from_loc, CAST(@ordered as varchar(20)),
+							'TRANSFER RETURN - ADJUST OUT'
+
+					COMMIT TRAN
+				END
+
+			END 
+
+		END
+		-- v1.3 End
+
+Finish:
 		-- Return xfer no
 		SELECT @xfer_no
+
 	END
 END
 GO

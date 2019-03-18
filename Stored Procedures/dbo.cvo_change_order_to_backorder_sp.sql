@@ -33,6 +33,7 @@ v1.15 CB 26/01/2016 - #1581 2nd Polarized Option
 v1.16 CB 23/05/2016 - Ensure contract is not null
 v1.17 CB 20/06/2016 - Issue #1602 - Must Go Today flag
 v1.18 CB 31/10/2016 - #1616 Hold Processing
+v1.19 CB 29/11/2018 - #1502 Multi Salesrep
 
 
 
@@ -135,6 +136,21 @@ BEGIN
 	BEGIN  
 		RETURN -1  
 	END  
+
+	-- v1.19 Start
+	INSERT	ord_rep (order_no, order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+		primary_rep, include_rx, brand, brand_split, brand_excl, commission)
+	SELECT	order_no, @new_order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+		primary_rep, include_rx, brand, brand_split, brand_excl, commission	
+	FROM	ord_rep (NOLOCK)
+	WHERE	order_no = @order_no
+	AND		order_ext = @order_ext
+
+	IF (@@ERROR <> 0)  
+	BEGIN  
+		RETURN -1  
+	END  
+	-- v1.19 End
   
 	-- ord_list  
 	INSERT ord_list (order_no,order_ext,line_no,location,part_no,description,time_entered,ordered,shipped,price,price_type,note,status,cost,who_entered,sales_comm,  
@@ -337,6 +353,5 @@ BEGIN
 END  
 
 GO
-
 GRANT EXECUTE ON  [dbo].[cvo_change_order_to_backorder_sp] TO [public]
 GO

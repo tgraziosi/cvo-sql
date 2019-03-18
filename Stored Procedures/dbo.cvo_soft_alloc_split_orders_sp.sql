@@ -268,6 +268,8 @@ BEGIN
 	SELECT * INTO #orders_all FROM orders_all WHERE 1 = 2
 	-- cvo_orders_all
 	SELECT * INTO #cvo_orders_all FROM cvo_orders_all WHERE 1 = 2
+	-- Ord_rep
+	SELECT * INTO #ord_rep FROM ord_rep WHERE 1 = 2 -- v2.7
 	-- ord_list
 	CREATE TABLE #ord_list(
 		timestamp timestamp NOT NULL,
@@ -481,6 +483,16 @@ BEGIN
 		FROM	cvo_orders_all (NOLOCK)
 		WHERE	order_no = @order_no
 		AND		ext = @order_ext
+
+		-- v2.7 Start
+		INSERT	#ord_rep (order_no, order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+			primary_rep, include_rx, brand, brand_split, brand_excl, commission)
+		SELECT	@order_no, @new_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+			primary_rep, include_rx, brand, brand_split, brand_excl, commission	
+		FROM	ord_rep (NOLOCK)
+		WHERE	order_no = @order_no
+		AND		order_ext = @order_ext
+		-- v2.7 End
 
 		-- ord_list for frames and suns
 		INSERT	#ord_list (order_no,order_ext,line_no,location,part_no,description,time_entered,ordered,shipped,price,price_type,note,status,cost,who_entered,sales_comm,
@@ -721,6 +733,19 @@ BEGIN
 		BEGIN
 			RETURN
 		END
+
+		-- v2.7 Start
+		INSERT	ord_rep (order_no, order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+			primary_rep, include_rx, brand, brand_split, brand_excl, commission)
+		SELECT	order_no, order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+			primary_rep, include_rx, brand, brand_split, brand_excl, commission	
+		FROM	#ord_rep (NOLOCK)
+
+		IF (@@ERROR <> 0)  
+		BEGIN  
+			RETURN  
+		END  
+		-- v2.7 End
 
 		-- ord_list for frames and suns
 		INSERT	ord_list (order_no,order_ext,line_no,location,part_no,description,time_entered,ordered,shipped,price,price_type,note,status,cost,who_entered,sales_comm,
@@ -990,9 +1015,9 @@ BEGIN
 	DROP TABLE #ord_list_kit
 	DROP TABLE #cvo_ord_list_kit
 	DROP TABLE #cvo_so_holds -- v2.6
+	DROP TABLE #ord_rep -- v2.7
 
 END
 GO
-
 GRANT EXECUTE ON  [dbo].[cvo_soft_alloc_split_orders_sp] TO [public]
 GO

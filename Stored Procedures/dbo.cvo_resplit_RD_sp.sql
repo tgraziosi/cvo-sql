@@ -3,9 +3,9 @@ GO
 SET ANSI_NULLS ON
 GO
 
--- EXEC dbo.cvo_resplit_RD_sp 3278185, 1
+-- EXEC dbo.cvo_resplit_RD_sp 1422265, 1
 
-create PROC [dbo].[cvo_resplit_RD_sp]	@order_no int,
+CREATE PROC [dbo].[cvo_resplit_RD_sp]	@order_no int,
 									@order_ext int
 AS
 BEGIN
@@ -33,8 +33,8 @@ BEGIN
 			@hold_reason	varchar(10),
 			@new_soft_alloc_no int,
 			@last_new_ext	int,
-			@promo_id		varchar(30),
-			@promo_level	varchar(40),
+			@promo_id		int,
+			@promo_level	int,
 			@tot_ord_freight decimal(20,8),
 			@weight			decimal(20,8),
 			@freight_charge	decimal(20,8),
@@ -467,6 +467,16 @@ BEGIN
 			FROM	cvo_orders_all (NOLOCK)
 			WHERE	order_no = @order_no
 			AND		ext = @order_ext
+
+			-- v1.1 Start
+			INSERT	ord_rep (order_no, order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+				primary_rep, include_rx, brand, brand_split, brand_excl, commission)
+			SELECT	order_no, @split_number, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
+				primary_rep, include_rx, brand, brand_split, brand_excl, commission	
+			FROM	ord_rep (NOLOCK)
+			WHERE	order_no = @order_no
+			AND		order_ext = @order_ext
+			-- v1.1 End
 
 			-- Soft Allocation hdr
 			UPDATE	dbo.cvo_soft_alloc_next_no

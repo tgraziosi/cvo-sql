@@ -9,7 +9,18 @@ CREATE TABLE [dbo].[ord_rep]
 [exclusive_flag] [smallint] NOT NULL,
 [split_flag] [smallint] NOT NULL,
 [note] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
-[display_line] [int] NOT NULL
+[display_line] [int] NOT NULL,
+[primary_rep] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__ord_rep__primary__31560736] DEFAULT ('N'),
+[include_rx] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__ord_rep__include__324A2B6F] DEFAULT ('N'),
+[brand] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__ord_rep__brand__333E4FA8] DEFAULT (''),
+[brand_split] [decimal] (20, 8) NULL CONSTRAINT [DF__ord_rep__brand_s__343273E1] DEFAULT ((0.0)),
+[brand_excl] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__ord_rep__brand_e__3526981A] DEFAULT ('N'),
+[commission] [decimal] (20, 8) NULL CONSTRAINT [DF__ord_rep__commiss__361ABC53] DEFAULT ((0)),
+[brand_exclude] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[promo_id] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[rx_only] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[startdate] [datetime] NULL,
+[enddate] [datetime] NULL
 ) ON [PRIMARY]
 GO
 SET QUOTED_IDENTIFIER OFF
@@ -82,13 +93,13 @@ DISABLE TRIGGER [dbo].[EAI_ord_rep_insupddel] ON [dbo].[ord_rep]
 GO
 CREATE UNIQUE CLUSTERED INDEX [ordrep1] ON [dbo].[ord_rep] ([order_no], [order_ext], [display_line]) ON [PRIMARY]
 GO
-GRANT REFERENCES ON  [dbo].[ord_rep] TO [public]
-GO
-GRANT SELECT ON  [dbo].[ord_rep] TO [public]
+GRANT DELETE ON  [dbo].[ord_rep] TO [public]
 GO
 GRANT INSERT ON  [dbo].[ord_rep] TO [public]
 GO
-GRANT DELETE ON  [dbo].[ord_rep] TO [public]
+GRANT REFERENCES ON  [dbo].[ord_rep] TO [public]
+GO
+GRANT SELECT ON  [dbo].[ord_rep] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[ord_rep] TO [public]
 GO

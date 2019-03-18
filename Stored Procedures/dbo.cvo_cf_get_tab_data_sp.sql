@@ -39,7 +39,8 @@ BEGIN
 	INSERT	#tab_data_in (component_type, selected_qty)
 -- v1.1	SELECT	CASE WHEN LEFT(component_type,7) = 'TEMPLE-' THEN LEFT(component_type,6) ELSE component_type END,
 	SELECT	CASE WHEN (component_type = 'TEMPLE-L' OR component_type = 'TEMPLE-R') THEN 'TEMPLE' ELSE component_type END, -- v1.1
-			SUM(required_qty * selected)
+			-- v1.2 SUM(required_qty * selected)
+			SUM(selected_qty * selected) -- v1.2
 	FROM	cvo_cf_process_select (NOLOCK)
 	WHERE	user_spid = @user_spid
 	AND		component_type <> 'BLANK_LINE'
