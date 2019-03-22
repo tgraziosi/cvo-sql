@@ -33,7 +33,8 @@ v1.15 CB 26/01/2016 - #1581 2nd Polarized Option
 v1.16 CB 23/05/2016 - Ensure contract is not null
 v1.17 CB 20/06/2016 - Issue #1602 - Must Go Today flag
 v1.18 CB 31/10/2016 - #1616 Hold Processing
-v1.19 CB 29/11/2018 - #1502 Multi Salesrep
+v1.19 CB 20/03/2019 - Add in additional fields for #1502
+
 
 
 
@@ -123,11 +124,11 @@ BEGIN
 	INSERT INTO CVO_orders_all(order_no,ext,add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,  
 		commission_pct, stage_hold, prior_hold, credit_approved, replen_inv, xfer_no, stock_move, stock_move_cust_code,  
 		stock_move_ship_to, stock_move_replace_inv, stock_move_order_no, stock_move_ext, stock_move_ri_order_no, stock_move_ri_ext, invoice_note, commission_override, email_address, upsell_flag,     -- v1.4 v1.11 v1.12 v1.13
-		st_consolidate, must_go_today) -- v1.14 v1.17
+		st_consolidate, must_go_today, written_by) -- v1.14 v1.17 v1.19
 	SELECT order_no, @new_order_ext, add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,dbo.f_cvo_get_buying_group(@cust_code,GETDATE()), allocation_date, -- v1.8 
 		commission_pct, stage_hold, prior_hold, credit_approved, replen_inv, xfer_no, stock_move, stock_move_cust_code,  
 		stock_move_ship_to, stock_move_replace_inv, stock_move_order_no, stock_move_ext, stock_move_ri_order_no, stock_move_ri_ext, invoice_note, commission_override, email_address, upsell_flag, -- v1.4 v1.11  v1.12 v1.13
-		st_consolidate, must_go_today -- v1.14 v1.17
+		st_consolidate, must_go_today, written_by -- v1.14 v1.17 v1.19
 	FROM cvo_orders_all (NOLOCK)  
 	WHERE order_no = @order_no  
 	AND  ext = @order_ext  
@@ -139,9 +140,9 @@ BEGIN
 
 	-- v1.19 Start
 	INSERT	ord_rep (order_no, order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
-		primary_rep, include_rx, brand, brand_split, brand_excl, commission)
+		primary_rep, include_rx, brand, brand_split, brand_excl, commission, brand_exclude, promo_id, rx_only, startdate, enddate) -- v1.19
 	SELECT	order_no, @new_order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
-		primary_rep, include_rx, brand, brand_split, brand_excl, commission	
+		primary_rep, include_rx, brand, brand_split, brand_excl, commission, brand_exclude, promo_id, rx_only, startdate, enddate -- v1.19	
 	FROM	ord_rep (NOLOCK)
 	WHERE	order_no = @order_no
 	AND		order_ext = @order_ext

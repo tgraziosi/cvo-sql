@@ -8,6 +8,7 @@ BEGIN
 
 IF @asofdate IS NULL SELECT @asofdate = DATEADD(dd, DATEDIFF(dd, 0, GETDATE()), 0)
 
+
 SELECT trans,
        qc.type_code,
        COUNT(tran_no) num_tran,
@@ -25,12 +26,12 @@ FROM
            act.quantity,
            act.today,
            CASE
-               WHEN trans = 'qcrelease' THEN
+               WHEN act.trans = 'qcrelease' THEN
                    act.tran_date
                ELSE
                    act.today
            END tran_date,
-           cu.fname + ' ' + lname user_name,
+           cu.fname + ' ' + cu.lname user_name,
            CASE WHEN ia.field_26 >= dateadd(dd, DATEDIFF(dd, 0,GETDATE()),0) THEN 'NEW' ELSE '' end rel_date,
            i.type_code
     FROM
@@ -57,8 +58,8 @@ FROM
                location,
                qr.bin_no,
                qr.qc_qty,
-               qr.date_entered,
                GETDATE() tran_date,
+               qr.date_entered,
                qr.who_entered
         FROM dbo.qc_results AS qr (NOLOCK)
         WHERE qr.status <> 'S'
@@ -79,6 +80,7 @@ GROUP BY qc.trans,
          qc.rel_date;
 
 END
+
 
 
 GO

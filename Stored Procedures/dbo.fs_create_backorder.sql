@@ -73,6 +73,7 @@ SET NOCOUNT ON
 -- v12.4 CB 19/09/2017 - Check for customers set for no freight charge
 -- v12.5 CB 13/11/2018 - Add upsell_flag for detail
 -- v12.6 CB 29/11/2018 - #1502 Multi Salesrep
+-- v12.7 CB 20/03/2019 - Add in additional fields for #1502
   
 exec @err = fs_updordtots @ordno, @ordext  
  if @@error != 0  
@@ -265,9 +266,9 @@ INSERT orders_all ( order_no, ext,  cust_code, ship_to,
 -- v2.0 Add missing columns		TLM
  INSERT INTO CVO_orders_all (  
     order_no,  ext,  add_case, add_pattern, promo_id, promo_level, free_shipping,
-		split_order, flag_print, buying_group, allocation_date,  commission_pct, stage_hold,prior_hold, invoice_note, commission_override, email_address, st_consolidate, upsell_flag, must_go_today) -- v1.2 + v10.2 v11.4 v11.5 v11.6 v11.9 v12.1
+		split_order, flag_print, buying_group, allocation_date,  commission_pct, stage_hold,prior_hold, invoice_note, commission_override, email_address, st_consolidate, upsell_flag, must_go_today, written_by) -- v1.2 + v10.2 v11.4 v11.5 v11.6 v11.9 v12.1 v12.7
  SELECT order_no, @ext, add_case, add_pattern, promo_id, promo_level, free_shipping,
-		split_order, flag_print, dbo.f_cvo_get_buying_group(@cust_code,GETDATE()), allocation_date,  commission_pct, stage_hold, prior_hold, invoice_note, commission_override, email_address, 0, upsell_flag, 0 -- v1.2 + v10.2 + v11.2 v11.4 v11.5 v11.6 v11.7 v11.9 v12.1 v12.2
+		split_order, flag_print, dbo.f_cvo_get_buying_group(@cust_code,GETDATE()), allocation_date,  commission_pct, stage_hold, prior_hold, invoice_note, commission_override, email_address, 0, upsell_flag, 0, written_by -- v1.2 + v10.2 + v11.2 v11.4 v11.5 v11.6 v11.7 v11.9 v12.1 v12.2
  FROM CVO_orders_all  
  WHERE order_no=@ordno and ext=@ordext  
  if @@error != 0  
@@ -278,12 +279,13 @@ INSERT orders_all ( order_no, ext,  cust_code, ship_to,
 
 -- v12.6 Start
 	INSERT	ord_rep (order_no, order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
-		primary_rep, include_rx, brand, brand_split, brand_excl, commission)
+		primary_rep, include_rx, brand, brand_split, brand_excl, commission, brand_exclude, promo_id, rx_only, startdate, enddate) -- v12.7
 	SELECT	order_no, @ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
-		primary_rep, include_rx, brand, brand_split, brand_excl, commission	
+		primary_rep, include_rx, brand, brand_split, brand_excl, commission, brand_exclude, promo_id, rx_only, startdate, enddate -- v12.7
 	FROM	ord_rep (NOLOCK)
 	WHERE	order_no = @ordno
 	AND		order_ext = @ordext
+
 
 	IF (@@ERROR <> 0)  
 	BEGIN  

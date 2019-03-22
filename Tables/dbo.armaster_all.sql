@@ -234,17 +234,17 @@ ON [dbo].[armaster_all] FOR INSERT, UPDATE
 AS
 BEGIN
 
-	-- Deal with Insert
+	-- Deal with Insert Customer
 	INSERT dbo.cvo_cust_salesperson (customer_code,	salesperson_code, primary_rep, include_rx, split, brand, 
-	brand_split, brand_excl)
-	SELECT	a.customer_code, a.salesperson_code, 'Y','Y',100,'',0,'N'
+	brand_split, brand_excl, comm_rate, brand_exclude, promo_id, rx_only, startdate, enddate, ship_to)
+	SELECT	a.customer_code, a.salesperson_code, 'Y','Y',100,'',0,'N',0,'N','','N',CAST(CONVERT(varchar(10),GETDATE(),121) as datetime),NULL, ''
 	FROM	inserted a
 	LEFT JOIN deleted b
 	ON		a.customer_code = b.customer_code
 	WHERE	b.customer_code IS NULL
 	AND		a.address_type = 0
 
-	-- Deal with Updates
+	-- Deal with Updates Customer
 	UPDATE	a
 	SET		salesperson_code = b.salesperson_code
 	FROM	dbo.cvo_cust_salesperson a
@@ -254,6 +254,33 @@ BEGIN
 	ON		a.customer_code = c.customer_code
 	WHERE	b.address_type = 0
 	AND		a.primary_rep = 'Y'
+
+
+	-- Deal with Insert Ship_to
+	INSERT dbo.cvo_cust_salesperson (customer_code,	salesperson_code, primary_rep, include_rx, split, brand, 
+	brand_split, brand_excl, comm_rate, brand_exclude, promo_id, rx_only, startdate, enddate, ship_to)
+	SELECT	a.customer_code, a.salesperson_code, 'Y','Y',100,'',0,'N',0,'N','','N',CAST(CONVERT(varchar(10),GETDATE(),121) as datetime),NULL, a.ship_to_code
+	FROM	inserted a
+	LEFT JOIN deleted b
+	ON		a.customer_code = b.customer_code
+	AND		a.ship_to_code = b.ship_to_code
+	WHERE	b.customer_code IS NULL
+	AND		b.ship_to_code IS NULL
+	AND		a.address_type = 1
+
+	-- Deal with Updates Ship To
+	UPDATE	a
+	SET		salesperson_code = b.salesperson_code
+	FROM	dbo.cvo_cust_salesperson a
+	JOIN	inserted b
+	ON		a.customer_code = b.customer_code
+	AND		a.ship_to = b.ship_to_code
+	JOIN	deleted c
+	ON		a.customer_code = c.customer_code
+	AND		a.ship_to = c.ship_to_code
+	WHERE	b.address_type = 1
+	AND		a.primary_rep = 'Y'
+
 
 END
 GO

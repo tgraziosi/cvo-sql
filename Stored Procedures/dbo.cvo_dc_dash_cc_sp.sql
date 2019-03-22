@@ -9,7 +9,8 @@ BEGIN
     DECLARE @asofdate DATETIME
     SELECT @asofdate = DATEADD(dd, DATEDIFF(dd,0,GETDATE()),0)
 
-    SELECT tpcc.team_id,
+    ; WITH cc AS 
+    (SELECT tpcc.team_id,
             userid,
             b.group_code,
            
@@ -48,9 +49,18 @@ BEGIN
            GROUP BY tpcc.team_id,
                     tpcc.userid,
                     b.group_code
+        ) 
+        SELECT cc.team_id,
+               ISNULL(ccu.fname + ' ' + ccu.lname, REPLACE(cc.UserID, 'cvoptical\', '')) username,
+               cc.group_code,
+               cc.count_status,
+               cc.num_counts
+               FROM cc
+        JOIN dbo.cvo_cmi_users AS ccu ON ccu.user_login = cc.userid
 END;
 
 GRANT EXECUTE ON cvo_dc_dash_cc_sp TO public
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_dc_dash_cc_sp] TO [public]
 GO

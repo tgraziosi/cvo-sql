@@ -9,7 +9,7 @@ GO
 -- Create date: 11/10/2014
 -- Description:	Handshake Inventory Data #8
 -- exec hs_inventory8_sp
--- SELECT hide, masterhide, releasedate, * FROM dbo.cvo_hs_inventory_8 WHERE mastersku like 'sp%' sunps > ''hide = 1 or releasedate = '12/11/2018' coll = 'DD' AND [CATEGORY:1] = 'REVO SELLDWN' SKU LIKE 'DD%' where [category:1] = 'sun' where  ReleaseDate > '1/1/2018' AND SpecialtyFit = '[multiple]'
+-- SELECT hide, masterhide, releasedate, * FROM dbo.cvo_hs_inventory_8 WHERE mastersku like 'fn%' sunps > ''hide = 1 or releasedate = '12/11/2018' coll = 'DD' AND [CATEGORY:1] = 'REVO SELLDWN' SKU LIKE 'DD%' where [category:1] = 'sun' where  ReleaseDate > '1/1/2018' AND SpecialtyFit = '[multiple]'
 -- SELECT DISTINCT [category:1],[category:2] FROM dbo.cvo_hs_inventory_8 AS hi WHERE [hi].[category:1] = 'sun'
 -- DROP TABLE dbo.cvo_hs_inventory_8
 -- 		selec
@@ -78,7 +78,7 @@ AS
         --    );
 
         SET @today = DATEADD(dd, DATEDIFF(dd, 0, GETDATE()), 0);
-        SET @today = '3/14/2019'
+
         SET @location = '001';
         SET @CH = '9/1/2015'; -- START OF CH SELL-DOWN PERIOD
         SET @ME = '01/31/2017';
@@ -371,6 +371,7 @@ AS
                             1                                                AS multQty,
                             CASE
                                 WHEN i.category = 'sp' THEN 'SPECTACULRS'
+                                WHEN i.category = 'fn' THEN 'FUNOOGLES' -- 03/20/2019
                                 WHEN I.category IN (
                                                        'LS'
                                                    )
@@ -506,11 +507,13 @@ AS
                                     THEN
                                     'RED'
                                 WHEN DATEDIFF(m, ISNULL(IA.field_28, @today), @today) >= 24
-                                     AND I.type_code <> 'SUN'
+                                     AND I.type_code <> 'SUN' AND i.category <> 'AS'
+                                     AND NOT EXISTS (SELECT 1 FROM dbo.cvo_part_attributes AS pa3 WHERE pa3.part_no = i.part_no AND pa3.attribute = 'spv')
                                     THEN
                                     'EOR'
                                 WHEN DATEDIFF(m, ISNULL(IA.field_28, @today), @today) >= 9
-                                     AND I.type_code <> 'SUN'
+                                     AND I.type_code <> 'SUN' AND i.category <> 'AS'
+                                     AND NOT EXISTS (SELECT 1 FROM dbo.cvo_part_attributes AS pa3 WHERE pa3.part_no = i.part_no AND pa3.attribute = 'spv')
                                     THEN
                                     'QOP'
                                 WHEN I.category = 'dd'
@@ -785,6 +788,13 @@ ELSE '' END GENDER,
                                     OR
                                         (
                                             I.category IN (
+                                                              'FN'
+                                                          )
+                                            AND @today >= '03/20/2019'
+                                        ) -- add Funoogles
+                                    OR
+                                        (
+                                            I.category IN (
                                                               'un'
                                                           ) -- 3/13/2017
                                             AND I.type_code = 'FRAME'
@@ -853,6 +863,17 @@ ELSE '' END GENDER,
                                                                     )
                                                 ) -- 12/28/2017
                                         ) -- include POP regardless of release date as long has HSPOP tag is set - 11/29/2016
+                                    OR
+                                        (
+                                            'hspop' = ISNULL(IA.field_36, '')
+                                            AND
+                                                (
+                                                    I.part_no IN (
+                                                                        'fncuskit'
+                                                                    )
+                                                ) -- 03/20/2019
+                                        ) -- 
+
                                     OR I.category = 'LS' -- 9/27/2016
                                     OR (ISNULL(IA.field_36, '') IN (
                                                                        'sunps', 'Presell'
@@ -1141,7 +1162,7 @@ ELSE '' END GENDER,
                mastersku,
                STUFF(
                    (
-                       SELECT
+                       SELECT distinct
                            ' ' + Spec
                        FROM
                            #Spec
@@ -2088,6 +2109,9 @@ IF GETDATE() >= '9/30/2018'
     AND '11/6/2018' > GETDATE()
 
     END;
+
+
+
 
 
 

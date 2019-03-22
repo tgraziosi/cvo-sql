@@ -96,7 +96,6 @@ BEGIN
         OR allterr LIKE '%20230%'
         OR allterr LIKE '%30310%'
         OR allterr LIKE '%50510%'
-        OR allterr LIKE '%70770%'
 
 
  --for Phil for VE - 032717
