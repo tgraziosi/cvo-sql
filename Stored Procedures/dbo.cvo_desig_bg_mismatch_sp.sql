@@ -36,35 +36,7 @@ BEGIN
         WHERE code IN ( 'bbg', 'fec-a', 'fec-m', 'oogp', 'villa', 'vwest', 'CE' )
               AND ISNULL(end_date, GETDATE()) >= GETDATE()
     ) s
-    WHERE (
-              code = 'bbg'
-              AND ISNULL(Current_BG, '') <> '000502'
-          )
-          OR
-          (
-              code = 'ce'
-              AND ISNULL(Current_BG, '') <> '000507'
-          )
-          OR
-          (
-              code IN ( 'fec-a', 'fec-m' )
-              AND ISNULL(Current_BG, '') <> '000550'
-          )
-          OR
-          (
-              code IN ( 'oogp' )
-              AND ISNULL(Current_BG, '') <> '000542'
-          )
-          OR
-          (
-              code IN ( 'villa' )
-              AND ISNULL(Current_BG, '') <> '000549'
-          )
-          OR
-          (
-              code IN ( 'vwest' )
-              AND ISNULL(Current_BG, '') <> '000563'
-          )
+    WHERE 'mismatch' = CASE WHEN s.Current_BG IS NOT NULL THEN dbo.f_cvo_check_bg_pri_mismatch(s.Current_BG,code) ELSE '' END 
     UNION ALL
     
     SELECT s.customer_code child,
@@ -96,35 +68,7 @@ BEGIN
               AND ISNULL(end_date, GETDATE()) >= GETDATE()
               AND d.primary_flag = 1
     ) s
-    WHERE (
-              code = 'bbg'
-              AND ISNULL(Current_BG, '') <> '000502'
-          )
-          OR
-          (
-              code = 'ce'
-              AND ISNULL(Current_BG, '') <> '000507'
-          )
-          OR
-          (
-              code IN ( 'fec-a', 'fec-m' )
-              AND ISNULL(Current_BG, '') <> '000550'
-          )
-          OR
-          (
-              code IN ( 'oogp' )
-              AND ISNULL(Current_BG, '') <> '000542'
-          )
-          OR
-          (
-              code IN ( 'villa' )
-              AND ISNULL(Current_BG, '') <> '000549'
-          )
-          OR
-          (
-              code IN ( 'vwest' )
-              AND ISNULL(Current_BG, '') <> '000563'
-          )
+    WHERE 'mismatch' = CASE WHEN s.Current_BG IS NOT NULL THEN dbo.f_cvo_check_bg_pri_mismatch(s.Current_BG,code) ELSE '' END 
 
     UNION ALL
     -- have BG, does not match designation
@@ -250,6 +194,7 @@ BEGIN
     WHERE c.child <> ISNULL(d.customer_code, '');
 
 END;
+
 
 GO
 GRANT EXECUTE ON  [dbo].[cvo_desig_bg_mismatch_sp] TO [public]

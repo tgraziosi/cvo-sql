@@ -70,7 +70,7 @@ BEGIN
               );
 
     -- 2)
-    -- get the next available bin
+    -- see if it has a bin
     SELECT @bin_no = NULL;
 
     SELECT TOP (1)
@@ -81,6 +81,7 @@ BEGIN
           AND wpv.group_code = 'pickarea'
           AND wpv.usage_type_code = 'open'
           AND wpv.bin_no LIKE 'S____'
+          -- AND wpv.Is_Assigned = 'Yes'
           AND wpv.status = 'A'
     ORDER BY wpv.bin_no;
 
@@ -143,10 +144,11 @@ BEGIN
     --WHERE location = '001' AND wpv.group_code = 'pickarea' AND wpv.usage_type_code = 'open' AND bin_no LIKE 'S____'
     --AND qty <> 0 AND wpv.Is_Assigned = 'No'
     
-    SELECT @bin_no bin_no
+    SELECT ISNULL(@bin_no,'') bin_no
     RETURN;
 
 END;
+
 
 
 

@@ -34,6 +34,7 @@ CREATE PROCEDURE [dbo].[CVO_buying_group_export_sp] (@WHERECLAUSE VARCHAR(1024))
 -- v1.9 CB 09/10/2018 - Rounding issues on installment invoices
 -- v2.0 CB 25/10/2018 - Rounding issues on installment invoices
 -- v2.1 CB 16/11/2018 - Rounding issues on installment invoices
+-- v2.2 CB 16/11/2018 - Rounding issues on installment invoices
 AS  
 BEGIN
 
@@ -332,8 +333,7 @@ BEGIN
 	SET		diff_freight = ROUND((ar_freight - rep_freight),2),
 			rep_value = ROUND( rep_value,2)
 
-	-- SELECT	invoice doc_ctrl_num, MAX(row_id) -- v2.1 MIN(id) row_id
-    SELECT	invoice doc_ctrl_num, MAX(id) row_id -- v2.1 MIN(id) row_id
+	SELECT	invoice doc_ctrl_num, MAX(id) row_id -- v2.1 MIN(id) row_id
 	INTO	#tempids
 	FROM	#buy
 	-- v2.1 WHERE	freight = '0.00' AND tax = '0.00'	
@@ -414,20 +414,37 @@ BEGIN
 	-- v2.1 DROP TABLE #line_update
 	DROP TABLE #ar_values
 
+	-- v2.2 Start
+--	UPDATE	a
+--	SET		tot_due = CONVERT(varchar(13),CONVERT(money,CAST(a.tot_due as decimal(20,8)) - b.diff))
+--	FROM	#buy a
+--	JOIN	#doc_lines b
+--	ON		a.id = b.row_id
+--	AND		a.invoice = b.doc_ctrl_num
+
 	UPDATE	a
-	SET		tot_due = CONVERT(varchar(13),CONVERT(money,CAST(a.tot_due as decimal(20,8)) - b.diff))
+	SET		tot_due = CONVERT(varchar(13),CONVERT(money,CAST(a.tot_due as decimal(20,8)) - CASE WHEN b.diff < 0 THEN ABS(b.diff) ELSE b.diff END)),
+			total = CONVERT(varchar(13),CONVERT(money,CAST(a.tot_due as decimal(20,8)) - CASE WHEN b.diff < 0 THEN ABS(b.diff) ELSE b.diff END))
 	FROM	#buy a
 	JOIN	#doc_lines b
 	ON		a.id = b.row_id
 	AND		a.invoice = b.doc_ctrl_num
 
+--	UPDATE	a
+--	SET		mer_disc = CONVERT(varchar(13),CONVERT(money,CAST(tot_due as decimal(20,8)) - CAST(freight as decimal(20,8)))),
+--			merch = CONVERT(varchar(13),CONVERT(money, CAST(total as decimal(20,8)) - CAST(freight as decimal(20,8))))			
+--	FROM	#buy a
+--	JOIN	#doc_lines b
+--	ON		a.invoice = b.doc_ctrl_num
 
 	UPDATE	a
 	SET		mer_disc = CONVERT(varchar(13),CONVERT(money,CAST(tot_due as decimal(20,8)) - CAST(freight as decimal(20,8)))),
-			merch = CONVERT(varchar(13),CONVERT(money, CAST(total as decimal(20,8)) - CAST(freight as decimal(20,8))))			
+			merch = CONVERT(varchar(13),CONVERT(money, CAST(total as decimal(20,8)) - CAST(freight as decimal(20,8))))			,
+			non_merch = CONVERT(varchar(13),CONVERT(money, CAST(tot_due as decimal(20,8)) - CAST(freight as decimal(20,8))))			
 	FROM	#buy a
 	JOIN	#doc_lines b
 	ON		a.invoice = b.doc_ctrl_num
+-- v2.2 End
 
 	UPDATE	a
 	SET		tot_due = ROUND(a.tot_due,2),
@@ -496,19 +513,22 @@ BEGIN
 	GROUP BY LEFT(a.invoice,10)
 
 	UPDATE	a
-	SET		inv_tot = a.inv_tot + b.freight + b.tax
+	SET		inv_tot = ROUND(a.inv_tot + b.freight + b.tax,2)
 	FROM	#ar_check a
 	JOIN	#ext_check b
 	ON		a.doc_ctrl_num = b.doc_ctrl_num
 
-	UPDATE	a
-	SET		inv_tot_diff = a.inv_tot - b.inv_tot
-	FROM	#check_lines a
-	JOIN	#ar_check b
-	ON		a.doc_ctrl_num = b.doc_ctrl_num
+	-- v2.2 Start
+--	UPDATE	a
+--	SET		inv_tot_diff = a.inv_tot - b.inv_tot
+--	FROM	#check_lines a
+--	JOIN	#ar_check b
+--	ON		a.doc_ctrl_num = b.doc_ctrl_num
+	-- v2.2
 
 	DROP TABLE #ar_check
 	DROP TABLE #ext_check
+
 
 	UPDATE	a
 	SET		tot_due = CONVERT(varchar(13),CONVERT(money,CAST(a.tot_due as decimal(20,8)) - b.inv_due_diff)),

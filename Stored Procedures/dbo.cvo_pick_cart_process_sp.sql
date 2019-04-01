@@ -668,7 +668,7 @@ AS
                                            @qty_to_process
                                        ELSE scanned
                                   END
-                    FROM   dbo.cvo_cart_parts_processed
+                    FROM   dbo.cvo_cart_parts_processed (NOLOCK)
                     WHERE  @tran_id = tran_id;
 
                     -- make sure there are still allocations on the consolidation
@@ -676,7 +676,7 @@ AS
                     IF @iscons = 1
                        AND NOT EXISTS (   SELECT 1
                                           FROM   dbo.tdc_soft_alloc_tbl SA WITH ( ROWLOCK )
-                                                 JOIN dbo.cvo_masterpack_consolidation_det AS cmcd ON cmcd.order_no = SA.order_no
+                                                 JOIN dbo.cvo_masterpack_consolidation_det AS cmcd (NOLOCK) ON cmcd.order_no = SA.order_no
                                                                                                       AND cmcd.order_ext = SA.order_ext
                                           WHERE  cmcd.consolidation_no = @order_no )
                         SELECT @qty = 0;
@@ -924,6 +924,7 @@ AS
                                       AND OL.order_ext = o.ext ) = 0;
 
         END; -- proc_option = 99
+
 
 
 

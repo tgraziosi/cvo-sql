@@ -23,20 +23,8 @@ RETURN
         part_no,
         @usg_option usg_option,
         DATEADD(dd, DATEDIFF(dd, 0, GETDATE()), 0) ASofdate,
-        e4_wu = CAST(SUM(   CASE
-                                WHEN bucket <= 4 THEN
-                                    qty_shipped
-                                ELSE
-                                    0
-                            END
-                        ) / 4 AS INT),
-        e12_wu = CAST(SUM(   CASE
-                                 WHEN bucket <= 12 THEN
-                                     qty_shipped
-                                 ELSE
-                                     0
-                             END
-                         ) / 12 AS INT),
+        e4_wu = CAST(SUM(   CASE WHEN bucket <= 4 THEN qty_shipped ELSE 0 END ) / 4 AS INT),
+        e12_wu = CAST(SUM(   CASE WHEN bucket <= 12 THEN qty_shipped ELSE 0 END ) / 12 AS INT),
         e26_wu = CAST(SUM(   CASE
                                  WHEN bucket <= 26 THEN
                                      qty_shipped
@@ -272,6 +260,7 @@ RETURN
             LEFT OUTER JOIN cvo_promotions p (nolock) ON p.promo_id = co.promo_id AND p.promo_level = co.promo_level
         WHERE
 			la.location = ISNULL(@loc, la.location) AND la.void = 'N'
+            AND 'st-bi' <> ISNULL(o.user_category,'')  -- 2/13/2019
 			AND ((@type_option = 't' AND i.type_code = ISNULL(@type, i.type_code)) OR 
 				 (@type_option = 'c' AND i.category = ISNULL(@type, i.category)))
 			AND 'V' <> ISNULL(o.status, 'Z')
@@ -441,6 +430,7 @@ RETURN
 				((@type_option = 't' AND i.type_code = ISNULL(@type, i.type_code)) OR 
 				 (@type_option = 'c' AND i.category = ISNULL(@type, i.category)))
             AND s.yyyymmdd >= DATEADD(WEEK, -12, DATEADD(dd, DATEDIFF(dd, 0, GETDATE()), 0))
+            AND s.user_category <> 'st-bi'
         GROUP BY
             CASE
                 WHEN s.yyyymmdd >= DATEADD(WEEK, -4, DATEADD(dd, DATEDIFF(dd, 0, GETDATE()), 0)) THEN
@@ -460,6 +450,7 @@ RETURN
         usage.location, usage.part_no
 )
 ;
+
 
 
 

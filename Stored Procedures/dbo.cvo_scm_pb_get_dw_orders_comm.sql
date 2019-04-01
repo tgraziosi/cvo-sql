@@ -3,6 +3,7 @@ GO
 SET ANSI_NULLS ON
 GO
 -- v1.0 CB 07/11/2018 - #1502 Additional Salesperson  
+-- v1.1 CB 13/03/2019 - Add fields
 CREATE PROC [dbo].[cvo_scm_pb_get_dw_orders_comm] @order_no int,   
 											 @order_ext int   
 AS  
@@ -23,7 +24,12 @@ BEGIN
 			dbo.ord_rep.brand,
 			dbo.ord_rep.brand_split,
 			dbo.ord_rep.brand_excl,
-			dbo.ord_rep.commission
+			dbo.ord_rep.commission,
+			dbo.ord_rep.brand_exclude,
+			dbo.ord_rep.promo_id,
+			dbo.ord_rep.rx_only, 
+			dbo.ord_rep.startdate,
+			dbo.ord_rep.enddate
 	FROM	dbo.ord_rep (NOLOCK)  
 	LEFT OUTER JOIN dbo.arsalesp (NOLOCK)   
 	ON		dbo.ord_rep.salesperson = dbo.arsalesp.salesperson_code       

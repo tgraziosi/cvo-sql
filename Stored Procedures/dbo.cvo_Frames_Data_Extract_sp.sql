@@ -15,6 +15,7 @@ GO
 -- select distinct field_26 from inv_master_add order by field_26 desc
 -- grant execute on cvo_frames_data_extract_sp to public
 -- updated 05/23/2014 - tag - added brand parameter.  
+-- 3/25/2019 - add spectaculars and funoogles
 --		To report on a brand, select the brand and 1/1/1900 as the release date
 
 CREATE PROCEDURE [dbo].[cvo_Frames_Data_Extract_sp]
@@ -194,6 +195,8 @@ AS
                                                          'Puriti Collection'       -- 2/2014
                                                      WHEN 'RR' THEN 'Red Raven'    -- 040915
                                                      WHEN 'SM' THEN 'Steve Madden' -- 120216
+                                                     WHEN 'FN' THEN 'Funoogles Collection'
+                                                     WHEN 'SP' THEN 'Spectaculars Collection'
                                                      ELSE '**Undefined**'
                                                 END
 
@@ -222,6 +225,7 @@ AS
                                                      WHEN 'REVO' THEN
                                                          'REVO Sunglass Collection'
                                                      WHEN 'SM' THEN 'Steve Madden Sunglass Collection'
+                                                     WHEN 'SP' THEN 'Spectaculars Sunglass Collection'
                                                      ELSE '**Undefined**'
                                                 END
                                        END ,
@@ -252,6 +256,8 @@ AS
                                       WHEN 'RR' THEN '8212'   -- 05/27/2014
                                       WHEN 'REVO' THEN '8353' -- 10/16/2015
                                       WHEN 'SM' THEN '8506'   -- 120216
+                                      WHEN 'FN' THEN '8943'
+                                      WHEN 'SP' THEN '8944'
                                       ELSE '**Undefined**'
                                  END AS VARCHAR(20)) ,
                                      --  F
@@ -563,6 +569,7 @@ AS
                  AND (   @ReleaseDate = ia.field_26
                          OR @ReleaseDate = '1/1/1900' )
                  AND ISNULL(ia.field_28, GETDATE()) > '1/1/2010'
+                 AND ci.attributes NOT LIKE '%specialord%'
         ORDER BY i.part_no;
 
     --SELECT *
@@ -571,6 +578,7 @@ AS
     -- tempdb..sp_help #framesdatalist
 
     END;
+
 
 
 

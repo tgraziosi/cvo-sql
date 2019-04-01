@@ -76,7 +76,8 @@ BEGIN
 	AND		b.bin_no = d.bin_no
 	WHERE	a.usage_type_code IN ('REPLENISH', 'OPEN')
 	AND		LEFT(a.bin_no,4) <> 'ZZZ-' -- v1.8
-	AND		a.location = @location
+    AND     a.bin_no NOT LIKE 'S____' -- 3/25/2019 - tag
+	AND		a.location = '001'
 	GROUP BY a.location, a.group_code, a.bin_no, b.part_no, d.qty, b.replenish_max_lvl
 	-- v1.6 End
 
@@ -136,6 +137,7 @@ BEGIN
 			AND		b.part_no = c.part_no	
 			WHERE	a.usage_type_code IN ('REPLENISH', 'OPEN')
 			AND		LEFT(a.bin_no,4) <> 'ZZZ-' -- v1.8
+            AND     a.bin_no NOT LIKE 'S____' -- 3/25/2019 - tag
 			AND NOT EXISTS (SELECT	* FROM lot_bin_stock c (nolock)
 							WHERE	b.location = c.location 
 							AND		b.bin_no = c.bin_no and b.part_no = c.part_no) 
@@ -169,6 +171,7 @@ BEGIN
 			AND		b.part_no = d.part_no	
 			WHERE	a.usage_type_code IN ('REPLENISH', 'OPEN')
 			AND		LEFT(a.bin_no,4) <> 'ZZZ-' -- v1.8
+            AND     a.bin_no NOT LIKE 'S____' -- 3/25/2019 - tag
 -- v1.1		AND		ISNULL(a.bm_udef_e,'') <> '1' 
 			AND		a.location = @location
 			AND		a.group_code = @to_bin_group
@@ -204,6 +207,7 @@ BEGIN
 			AND		b.part_no = d.part_no	
 			WHERE	a.usage_type_code IN ('REPLENISH', 'OPEN')
 			AND		LEFT(a.bin_no,4) <> 'ZZZ-' -- v1.8
+            AND     a.bin_no NOT LIKE 'S____' -- 3/25/2019 - tag
 			AND		a.location = @location
 			AND		a.group_code = @to_bin_group
 			AND		d.bin_no IS NULL
@@ -870,6 +874,7 @@ BEGIN
 	END
 	-- v1.4
 END
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_replenish_retrieve_sp] TO [public]
 GO

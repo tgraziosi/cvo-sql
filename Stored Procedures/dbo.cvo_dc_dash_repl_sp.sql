@@ -46,15 +46,25 @@ WITH repl AS
                AND rl.queue_id = t.tran_no
     WHERE t.tran_date >= @asofdate
     GROUP BY rl.who_entered, t.UserID
-) 
-SELECT repl.qstatus,
+),
+final as
+(SELECT repl.qstatus,
        REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(UPPER(repl.who_entered),'OPTICAL','FRAMES'),'H-H','H --> H'),'---','--'),'>F','> F'),' ->',' -->') who_entered,
        ISNULL(ccu.fname + ' ' + ccu.lname, REPLACE(repl.username, 'cvoptical\', '')) username,
        repl.num_trans FROM repl
        LEFT OUTER JOIN cvo_cmi_users ccu ON ccu.user_login = REPLACE(repl.username,'cvoptical\','')
-
+)
+SELECT final.QSTATUS,
+       final.who_entered,
+       final.username,
+       SUM(final.num_trans) num_trans
+        FROM final
+        GROUP BY final.QSTATUS,
+                 final.who_entered,
+                 final.username
 
 END;
+
 
 
 

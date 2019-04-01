@@ -2,12 +2,26 @@ SET QUOTED_IDENTIFIER OFF
 GO
 SET ANSI_NULLS ON
 GO
+
+-- v1.0 CB 21/05/2018 - SP to replace views for buying group views
+-- v1.1 CB 25/05/2018 - Remove 100% discount items
+-- v1.2 CB 25/05/2018 - Fix issue with quoted prices
+-- v1.3 CB 12/06/2018 - Deal with rounding issues on installment invoices
+-- v1.4 CB 26/06/2018 - Remove zero invoices
+-- v1.5 CB 26/06/2018 - Fix issue with installment invoices
+-- v1.6 CB 27/07/2018 - Addition to v1.5
+-- v1.7 CB 15/10/2018 - Rounding issues on installment invoices
+-- v1.8 CB 25/10/2018 - Rounding issues on installment invoices
+-- v1.9 CB 25/10/2018 - Rounding issues on installment invoices
+-- v2.0 CB 13/12/2018 - Add with recompile option do deal with inconsistant results
+-- v2.1 CB 25/10/2018 - Rounding issues on installment invoices
+
 -- exec cvo_bg_data_extract_log_sp ' Where parent like ''%000655%'' AND xinv_date BETWEEN 736695 AND 736846'
 -- exec cvo_bg_data_extract_log_sp ' Where parent BETWEEN ''000567'' AND ''000655'''
 -- exec cvo_bg_data_extract_log_sp ' Where parent BETWEEN ''000567'' AND ''000655'' AND xinv_date BETWEEN 736695 AND 736842'
 -- exec cvo_bg_data_extract_log_sp ' Where parent BETWEEN ''000567'' AND ''000655'' AND xinv_date=736695'
 -- exec cvo_bg_data_extract_log_sp ' Where xinv_date=736695'
--- exec cvo_bg_data_extract_log_sp ' Where parent like ''%000655%'' AND parent_name like ''%the professional edge%'' AND xinv_date BETWEEN 736695 AND 736846'
+-- exec cvo_bg_data_extract_log_sp ' Where parent like ''%000549%'' AND xinv_date BETWEEN 737116 AND 737143'
 
 CREATE PROC [dbo].[cvo_bg_data_extract_log_sp] @whereclause varchar(1024)
 WITH RECOMPILE -- v2.0
@@ -1285,24 +1299,31 @@ BEGIN
 	JOIN	#check_lines b 
 	ON		LEFT(a.doc_ctrl_num,10) = b.doc_ctrl_num
 	GROUP BY LEFT(a.doc_ctrl_num,10)
+
 	UPDATE	a
-	SET		inv_tot = a.inv_tot + b.freight + b.tax
+	SET		inv_tot = ROUND(a.inv_tot + b.freight + b.tax,2) -- v2.1
 	FROM	#ar_check a
 	JOIN	#ext_check b
 	ON		a.doc_ctrl_num = b.doc_ctrl_num
+
 	UPDATE	a
 	SET		inv_tot_diff = a.inv_tot - b.inv_tot
 	FROM	#check_lines a
 	JOIN	#ar_check b
 	ON		a.doc_ctrl_num = b.doc_ctrl_num
 
+	---- v2.1 Start
+	--UPDATE	#check_lines
+	--SET		inv_tot_diff = inv_tot - ord_value
+	---- v2.1 End
+
 	DROP TABLE #ar_check
 
 	UPDATE	a
 	SET		inv_due = a.inv_due - b.inv_due_diff,
 			mer_disc = a.mer_disc - b.inv_due_diff,
-			inv_tot = a.inv_tot - b.inv_tot_diff,
-			mer_tot = a.mer_tot - b.inv_tot_diff
+			inv_tot = a.inv_tot - CASE WHEN ABS(b.inv_tot_diff) > 100 THEN 0 ELSE b.inv_tot_diff END,
+			mer_tot = a.mer_tot - CASE WHEN ABS(b.inv_tot_diff) > 100 THEN 0 ELSE b.inv_tot_diff END
 	FROM	#results a
 	JOIN	#check_lines b
 	ON		a.row_id = b.row_id
@@ -1350,6 +1371,7 @@ BEGIN
 	DROP TABLE #data_extract_raw
 	DROP TABLE #order_data_extract_raw
 END
+
 GO
 GRANT EXECUTE ON  [dbo].[cvo_bg_data_extract_log_sp] TO [public]
 GO

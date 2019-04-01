@@ -344,7 +344,8 @@ AS
                             d.StatusType ,
                          ISNULL(LTRIM(RTRIM(de.designations)), '') AS Designations ,
                          ISNULL(p.code, '') AS PriDesig,
-						 ISNULL(NA.PARENT,'') AS Parent -- 3/9/2018
+						 ISNULL(NA.PARENT,'') AS Parent, -- 3/9/2018
+                         CASE WHEN na.parent IS NOT NULL THEN dbo.f_cvo_check_bg_pri_mismatch(na.parent,p.code) ELSE '' END mismatch
                 FROM     #DATA3 d
                          LEFT OUTER JOIN #desig de ON de.customer_code = d.customer_code
                          LEFT OUTER JOIN #Primary p ON p.customer_code = d.customer_code
@@ -365,6 +366,7 @@ AS
 
 
     END;
+
 
 
 
