@@ -33,7 +33,7 @@ DECLARE @pat_index int,
      AND a.part_no = @part_no   
      AND a.[primary] = 'Y'  
      AND NOT (a.bin_no = '' OR a.bin_no = '<NONE>')
-	 AND b.group_code = @bin_group
+	 -- v1.1 AND b.group_code = @bin_group
    
  -- secondary bin  
  INSERT INTO #bin_listbox (bin_no, to_bin)  
@@ -46,7 +46,7 @@ DECLARE @pat_index int,
      AND a.bin_no <> @from_bin  
      AND a.seq_no > 0  
      AND NOT (a.bin_no = '' OR a.bin_no = '<NONE>')
-	 AND b.group_code = @bin_group
+	 -- v1.1 AND b.group_code = @bin_group
   ORDER BY a.seq_no  
   
  SELECT @orderby =   
@@ -77,8 +77,9 @@ DECLARE @pat_index int,
        AND (usage_type_code = ''OPEN'' OR usage_type_code = ''REPLENISH'')  
        AND m.status = ''A''             
        AND s.bin_no NOT IN (SELECT to_bin FROM #bin_listbox)  
-       AND m.group_code = ' + '''' + @bin_group + '''' + '
     ORDER BY s.' + @orderby  
+
+--  v1.1 AND m.group_code = ' + '''' + @bin_group + '''' + '
   
  INSERT INTO #bin_listbox (bin_no, to_bin)  
   EXEC (@sqlstatement)  

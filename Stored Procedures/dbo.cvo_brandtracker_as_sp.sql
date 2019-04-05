@@ -5,7 +5,7 @@ GO
 
 -- 8/18/2015 - when calculating FirstOrder units, don't qualify on promo/level, only on promo
 -- For Aspire pgm - q2 2019
--- exec cvo_brandtracker_as_sp '02/25/2019', null, 'as', NULL, 'ASPIRE','new,current', 0
+-- exec cvo_brandtracker_as_sp '02/25/2019', null, 'as', '20204', 'ASPIRE','new,current', 0
 
 
 CREATE PROCEDURE [dbo].[cvo_brandtracker_as_sp]
@@ -281,7 +281,7 @@ BEGIN
           );
 
 
-    CREATE NONCLUSTERED INDEX idx_t ON #t (customer_code);
+    CREATE NONCLUSTERED INDEX idx_t ON #t (customer_code, promo_id, promo_level);
 
     -- get BI and re-order information
 
@@ -301,8 +301,7 @@ BEGIN
                AND p.promo_level = #t.promo_level
         INNER JOIN inv_master i (NOLOCK)
             ON i.part_no = sbm.part_no
-    WHERE sbm.yyyymmdd
-          BETWEEN p.promo_start_date AND @dateto
+    WHERE sbm.yyyymmdd = #t.first_order_date
           AND (RIGHT(sbm.user_category, 2) <> 'rb')
           AND i.type_code IN ( 'frame', 'sun' )
     UNION ALL
@@ -310,7 +309,7 @@ BEGIN
            #t.ship_to_code,
            ISNULL(sbm.qnet, 0) NetUnits,
            ISNULL(sbm.anet, 0.0) NetSales,
-           'RX' sale_type
+           'RE' sale_type -- re-orders
     FROM #t
         INNER JOIN dbo.cvo_sbm_details sbm (NOLOCK)
             ON sbm.customer = #t.customer_code -- AND sbm.ship_to = #t.ship_to_code
@@ -321,7 +320,7 @@ BEGIN
             ON ia.part_no = i.part_no
     WHERE LEFT(sbm.user_category, 2) IN ( 'ST', 'RX' )
           AND sbm.yyyymmdd
-          BETWEEN @datefrom AND @dateto
+          BETWEEN ISNULL(DATEADD(dd,1,#t.first_order_ship),@datefrom) AND @dateto
           AND ISNULL(sbm.promo_id, '') NOT IN ( 'pc', 'ff', 'style out' )
           AND (RIGHT(sbm.user_category, 2) <> 'rb')
           AND i.type_code IN ( 'frame', 'sun' )
@@ -383,7 +382,8 @@ BEGIN
            v.sale_type,
            c.description brand_name,
            #terr.region,
-           slp.salesperson_name
+           slp.salesperson_name,
+           slp.addr_sort2 salesperson_email
     FROM #t
         JOIN dbo.armaster ar (NOLOCK)
             ON ar.customer_code = #t.customer_code
@@ -404,11 +404,13 @@ BEGIN
             GROUP BY customer_code,
                      sale_type
         ) v
-            ON v.customer_code = #t.customer_code
+            ON v.customer_code = #t.customer_code 
     WHERE 1 = 1;
 
 
 END;
+
+
 
 
 

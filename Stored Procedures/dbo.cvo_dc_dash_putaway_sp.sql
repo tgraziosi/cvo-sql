@@ -16,6 +16,7 @@ BEGIN
            ISNULL(b.group_code, 'UnDirected') Group_code,
            '' username,
            COUNT(put.tran_id) num_puts,
+           SUM(CAST(put.qty_to_process as integer)) qty_puts,
            @asofdate tran_date
     FROM tdc_put_queue put (NOLOCK)
         LEFT OUTER JOIN tdc_bin_master b (NOLOCK)
@@ -31,6 +32,7 @@ BEGIN
            b.group_code,
            ISNULL(cu.fname + ' ' + cu.lname, REPLACE(wms.UserID, 'cvoptical\', '')) Username,
            COUNT(tran_date) num_trans,
+           SUM(CAST(wms.quantity AS INTEGER)) qty_trans,
            DATEADD(dd, DATEDIFF(dd, 0, wms.tran_date), 0) tran_date
     FROM tdc_log (NOLOCK) wms
         JOIN tdc_bin_master b
@@ -45,6 +47,7 @@ BEGIN
              DATEADD(dd, DATEDIFF(dd, 0, wms.tran_date), 0),
              b.group_code;
 END;
+
 
 
 GO

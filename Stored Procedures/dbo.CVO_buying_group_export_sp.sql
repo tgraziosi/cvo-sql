@@ -16,7 +16,7 @@ PURPOSE:    Generate Buying Group Export Files
 LAST UPDATE:   20120113  
   
   
-EXEC CVO_buying_group_export_sp  'INVOICE_DATE BETWEEN ''05/08/2018'' AND ''05/08/2018'''
+EXEC CVO_buying_group_export_sp  'INVOICE_DATE BETWEEN ''02/26/2019'' AND ''03/25/2019'''
   
 **************************************************************************************/  
   
@@ -519,11 +519,11 @@ BEGIN
 	ON		a.doc_ctrl_num = b.doc_ctrl_num
 
 	-- v2.2 Start
---	UPDATE	a
---	SET		inv_tot_diff = a.inv_tot - b.inv_tot
---	FROM	#check_lines a
---	JOIN	#ar_check b
---	ON		a.doc_ctrl_num = b.doc_ctrl_num
+	--UPDATE	a
+	--SET		inv_tot_diff = a.inv_tot - b.inv_tot
+	--FROM	#check_lines a
+	--JOIN	#ar_check b
+	--ON		a.doc_ctrl_num = b.doc_ctrl_num
 	-- v2.2
 
 	DROP TABLE #ar_check
@@ -944,6 +944,7 @@ BEGIN
   
 	--=============================================================================  
 end
+
 GO
 GRANT EXECUTE ON  [dbo].[CVO_buying_group_export_sp] TO [public]
 GO
