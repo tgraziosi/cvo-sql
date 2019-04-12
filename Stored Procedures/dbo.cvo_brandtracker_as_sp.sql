@@ -5,7 +5,7 @@ GO
 
 -- 8/18/2015 - when calculating FirstOrder units, don't qualify on promo/level, only on promo
 -- For Aspire pgm - q2 2019
--- exec cvo_brandtracker_as_sp '02/25/2019', null, 'as', '20204', 'ASPIRE','new,current', 0
+-- exec cvo_brandtracker_as_sp '02/25/2019', null, 'as', '50509', 'ASPIRE','new,current', 0
 
 
 CREATE PROCEDURE [dbo].[cvo_brandtracker_as_sp]
@@ -288,8 +288,8 @@ BEGIN
     INSERT INTO #v
     SELECT #t.customer_code,
            #t.ship_to_code,
-           ISNULL(sbm.qnet, 0) NetUnits,
-           ISNULL(sbm.anet, 0.0) NetSales,
+           SUM(ISNULL(sbm.qnet, 0)) NetUnits,
+           SUM(ISNULL(sbm.anet, 0.0)) NetSales,
            'BI' sale_type
     FROM #t
         INNER JOIN dbo.cvo_sbm_details sbm (NOLOCK)
@@ -301,9 +301,11 @@ BEGIN
                AND p.promo_level = #t.promo_level
         INNER JOIN inv_master i (NOLOCK)
             ON i.part_no = sbm.part_no
-    WHERE sbm.yyyymmdd = #t.first_order_date
+    WHERE sbm.DateOrdered = #t.first_order_date
           AND (RIGHT(sbm.user_category, 2) <> 'rb')
           AND i.type_code IN ( 'frame', 'sun' )
+    GROUP BY customer_code,
+             ship_to_code
     UNION ALL
     SELECT #t.customer_code,
            #t.ship_to_code,
@@ -409,6 +411,7 @@ BEGIN
 
 
 END;
+
 
 
 

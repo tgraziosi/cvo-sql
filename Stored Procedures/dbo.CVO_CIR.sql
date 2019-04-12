@@ -439,6 +439,8 @@ v5.5 - 12/28/2017 - remove CH and ME
     PRINT 'Done with ord_list - posted invoices';
     SELECT GETDATE();
 
+    
+
     /* dON'T NEED TO CHECK HISTORY ANY LONGER ...
 INSERT  INTO #vsordList
 SELECT 
@@ -558,6 +560,7 @@ PRINT 'Done with ord_list hist';
           AND a.ship_to = AR.ship_to_code
     );
 
+
     -- v5.3 - don't need to do this here any longer
 
     -- Collapse ship-to's that are not active
@@ -635,7 +638,7 @@ PRINT 'Done with ord_list hist';
           -- left(v.user_category,2) = 'ST' 
           AND v.type = 'i';
 
-    --select * from #last_st
+    -- select * from #last_st WHERE cust_code = '046022'
 
     -- v5.2 - Setup summary figures
 
@@ -663,7 +666,7 @@ PRINT 'Done with ord_list hist';
     )
     SELECT ar.territory_code,
            cs.customer,
-           CASE WHEN ar.status_type <> 1 AND cs.ship_to <> '' THEN '' ELSE cs.ship_to END AS ship_to,
+           CASE WHEN (ar.status_type <> 1 OR car.door = 0) AND cs.ship_to <> '' THEN '' ELSE cs.ship_to END AS ship_to,
            SUM(CASE WHEN cs.yyyymmdd BETWEEN @F12 AND @last THEN cs.anet ELSE 0 END) AS Custnetsales,
            SUM(CASE WHEN cs.yyyymmdd BETWEEN @f24 AND DATEADD(yy, -1, @last) THEN cs.anet ELSE 0 END) AS NetSalesLY,
            SUM(CASE WHEN cs.yyyymmdd BETWEEN @TYstart AND @last THEN cs.anet ELSE 0 END) AS YTDTY,
@@ -672,11 +675,13 @@ PRINT 'Done with ord_list hist';
         INNER JOIN dbo.armaster ar (NOLOCK)
             ON cs.customer = ar.customer_code
                AND cs.ship_to = ar.ship_to_code
+        INNER JOIN cvo_armaster_all car (NOLOCK)
+            ON car.customer_code = ar.customer_code AND car.ship_to = cs.ship_to
     WHERE cs.yyyymmdd
     BETWEEN @f24 AND @last
     GROUP BY ar.territory_code,
              cs.customer,
-             CASE WHEN ar.status_type <> 1 AND cs.ship_to <> '' THEN '' ELSE cs.ship_to END;
+             CASE WHEN (ar.status_type <> 1 OR car.door = 0) AND cs.ship_to <> '' THEN '' ELSE cs.ship_to END;
 
     CREATE NONCLUSTERED INDEX idx_cs
     ON #cs (
@@ -684,6 +689,8 @@ PRINT 'Done with ord_list hist';
            customer,
            ship_to
            );
+
+-- SELECT * FROM #cs WHERE customer = '046022'
 
     -- 
     PRINT 'Start cvo_CIR';
@@ -1241,6 +1248,7 @@ PRINT 'Done with ord_list hist';
 END;
 
 -- 
+
 
 
 

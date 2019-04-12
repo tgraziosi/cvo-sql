@@ -124,13 +124,14 @@ BEGIN
         [Color_desc] VARCHAR(40),
         [eye_size] DECIMAL(20, 8),
         [part_no] VARCHAR(30),
-        [qty_avl] DECIMAL(38, 8),
+        [qty_avl] DECIMAL(20, 8),
         [POM_date] DATETIME,
         pom_inv_qty INT,
-        num_color int,
+        prior_closeout_list VARCHAR(10),
+        num_color INT,
         num_color_avl INT,
-        num_size int,
-        num_sizes_avl int
+        num_size INT,
+        num_sizes_avl INT
     );
 
 
@@ -139,22 +140,46 @@ BEGIN
 
 
     SELECT iav.Brand,
+           iav.ResType,
+           iav.Gender,
            iav.Style,
+           iav.Material,
            iav.Color_desc,
            ia.field_17 eye_size,
            iav.part_no,
            iav.qty_avl,
+           iav.tot_ext_cost,
            iav.POM_date,
-           0 pom_inv_qty
+           age = CASE
+                     WHEN iav.POM_date > @asofdate THEN
+                         'Future'
+                     WHEN iav.POM_date >= DATEADD(yy, -1, @asofdate) THEN
+                         '0-12'
+                     WHEN iav.POM_date >= DATEADD(yy, -2, @asofdate)
+                          AND iav.POM_date < DATEADD(yy, -1, @asofdate) THEN
+                         '13-24'
+                     WHEN iav.POM_date >= DATEADD(yy, -3, @asofdate)
+                          AND iav.POM_date < DATEADD(yy, -2, @asofdate) THEN
+                         '25-36'
+                     WHEN iav.POM_date < DATEADD(yy, -3, @asofdate) THEN
+                         '37+'
+                     ELSE
+                         'Unknown'
+                 END,
+           0 pom_inv_qty,
+           pa.attribute prior_closeout_list
     INTO #avl
     FROM dbo.cvo_item_avail_vw AS iav
         JOIN dbo.inv_master_add ia
             ON ia.part_no = iav.part_no
+        LEFT OUTER JOIN cvo_part_attributes pa
+            ON pa.part_no = ia.part_no
     WHERE iav.location = '001'
           -- AND iav.qty_avl >= 50
           AND iav.ResType IN ( 'frame' )
           AND iav.Brand NOT IN ( 'jc', 'rr', 'pt', 'izx', 'dh', 'ko', 'di' )
-          AND iav.POM_date < DATEADD(mm,11,@asofdate);
+          AND iav.POM_date < DATEADD(mm, 11, @asofdate)
+          AND ISNULL(pa.attribute, 'no') IN ( 'no', 'spv', 'qop', 'eor' );
 
     -- run ifps for future pom items and get the enting inventorty in the month after POM month.  must be > 50
 
@@ -291,7 +316,7 @@ BEGIN
         FROM #avl
         GROUP BY Brand,
                  Style),
-             num_colors_per_size
+         num_colors_per_size
     AS (SELECT a.Brand,
                a.Style,
                a.eye_size,
@@ -307,14 +332,16 @@ BEGIN
         GROUP BY a.Brand,
                  a.Style,
                  a.eye_size),
-
          num_sizes_per_color
     AS (SELECT a.Brand,
                a.Style,
                a.Color_desc,
                COUNT(a.eye_size) num_sizes_avl
         FROM #avl AS a
-        JOIN num_colors_per_size nc ON nc.Brand = a.Brand AND nc.Style = a.Style AND nc.eye_size = a.eye_size
+            JOIN num_colors_per_size nc
+                ON nc.Brand = a.Brand
+                   AND nc.Style = a.Style
+                   AND nc.eye_size = a.eye_size
         WHERE nc.num_colors_avl >= 2
               AND a.qty_avl >= 50
               AND CASE
@@ -326,7 +353,6 @@ BEGIN
         GROUP BY a.Brand,
                  a.Style,
                  a.Color_desc),
-
          almost_done
     AS (SELECT avl.Brand,
                avl.Style,
@@ -336,11 +362,11 @@ BEGIN
                avl.qty_avl,
                avl.POM_date,
                avl.pom_inv_qty,
+               avl.prior_closeout_list,
                sizes.num_color,
                nc.num_colors_avl,
                sizes.num_size,
                ns.num_sizes_avl
-   
         FROM #avl avl
             LEFT OUTER JOIN sizes
                 ON sizes.Brand = avl.Brand
@@ -360,7 +386,12 @@ BEGIN
                       ELSE
                           50
                   END >= 50
-              AND ns.num_sizes_avl >= CASE WHEN sizes.num_size = 1 THEN 1 ELSE 2 END 
+              AND ns.num_sizes_avl >= CASE
+                                          WHEN sizes.num_size = 1 THEN
+                                              1
+                                          ELSE
+                                              2
+                                      END
               AND nc.num_colors_avl >= 2)
     --SELECT *
     --FROM almost_done;
@@ -374,6 +405,7 @@ BEGIN
            almost_done.qty_avl,
            almost_done.POM_date,
            almost_done.pom_inv_qty,
+           almost_done.prior_closeout_list,
            num_color,
            num_colors_avl,
            num_size,
@@ -396,24 +428,45 @@ BEGIN
                AND xx.eye_size = almost_done.eye_size;
 
 
-SELECT avl.*,
-       CASE
-           WHEN spv.part_no IS NOT NULL THEN
-               'Yes'
-           ELSE
-               NULL
-       END spv,
-       spv.num_color,
-       spv.num_color_avl,
-       spv.num_size,
-       spv.num_sizes_avl
-FROM #avl avl
-    LEFT OUTER JOIN #spv spv
-        ON spv.part_no = avl.part_no
-ORDER BY avl.Brand,
-         avl.Style,
-         avl.eye_size,
-         avl.Color_desc;
+    SELECT avl.Brand,
+           avl.ResType,
+           avl.Gender,
+           avl.Style,
+           avl.Material,
+           avl.Color_desc,
+           avl.eye_size,
+           avl.part_no,
+           avl.qty_avl,
+           avl.tot_ext_cost,
+           avl.POM_date,
+           avl.age,
+           avl.pom_inv_qty,
+           CASE
+               WHEN avl.prior_closeout_list = 'SPV' THEN
+                   'Yes'
+               ELSE
+                   'No'
+           END prior_closeout_list,
+           CASE
+               WHEN spv.part_no IS NOT NULL THEN
+                   'Yes'
+               ELSE
+                   'No'
+           END spv,
+           spv.num_color,
+           spv.num_color_avl,
+           spv.num_size,
+           spv.num_sizes_avl
+    FROM #avl avl
+        LEFT OUTER JOIN #spv spv
+            ON spv.part_no = avl.part_no
+    WHERE avl.prior_closeout_list IS NOT NULL
+          OR spv.part_no IS NOT NULL
+    --ORDER BY avl.Brand,
+    --         avl.Style,
+    --         avl.eye_size,
+    --         avl.Color_desc
+    ;
 
     IF @update = 1
     BEGIN
@@ -494,6 +547,9 @@ ORDER BY avl.Brand,
     END;
 -- SELECT * FROM #avl WHERE style = 'ELODIE'
 END;
+
+
+
 
 
 

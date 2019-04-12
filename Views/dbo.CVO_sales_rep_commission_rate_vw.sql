@@ -17,11 +17,13 @@ SELECT
 						ELSE 'Escalated'
 	END as escalated_comm, 
 	IsNull(s.commission,0) as commission,                              
-	s.date_of_hire,            
+	s.date_of_hire,  
+    s.date_terminated,          
 	s.draw_amount,
 	S.territory_code -- 12/22/2016
 
 FROM arsalesp s (nolock) 
+
 
 
 
