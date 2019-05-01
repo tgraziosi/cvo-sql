@@ -80,9 +80,9 @@ BEGIN
 
 	-- cvo_orders_all
 	INSERT INTO CVO_orders_all(order_no,ext,add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,
-								commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, upsell_flag, must_go_today) 	-- v1.2	v1.6 v1.7 v1.8 v2.0
+								commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, upsell_flag, must_go_today, written_by) 	-- v1.2	v1.6 v1.7 v1.8 v2.0 v2.2
 	SELECT	@new_order_no, 0, add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,
-			commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, upsell_flag, must_go_today -- v1.2 v1.6 v1.7 v1.8 v2.0
+			commission_pct, stage_hold, prior_hold, credit_approved, invoice_note, commission_override, email_address, upsell_flag, must_go_today, written_by -- v1.2 v1.6 v1.7 v1.8 v2.0 v2.2
 	FROM	cvo_orders_all (NOLOCK)
 	WHERE	order_no = @order_no
 	AND		ext = @order_ext
@@ -94,9 +94,9 @@ BEGIN
 
 	-- v2.1 Start
 	INSERT	ord_rep (order_no, order_ext, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
-		primary_rep, include_rx, brand, brand_split, brand_excl, commission)
+		primary_rep, include_rx, brand, brand_split, brand_excl, commission, brand_exclude, promo_id, rx_only, startdate, enddate) -- v2.2
 	SELECT	@new_order_no, 0, salesperson, sales_comm, percent_flag, exclusive_flag, split_flag, note, display_line,
-		primary_rep, include_rx, brand, brand_split, brand_excl, commission	
+		primary_rep, include_rx, brand, brand_split, brand_excl, commission, brand_exclude, promo_id, rx_only, startdate, enddate -- v2.2	
 	FROM	ord_rep (NOLOCK)
 	WHERE	order_no = @order_no
 	AND		order_ext = @order_ext

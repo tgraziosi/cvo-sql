@@ -14,6 +14,7 @@ GO
 -- v1.8 CB 11/06/2013 - Issue #965 - Tax Calculation
 -- v1.9 CB 16/07/2013 - Issue #927 - Buying Group Switching
 -- v2.0 CB 06/01/2015 - Fix issue with st_consolidate not being populated
+-- v2.1 CB 10/04/2019 Performance
 CREATE PROC [dbo].[CVO_create_replace_inv_salesorder_sp] (@order_no INT, @order_ext INT)  
 AS
 BEGIN
@@ -31,11 +32,15 @@ BEGIN
 			@juliandate			INT,
 			@new_user_code		VARCHAR(8),
 			@hold_user_code		VARCHAR(8),
-			@line_no			INT
+			@user_hold_user_code VARCHAR(8), -- v2.1
+			@line_no			INT,
+			@bg					varchar(10), -- v2.1
+			@status_code		varchar(10) -- v2.1
 
 	-- Get user codes
 	SELECT @new_user_code = user_stat_code FROM dbo.so_usrstat (NOLOCK) WHERE status_code = 'N' AND default_flag = 1 AND void = 'N'
 	SELECT @hold_user_code = user_stat_code FROM dbo.so_usrstat (NOLOCK) WHERE status_code = 'C' AND default_flag = 1 AND void = 'N'
+	SELECT @user_hold_user_code = user_stat_code FROM dbo.so_usrstat (NOLOCK) WHERE status_code = 'A' AND default_flag = 1 AND void = 'N' -- v2.1
 
 	-- Get zero freight freight type
 	SELECT @freight_type = value_str FROM dbo.config WHERE flag = 'FRTHTYPE'
@@ -66,7 +71,7 @@ BEGIN
 		AND	b.ext = @order_ext
 
 	-- If there is a ship to then update with the details from there
-	IF EXISTS (SELECT 1 FROM dbo.orders_all WHERE order_no = @order_no AND ext = @order_ext AND ISNULL(ship_to,'') <> '')
+	IF EXISTS (SELECT 1 FROM dbo.orders_all (NOLOCK) WHERE order_no = @order_no AND ext = @order_ext AND ISNULL(ship_to,'') <> '') -- v2.1
 	BEGIN
  
 		SELECT 
@@ -86,7 +91,8 @@ BEGIN
 	END
 
 	-- Copy the data from from the order to a new order
-	INSERT INTO orders_all  (order_no,ext,cust_code,ship_to,req_ship_date,sch_ship_date,date_shipped,date_entered,cust_po,who_entered,status,attention,phone,terms,routing,special_instr,
+	-- v2.1
+	INSERT INTO orders_all WITH (ROWLOCK) (order_no,ext,cust_code,ship_to,req_ship_date,sch_ship_date,date_shipped,date_entered,cust_po,who_entered,status,attention,phone,terms,routing,special_instr,
 											invoice_date,total_invoice,total_amt_order,salesperson,tax_id,tax_perc,invoice_no,fob,freight,printed,discount,label_no,cancel_date,new,ship_to_name,
 											ship_to_add_1,ship_to_add_2,ship_to_add_3,ship_to_add_4,ship_to_add_5,ship_to_city,ship_to_state,ship_to_zip,ship_to_country,ship_to_region,cash_flag,type,back_ord_flag,
 											freight_allow_pct,route_code,route_no,date_printed,date_transfered,cr_invoice_no,who_picked,note,void,void_who,void_date,changed,remit_key,forwarder_key,freight_to,
@@ -118,7 +124,8 @@ BEGIN
 	END
 
 	-- cvo_orders_all
-	INSERT INTO CVO_orders_all(order_no,ext,add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,
+	-- v2.1
+	INSERT INTO CVO_orders_all WITH (ROWLOCK) (order_no,ext,add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,
 								commission_pct, stage_hold, prior_hold, credit_approved, replen_inv, st_consolidate) -- v2.0 		
 	SELECT	@new_order_no, 0, 'N','N',NULL,NULL,'N','N',1,dbo.f_cvo_get_buying_group(cust_code,GETDATE()), GETDATE(), -- v1.9
 			NULL, 0, NULL, NULL,0, 0 -- v2.0
@@ -132,7 +139,8 @@ BEGIN
 	END
 
 		-- ord_list
-	INSERT	ord_list (order_no,order_ext,line_no,location,part_no,description,time_entered,ordered,shipped,price,price_type,note,status,cost,who_entered,sales_comm,
+	-- v2.1
+	INSERT	ord_list WITH (ROWLOCK) (order_no,order_ext,line_no,location,part_no,description,time_entered,ordered,shipped,price,price_type,note,status,cost,who_entered,sales_comm,
 								temp_price,temp_type,cr_ordered,cr_shipped,discount,uom,conv_factor,void,void_who,void_date,std_cost,cubic_feet,printed,lb_tracking,labor,direct_dolrs,
 								ovhd_dolrs,util_dolrs,taxable,weight_ea,qc_flag,reason_code,qc_no,rejected,part_type,orig_part_no,back_ord_flag,gl_rev_acct,total_tax,tax_code,curr_price,
 								oper_price,display_line,std_direct_dolrs,std_ovhd_dolrs,std_util_dolrs,reference_code,contract,agreement_id,ship_to,service_agreement_flag,
@@ -154,7 +162,8 @@ BEGIN
 	END
 
 	-- cvo_ord_list
-	INSERT INTO CVO_ord_list(order_no,order_ext,line_no,add_case,add_pattern,from_line_no,is_case,is_pattern,add_polarized,is_polarized,is_pop_gif,
+	-- v2.1
+	INSERT INTO CVO_ord_list WITH (ROWLOCK) (order_no,order_ext,line_no,add_case,add_pattern,from_line_no,is_case,is_pattern,add_polarized,is_polarized,is_pop_gif,
 											is_amt_disc,amt_disc,is_customized,promo_item,list_price, free_frame) -- v1.7
 	SELECT	@new_order_no, 0, a.line_no,'N','N',ISNULL(a.from_line_no,0),a.is_case,a.is_pattern,a.add_polarized,a.is_polarized,a.is_pop_gif,
 											a.is_amt_disc,a.amt_disc,a.is_customized,a.promo_item,a.list_price, 0 -- v1.7		
@@ -168,7 +177,8 @@ BEGIN
 	END
 
 	-- ord_list_kit
-	INSERT INTO ord_list_kit (order_no,order_ext,line_no,location,part_no,part_type,ordered,shipped,status,lb_tracking,cr_ordered,cr_shipped,uom,conv_factor,
+	-- v2.1
+	INSERT INTO ord_list_kit WITH (ROWLOCK) (order_no,order_ext,line_no,location,part_no,part_type,ordered,shipped,status,lb_tracking,cr_ordered,cr_shipped,uom,conv_factor,
 										cost,labor,direct_dolrs,ovhd_dolrs,util_dolrs,note,qty_per,qc_flag,qc_no,description)
 	SELECT	@new_order_no, 0, line_no, '001', part_no, 'P', cr_ordered, 0, 'N', lb_tracking, 0, 0, uom,conv_factor,	-- v1.1
 			cost, labor, direct_dolrs, ovhd_dolrs, util_dolrs, note, qty_per, qc_flag, qc_no, description
@@ -182,7 +192,8 @@ BEGIN
 	END
 
 	-- CVO_ord_list_kit
-	INSERT INTO CVO_ord_list_kit(order_no,order_ext,line_no,location,part_no,replaced,new1,part_no_original)
+	-- v2.1
+	INSERT INTO CVO_ord_list_kit WITH (ROWLOCK) (order_no,order_ext,line_no,location,part_no,replaced,new1,part_no_original)
 	SELECT	@new_order_no, 0 , line_no, '001', part_no, replaced, new1, part_no_original		
 	FROM	cvo_ord_list_kit (NOLOCK)
 	WHERE	order_no = @order_no
@@ -201,7 +212,7 @@ BEGIN
 		SELECT TOP 1
 			@line_no = line_no
 		FROM
-			dbo.ord_list
+			dbo.ord_list (NOLOCK) -- v2.1
 		WHERE
 			order_no = @new_order_no 
 			AND order_ext = 0
@@ -213,7 +224,7 @@ BEGIN
 			BREAK
 
 		UPDATE
-			a
+			a WITH (ROWLOCK) -- v2.1
 		SET
 			temp_price = price,
 			temp_type = price_type,
@@ -227,7 +238,7 @@ BEGIN
 		FROM 
 			dbo.ord_list a
 		INNER JOIN
-			dbo.inventory b (NOLOCK)
+			dbo.cvo_inventory2 b (NOLOCK) -- v2.1
 		ON
 			a.part_no = b.part_no
 			AND a.location = b.location	
@@ -243,7 +254,7 @@ BEGIN
 
 	-- START v1.4
 	UPDATE 
-		a
+		a WITH (ROWLOCK) -- v2.1
 	SET 
 		list_price = d.price,
 		amt_disc = 0 
@@ -272,14 +283,44 @@ BEGIN
 -- v1.8	EXEC dbo.fs_calculate_oetax_wrap @ord = @new_order_no,@ext = 0,@batch_call = -1 
 	EXEC fs_updordtots @ordno = @new_order_no,@ordext = 0
 
-	-- Check for credit hold
-	SELECT @juliandate = datediff(day, '01/01/1900', getdate())+693596
-	EXEC @retval = dbo.cvo_fs_archklmt_sp_wrap @customer_code = @cust_code, @date_entered = @juliandate, @ordno = @new_order_no, @ordext = 0
+	-- v2.1 Start
+	SELECT	@bg = buying_group
+	FROM	CVO_orders_all (NOLOCK)
+	WHERE	order_no = @order_no
+	AND		ext = @order_ext
+
+	IF (ISNULL(@bg,'') <> '')
+	BEGIN
+		IF NOT EXISTS (SELECT 1 FROM cc_cust_status_hist (NOLOCK) WHERE customer_code = @bg AND status_code <> '')
+		BEGIN
+			SELECT @juliandate = datediff(day, '01/01/1900', getdate())+693596
+			EXEC @retval = dbo.cvo_fs_archklmt_sp_wrap @customer_code = @cust_code, @date_entered = @juliandate, @ordno = @new_order_no, @ordext = 0
+		END
+		ELSE
+		BEGIN
+			SELECT TOP 1 @status_code = status_code FROM cc_cust_status_hist (NOLOCK) WHERE customer_code = @bg AND status_code <> '' ORDER BY date DESC
+			UPDATE	dbo.orders_all WITH (ROWLOCK)
+			SET		[status] = 'A',
+					user_code = @hold_user_code,
+					hold_reason = @status_code
+			WHERE	order_no = @new_order_no
+			AND		ext = 0
+
+			SET @retval = 0
+		END
+	END
+	ELSE
+	BEGIN
+		-- Check for credit hold
+		SELECT @juliandate = datediff(day, '01/01/1900', getdate())+693596
+		EXEC @retval = dbo.cvo_fs_archklmt_sp_wrap @customer_code = @cust_code, @date_entered = @juliandate, @ordno = @new_order_no, @ordext = 0
+	END 
+	-- v2.1
 
 	IF @retval <> 0 
 	BEGIN
 		UPDATE
-			dbo.orders_all
+			dbo.orders_all WITH (ROWLOCK) -- v2.1
 		SET
 			[status] = 'C',
 			user_code = @hold_user_code,

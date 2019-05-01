@@ -5,7 +5,7 @@ GO
 CREATE PROCEDURE [dbo].[cvo_dc_dash_putaway_sp] @asofdate DATETIME = NULL
 AS
 BEGIN
-    -- EXEC dbo.cvo_dc_dash_putaway_sp '03/28/2019'
+    -- EXEC dbo.cvo_dc_dash_putaway_sp '04/22/2019'
 
     SET NOCOUNT ON;
     IF @asofdate IS NULL
@@ -24,6 +24,23 @@ BEGIN
                AND b.location = put.location
     WHERE put.trans = 'poptwy'
     GROUP BY ISNULL(b.group_code, 'UnDirected')
+
+    UNION all
+        SELECT 'BO' who_processed,
+           ISNULL(b.group_code, 'UnDirected') Group_code,
+           cia.part_no username,
+           COUNT(put.tran_id) num_puts,
+           SUM(CAST(put.qty_to_process as integer)) qty_puts,
+           @asofdate tran_date
+    FROM tdc_put_queue put (NOLOCK)
+        LEFT OUTER JOIN tdc_bin_master b (NOLOCK)
+            ON b.bin_no = put.next_op
+               AND b.location = put.location
+    JOIN cvo_item_avail_vw cia ON cia.part_no = put.part_no
+    WHERE put.trans = 'poptwy'
+          AND cia.location = '001' AND cia.backorder <> 0
+    GROUP BY ISNULL(b.group_code, 'UnDirected'),
+             cia.part_no
 
     -- get the completed putaways since the as of date
     UNION ALL
@@ -47,6 +64,7 @@ BEGIN
              DATEADD(dd, DATEDIFF(dd, 0, wms.tran_date), 0),
              b.group_code;
 END;
+
 
 
 

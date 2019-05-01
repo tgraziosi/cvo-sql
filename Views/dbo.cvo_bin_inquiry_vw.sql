@@ -29,7 +29,8 @@ AS
 			bm.maximum_level, -- 1/18/2017 - per KM request
             bm.last_modified_date ,
             bm.modified_by,
-			bm.status
+			bm.status,
+            i.country_code Country_of_Origin
     FROM    lot_bin_stock b ( NOLOCK )
             INNER JOIN inv_master i ( NOLOCK ) ON b.part_no = i.part_no
             INNER JOIN inv_list il ( NOLOCK ) ON il.part_no = i.part_no
@@ -63,7 +64,8 @@ AS
 			m.maximum_level,
             m.last_modified_date ,
             m.modified_by,
-			m.status
+			m.status,
+            i.country_code 
     FROM    tdc_bin_part_qty s ( NOLOCK )
             INNER JOIN tdc_bin_master m ( NOLOCK ) ON s.location = m.location
                                                       AND s.bin_no = m.bin_no
@@ -99,7 +101,8 @@ AS
 			m.maximum_level,
             m.last_modified_date ,
             m.modified_by,
-			m.status
+			m.status,
+            ''
     FROM    tdc_bin_master m (NOLOCK)
 			WHERE 
 			NOT EXISTS (SELECT 1 FROM tdc_bin_part_qty s ( NOLOCK ) WHERE s.location = m.location AND s.bin_no = m.bin_no)
@@ -108,6 +111,7 @@ AS
 			
 			;
     
+
 
 
 

@@ -287,6 +287,7 @@ v1.2	CB	03/10/2012	Moved to client as causing issues when multiple lines include
 v1.3	CT	17/10/2012	Ignore credit returns on user hold
 v1.4	CT	17/10/2012	Auto-receive functionality
 v1.5	CT	07/05/2013	Issue 1261 - TBB credit returns failing due to trigger recursion - moving commission recalc here
+v1.6	CB	10/04/2019	Performance
 */
 
 CREATE TRIGGER [dbo].[cvo_orders_all_insupd_trg] ON [dbo].[CVO_orders_all]
@@ -397,7 +398,7 @@ BEGIN
 				IF @updated > 0
 				BEGIN
 					UPDATE
-						dbo.cvo_orders_all
+						dbo.cvo_orders_all WITH (ROWLOCK) -- v1.6
 					SET
 						stock_move_order_no = CASE @updated WHEN 1 THEN @s_order_no WHEN 3 THEN @s_order_no ELSE stock_move_order_no END,
 						stock_move_ext = CASE @updated WHEN 1 THEN 0 WHEN 3 THEN 0 ELSE stock_move_ext END,
@@ -570,7 +571,7 @@ BEGIN
 		SELECT @commission = dbo.f_get_order_commission(@order_no,@ext)   					
 
 		UPDATE  
-			dbo.cvo_orders_all  
+			dbo.cvo_orders_all WITH (ROWLOCK) -- v1.6 
 		SET   
 			commission_pct = ISNULL(@commission,0)  
 		WHERE  
@@ -599,6 +600,7 @@ v1.0 CT 23/11/2012 Original Version
 v1.1 CT 22/04/2013 Issue 1230 - change in commission logic - always recalc for SO's and manual Credits
 v1.2 CT 07/05/2013 Issue 1261 - TBB credit returns failing due to trigger recursion - moving commission recalc to cvo_orders_all_insupd_trg
 v1.3 TG 7/14/2016 - add datetime log for must go today
+v1.4 CB 10/04/2019 Performance
 */  
   
 CREATE TRIGGER [dbo].[cvo_orders_all_upd_trg] ON [dbo].[CVO_orders_all]
@@ -664,13 +666,13 @@ AS
                                 SELECT  @commission = dbo.f_get_order_commission(@order_no,
                                                               @ext);   					
 
-                                UPDATE  dbo.CVO_orders_all
+                                UPDATE  dbo.CVO_orders_all WITH (ROWLOCK) -- v1.4
                                 SET     commission_pct = ISNULL(@commission, 0)
                                 WHERE   order_no = @order_no
                                         AND ext = @ext;  
 
 							-- tag -- 1/5/16 - check if we need CH WTY note
-                                UPDATE  co
+                                UPDATE  co WITH (ROWLOCK) -- v1.4
                                 SET     co.invoice_note = CASE
                                                               WHEN ISNULL(co.invoice_note,
                                                               '') = ''

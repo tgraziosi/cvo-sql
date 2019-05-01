@@ -2,27 +2,12 @@ SET QUOTED_IDENTIFIER OFF
 GO
 SET ANSI_NULLS ON
 GO
--- v1.0 CB 21/05/2018 - SP to replace views for buying group views
--- v1.1 CB 25/05/2018 - Remove 100% discount items
--- v1.2 CB 25/05/2018 - Fix issue with quoted prices
--- v1.3 CB 12/06/2018 - Deal with rounding issues on installment invoices
--- v1.4 CB 26/06/2018 - Remove zero invoices
--- v1.5 CB 26/06/2018 - Fix issue with installment invoices
--- v1.6 CB 27/07/2018 - Addition to v1.5
--- v1.7 CB 15/10/2018 - Rounding issues on installment invoices
--- v1.8 CB 25/10/2018 - Rounding issues on installment invoices
--- v1.9 CB 25/10/2018 - Rounding issues on installment invoices
--- v2.0 CB 13/12/2018 - Add with recompile option do deal with inconsistant results
--- v2.1 CB 25/10/2018 - Rounding issues on installment invoices
-
--- exec cvo_bg_data_extract_log_sp ' Where parent like ''%000567%'' AND xinv_date BETWEEN 737151 AND 737151'
+-- exec cvo_bg_data_extract_log_sp ' Where xinv_date BETWEEN 736871 AND 736900'
 -- exec cvo_bg_data_extract_log_sp ' Where parent BETWEEN ''000567'' AND ''000655'''
 -- exec cvo_bg_data_extract_log_sp ' Where parent BETWEEN ''000567'' AND ''000655'' AND xinv_date BETWEEN 736695 AND 736842'
 -- exec cvo_bg_data_extract_log_sp ' Where parent BETWEEN ''000567'' AND ''000655'' AND xinv_date=736695'
 -- exec cvo_bg_data_extract_log_sp ' Where xinv_date=736695'
 -- exec cvo_bg_data_extract_log_sp ' Where parent like ''%000655%'' AND parent_name like ''%the professional edge%'' AND xinv_date BETWEEN 736695 AND 736846'
--- exec cvo_bg_data_extract_log_sp ' Where xinv_date between 737116 and 737143'
--- exec cvo_bg_data_extract_log_sp ' Where parent like ''%000549%'' AND xinv_date BETWEEN 737116 AND 737143'
 
 CREATE PROC [dbo].[cvo_bg_data_extract_log_sp] @whereclause varchar(1024)
 WITH RECOMPILE -- v2.0
@@ -31,6 +16,12 @@ BEGIN
 	-- DIRECTIVES
 	SET NOCOUNT ON
 
+	-- v2.2 Start
+	EXEC CVO_buying_group_export_sp @whereclause, 1
+
+	RETURN
+	-- v2.2 End
+/*
 	-- DECLARATIONS
 	DECLARE @date_from		varchar(10),
 			@date_to		varchar(10),
@@ -1079,6 +1070,12 @@ BEGIN
 			disc_perc, date_due_month, xinv_date, rec_type
 	ORDER BY parent, cust_code, doc_ctrl_num
 
+
+select 'results', * from #results
+
+return
+
+
 	-- v1.8 Start
 	IF (OBJECT_ID('tempdb..#doc_lines') IS NOT NULL)
 		DROP TABLE #doc_lines
@@ -1378,6 +1375,7 @@ BEGIN
 	-- CLEAN UP
 	DROP TABLE #data_extract_raw
 	DROP TABLE #order_data_extract_raw
+*/
 END
 GO
 GRANT EXECUTE ON  [dbo].[cvo_bg_data_extract_log_sp] TO [public]

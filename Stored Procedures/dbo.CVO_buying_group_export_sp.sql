@@ -16,11 +16,11 @@ PURPOSE:    Generate Buying Group Export Files
 LAST UPDATE:   20120113  
   
   
-EXEC CVO_buying_group_export_sp  'INVOICE_DATE BETWEEN ''05/08/2018'' AND ''05/08/2018'''
+EXEC CVO_buying_group_export_sp  'INVOICE_DATE BETWEEN ''06/01/2018'' AND ''06/30/2018''', 1
   
 **************************************************************************************/  
   
-CREATE PROCEDURE [dbo].[CVO_buying_group_export_sp] (@WHERECLAUSE VARCHAR(1024))  
+CREATE PROCEDURE [dbo].[CVO_buying_group_export_sp] (@WHERECLAUSE VARCHAR(1024), @log int = 0)  
 -- tag 092612 - handle invoice numbers more than 12 characters long  
 -- v1.1 CT 13/02/13 - Display Credit Return Fee amount in field #19
 -- v1.2 CT 21/03/13 - Logic change for Credit Return Fees
@@ -35,6 +35,10 @@ CREATE PROCEDURE [dbo].[CVO_buying_group_export_sp] (@WHERECLAUSE VARCHAR(1024))
 -- v2.0 CB 25/10/2018 - Rounding issues on installment invoices
 -- v2.1 CB 16/11/2018 - Rounding issues on installment invoices
 -- v2.2 CB 16/11/2018 - Rounding issues on installment invoices
+-- v2.3 CB 09/04/2019 - Combine extract and log data
+-- v2.4 CB 24/04/2019 - Fix tax issue
+-- v2.5 CB 30/04/2019 - Fix issue with zero values and pennies
+
 AS  
 BEGIN
 
@@ -85,7 +89,8 @@ BEGIN
 		mer_disc  varchar(13),  
 		tot_due   varchar(13),  
 		inv_seq   varchar(2),  
-		terms_code  varchar(8))  
+		terms_code  varchar(8),
+		rec_type int) -- v2.3  
   
 	create index idx_customer on  #buy (customer) with fillfactor = 80  
 	create index idx_invoice on  #buy (invoice) with fillfactor = 80  
@@ -138,25 +143,104 @@ BEGIN
 
 	create index idx_customer on  #invoice (customer) with fillfactor = 80  
 	create index idx_invoice on  #invoice (invoice) with fillfactor = 80  
- 
-	--=======================================================================  
-	IF (CHARINDEX ('Between',@WHERECLAUSE) = 0 )  
-	BEGIN  
-		--TEMPORARY FOR NOW  
-		SELECT  @date_from = convert(varchar(10), dateadd(m,-1, getdate()),101),  
-			@date_to = convert(varchar(10), getdate(),101)  
-	END		
-	ELSE  
-	BEGIN  
-		SELECT  @date_from = substring(@WHERECLAUSE,charindex('BETWEEN ',@WHERECLAUSE)+9,10), --charindex('AND',@WHERECLAUSE)-1),  
-			@date_to = substring(@WHERECLAUSE,charindex('AND ',@WHERECLAUSE)+5,10)     --, charindex('ORDER BY',@WHERECLAUSE)-1)  
-	END   
-    
-	set @jul_from = datediff(dd, '1/1/1753', @date_from) + 639906   
-	set @jul_to = datediff(dd, '1/1/1753', @date_to) + 639906   
-    
-	set @file_from = replace (convert(varchar(12), dateadd(dd, @jul_from - 639906, '1/1/1753'),102),'.','')    
-	set @file_to = replace (convert(varchar(12), dateadd(dd, @jul_to - 639906, '1/1/1753'),102),'.','')   
+
+	--  v2.3 Start
+	DECLARE @start_count	int,
+			@end_count		int,
+			@test_string	varchar(1024),
+			@test_string2	varchar(1024),
+			@bg_start		varchar(10),
+			@bg_end			varchar(10)
+
+	IF (@log = 1)
+	BEGIN
+		IF (CHARINDEX ('parent',@whereclause) <> 0)  
+		BEGIN  
+			SET	@start_count = CHARINDEX ('parent',@whereclause)  
+			SET @test_string = SUBSTRING(@whereclause,@start_count,LEN(@whereclause) - @start_count)
+			SET @test_string2 = SUBSTRING(@whereclause,@start_count,15)
+
+			IF (CHARINDEX ('like',@test_string2) > 0)
+			BEGIN
+				SET @bg_start = SUBSTRING(@test_string, 15, 6)
+				SET @bg_end = @bg_start
+			END
+			IF (CHARINDEX ('between',@test_string2) > 0)
+			BEGIN
+				SET @bg_start = SUBSTRING(@test_string, 17, 6)
+				SET @bg_end = SUBSTRING(@test_string, 30, 6)
+			END
+		END
+		ELSE
+		BEGIN
+			SELECT	@bg_start = MIN(customer_code)
+			FROM	armaster_all (NOLOCK)
+			WHERE	addr_sort1 = 'Buying Group'
+
+			SELECT	@bg_end = MAX(customer_code)
+			FROM	armaster_all (NOLOCK)
+			WHERE	addr_sort1 = 'Buying Group'
+		END				
+		IF (CHARINDEX ('xinv_date',@whereclause) <> 0)  
+		BEGIN  
+			SET	@start_count = CHARINDEX ('xinv_date',@whereclause)  
+			SET @test_string = SUBSTRING(@whereclause,@start_count,LEN(@whereclause) - @start_count + 1)
+			SET @test_string2 = SUBSTRING(@whereclause,@start_count,18)
+
+			IF (CHARINDEX ('between',@test_string2) > 0)
+			BEGIN
+				SET @jul_from = SUBSTRING(@test_string,CHARINDEX('BETWEEN ',@test_string)+8,6)
+				SET @jul_to = SUBSTRING(@test_string,CHARINDEX('AND ',@test_string)+4,6)
+			END
+			ELSE
+			BEGIN
+				SET @jul_from = SUBSTRING(@test_string,11,6)
+				SET @jul_to = SUBSTRING(@test_string,11,6)
+			END
+			SET @date_from = CONVERT(varchar(10),DATEADD(day, @jul_from - 693596, '01/01/1900'),101)
+			SET @date_to = CONVERT(varchar(10),DATEADD(day, @jul_to - 693596, '01/01/1900'),101)
+		END
+		ELSE
+		BEGIN
+			SET @date_from = CONVERT(varchar(10), DATEADD(m,-1, GETDATE()),101)  
+			SET	@date_to = CONVERT(varchar(10), GETDATE(),101)  
+			SET @jul_from = DATEDIFF(dd, '1/1/1753', @date_from) + 639906   
+			SET @jul_to = DATEDIFF(dd, '1/1/1753', @date_to) + 639906 
+		END
+
+		SET @WHERECLAUSE = ' INVOICE_DATE BETWEEN ''' + @date_from + ''' AND ''' + @date_to
+
+	END
+	ELSE
+	BEGIN
+		SELECT	@bg_start = MIN(customer_code)
+		FROM	armaster_all (NOLOCK)
+		WHERE	addr_sort1 = 'Buying Group'
+
+		SELECT	@bg_end = MAX(customer_code)
+		FROM	armaster_all (NOLOCK)
+		WHERE	addr_sort1 = 'Buying Group'
+
+		--=======================================================================  
+		IF (CHARINDEX ('Between',@WHERECLAUSE) = 0 )  
+		BEGIN  
+			--TEMPORARY FOR NOW  
+			SELECT  @date_from = convert(varchar(10), dateadd(m,-1, getdate()),101),  
+				@date_to = convert(varchar(10), getdate(),101)  
+		END		
+		ELSE  
+		BEGIN  
+			SELECT  @date_from = substring(@WHERECLAUSE,charindex('BETWEEN ',@WHERECLAUSE)+9,10), --charindex('AND',@WHERECLAUSE)-1),  
+				@date_to = substring(@WHERECLAUSE,charindex('AND ',@WHERECLAUSE)+5,10)     --, charindex('ORDER BY',@WHERECLAUSE)-1)  
+		END   
+	    
+		set @jul_from = datediff(dd, '1/1/1753', @date_from) + 639906   
+		set @jul_to = datediff(dd, '1/1/1753', @date_to) + 639906   
+	    
+		set @file_from = replace (convert(varchar(12), dateadd(dd, @jul_from - 639906, '1/1/1753'),102),'.','')    
+		set @file_to = replace (convert(varchar(12), dateadd(dd, @jul_to - 639906, '1/1/1753'),102),'.','')   
+	END
+	-- v2.3 End
   
 	--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
 	Declare	@sequence_num   smallint,  
@@ -225,10 +309,13 @@ BEGIN
 		inv_due			float,
 		disc_perc		float,
 		due_year_month	varchar(7),
-		xinv_date		int)
+		xinv_date		int,
+		rec_type		int) -- v2.3
 
+	-- v2.3 Start
 	INSERT	#raw_bg_data
-	EXEC dbo.cvo_bg_data_extract_sp @WHERECLAUSE
+	EXEC dbo.cvo_bg_data_extract_sp @WHERECLAUSE, @log, @bg_start, @bg_end
+	-- v2.3 End
 	-- v1.5
     
 	insert into #buy  -- Invoices
@@ -263,12 +350,13 @@ BEGIN
 			convert(varchar(13),convert(money,round(sum((v.mer_disc)),2))) as mer_disc,
 			convert(varchar(13),convert(money,round(sum((v.mer_disc + freight + tax)),2))) as tot_due,  
 			convert(varchar(2),0) as inv_seq,  
-			'' as terms_code  
+			'' as terms_code,
+			v.rec_type -- v2.3  
 	from	#raw_bg_data_header v -- v1.5
 	join	arcust b (nolock)on v.parent = b.customer_code  
 	join	arcust c (nolock)on v.cust_code = c.customer_code  
 	where	left(v.type,1) = 'I'  
-	and		xinv_date between  @jul_from and @jul_to   
+	and		xinv_date between  @jul_from and @jul_to   	
 	and		b.addr_sort1 = 'Buying Group'  
 	and		v.disc_perc <> 1 -- 053013 - don't include 100% discount items
 	group by v.parent,  
@@ -280,8 +368,10 @@ BEGIN
 			v.inv_date,  
 			v.due_year_month,  
 			v.trm,  
-			v.type  
+			v.type,
+			v.rec_type -- v2.3   
 	order by v.parent,v.cust_code, v.doc_ctrl_num, v.disc_perc  
+
 
 	-- v2.0 Start
 	IF (OBJECT_ID('tempdb..#doc_lines') IS NOT NULL)
@@ -297,11 +387,15 @@ BEGIN
 		diff			decimal(20,8),
 		diff_freight	decimal(20,8),
 		no_disc_diff	decimal(20,8),
+		ar_tax			decimal(20,8), -- v2.3
+		rep_tax			decimal(20,8), -- v2.3
+		diff_tax		decimal(20,8), -- v2.3
 		row_id			int,
-		row_id_freight	int)
+		row_id_freight	int,
+		row_id_tax		int) -- v2.3
 
 	INSERT	#doc_lines
-	SELECT	invoice doc_ctrl_num, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	SELECT	invoice doc_ctrl_num, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 -- v2.3
 	FROM	#buy
 	WHERE	CHARINDEX('-',invoice) > 0
 	GROUP BY invoice
@@ -310,19 +404,21 @@ BEGIN
 
 	UPDATE	a
 	SET		ar_value = b.amt_net,
-			ar_freight = b.amt_freight
+			ar_freight = b.amt_freight,
+			ar_tax = b.amt_tax -- v2.3
 	FROM	#doc_lines a
 	JOIN	artrx b
 	ON		a.doc_ctrl_num = b.doc_ctrl_num
 
-	SELECT	invoice doc_ctrl_num, SUM(CAST(freight as decimal(20,8))) inv_freight, SUM(CAST(merch as decimal(20,8))) inv_total
+	SELECT	invoice doc_ctrl_num, SUM(CAST(freight as decimal(20,8))) inv_freight, SUM(CAST(merch as decimal(20,8))) inv_total, SUM(CAST(tax as decimal(20,8))) inv_tax -- v2.3
 	INTO	#temp_rep
 	FROM	#buy b
 	GROUP BY invoice
 
 	UPDATE	a
 	SET		rep_value = b.inv_total,
-			rep_freight = b.inv_freight
+			rep_freight = b.inv_freight,
+			rep_tax = b.inv_tax -- v2.3
 	FROM	#doc_lines a
 	JOIN	#temp_rep b
 	ON		a.doc_ctrl_num = b.doc_ctrl_num	
@@ -331,6 +427,7 @@ BEGIN
 
 	UPDATE	#doc_lines
 	SET		diff_freight = ROUND((ar_freight - rep_freight),2),
+			diff_tax = ROUND((ar_tax - rep_tax),2), -- v2.3
 			rep_value = ROUND( rep_value,2)
 
 	SELECT	invoice doc_ctrl_num, MAX(id) row_id -- v2.1 MIN(id) row_id
@@ -353,6 +450,14 @@ BEGIN
 	WHERE	freight <> '0.00'
 	GROUP BY invoice
 
+	-- v2.3 Start
+	SELECT	invoice doc_ctrl_num, MIN(id) row_id
+	INTO	#tempids_tax
+	FROM	#buy
+	WHERE	tax <> '0.00' 
+	GROUP BY invoice
+	-- v2.3 End
+
 	UPDATE	a
 	SET		row_id_freight = b.row_id
 	FROM	#doc_lines a
@@ -360,6 +465,16 @@ BEGIN
 	ON		a.doc_ctrl_num = b.doc_ctrl_num
 
 	DROP TABLE #tempids_freight
+
+	-- v2.3 Start
+	UPDATE	a
+	SET		row_id_tax = b.row_id
+	FROM	#doc_lines a
+	JOIN	#tempids_tax b
+	ON		a.doc_ctrl_num = b.doc_ctrl_num
+
+	DROP TABLE #tempids_tax
+	-- v2.3 End
 
 	UPDATE	a
 	SET		total = total - CAST(freight as decimal(20,8)),
@@ -375,6 +490,15 @@ BEGIN
 	JOIN	#doc_lines b
 	ON		a.id = b.row_id_freight
 	AND		a.invoice = b.doc_ctrl_num
+
+	-- v2.3 Start
+	UPDATE	a
+	SET		tax = CONVERT(varchar(13),CONVERT(money,CAST(a.tax as decimal(20,8)) + b.diff_tax))
+	FROM	#buy a
+	JOIN	#doc_lines b
+	ON		a.id = b.row_id_tax
+	AND		a.invoice = b.doc_ctrl_num
+	-- v2.3 End
 
 	UPDATE	a
 	SET		total = CONVERT(varchar(13),CONVERT(money,CAST(total as decimal(20,8)) + CAST(freight as decimal(20,8)))),
@@ -546,9 +670,17 @@ BEGIN
 	JOIN	#doc_lines b
 	ON		a.invoice = b.doc_ctrl_num
 	WHERE	a.tax <> '0.00'
-
-
 	-- v2.0 End
+
+	-- v2.5 Start
+	UPDATE	#buy
+	SET		merch = CASE WHEN ABS(CAST(a.merch as decimal(20,8))) <= 0.01 THEN '0.00' ELSE a.merch END,
+			mer_disc = CASE WHEN ABS(CAST(a.mer_disc as decimal(20,8))) <= 0.01 THEN '0.00' ELSE a.mer_disc END
+	FROM	#buy a
+	JOIN	#doc_lines b
+	ON		a.invoice = b.doc_ctrl_num
+	WHERE	a.tax <> '0.00'
+	-- v2.5 End
   
 	insert into #buy  -- Credits
 	select	left(v.parent,8) customer,   
@@ -582,7 +714,8 @@ BEGIN
 			convert(varchar(13),convert(money,round(abs(sum(v.mer_disc)),2))) as mer_disc,  
 			convert(varchar(13),convert(money,round(abs(sum(v.inv_due)),2))) as tot_due,  
 			convert(varchar(2),0) as inv_seq,  
-			'' as terms_code  
+			'' as terms_code,
+			v.rec_type -- v2.3   
 	from	#raw_bg_data_header v -- v1.5
 	join	arcust b (nolock)on v.parent = b.customer_code  
 	join	arcust c (nolock)on v.cust_code = c.customer_code  
@@ -599,7 +732,8 @@ BEGIN
 			v.inv_date,  
 			v.due_year_month,  
 			v.trm,  
-			v.type
+			v.type,
+			v.rec_type -- v2.3 
 	order by v.parent,v.cust_code, v.doc_ctrl_num, v.disc_perc 
 
 	--=================================================================================================  
@@ -616,7 +750,7 @@ BEGIN
 	and round(total,2) = 0
 
 	-- tag - 071013
-	update #buy set merch = '0.00' where discount = 0 and merch <> '0.00' and non_merch <> '0.00'
+-- v2.5	update #buy set merch = '0.00' where discount = 0 and merch <> '0.00' and non_merch <> '0.00'
 
 	-- update results  
 	update #buy  
@@ -786,7 +920,38 @@ BEGIN
 	--=========================================================================================  
   
 	-- return data to explorer view  
-	--/*  
+	--/* 
+	-- v2.3 Start
+	IF (@log = 1) 
+	BEGIN
+
+		SELECT	a.customer parent,
+				b.customer_name parent_name,
+				a.child cust_code,
+				a.member_name customer_name,
+				a.invoice doc_ctrl_num,
+				CASE a.type WHEN 'D' THEN 'Invoice' ELSE 'Credit' END type,
+				SUBSTRING(invoice_date,5,2) + '/' + SUBSTRING(invoice_date,7,2) + '/' + SUBSTRING(invoice_date,1,4) inv_date,
+				CASE a.type WHEN 'D' THEN CAST(a.total as float) ELSE (CAST(a.total as float) * -1) END inv_tot,
+				CASE a.type WHEN 'D' THEN CAST(a.merch as float) ELSE (CAST(a.merch as float) * -1) END mer_tot,
+				CAST(0 as float) amt_net,
+				CASE a.type WHEN 'D' THEN CAST(a.freight as float) ELSE (CAST(a.freight as float) * -1) END freight,
+				CASE a.type WHEN 'D' THEN CAST(a.tax as float) ELSE (CAST(a.tax as float) * -1 ) END tax,
+				a.terms trm,
+				CASE a.type WHEN 'D' THEN CAST(a.mer_disc as float) ELSE (CAST(a.mer_disc as float) * -1) END mer_disc,
+				CASE a.type WHEN 'D' THEN CAST(a.tot_due as float) ELSE (CAST(a.tot_due as float) * -1) END inv_due,
+				CAST(LEFT(CAST(CASE WHEN a.discount = 0 THEN a.discount ELSE (CAST(a.discount as decimal(20,1)) / 10000.00) END as varchar(20)),3)as float) disc_perc,
+				a.bill_year + '/' + a.bill_mon due_year_month,
+				DATEDIFF(day, '01/01/1900', a.invoice_date) + 693596 xinv_date,
+				a.rec_type			
+		FROM	#buy a
+		JOIN	arcust b (NOLOCK)
+		ON		a.customer = b.customer_code
+
+
+		RETURN
+	END
+	-- v2.3 End
   
 	SELECT	customer,   
 			account_num,   
@@ -883,7 +1048,11 @@ BEGIN
 			where ID = @fin_sequence_id  
   
 			Insert into #buy_out  
-			select * from #buy  
+			-- v2.3 Start
+			select ID, customer, account_num, child, member_name, issue, discount, type, invoice, split, invoice_date, terms, bill_mon, bill_year, merch, non_merch, 
+				freight, tax, misc, non_disc, total, mer_disc, tot_due, inv_seq, terms_code 
+			-- v2.3 End
+			from #buy  
 			where #buy.customer = @customer  
    
 			truncate TABLE ##EXP1_TEMP  

@@ -27,6 +27,9 @@ BEGIN
             @collection VARCHAR(1000),
             @Style_list VARCHAR(8000);
 
+    DECLARE @min_qty INT;
+    SELECT @min_qty = 50;
+
     IF (OBJECT_ID('tempdb..#avl') IS NOT NULL)
         DROP TABLE #avl;
 
@@ -167,7 +170,15 @@ BEGIN
                          'Unknown'
                  END,
            0 pom_inv_qty,
-           pa.attribute prior_closeout_list
+           ISNULL(
+           (
+               SELECT pa.attribute
+               FROM dbo.cvo_part_attributes AS pa
+               WHERE pa.part_no = iav.part_no
+                     AND pa.attribute IN ( 'spv', 'qop', 'eor' )
+           ),
+           'no'
+                 ) prior_closeout_list
     INTO #avl
     FROM dbo.cvo_item_avail_vw AS iav
         JOIN dbo.inv_master_add ia
@@ -175,13 +186,12 @@ BEGIN
         LEFT OUTER JOIN cvo_part_attributes pa
             ON pa.part_no = ia.part_no
     WHERE iav.location = '001'
-          -- AND iav.qty_avl >= 50
+          -- AND iav.qty_avl >= @min_qty
           AND iav.ResType IN ( 'frame' )
           AND iav.Brand NOT IN ( 'jc', 'rr', 'pt', 'izx', 'dh', 'ko', 'di' )
-          AND iav.POM_date < DATEADD(mm, 11, @asofdate)
-          AND ISNULL(pa.attribute, 'no') IN ( 'no', 'spv', 'qop', 'eor' );
+          AND iav.POM_date < DATEADD(mm, 11, @asofdate);
 
-    -- run ifps for future pom items and get the enting inventorty in the month after POM month.  must be > 50
+    -- run ifps for future pom items and get the enting inventorty in the month after POM month.  must be > @min_qty
 
 
     SELECT @collection = '',
@@ -322,13 +332,13 @@ BEGIN
                a.eye_size,
                COUNT(a.Color_desc) num_colors_avl
         FROM #avl AS a
-        WHERE a.qty_avl >= 50
+        WHERE a.qty_avl >= @min_qty
               AND CASE
                       WHEN a.POM_date > @today THEN
                           a.pom_inv_qty
                       ELSE
-                          50
-                  END >= 50
+                          @min_qty
+                  END >= @min_qty
         GROUP BY a.Brand,
                  a.Style,
                  a.eye_size),
@@ -343,13 +353,13 @@ BEGIN
                    AND nc.Style = a.Style
                    AND nc.eye_size = a.eye_size
         WHERE nc.num_colors_avl >= 2
-              AND a.qty_avl >= 50
+              AND a.qty_avl >= @min_qty
               AND CASE
                       WHEN a.POM_date > @today THEN
                           a.pom_inv_qty
                       ELSE
-                          50
-                  END >= 50
+                          @min_qty
+                  END >= @min_qty
         GROUP BY a.Brand,
                  a.Style,
                  a.Color_desc),
@@ -379,13 +389,13 @@ BEGIN
                 ON nc.Brand = avl.Brand
                    AND nc.Style = avl.Style
                    AND nc.eye_size = avl.eye_size
-        WHERE avl.qty_avl >= 50
+        WHERE avl.qty_avl >= @min_qty
               AND CASE
                       WHEN avl.POM_date > @today THEN
                           avl.pom_inv_qty
                       ELSE
-                          50
-                  END >= 50
+                          @min_qty
+                  END >= @min_qty
               AND ns.num_sizes_avl >= CASE
                                           WHEN sizes.num_size = 1 THEN
                                               1
@@ -547,6 +557,7 @@ BEGIN
     END;
 -- SELECT * FROM #avl WHERE style = 'ELODIE'
 END;
+
 
 
 

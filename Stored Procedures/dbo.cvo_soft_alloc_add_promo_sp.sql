@@ -1,4 +1,3 @@
-
 SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
@@ -8,6 +7,7 @@ GO
 -- v1.2 CB 26/06/2013 - Issue #1330 - Promo gifts get added again one allocated
 -- v1.3 CT 18/10/2013 - Issue #1399 - IF promo is overridden the don't check frequency on pop gifts
 -- v1.4 CB 02/02/2016 - When checking if item already exists on the order include ext > 0
+-- v1.5 CB 12/03/2019 - #1680 POP Check
 
 CREATE PROC [dbo].[cvo_soft_alloc_add_promo_sp]	@soft_alloc_no	int,
 											@order_no		int,
@@ -52,6 +52,16 @@ BEGIN
 		JOIN	inv_master_add b (NOLOCK)
 		ON		a.part = b.part_no
 		WHERE	ISNULL(b.field_30,'N') = 'Y'
+
+		-- v1.5 Start
+		DELETE	a
+		FROM	#promos a
+		JOIN	CVO_pop_gifts b (NOLOCK)
+		ON		a.part = b.part
+		WHERE	b.promo_id = @promo_id
+		AND		b.promo_level = @promo_level
+		AND		ISNULL(b.optional,0) = 1
+		-- v1.5 End
 
 		SET @last_id = 0
 

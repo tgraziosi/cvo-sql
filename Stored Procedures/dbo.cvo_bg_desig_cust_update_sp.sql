@@ -29,11 +29,17 @@ AS
                 542
             WHEN code = 'ADO1' THEN
                 500
+            WHEN code = 'CZ' THEN
+                595
+            WHEN code = 'HMI' THEN 
+                525
+            WHEN code = 'RT' THEN
+                521
         END AS BGCODE
     INTO #DS
     FROM cvo_cust_designation_codes t1
     WHERE
-        code IN ( 'VWEST', 'VILLA', 'FEC-M', 'FEC-A', 'BBG', 'OOGP' )
+        code IN ( 'VWEST', 'VILLA', 'FEC-M', 'FEC-A', 'BBG', 'OOGP','ADO1','CZ','HMI','RT' )
     ;
     --and (end_date is null OR end_date >= getdate() )
     -- SELECT * FROM #DS
@@ -61,6 +67,12 @@ AS
                     'OOGP'
                 WHEN T2.parent = '000500' THEN
                     'ADO1'
+                WHEN t1.parent = '000595' THEN
+                    'CZ'
+                WHEN t1.parent = '000525' THEN
+                    'HMI'
+                WHEN t1.parent = '000521' THEN
+                    'RT'
             END AS GROUP_NAME,
             T2.parent AS AR_Parent,
             child AS AR_Child,
@@ -74,7 +86,7 @@ AS
             JOIN armaster T3
                 ON T2.child = T3.customer_code
         WHERE
-            parent IN ( 502, 550, 563, 549, 542 )
+            parent IN ( 502, 550, 563, 549, 542, 595, 525, 521 )
             AND T3.address_type = 0
             AND
             (
@@ -103,6 +115,12 @@ AS
                     'OOGP'
                 WHEN T2.parent = '000500' THEN
                     'ADO1'
+                WHEN t1.parent = '000595' THEN
+                    'CZ'
+                WHEN t1.parent = '000525' THEN
+                    'HMI'
+                WHEN t1.parent = '000521' THEN
+                    'RT'
             END AS GROUP_NAME,
             T2.parent AS AR_Parent,
             child AS AR_Child,
@@ -116,7 +134,7 @@ AS
             JOIN armaster T3
                 ON t1.DesCust = T3.customer_code
         WHERE
-            code IN ( 'bbg', 'fec', 'vwest', 'villa', 'OOGP', 'ADO1' )
+            code IN ( 'bbg', 'fec', 'vwest', 'villa', 'OOGP', 'ADO1', 'CZ','HMI','RT')
             AND T3.address_type = 0
             AND t1.end_date IS NULL
             AND

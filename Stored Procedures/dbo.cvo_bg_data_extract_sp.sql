@@ -4,7 +4,7 @@ SET ANSI_NULLS ON
 GO
 -- EXEC dbo.cvo_bg_data_extract_sp "invoice_date between '01/01/2018' and '06/28/2018'"
 
-CREATE PROC [dbo].[cvo_bg_data_extract_sp] @whereclause varchar(1024)
+CREATE PROC [dbo].[cvo_bg_data_extract_sp] @whereclause varchar(1024), @log int = 0, @bg_start varchar(10) = NULL, @bg_end varchar(10) = NULL 
 AS
 BEGIN
 	-- DIRECTIVES
@@ -144,7 +144,8 @@ BEGIN
 	JOIN	inv_master iv (NOLOCK) ON d.part_no = iv.part_no
 	JOIN	inv_master_add iva (NOLOCK) on d.part_no = iva.part_no
 	WHERE	cv.buying_group > ''
-	AND		x.date_doc BETWEEN  @jul_from AND @jul_to   
+	AND		x.date_doc BETWEEN  @jul_from AND @jul_to  
+	AND		cv.buying_group BETWEEN @bg_start AND @bg_end -- v1.5
 	AND		d.shipped > 0  
 	AND		h.type = 'I'  
 	AND		h.terms NOT LIKE 'INS%'   
@@ -224,6 +225,7 @@ BEGIN
 	JOIN	arcust bgc ON cv.buying_group = bgc.customer_code
 	WHERE	d.shipped > 0
 	AND		h.date_doc BETWEEN  @jul_from AND @jul_to  
+	AND		cv.buying_group BETWEEN @bg_start AND @bg_end -- v1.5
 	AND		o.type = 'I'
 	AND		LEFT(h.terms_code,3) = 'INS' 
 	AND		h.trx_type = 2031
@@ -419,6 +421,7 @@ BEGIN
 	JOIN	arterms t (NOLOCK) ON h.terms = t.terms_code  
 	WHERE	cv.buying_group > ''
 	AND		x.date_doc BETWEEN  @jul_from AND @jul_to   
+	AND		cv.buying_group BETWEEN @bg_start AND @bg_end -- v1.5
 	AND		d.cr_shipped > 0  
 	AND		h.type = 'C'  
 	AND		h.terms NOT LIKE 'INS%'   
@@ -482,6 +485,7 @@ BEGIN
 	JOIN	arterms t (NOLOCK) ON h.terms = t.terms_code  
 	WHERE	cv.buying_group > ''
 	AND		x.date_doc BETWEEN  @jul_from AND @jul_to 
+	AND		cv.buying_group BETWEEN @bg_start AND @bg_end -- v1.5
 	AND		d.shipped > 0  
 	AND		h.terms NOT LIKE 'INS%'   
 	AND		x.void_flag <> 1     
@@ -605,7 +609,8 @@ BEGIN
 	JOIN	dbo.arcust B (NOLOCK)ON h.cust_code = b.customer_code  
 	JOIN	dbo.arterms t (NOLOCK) ON  h.terms = t.terms_code  
 	WHERE	(h.freight <> 0 OR h.total_tax <> 0)  
-	AND		x.date_doc BETWEEN  @jul_from AND @jul_to   
+	AND		x.date_doc BETWEEN  @jul_from AND @jul_to  
+	AND		cv.buying_group BETWEEN @bg_start AND @bg_end -- v1.5
 	AND		h.type = 'I'  
 	AND		h.terms NOT LIKE 'INS%'   
 	AND		x.void_flag <> 1
@@ -643,6 +648,7 @@ BEGIN
 	JOIN	arterms t (NOLOCK) ON h.terms = t.terms_code  
 	WHERE	cv.buying_group > ''
 	AND		x.date_doc BETWEEN  @jul_from AND @jul_to   
+	AND		cv.buying_group BETWEEN @bg_start AND @bg_end -- v1.5
 	AND		(h.freight <> 0 OR h.total_tax <> 0)  
 	AND		h.type = 'C'  
 	AND		h.terms NOT LIKE 'INS%'   
@@ -691,6 +697,7 @@ BEGIN
 	AND		CONVERT(int,RIGHT(h.doc_ctrl_num,1)) = z.sequence_id
 	WHERE	(o.freight <> 0 or o.total_tax <> 0)
 	AND		h.date_doc BETWEEN  @jul_from AND @jul_to 
+	AND		dbo.f_cvo_get_buying_group(o.cust_code, CONVERT(varchar(10),DATEADD(DAY,h.date_doc - 693596, '01/01/1900'),121)) BETWEEN @bg_start AND @bg_end -- v1.5
 	AND		o.type = 'I'
 	AND		LEFT(h.terms_code,3) = 'INS' 
 	AND		h.trx_type = 2031
@@ -730,12 +737,14 @@ BEGIN
 	JOIN	arterms t (NOLOCK) ON h.terms_code = t.terms_code  
 	WHERE	(h.order_ctrl_num = '' OR LEFT(h.doc_desc,3) NOT IN ('SO:', 'CM:'))  
 	AND		h.date_doc BETWEEN  @jul_from AND @jul_to   
+	AND		dbo.f_cvo_get_buying_group(h.customer_code, CONVERT(varchar(10),DATEADD(DAY,h.date_doc - 693596, '01/01/1900'),121)) BETWEEN @bg_start AND @bg_end -- v1.5
 	AND		h.trx_type IN (2031)  
 	AND		h.doc_ctrl_num NOT LIKE 'FIN%'   
 	AND		h.doc_ctrl_num NOT LIKE 'CB%'   
 	AND		h.terms_code NOT LIKE 'INS%'   
 	AND		h.void_flag <> 1
 	AND		dbo.f_cvo_get_buying_group(h.customer_code, CONVERT(VARCHAR(10),DATEADD(DAY, h.date_doc - 693596, '01/01/1900'),121)) > ''
+	
   
 	UNION  ALL
   
@@ -781,6 +790,7 @@ BEGIN
 	LEFT JOIN arterms t (NOLOCK) ON b.terms_code = t.terms_code
 	WHERE	LEFT(h.doc_desc,3) NOT IN ('SO:', 'CM:')  
 	AND		h.date_doc BETWEEN  @jul_from AND @jul_to   
+	AND		dbo.f_cvo_get_buying_group(h.customer_code, CONVERT(varchar(10),DATEADD(DAY,h.date_doc - 693596, '01/01/1900'),121)) BETWEEN @bg_start AND @bg_end -- v1.5
 	AND		h.trx_type IN (2032)  
 	AND		h.doc_ctrl_num NOT LIKE 'FIN%'   
 	AND		h.doc_ctrl_num NOT LIKE 'CB%'   
@@ -845,6 +855,7 @@ BEGIN
 	AND		x.void_flag <> 1     
 	AND		d.part_no = 'Credit Return Fee' 
 	AND		cv.buying_group > '' 
+	AND		cv.buying_group BETWEEN @bg_start AND @bg_end -- v1.5
 	GROUP BY cv.buying_group, BG.customer_name, h.cust_code, b.customer_name, i.doc_ctrl_num, t.days_due, x.date_due, h.type,  -- v1.2
 		x.date_doc, (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE d.discount END), (CASE WHEN d.curr_price > c.list_price THEN 0 ELSE p.disc_perc END) 
 
@@ -883,6 +894,7 @@ BEGIN
 	JOIN	arterms t (NOLOCK) ON b.terms_code = t.terms_code  
 	WHERE	(x.amt_tax <> 0) 
 	AND		x.date_doc BETWEEN  @jul_from AND @jul_to 
+	AND		cv.buying_group BETWEEN @bg_start AND @bg_end -- v1.5
 	AND		x.trx_type = 2032
 	AND		x.terms_code NOT LIKE 'INS%'   
 	AND		x.void_flag <> 1     
@@ -917,6 +929,7 @@ BEGIN
 	JOIN	arcust B (NOLOCK)ON h.customer_code = b.customer_code  
 	WHERE	h.trx_type IN (2061,2071)  
 	AND		h.date_doc BETWEEN  @jul_from AND @jul_to 
+	AND		dbo.f_cvo_get_buying_group(h.customer_code, CONVERT(VARCHAR(10),DATEADD(DAY, h.date_doc - 693596, '01/01/1900'),121)) BETWEEN @bg_start AND @bg_end -- v1.5
 	AND		h.doc_ctrl_num NOT LIKE 'CB%'   
 	AND		h.terms_code NOT LIKE 'INS%'   
 	AND		h.void_flag <> 1  
@@ -951,6 +964,7 @@ BEGIN
 	JOIN	arcust B (NOLOCK)ON h.customer_code = b.customer_code  
 	WHERE	h.trx_ctrl_num LIKE 'CB%'   
 	AND		h.date_doc BETWEEN  @jul_from AND @jul_to 
+	AND		dbo.f_cvo_get_buying_group(h.customer_code, CONVERT(varchar(10),DATEADD(DAY,h.date_doc - 693596, '01/01/1900'),121)) BETWEEN @bg_start AND @bg_end -- v1.5
 	AND		h.terms_code NOT LIKE 'INS%'   
 	AND		h.void_flag <> 1  
 	AND		dbo.f_cvo_get_buying_group(h.customer_code, CONVERT(VARCHAR(10),DATEADD(DAY, h.date_doc - 693596, '01/01/1900'),121)) > ''     
@@ -1056,10 +1070,10 @@ BEGIN
 	-- v1.3 End
 
 	INSERT	#raw_bg_data_header (parent, parent_name, cust_code, customer_name, doc_ctrl_num, trm, type, 
-		inv_date, inv_tot, mer_tot, net_amt, freight, tax, mer_disc, inv_due, disc_perc, due_year_month, xinv_date)
+		inv_date, inv_tot, mer_tot, net_amt, freight, tax, mer_disc, inv_due, disc_perc, due_year_month, xinv_date, rec_type) -- v1.5
 	SELECT	a.parent, b.customer_name, a.cust_code, c.customer_name, a.doc_ctrl_num, a.trm, a.type, a.inv_date,
 			a.inv_tot, a.mer_tot, a.net_amt, a.freight, a.tax, a.mer_disc, a.inv_due, a.disc_perc, a.date_due_month,
-			a.xinv_date
+			a.xinv_date, a.rec_type -- v1.5
 	FROM	#data_extract_raw a
 	JOIN	arcust b (NOLOCK)
 	ON		a.parent = b.customer_code

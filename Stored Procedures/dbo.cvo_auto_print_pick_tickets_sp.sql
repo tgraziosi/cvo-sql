@@ -15,6 +15,7 @@ GO
 -- v1.8 CB 14/04/2016 - #1596 - Add promo level
 -- v1.9 CB 09/06/2016 - Fix issue with consolidated pick ticket partially printing
 -- v2.0 CB 06/10/2016 - Pass in extra param when calling cvo_print_pick_ticket_sp to stop double tdc_log entries
+-- v2.1 CB 30/01/2019 = #1690 Add station id
 -- EXEC dbo.cvo_auto_print_pick_tickets_sp 'ST'
 CREATE PROC [dbo].[cvo_auto_print_pick_tickets_sp] (@order_type	VARCHAR(2))
 
@@ -46,7 +47,8 @@ BEGIN
 			@location			varchar(10), -- v1.2
 			@xp_cmdshell		varchar(1000), -- v1.2
 			@lwlPath			varchar (100), -- v1.2
-			@rows				int
+			@rows				int,
+			@station_id			varchar(10) -- v2.1
 
 	SELECT @lwlPath = ISNULL(value_str,'C:\') FROM dbo.tdc_config WHERE [function] = 'WDDrop_Directory' -- v1.2
 
@@ -438,6 +440,13 @@ BEGIN
 			IF @@ROWCOUNT = 0	
 				BREAK
 
+			-- v2.1 Start
+			SELECT	@station_id = station_id
+			FROM	cvo_auto_print_pick_tickets_templates (NOLOCK)
+			WHERE	template_desc = @template
+			-- v2.1 End
+
+
 			-- Print pick ticket
 			-- v1.2 Start
 			IF (@cons_no IS NOT NULL)
@@ -617,8 +626,13 @@ BEGIN
 				-- v1.7 Start
 				IF EXISTS (SELECT 1 FROM #so_pick_ticket)
 				BEGIN
+					-- v2.1 Start
+					IF (@station_id IS NULL)
+						SET @station_id = '999'
+					-- v2.1 End
 
-					EXEC dbo.cvo_print_plw_so_consolidated_pick_ticket_sp 'AutoPrint', '999', @order_no, @ext, @location, @cons_no
+					-- v2.1 EXEC dbo.cvo_print_plw_so_consolidated_pick_ticket_sp 'AutoPrint', '999', @order_no, @ext, @location, @cons_no
+					EXEC dbo.cvo_print_plw_so_consolidated_pick_ticket_sp 'AutoPrint', @station_id, @order_no, @ext, @location, @cons_no -- v2.1
 
 					-- Move the print data into a permanent table so it can be access by the xp_cmdshell
 					DELETE FROM CVO_tdc_print_ticket WHERE process_id = @@SPID
@@ -686,7 +700,8 @@ BEGIN
 			END
 			ELSE 
 			BEGIN -- v1.2 End
-				EXEC dbo.cvo_print_pick_ticket_sp @order_no, @ext, 0, 1 -- v2.0
+				-- v2.1 Start
+				EXEC dbo.cvo_print_pick_ticket_sp @order_no, @ext, 0, 1, @station_id  -- v2.0 v2.1
 
 				-- Check if this order printed correctly
 				IF EXISTS(SELECT 1 FROM dbo.orders_all (NOLOCK) WHERE [status] = 'Q' AND order_no = @order_no AND ext = @ext)

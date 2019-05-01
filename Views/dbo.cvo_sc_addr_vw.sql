@@ -3,7 +3,7 @@ GO
 SET ANSI_NULLS ON
 GO
 
--- SELECT * FROM dbo.cvo_sc_addr_vw AS sav
+-- SELECT * FROM dbo.cvo_sc_addr_vw AS sav where territory_code in ('20201','20202')
 -- SELECT * fROM LOCATIONS WHERE LOCATION LIKE '0%'
 
 CREATE view [dbo].[cvo_sc_addr_vw] 
@@ -35,7 +35,11 @@ SELECT sc.salesperson_code,
        sc.region,
        sc.location,
        sc.customer_code,
-       sc.ship_via_code FROM 
+       sc.ship_via_code,
+       sc.date_of_hire,
+       sc.date_terminated,
+       sc.slp_Status
+        FROM 
 
 (select  
 slp.salesperson_code,
@@ -83,10 +87,29 @@ CASE WHEN ISNULL(rsm.territory_code,'') = '' THEN ISNULL(slp.sales_mgr_code,'900
 dbo.calculate_region_fn(slp.territory_code) region,
 l.location, -- 10/5/2017
 ar.customer_code,
-ar.ship_via_code
+ar.ship_via_code,
+dbo.adm_format_pltdate_f(slp.date_hired) date_of_hire,
+dbo.adm_format_pltdate_f(slp.date_terminated) date_terminated,
+           CASE
+               WHEN ISNULL(x.PresCouncil,0) = 1 THEN 
+                   'Pres.Council'
+               WHEN (slp.salesperson_code = slp.territory_code OR slp.short_name LIKE '%def') THEN 
+                   'Empty'
+               WHEN slp.date_of_hire
+                    BETWEEN GETDATE() AND (DATEADD(DAY, -1, DATEADD(YEAR, 1, GETDATE()))) THEN
+                   'Newbie'
+               WHEN slp.date_of_hire
+                    BETWEEN DATEADD(YEAR, -1, GETDATE()) AND DATEADD(DAY, -1, GETDATE()) THEN
+                   'Rookie'
+               WHEN slp.date_of_hire > GETDATE() THEN
+                   'Newbie'
+               ELSE
+                   'Veteran'
+           END AS slp_Status
+
 
 from DBO.arsalesp slp (nolock)
-left outer join dbo.cvo_territoryxref x (nolock) on x.territory_code = slp.territory_code 
+join dbo.cvo_territoryxref x (nolock) on x.territory_code = slp.territory_code 
 	and x.salesperson_code = slp.salesperson_code
 LEFT OUTER JOIN dbo.arsalesp rsm (NOLOCK)
 	ON rsm.salesperson_code = slp.sales_mgr_code
@@ -99,6 +122,89 @@ and (slp.status_type = 1) -- active
 -- or (slp.status_type = 0 and x.status = 1))
 -- and slp.salesperson_name not like '%default%'
 -- order by slp.territory_code
+
+UNION ALL
+
+select  
+slp.salesperson_code,
+slp.salesperson_name,
+slp.addr1,
+slp.addr2,
+slp.addr3,
+slp.addr4,
+slp.addr5,
+slp.addr6,
+-- '' postal_code,
+CASE WHEN ISNULL(slp.addr6,'') > '' THEN
+		reverse(left(reverse(rtrim(ltrim(isnull(slp.addr4,'')+' '+isnull(slp.addr5,'')+' '+isnull(slp.addr6,'')))),
+		CHARINDEX(' ',reverse(rtrim(ltrim(isnull(slp.addr4,'')+' '+isnull(slp.addr6,'')+' '+isnull(slp.addr6,'')))))-1))
+	 WHEN ISNULL(slp.addr5,'') > '' THEN
+		reverse(left(reverse(rtrim(ltrim(isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')+' '+isnull(slp.addr5,'')))),
+		CHARINDEX(' ',reverse(rtrim(ltrim(isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')+' '+isnull(slp.addr5,'')))))-1))
+	 WHEN ISNULL(slp.addr4,'') > '' THEN
+		reverse(left(reverse(rtrim(ltrim(isnull(slp.addr2,'')+' '+isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')))),
+		CHARINDEX(' ',reverse(rtrim(ltrim(isnull(slp.addr2,'')+' '+isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')))))-1))
+	 WHEN ISNULL(slp.addr3,'') > '' THEN
+		reverse(left(reverse(rtrim(ltrim(isnull(slp.addr1,'')+' '+isnull(slp.addr2,'')+' '+isnull(slp.addr3,'')))),
+		CHARINDEX(' ',reverse(rtrim(ltrim(isnull(slp.addr1,'')+' '+isnull(slp.addr2,'')+' '+isnull(slp.addr3,'')))))-1))
+	WHEN ISNULL(slp.addr2,'') > '' THEN
+		reverse(left(reverse(rtrim(ltrim(isnull(slp.addr1,'')+' '+isnull(slp.addr2,'')))),
+		CHARINDEX(' ',reverse(rtrim(ltrim(isnull(slp.addr1,'')+' '+isnull(slp.addr2,'')))))-1))
+	ELSE ''
+	END postal_code,
+
+--reverse(left(reverse(rtrim(ltrim(isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')+' '+isnull(slp.addr5,'')))),
+--charindex(' ',reverse(rtrim(ltrim(isnull(slp.addr3,'')+' '+isnull(slp.addr4,'')+' '+isnull(slp.addr5,'')))))-1)) postal_code,
+slp.addr_sort2 slp_email,
+slp.phone_1 phone,
+isnull(x.ship_via,'NONE')  ship_via,
+cast( isnull(x.territory_code,'') as varchar(8) ) territory_code, 
+case when x.status = 1 then x.user_name else '' END user_name, 
+case when x.status = 1 then x.security_code else '' END security_code,
+case when x.status = 1 then x.email_address else '' END email_address, 
+CASE WHEN x.status = 1 THEN ISNULL(x.PresCouncil,'0') ELSE '0' END PresCouncil,
+slp.salesperson_type,
+slp.sales_mgr_code,
+rsm.salesperson_name sales_mgr_name,
+rsm.addr_sort2 sales_mgr_email,
+CASE WHEN ISNULL(rsm.territory_code,'') = '' THEN ISNULL(slp.sales_mgr_code,'900') ELSE rsm.territory_code END AS rsm_territory_code,
+dbo.calculate_region_fn(slp.territory_code) region,
+l.location, -- 10/5/2017
+ar.customer_code,
+ar.ship_via_code,
+dbo.adm_format_pltdate_f(slp.date_hired) date_of_hire,
+dbo.adm_format_pltdate_f(slp.date_terminated) date_terminated,
+           CASE
+               WHEN ISNULL(x.PresCouncil,0) = 1 THEN 
+                   'Pres.Council'
+               WHEN (slp.salesperson_code = slp.territory_code OR slp.short_name LIKE '%def') THEN 
+                   'Empty'
+               WHEN slp.date_of_hire
+                    BETWEEN GETDATE() AND (DATEADD(DAY, -1, DATEADD(YEAR, 1, GETDATE()))) THEN
+                   'Newbie'
+               WHEN slp.date_of_hire
+                    BETWEEN DATEADD(YEAR, -1, GETDATE()) AND DATEADD(DAY, -1, GETDATE()) THEN
+                   'Rookie'
+               WHEN slp.date_of_hire > GETDATE() THEN
+                   'Newbie'
+               ELSE
+                   'Veteran'
+           END AS slp_Status
+
+
+from dbo.cvo_territoryxref x (nolock) 
+JOIN arsalesp slp (NOLOCK) ON slp.salesperson_code = x.Salesperson_code
+LEFT OUTER JOIN dbo.arsalesp rsm (NOLOCK)
+	ON rsm.salesperson_code = slp.sales_mgr_code
+-- 10/5/2017
+LEFT OUTER JOIN dbo.locations l ON l.addr5 = slp.addr_sort2 AND l.addr5 <> '' AND void <> 'V'
+LEFT OUTER JOIN dbo.arcust ar ON ar.customer_code = slp.employee_code
+
+where (isnull(x.salesperson_code,'') not in ('internal','ss'))
+-- and (slp.status_type = 1) -- active
+AND x.status = 1
+AND x.territory_code <> slp.territory_code
+
 
 UNION ALL
 
@@ -128,7 +234,10 @@ LA.PHONE phone,
 '800'  region,
 lA.location, -- 10/5/2017
 '' customer_code,
-'SAL' ship_via_code
+'SAL' ship_via_code,
+'1/1/1950' date_of_hire,
+NULL date_terminated,
+'I-SALES' AS slp_status
 
 FROM dbo.locations_all AS la WHERE location = '014'
 
@@ -160,10 +269,15 @@ L.PHONE phone,
 '800'  region,
 l.location, -- 10/5/2017
 '' customer_code,
-'SAL' ship_via_code
+'SAL' ship_via_code,
+'1/1/1950' date_hired,
+NULL date_terminated,
+'' slp_status
+
 FROM DBO.locations AS l WHERE LOCATION IN ('015-NSBAG','016-NSBAG','017-NSBAG')
 
 ) sc
+
 
 
 

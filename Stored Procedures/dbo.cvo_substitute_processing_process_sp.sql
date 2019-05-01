@@ -11,6 +11,7 @@ v1.4 - CB 10/11/2015 - Fix for list price
 v1.5 - CB 04/02/2016 - #1588 Add flat dollar discount to promos
 v1.6 - CB 31/05/2016 - Include orders on hold
 v1.7 - CB 07/02/2018 - Fix issue with promo price not being picked up
+v1.8 - CB 30/04/2019 - If promo is fixed price then set list price
 Returns:	0 = Sucess
 			-1 = Nothing marked to process
 			1 = Not all orders processed
@@ -427,6 +428,7 @@ BEGIN
 					IF ISNULL(@price_override,'N') = 'Y'
 					BEGIN
 						SET @price = @promo_price
+						SET @list_price = @promo_price -- v1.8
 						SET @plevel = 'Y'
 						
 						-- Log

@@ -232,7 +232,7 @@ BEGIN
 			END 
 
 			-- v1.6 Start
-			UPDATE	cvo_pre_packaging
+			UPDATE	cvo_pre_packaging WITH (ROWLOCK)
 			SET		carton_no = @carton_no
 			WHERE	order_no = @order_no
 			AND		order_ext = @order_ext
@@ -366,7 +366,7 @@ BEGIN
 					@serial_no output  , @version output      , @qty output            ,@uom output       , @err_msg output  
 
 			-- v1.6 Start
-			UPDATE	cvo_pre_packaging
+			UPDATE	cvo_pre_packaging WITH (ROWLOCK)
 			SET		pack_qty = pack_qty - @qty
 			WHERE	row_id = @pp_row_id
 			-- v1.6 End
@@ -589,6 +589,7 @@ BEGIN
 	-- v1.4 End
 END  
 -- Permissions  
+
 GO
 GRANT EXECUTE ON  [dbo].[CVO_auto_pack_out_sp] TO [public]
 GO

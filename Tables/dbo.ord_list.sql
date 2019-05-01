@@ -2929,15 +2929,17 @@ CREATE NONCLUSTERED INDEX [idx_ordlst_partno_usage] ON [dbo].[ord_list] ([part_n
 GO
 CREATE NONCLUSTERED INDEX [ordlst3m] ON [dbo].[ord_list] ([part_no], [location], [status], [part_type], [shipped], [conv_factor]) WITH (FILLFACTOR=80) ON [PRIMARY]
 GO
+CREATE NONCLUSTERED INDEX [ord_cr_shipped_ol] ON [dbo].[ord_list] ([part_no], [return_code]) INCLUDE ([cr_shipped], [order_ext], [order_no]) ON [PRIMARY]
+GO
 CREATE UNIQUE NONCLUSTERED INDEX [ordlst2] ON [dbo].[ord_list] ([row_id]) ON [PRIMARY]
+GO
+GRANT DELETE ON  [dbo].[ord_list] TO [public]
+GO
+GRANT INSERT ON  [dbo].[ord_list] TO [public]
 GO
 GRANT REFERENCES ON  [dbo].[ord_list] TO [public]
 GO
 GRANT SELECT ON  [dbo].[ord_list] TO [public]
-GO
-GRANT INSERT ON  [dbo].[ord_list] TO [public]
-GO
-GRANT DELETE ON  [dbo].[ord_list] TO [public]
 GO
 GRANT UPDATE ON  [dbo].[ord_list] TO [public]
 GO

@@ -2,11 +2,12 @@ SET QUOTED_IDENTIFIER ON
 GO
 SET ANSI_NULLS ON
 GO
+-- Batch submitted through debugger: dbo.cvo_tsbm_summary_sp1.sql|3|0|C:\Users\TGRAZI~1\AppData\Local\Temp\~vsDF92.sql
 -- Author: Tine Graziosi
 -- 5/21/2013
 -- Financial Reporting Supporting Reports 
 -- 3) Sales and returns summary by region and territory
--- exec cvo_tsbm_summary_sp 2017,8 
+-- exec cvo_tsbm_summary_sp 2012,12\,8 
 
 CREATE procedure [dbo].[cvo_tsbm_summary_sp] (@year int, @month int)
 as
@@ -80,6 +81,7 @@ GROUP BY t.region,
 		 t.territory_desc,
 		ISNULL(tsbm.c_month,datepart(mm,getdate())),
 		ISNULL(tsbm.c_year,datepart(yy,getdate())) -- fiscal dating
+
 
 
 GO

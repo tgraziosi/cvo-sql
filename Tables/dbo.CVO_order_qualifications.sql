@@ -24,7 +24,17 @@ CREATE TABLE [dbo].[CVO_order_qualifications]
 [ff_max_free_qty] [int] NULL,
 [ff_max_free_frame] [smallint] NULL,
 [ff_max_free_sun] [smallint] NULL,
-[combine] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__CVO_order__combi__75DF7056] DEFAULT ('N')
+[combine] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__CVO_order__combi__75DF7056] DEFAULT ('N'),
+[bogo_buy_qty] [int] NULL,
+[bogo_get_qty] [int] NULL,
+[bogo_gender_check] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__CVO_order__bogo___3140F89D] DEFAULT ('N'),
+[bogo_attribute_check] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__CVO_order__bogo___32351CD6] DEFAULT ('N'),
+[adt_get_discount] [decimal] (20, 8) NULL,
+[adt_gender_check] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__CVO_order__adt_g__3329410F] DEFAULT ('N'),
+[adt_attribute_check] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__CVO_order__adt_a__341D6548] DEFAULT ('N'),
+[bogo_get_brand] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[adt_brand] [varchar] (30) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[bogo_get_discount] [decimal] (20, 8) NULL
 ) ON [PRIMARY]
 GO
 SET QUOTED_IDENTIFIER ON

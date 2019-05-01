@@ -138,54 +138,6 @@ CREATE TABLE [dbo].[orders_all]
 [addr_valid_ind] [int] NULL
 ) ON [PRIMARY]
 GO
-SET QUOTED_IDENTIFIER ON
-GO
-SET ANSI_NULLS ON
-GO
-
-CREATE TRIGGER [dbo].[cvo_orders_all_commission_trg] ON
-[dbo].[orders_all] FOR UPDATE
-AS
-BEGIN
-	-- DIRECTIVES
-	SET NOCOUNT ON
-
-	-- WORKING TABLE
-	CREATE TABLE #comms (
-		order_no		int,
-		ext				int,
-		type			char(1),
-		cust_code		varchar(10),
-		ship_to			varchar(10),
-		ship_to_region	varchar(10),
-		salesperson		varchar(10),
-		has_override	int,
-		order_date		datetime)
-
-	-- PROCESSING
-	INSERT #comms (order_no, ext, type, cust_code, ship_to, ship_to_region, salesperson, has_override, order_date)
-	SELECT	a.order_no, a.ext, a.type, a.cust_code, a.ship_to, a.ship_to_region, a.salesperson, 0, a.date_shipped
-	FROM	inserted a
-	JOIN	deleted b
-	ON		a.order_no = b.order_no
-	AND		a.ext = b.ext
-	WHERE	a.status = 'T'
-	AND		b.status <> 'T'	
-
-	INSERT dbo.cvo_c_orders (order_no, order_ext, order_type, row_type, territory_row_id, territory_level, parent_territory, parent_name, parent_row_id, territory, 
-		territory_name, brand, territory_split, sales_rep_row_id, sales_rep, sales_rep_name, sales_rep_split, valid_split, order_date)
-	SELECT	a.order_no, a.ext, a.type, 'E', -1, 0, '', '', -1, a.ship_to_region, b.territory_desc, '', 100, 0, a.salesperson, c.salesperson_name, 100, 1, a.order_date 
-	FROM	#comms a 
-	JOIN	arterr b (NOLOCK)
-	ON		a.ship_to_region = b.territory_code
-	JOIN	arsalesp c (NOLOCK)
-	ON		a.salesperson = c.salesperson_code	
-
-
-END
-GO
-DISABLE TRIGGER [dbo].[cvo_orders_all_commission_trg] ON [dbo].[orders_all]
-GO
 SET QUOTED_IDENTIFIER OFF
 GO
 SET ANSI_NULLS OFF
@@ -1715,7 +1667,7 @@ BEGIN
   
 		IF NOT EXISTS (SELECT 1 FROM so_usrstat (NOLOCK) WHERE user_stat_code = @i_user_code AND status_code = @i_status AND isnull(void,'N') = 'N')  
 		BEGIN  
-			UPDATE	p  
+			UPDATE	p WITH (ROWLOCK) -- v1.1
 			SET		user_code = s.user_stat_code  
 			FROM	orders_all p, so_usrstat s (NOLOCK) 
 			WHERE	p.order_no = @i_order_no 
@@ -2739,6 +2691,8 @@ GO
 CREATE NONCLUSTERED INDEX [ord9] ON [dbo].[orders_all] ([status], [cust_code]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [ord3] ON [dbo].[orders_all] ([status], [order_no], [ext]) ON [PRIMARY]
+GO
+CREATE NONCLUSTERED INDEX [ord_cr_shipped] ON [dbo].[orders_all] ([status], [type], [date_shipped]) INCLUDE ([ext], [order_no]) ON [PRIMARY]
 GO
 CREATE NONCLUSTERED INDEX [ord_dcdash_idx] ON [dbo].[orders_all] ([status], [type], [sch_ship_date]) INCLUDE ([ext], [order_no], [user_category]) ON [PRIMARY]
 GO

@@ -90,9 +90,10 @@ end
 
 -- switch to location VC
 -- 1/12/18 - switch to ICOAT
+-- 4/2019 - change to 001/f11-box
 
-SELECT @loc = 'ICOAT'
-SELECT @bin = 'ICOAT'
+SELECT @loc = '001'
+SELECT @bin = 'F11-BOX'
 
 insert into #temp_part_list
 select @loc, ISNULL(lb.bin_no, @bin), i.part_no, 500 - ISNULL(qty,0) , 1
@@ -268,6 +269,7 @@ SELECT adj_no ,
        row_id FROM #adm_INV_ADJ_log
 
 END
+
 
 
 

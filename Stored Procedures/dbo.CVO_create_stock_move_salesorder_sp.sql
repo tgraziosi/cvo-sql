@@ -11,6 +11,7 @@ GO
 -- v1.5 CB 16/07/2013 - Issue #927 - Buying Group Switching
 -- v1.6 CT 03/12/2013 - Removed hardcoded apply date
 -- v1.7 CB 06/01/2015 - Fix issue with st_consolidate not being populated
+-- v1.8 CB 10/04/2019 Performance
 CREATE PROC [dbo].[CVO_create_stock_move_salesorder_sp] (@order_no INT, @order_ext INT, @cust_code VARCHAR(10), @ship_to VARCHAR(10))  
 AS
 BEGIN
@@ -76,7 +77,7 @@ BEGIN
 	SELECT @new_user_code = user_stat_code FROM dbo.so_usrstat (NOLOCK) WHERE status_code = 'N' AND default_flag = 1 AND void = 'N'		
 
 	-- Get zero freight freight type
-	SELECT @freight_type = value_str FROM dbo.config WHERE flag = 'FRTHTYPE'
+	SELECT @freight_type = value_str FROM dbo.config (NOLOCK) WHERE flag = 'FRTHTYPE' -- v1.8
 
 	-- Get the next order number
 	BEGIN TRAN
@@ -190,7 +191,8 @@ BEGIN
 
 	
 	-- Copy the data from from the order to a new order
-	INSERT INTO orders_all  (order_no,ext,cust_code,ship_to,req_ship_date,sch_ship_date,date_shipped,date_entered,cust_po,who_entered,status,attention,phone,terms,routing,special_instr,
+	-- v1.8
+	INSERT INTO orders_all WITH (ROWLOCK) (order_no,ext,cust_code,ship_to,req_ship_date,sch_ship_date,date_shipped,date_entered,cust_po,who_entered,status,attention,phone,terms,routing,special_instr,
 											invoice_date,total_invoice,total_amt_order,salesperson,tax_id,tax_perc,invoice_no,fob,freight,printed,discount,label_no,cancel_date,new,ship_to_name,
 											ship_to_add_1,ship_to_add_2,ship_to_add_3,ship_to_add_4,ship_to_add_5,ship_to_city,ship_to_state,ship_to_zip,ship_to_country,ship_to_region,cash_flag,type,back_ord_flag,
 											freight_allow_pct,route_code,route_no,date_printed,date_transfered,cr_invoice_no,who_picked,note,void,void_who,void_date,changed,remit_key,forwarder_key,freight_to,
@@ -222,7 +224,8 @@ BEGIN
 	END
 
 	-- cvo_orders_all
-	INSERT INTO CVO_orders_all(order_no,ext,add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,
+	-- v1.8
+	INSERT INTO CVO_orders_all WITH (ROWLOCK) (order_no,ext,add_case,add_pattern,promo_id,promo_level,free_shipping,split_order,flag_print,buying_group, allocation_date,
 								commission_pct, stage_hold, prior_hold, credit_approved, replen_inv, st_consolidate) -- v1.7 		
 	SELECT	@new_order_no, 0, 'N','N',NULL,NULL,'N','N',1,dbo.f_cvo_get_buying_group(@cust_code,GETDATE()), GETDATE(), -- v1.5
 			NULL, 0, NULL, NULL,0, 0 -- v1.7
@@ -236,7 +239,8 @@ BEGIN
 	END
 
 		-- ord_list
-	INSERT	ord_list (order_no,order_ext,line_no,location,part_no,description,time_entered,ordered,shipped,price,price_type,note,status,cost,who_entered,sales_comm,
+	-- v1.8
+	INSERT	ord_list WITH (ROWLOCK) (order_no,order_ext,line_no,location,part_no,description,time_entered,ordered,shipped,price,price_type,note,status,cost,who_entered,sales_comm,
 								temp_price,temp_type,cr_ordered,cr_shipped,discount,uom,conv_factor,void,void_who,void_date,std_cost,cubic_feet,printed,lb_tracking,labor,direct_dolrs,
 								ovhd_dolrs,util_dolrs,taxable,weight_ea,qc_flag,reason_code,qc_no,rejected,part_type,orig_part_no,back_ord_flag,gl_rev_acct,total_tax,tax_code,curr_price,
 								oper_price,display_line,std_direct_dolrs,std_ovhd_dolrs,std_util_dolrs,reference_code,contract,agreement_id,ship_to,service_agreement_flag,
@@ -259,7 +263,8 @@ BEGIN
 	END
 
 	-- cvo_ord_list
-	INSERT INTO CVO_ord_list(order_no,order_ext,line_no,add_case,add_pattern,from_line_no,is_case,is_pattern,add_polarized,is_polarized,is_pop_gif,
+	-- v1.8
+	INSERT INTO CVO_ord_list WITH (ROWLOCK) (order_no,order_ext,line_no,add_case,add_pattern,from_line_no,is_case,is_pattern,add_polarized,is_polarized,is_pop_gif,
 											is_amt_disc,amt_disc,is_customized,promo_item,list_price, free_frame) -- v1.4
 	SELECT	@new_order_no, 0, a.line_no,'N','N',ISNULL(a.from_line_no,0),a.is_case,a.is_pattern,a.add_polarized,a.is_polarized,a.is_pop_gif,
 											a.is_amt_disc,a.amt_disc,a.is_customized,a.promo_item,a.list_price, 0 -- v1.4		
@@ -273,7 +278,8 @@ BEGIN
 	END
 
 	-- ord_list_kit
-	INSERT INTO ord_list_kit (order_no,order_ext,line_no,location,part_no,part_type,ordered,shipped,status,lb_tracking,cr_ordered,cr_shipped,uom,conv_factor,
+	-- v1.8
+	INSERT INTO ord_list_kit WITH (ROWLOCK) (order_no,order_ext,line_no,location,part_no,part_type,ordered,shipped,status,lb_tracking,cr_ordered,cr_shipped,uom,conv_factor,
 										cost,labor,direct_dolrs,ovhd_dolrs,util_dolrs,note,qty_per,qc_flag,qc_no,description)
 	SELECT	@new_order_no, 0, line_no, location, part_no, 'M', cr_ordered, 0, 'N', 'N', 0, 0, uom,conv_factor,
 			cost, labor, direct_dolrs, ovhd_dolrs, util_dolrs, note, qty_per, qc_flag, qc_no, description
@@ -287,7 +293,8 @@ BEGIN
 	END
 
 	-- CVO_ord_list_kit
-	INSERT INTO CVO_ord_list_kit(order_no,order_ext,line_no,location,part_no,replaced,new1,part_no_original)
+	-- v1.8
+	INSERT INTO CVO_ord_list_kit WITH (ROWLOCK) (order_no,order_ext,line_no,location,part_no,replaced,new1,part_no_original)
 	SELECT	@new_order_no, 0 , line_no, location, part_no, replaced, new1, part_no_original		
 	FROM	cvo_ord_list_kit (NOLOCK)
 	WHERE	order_no = @order_no
@@ -378,7 +385,7 @@ BEGIN
 		FROM 
 			dbo.ord_list a
 		INNER JOIN
-			dbo.inventory b (NOLOCK)
+			dbo.cvo_inventory2 b (NOLOCK) -- v1.8
 		ON
 			a.part_no = b.part_no
 			AND a.location = b.location	
@@ -396,7 +403,7 @@ BEGIN
 
 	-- START v1.2
 	UPDATE 
-		a
+		a WITH (ROWLOCK) -- v1.8
 	SET 
 		list_price = d.price,
 		amt_disc = 0 
@@ -424,7 +431,7 @@ BEGIN
 
 	-- Auto ship
 	UPDATE
-		dbo.ord_list
+		dbo.ord_list WITH (ROWLOCK) -- v1.8
 	SET
 		shipped = ordered,
 		[status] = 'P'
@@ -433,7 +440,7 @@ BEGIN
 		AND order_ext = 0
 
 	UPDATE
-		dbo.orders_all
+		dbo.orders_all WITH (ROWLOCK) -- v1.8
 	SET
 		[status] = 'P',
 		printed = 'P'
@@ -442,7 +449,7 @@ BEGIN
 		AND ext = 0
 
 	UPDATE
-		dbo.ord_list
+		dbo.ord_list WITH (ROWLOCK) -- v1.8
 	SET
 		[status] = 'R'
 	WHERE
@@ -450,7 +457,7 @@ BEGIN
 		AND order_ext = 0
 
 	UPDATE
-		dbo.orders_all
+		dbo.orders_all WITH (ROWLOCK) -- v1.8
 	SET
 		date_shipped = GETDATE(),
 		[status] = 'R',

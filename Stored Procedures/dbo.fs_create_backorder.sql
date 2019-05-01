@@ -74,6 +74,7 @@ SET NOCOUNT ON
 -- v12.5 CB 13/11/2018 - Add upsell_flag for detail
 -- v12.6 CB 29/11/2018 - #1502 Multi Salesrep
 -- v12.7 CB 20/03/2019 - Add in additional fields for #1502
+-- v12.8 CB 18/04/2019 - Add in thrid party ship to data
   
 exec @err = fs_updordtots @ordno, @ordext  
  if @@error != 0  
@@ -286,11 +287,25 @@ INSERT orders_all ( order_no, ext,  cust_code, ship_to,
 	WHERE	order_no = @ordno
 	AND		order_ext = @ordext
 
+	IF (@@ERROR <> 0)  
+	BEGIN  
+		RETURN @@error   
+	END  
+
+	-- v12.8 Start
+	INSERT	cvo_order_third_party_ship_to (order_no, order_ext, third_party_code, tp_address_1, tp_address_2, tp_address_3, tp_address_4, tp_address_5, tp_address_6,
+		tp_city, tp_state, tp_zip, tp_country)
+	SELECT	order_no, @ext, third_party_code, tp_address_1, tp_address_2, tp_address_3, tp_address_4, tp_address_5, tp_address_6,
+			tp_city, tp_state, tp_zip, tp_country
+	FROM	cvo_order_third_party_ship_to (NOLOCK)
+	WHERE	order_no = @ordno
+	AND		order_ext = @ordext
 
 	IF (@@ERROR <> 0)  
 	BEGIN  
 		RETURN @@error   
 	END  
+	-- v12.8 End
    
 --INSERT ord_rep (order_no, order_ext, salesperson,   
 --  sales_comm, note,  percent_flag,  

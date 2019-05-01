@@ -20,6 +20,7 @@ BEGIN
 	-- v3.4 CB 15/11/2013 - Fix issue for displaying credit limit for non bg parents
 	-- v3.5 CB 18/11/2013 - Fix issue for displaying open orders
 	-- v3.6 TG 06/03/2014 - record additional fields in cvo_credithold_sent table
+    -- tag 3/2019 - don't do aging buckets for bg customers
   
 -- aging info  
   
@@ -138,7 +139,7 @@ BEGIN
 	AND		order_no <> @order_no 
 	AND		status < 'R'  
   
-	SELECT @region_id = substring(@territory,1,2)  
+	SELECT @region_id = dbo.calculate_region_fn(@territory)
   
 	IF LEN(@contact_phone) = 10  
 	BEGIN  
@@ -202,9 +203,11 @@ BEGIN
 
 
 	if @bg_code <> '' 
-	begin
-		INSERT	#email_cc
-	    exec cc_summary_aging_sp @bg_code
+	BEGIN
+    
+		--INSERT	#email_cc
+	 --   exec cc_summary_aging_sp @bg_code
+
 		-- v3.3 Start
 		SELECT	@cred_limit = IsNull(credit_limit,0)	
 		FROM	arcust (NOLOCK)
@@ -325,6 +328,8 @@ BEGIN
 ---- v3.1 End
 
 -- v3.2 Start
+    IF @bg_code = ''
+    BEGIN
 	SELECT @MESSAGE = @MESSAGE + '<table border="0"><col width="80"><col width="80">'
 	
 	select @charnum = CASE WHEN @amount >= 0.01 THEN CAST(@amount AS VARCHAR(12))
@@ -375,6 +380,7 @@ BEGIN
     END
     	
 	SELECT @MESSAGE = @MESSAGE + '<tr><td>+ 150</td><td bgcolor="#0080FF">' + CAST(@charnum as varchar(12)) + '</td></tr></table><BR>'
+    END
 -- v3.2 End
 
 	SELECT @MESSAGE = @MESSAGE + '<B>Order Net Value: ' + convert(char(12),@order_Net) + '</B><BR><BR>'  

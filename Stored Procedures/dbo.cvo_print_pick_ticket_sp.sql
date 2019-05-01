@@ -6,7 +6,8 @@ GO
 CREATE PROC [dbo].[cvo_print_pick_ticket_sp] @order_no	int,
 										 @order_ext	int, 
 										 @isbackorder SMALLINT = 0, -- v1.2
-										 @from_auto smallint = 0 -- v1.8
+										 @from_auto smallint = 0, -- v1.8
+										 @station_id varchar(10) = NULL -- v1.9
 AS
 BEGIN
 
@@ -198,11 +199,21 @@ BEGIN
 	-- START v1.2
 	IF ISNULL(@isbackorder,0) = 0 
 	BEGIN
-		EXEC tdc_print_plw_so_pick_ticket_sp 'AUTO_ALLOC', 'CUSTOM', @order_no, @order_ext, @location
+		-- v1.9 Start
+		IF (@station_id IS NULL)
+			EXEC tdc_print_plw_so_pick_ticket_sp 'AUTO_ALLOC', 'CUSTOM', @order_no, @order_ext, @location
+		ELSE
+			EXEC tdc_print_plw_so_pick_ticket_sp 'AUTO_ALLOC', @station_id, @order_no, @order_ext, @location
+		-- v1.9 End
 	END
 	ELSE
 	BEGIN
-		EXEC tdc_print_plw_so_pick_ticket_sp 'AUTO_ALLOC', 'BACKORDER', @order_no, @order_ext, @location
+		-- v1.9 Start
+		IF (@station_id IS NULL)
+			EXEC tdc_print_plw_so_pick_ticket_sp 'AUTO_ALLOC', 'BACKORDER', @order_no, @order_ext, @location
+		ELSE
+			EXEC tdc_print_plw_so_pick_ticket_sp 'AUTO_ALLOC', @station_id, @order_no, @order_ext, @location
+		-- v1.9 End
 	END
 	-- END v1.2
 

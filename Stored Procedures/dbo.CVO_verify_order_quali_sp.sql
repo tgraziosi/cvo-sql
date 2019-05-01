@@ -38,6 +38,8 @@ GO
 -- v1.33	CB	22/01/2018 - Exclude cases
 -- v1.34	CB  13/06/2018 - Fix issue with attribute exclusions
 -- v1.35	CB	25/06/2018 - In addition to v1.34 
+-- v1.36	CB  31/12/2018 - #1678 Promo Updates
+-- v1.37	CB  31/04/2019 - #1678 Promo Updates - Logic Change
 
 CREATE PROCEDURE [dbo].[CVO_verify_order_quali_sp]	@order_no INT = 0, 
 													@ext INT = 0,  
@@ -126,7 +128,16 @@ BEGIN
 			ff_max_free_sun		SMALLINT,
 			ff_actual_qty		DECIMAL(20,8),
 			-- END v1.19
-			combine				char(1) -- v1.26
+			combine				char(1), -- v1.26
+			bogo_buy_qty		int, -- 1.36
+			bogo_get_qty		int, -- v1.36
+			bogo_gender_check	char(1), -- 1.36
+			bogo_attribute_check char(1), -- v1.36
+			adt_gender_check	char(1), -- v1.36
+			adt_attribute_check	char(1), -- v1.36
+			adt_discount		decimal(20,8), -- v1.36
+			bogo_get_brand		varchar(30), -- v1.37
+			adt_brand			varchar(30) -- v1.37
 		)
 
 		CREATE TABLE #ord_list (
@@ -179,7 +190,16 @@ where a.order_no = @order_no and a.order_ext = @ext
 				ff_max_free_frame,
 				ff_max_free_sun,	
 				-- END v1.19
-				combine -- v1.26
+				combine, -- v1.26
+				bogo_buy_qty, -- 1.36
+				bogo_get_qty, -- v1.36
+				bogo_gender_check, -- 1.36
+				bogo_attribute_check, -- v1.36
+				adt_gender_check, -- v1.36
+				adt_attribute_check, -- v1.36
+				adt_discount, -- v1.36
+				bogo_get_brand, -- v1.37
+				adt_brand -- v1.37
 		)
 		SELECT	line_no,		brand,		category,
 				IsNull(min_qty,-9999999),	IsNull(max_qty,999999999),	two_colors, -- v1.13
@@ -196,7 +216,16 @@ where a.order_no = @order_no and a.order_ext = @ext
 				ISNULL(ff_max_free_frame,0),
 				ISNULL(ff_max_free_sun,0),	
 				-- END v1.19
-				ISNULL(combine,'N') -- v1.26
+				ISNULL(combine,'N'), -- v1.26
+				ISNULL(bogo_buy_qty,0), -- v1.36
+				ISNULL(bogo_get_qty,0), -- v1.36
+				ISNULL(bogo_gender_check,'N'), -- 1.36
+				ISNULL(bogo_attribute_check,'N'), -- v1.36
+				ISNULL(adt_gender_check,'N'), -- v1.36
+				ISNULL(adt_attribute_check,'N'), -- v1.36
+				ISNULL(adt_get_discount,0), -- v1.36
+				ISNULL(bogo_get_brand,''), -- v1.37
+				ISNULL(adt_brand,'') -- v1.37
 		FROM	CVO_order_qualifications (NOLOCK)
 		WHERE	promo_id = @promo_id AND
 				promo_level = @promo_level
@@ -1901,6 +1930,7 @@ where a.order_no = @order_no and a.order_ext = @ext
 
 			SELECT @total_qty_all = IsNull(SUM(ordered),0) FROM #ord_list WHERE category IN ('FRAME','SUN')	-- v1.8
 
+
 			-- v1.26 Start
 			IF (@combine = 'Y')
 			BEGIN
@@ -2468,6 +2498,30 @@ where a.order_no = @order_no and a.order_ext = @ext
 			rows_found = '1=1' 
 			AND free_frames = 1
 		-- END v1.19
+
+		-- v1.36 Start
+		DELETE CVO_bogo_qualified WHERE spid = @@SPID 
+
+		-- v1.37 Start
+		INSERT	dbo.CVO_bogo_qualified (spid, line_no, buy_qty, get_qty, brand, gender_check, attribute_check, promo_id, promo_level, adt_brand,
+				adt_gender_check, adt_attribute_check, adt_discount)
+		SELECT	@@SPID, line_no, bogo_buy_qty, bogo_get_qty, bogo_get_brand, bogo_gender_check, bogo_attribute_check, @promo_id, @promo_level,
+				adt_brand, adt_gender_check, adt_attribute_check, adt_discount
+		FROM	#cvo_order_qualifications 
+		WHERE	rows_found = '1=1'  
+		AND		bogo_buy_qty > 0
+
+--		DELETE CVO_adt_qualified WHERE spid = @@SPID AND promo_id = @promo_id AND promo_level = @promo_level
+--
+--		INSERT	dbo.CVO_adt_qualified (spid, line_no, adt_discount, brand, category, gender_check, attribute_check,
+--				brand_exclude, category_exclude, promo_id, promo_level)
+--		SELECT	@@SPID, line_no, adt_discount, brand, category, adt_gender_check, adt_attribute_check,
+--				brand_exclude, category_exclude, @promo_id, @promo_level
+--		FROM	#cvo_order_qualifications 
+--		WHERE	rows_found = '1=1'  
+--		AND		adt_discount <> 0
+--		-- v1.37 End
+		-- v1.36 End
 
 		-- START v1.22 - If promo is a drawdown, then store which line qualifications passed
 		IF EXISTS (SELECT 1 FROM dbo.cvo_promotions (NOLOCK) WHERE promo_id = @promo_id AND promo_level = @promo_level AND ISNULL(drawdown_promo,0) = 1)

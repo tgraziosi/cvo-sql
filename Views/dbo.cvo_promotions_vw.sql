@@ -20,12 +20,14 @@ AS
            ISNULL(payment_terms, '') AS payment_terms ,
            ISNULL(free_shipping, 'N') AS free_shipping,
 		   CASE WHEN ISNULL(annual_program,'0') = '1' THEN 'Y' ELSE 'N' END Annual_Program,
-		   CASE WHEN ISNULL(season_program,'0') = '1' THEN 'Y' ELSE 'N' END Seasonal_Program
+		   CASE WHEN ISNULL(season_program,'0') = '1' THEN 'Y' ELSE 'N' END Seasonal_Program,
+           CASE WHEN ISNULL(ignore_for_credit_pricing,0) = 1 THEN 'Y' ELSE 'N' END Ignore_for_Credit_Pricing
 		    
     --, order_type, ISNULL(frequency, 0) AS frequency, review_ship_to
     FROM   dbo.CVO_promotions
     WHERE  ( void IS NULL )
            OR ( void = 'n' );
+
 
 
 

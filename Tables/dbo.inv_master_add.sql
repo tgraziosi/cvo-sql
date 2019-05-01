@@ -54,7 +54,10 @@ CREATE TABLE [dbo].[inv_master_add]
 [field_18_b] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__inv_maste__field__475FEA7E] DEFAULT ('N'),
 [field_18_c] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__inv_maste__field__48540EB7] DEFAULT ('N'),
 [field_18_d] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__inv_maste__field__494832F0] DEFAULT ('N'),
-[field_18_e] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__inv_maste__field__4A3C5729] DEFAULT ('N')
+[field_18_e] [varchar] (40) COLLATE SQL_Latin1_General_CP1_CI_AS NULL CONSTRAINT [DF__inv_maste__field__4A3C5729] DEFAULT ('N'),
+[pop_months] [int] NULL,
+[pop_qty] [int] NULL,
+[pop_sales] [int] NULL
 ) ON [PRIMARY]
 GO
 SET QUOTED_IDENTIFIER ON

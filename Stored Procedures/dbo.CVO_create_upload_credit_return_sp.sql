@@ -15,6 +15,7 @@ GO
 -- v2.0 CB 22/01/2018 - Fix issue with costs not being recorded plus other fields being set incorrectly
 -- v2.1 CB 26/01/2018 - Remove orig_part_no as this stops trigger from firing
 -- v2.2 CB 15/05/2018 - Add Log insert
+-- v2.3 CB 12/03/2019 - #1681 Add reason code
 
 CREATE PROC [dbo].[CVO_create_upload_credit_return_sp] (@SPID INT, @hold SMALLINT)  
 AS
@@ -93,7 +94,9 @@ BEGIN
 			@orig_order_no			VARCHAR(40), -- v1.1
 			@email_address			VARCHAR(255), -- v1.2
 			@is_kit					int, -- v1.8
-			@is_inv_ret				int -- v1.9
+			@is_inv_ret				int, -- v1.9
+			@u_return_code			VARCHAR(40), -- v2.3
+			@o_return_code			VARCHAR(40) -- v2.3
 
 	-- Create temporary table
 	CREATE TABLE #std_price (
@@ -123,6 +126,7 @@ BEGIN
 	-- Get defaults from config
 	SELECT @hold_reason = value_str FROM dbo.config (NOLOCK) WHERE flag = 'CR_UPLOAD_HOLD_RES'
 	SELECT @return_code = value_str FROM dbo.config (NOLOCK) WHERE flag = 'CR_UPLOAD_RET_CODE' 
+	SET @o_return_code = @return_code -- v2.3
 
 	-- Validate defaults
 	IF NOT EXISTS (SELECT 1 FROM dbo.po_retcode (NOLOCK) WHERE return_code = @return_code and void ='N')
@@ -434,7 +438,8 @@ BEGIN
 			@rec_id = rec_id,
 			@part_no = part_no,
 			@quantity = quantity,
-			@is_kit = kit_flag -- v1.8
+			@is_kit = kit_flag, -- v1.8
+			@u_return_code = ISNULL(reason_code,'') -- v2.3
 		FROM
 			dbo.cvo_upload_credit_return_det (NOLOCK)
 		WHERE
@@ -524,6 +529,17 @@ BEGIN
 
 		-- Calculate discount amount
 		SET @amt_disc = @list_price - @price
+
+		-- v2.3 Start
+		SET @return_code = @o_return_code
+		IF (@u_return_code <> '')
+		BEGIN
+			IF EXISTS (SELECT 1 FROM dbo.po_retcode (NOLOCK) WHERE return_code = @u_return_code and void ='N')
+			BEGIN
+				SET @return_code = @u_return_code
+			END
+		END
+		-- v2.3 End
 
 		INSERT INTO dbo.ord_list ( 
 			order_no, order_ext, line_no, location, part_no, [description], time_entered, ordered, shipped, price, 

@@ -5,8 +5,8 @@ GO
 
 
 CREATE PROCEDURE [dbo].[Daily_Promo_Log_tyly_sp]
-    @DFrom DATETIME,
-    @DTo DATETIME
+    @DFrom DATETIME = NULL,
+    @DTo DATETIME = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -16,6 +16,9 @@ BEGIN
 
     DECLARE @dfromly DATETIME, @dtoly DATETIME, @dfromty DATETIME, @dtoty datetime;
 
+    IF @DFrom IS NULL SELECT @dfrom = begindate FROM dbo.cvo_date_range_vw AS cdrv WHERE period = 'This Year'
+    IF @dto IS NULL SELECT @dto = enddate FROM dbo.cvo_date_range_vw AS cdrv WHERE period = 'This Year'
+    
     
     SELECT @dfromty = DATEADD(YEAR,0, @dfrom), @dtoty = CASE WHEN @dto > GETDATE() THEN DATEADD(dd, DATEDIFF(dd,0, GETDATE()), 0) ELSE @dto end;
 
@@ -106,6 +109,7 @@ BEGIN
 
 
 END;
+
 
 
 

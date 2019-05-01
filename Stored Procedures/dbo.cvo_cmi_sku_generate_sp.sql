@@ -1162,7 +1162,7 @@ SELECT distinct
 						 WHEN pl.part_type NOT IN ( 'bruit', 'pattern', 'demolen' ) THEN c.ColorName ELSE NULL end ,
         -- 8/21/18 specialty_fit = CASE WHEN pl.part_type NOT IN ('bruit','pattern','demolen') THEN c.specialty_fit ELSE NULL end ,
         specialty_fit = SPACE(40),
-        web_saleable_Flag = CASE WHEN pl.part_type IN ( 'frame' , 'frame only') THEN [web_saleable_flag] END ,
+        web_saleable_Flag = CASE WHEN pl.part_type IN ( 'frame' ) /*, 'frame only')*/ THEN [web_saleable_flag] END , -- only frames are web-sellable 04/19
         eye_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) OR PL.PART_TYPE LIKE 'CLIP%' THEN c.[eye_size] ELSE NULL END ,
         a_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) OR PL.PART_TYPE LIKE 'CLIP%' THEN c.a_size ELSE NULL END ,
         b_size = CASE WHEN pl.part_type IN ( 'frame', 'frame only', 'front', 'demolen' ) OR PL.PART_TYPE LIKE 'CLIP%' THEN c.b_size ELSE NULL END , 
@@ -2020,6 +2020,22 @@ INSERT  INTO #err_list
         SELECT  #i.category collection,
 				#ia.field_2 model,
 				#i.part_no ,
+                #i.type_code ,
+				#ia.field_3 colorname,
+				#ia.field_17 eye_size,
+                account ,
+                'invalid type code - '+ #i.type_code
+        FROM    #i 
+				JOIN #ia ON #ia.part_no = #i.part_no
+        WHERE   NOT EXISTS ( SELECT 1
+                             FROM   dbo.part_type AS i ( NOLOCK )
+                             WHERE  i.kys = #i.type_code
+                                    AND i.void = 'n' );
+
+INSERT  INTO #err_list
+        SELECT  #i.category collection,
+				#ia.field_2 model,
+				#i.part_no ,
                 type_code ,
 				#ia.field_3 colorname,
 				#ia.field_17 eye_size,
@@ -2125,7 +2141,7 @@ INSERT INTO #err_list
         FROM    #i 
 				JOIN #ia ON #ia.part_no = #i.part_no
 		WHERE #i.type_code IN ('frame','FRAME ONLY','sun','bruit')
-		AND #i.category NOT IN ('CVO','DH') -- 10/14/2016 - CVO AND DH DO NOT REQUIRE CASES
+		AND #i.category NOT IN ('CVO','DH','KO') -- 10/14/2016 - CVO AND DH DO NOT REQUIRE CASES -- 4/2019 - Add Koodles
 		AND NOT EXISTS (SELECT 1 FROM inv_master_add ia WHERE ia.part_no = #ia.field_1);
 
 -- build pricing table
@@ -2726,6 +2742,9 @@ END -- update
                          Severity FROM cvo_tmp_sku_gen
 
 END -- procedure
+
+
+
 
 
 

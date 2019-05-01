@@ -52,7 +52,7 @@ cast(o.ext as varchar(2)) ext,
 ol.line_no,
 -- o.user_def_fld4 hs_order,
 o.user_category,
-o.hold_reason,
+CASE WHEN o.status < 'n' THEN o.hold_reason ELSE '' END hold_reason,
 --hold_reason = case when o.hold_reason <> '' then o.hold_reason
 --					when p.hold_reason <> '' then p.hold_reason 
 --					else o.hold_reason end,
@@ -156,6 +156,7 @@ and ol.ordered > ol.shipped
 --and not exists (select * from tdc_soft_alloc_tbl (nolock) where part_no = ol.part_no and
 --order_no = ol.order_no and order_ext = ol.order_ext and line_no = ol.line_no)
 --and cia.style = 'portia'
+
 
 
 
